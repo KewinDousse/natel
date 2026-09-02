@@ -1,0 +1,39 @@
+{
+  log {
+    level error
+  }
+}
+
+(security_headers) {
+  header {
+    # HSTS — 1 year, include subdomains
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    # Prevent MIME sniffing
+    X-Content-Type-Options "nosniff"
+    # Basic XSS protection
+    X-XSS-Protection "1; mode=block"
+    # Don't let the page be framed
+    X-Frame-Options "DENY"
+  }
+}
+
+http://:80 {
+  # ---------------------------------------------------------------
+  # Static SPA — serve the Vite build output
+  # ---------------------------------------------------------------
+  root * /usr/share/caddy
+  try_files {path} /index.html
+  file_server
+
+  import security_headers
+
+  # ---------------------------------------------------------------
+  # CardDAV proxy — forward /dav/* to the user's CardDAV server
+  # ---------------------------------------------------------------
+  handle_path /dav/* {
+    reverse_proxy {$BAIKAL_URL} {
+      # Forward the original Authorization header untouched
+      header_up Authorization {http.request.header.Authorization}
+    }
+  }
+}
