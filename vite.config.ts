@@ -14,4 +14,12 @@ export default defineConfig({
       "@": `${import.meta.dirname}/src`,
     },
   },
+  server: {
+    proxy: {
+      "/dav": {
+        target: process.env.VITE_DAV_URL,
+        changeOrigin: true,
+      },
+    },
+  },
 });

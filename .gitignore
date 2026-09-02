@@ -2,6 +2,13 @@ node_modules/
 dist/
 .tanstack/
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# node config declaration artifacts (from tsc -b with composite)
+vite.config.d.ts
+vitest.config.d.ts
+
 # env
 .env
 .env.local

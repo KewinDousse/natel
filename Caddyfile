@@ -17,7 +17,7 @@
   }
 }
 
-http://:80 {
+{$SITE_ADDRESS:http://:80} {
   # ---------------------------------------------------------------
   # Static SPA — serve the Vite build output
   # ---------------------------------------------------------------
@@ -30,10 +30,10 @@ http://:80 {
   # ---------------------------------------------------------------
   # CardDAV proxy — forward /dav/* to the user's CardDAV server
   # ---------------------------------------------------------------
-  handle_path /dav/* {
-    reverse_proxy {$BAIKAL_URL} {
-      # Forward the original Authorization header untouched
-      header_up Authorization {http.request.header.Authorization}
-    }
+  # Note: SITE_ADDRESS is configurable so Caddy can terminate TLS
+  # automatically when a public hostname is set. HTTP-only by default
+  # for use behind a user's reverse proxy.
+  handle /dav/* {
+    reverse_proxy {$BAIKAL_URL}
   }
 }

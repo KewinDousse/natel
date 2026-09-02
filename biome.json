@@ -4,7 +4,10 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "preset": "recommended",
+      "style": {
+        "noNonNullAssertion": "error"
+      }
     }
   },
   "formatter": {
@@ -26,5 +29,17 @@
   },
   "files": {
     "includes": ["**", "!**/dist", "!**/node_modules", "!**/.git", "!**/src/routeTree.gen.ts"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["tests/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ]
 }
