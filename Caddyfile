@@ -19,21 +19,21 @@
 
 {$SITE_ADDRESS:http://:80} {
   # ---------------------------------------------------------------
-  # Static SPA — serve the Vite build output
-  # ---------------------------------------------------------------
-  root * /usr/share/caddy
-  try_files {path} /index.html
-  file_server
-
-  import security_headers
-
-  # ---------------------------------------------------------------
   # CardDAV proxy — forward /dav/* to the user's CardDAV server
   # ---------------------------------------------------------------
-  # Note: SITE_ADDRESS is configurable so Caddy can terminate TLS
-  # automatically when a public hostname is set. HTTP-only by default
-  # for use behind a user's reverse proxy.
-  handle /dav/* {
+  # The app mirrors full server paths under /dav: e.g. a request to
+  # /dav/dav.php/… reaches {$BAIKAL_URL}/dav.php/… (prefix stripped).
+  handle_path /dav/* {
     reverse_proxy {$BAIKAL_URL}
+  }
+
+  # ---------------------------------------------------------------
+  # Static SPA — serve the Vite build output (catch-all)
+  # ---------------------------------------------------------------
+  handle {
+    root * /usr/share/caddy
+    try_files {path} /index.html
+    file_server
+    import security_headers
   }
 }
