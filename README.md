@@ -36,7 +36,7 @@ services:
   contacts:
     image: ghcr.io/KewinDousse/natel:latest
     environment:
-      BAIKAL_URL: https://dav.example.com/dav.php   # your CardDAV server base URL
+      BAIKAL_URL: https://dav.example.com           # your CardDAV server origin
     ports:
       - "8080:80"
 ```
