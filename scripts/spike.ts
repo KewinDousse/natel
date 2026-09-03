@@ -52,20 +52,54 @@ function lineDiff(original: string, serialised: string): { lines: string[]; chan
   return { lines, changed };
 }
 
-/** Summarise the kinds of differences observed. */
+/**
+ * Unfold a vCard string per RFC 6350 §3.2: remove CRLF followed by a single
+ * linear whitespace character (SP / HTAB), joining continued lines.
+ */
+function unfold(s: string): string {
+  return s.replace(/\r\n[ \t]/g, "");
+}
+
+/** Normalise CRLF / lone CR to LF. */
+function normaliseCRLF(s: string): string {
+  return s.replace(/\r\n?/g, "\n");
+}
+
+/** Classify the kind(s) of difference between original and serialised vCard. */
 function diffKindSummary(orig: string, ser: string): string[] {
   const kinds: string[] = [];
-  if (orig.replace(/\r\n?/g, "\n") !== ser.replace(/\r\n?/g, "\n")) {
-    if (orig.replace(/[\r\n]/g, "") === ser.replace(/[\r\n]/g, "")) {
-      kinds.push("line-ending differences only");
-    } else {
-      kinds.push("content differences");
-    }
+
+  const origNorm = normaliseCRLF(orig);
+  const serNorm = normaliseCRLF(ser);
+
+  if (origNorm === serNorm) {
+    // After normalising CRLF they are identical — the only change is CRLF vs LF.
+    kinds.push("line-ending differences only");
+    return kinds;
   }
+
+  const origUnfolded = normaliseCRLF(unfold(orig));
+  const serUnfolded = normaliseCRLF(unfold(ser));
+
+  if (origUnfolded === serUnfolded) {
+    kinds.push("folding differences");
+  } else {
+    kinds.push("content differences");
+  }
+
   return kinds;
 }
 
-/** Safely extract a filename from a URL path. */
+/** Parse a vCard, returning either a serialised string or an error flag. */
+function safeParse(raw: string): { ok: true; value: string } | { ok: false } {
+  try {
+    const parsed = ICAL.parse(raw);
+    const component = new ICAL.Component(parsed);
+    return { ok: true, value: component.toString() };
+  } catch {
+    return { ok: false };
+  }
+}
 function urlToFilename(url: string): string {
   const path = new URL(url).pathname;
   const base = path.split("/").filter(Boolean).pop() ?? "unknown.vcf";
@@ -136,23 +170,26 @@ async function main() {
     await writeFile(resolve(outDir, filename), raw, "utf-8");
     console.log(`  wrote ${filename}  (etag: ${etag ?? "none"})`);
 
-    // parse & reserialise
-    const parsed = ICAL.parse(raw);
-    const component = new ICAL.Component(parsed);
-    const reserialised = component.toString();
+    // parse & reserialise (per-card try/catch so one malformed card doesn't
+    // abort the entire dump)
+    const result = safeParse(raw);
 
-    if (raw === reserialised) {
+    if (!result.ok) {
+      different++;
+      diffKinds.add("parse error");
+      console.warn(`  PARSE ERROR for ${filename}`);
+    } else if (raw === result.value) {
       identical++;
     } else {
       different++;
-      const { lines, changed } = lineDiff(raw, reserialised);
+      const { lines, changed } = lineDiff(raw, result.value);
       if (changed) {
         console.log(`  diff for ${filename}:`);
         for (const line of lines) {
           console.log(`    ${line}`);
         }
       }
-      for (const kind of diffKindSummary(raw, reserialised)) {
+      for (const kind of diffKindSummary(raw, result.value)) {
         diffKinds.add(kind);
       }
     }
