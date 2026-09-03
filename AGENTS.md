@@ -29,6 +29,7 @@ Read this file at the start of every session. Read `README.md` and
 - Tailwind + shadcn/ui (components vendored in `src/components/ui/`)
 - `tsdav` for CardDAV/WebDAV, `ical.js` for vCard parsing
 - Vitest (unit), Playwright (e2e against Radicale in Docker)
+- `@testing-library/*` and `jsdom` (Vitest-level UI tests)
 - Biome for lint + format, pnpm
 
 If a library outside this list seems needed, propose it with a one-line reason

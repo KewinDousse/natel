@@ -17,11 +17,14 @@ export default defineConfig({
   server: {
     // VITE_DAV_URL must be origin-only (scheme://host[:port], no path).
     // When set, requests to /dav/* are proxied to the CardDAV server.
+    // The rewrite strips /dav prefix to match prod Caddy handle_path /dav/*
+    // semantics: /dav/dav.php/... reaches {$BAIKAL_URL}/dav.php/...
     proxy: process.env.VITE_DAV_URL
       ? {
           "/dav": {
             target: process.env.VITE_DAV_URL,
             changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/dav/, ""),
           },
         }
       : undefined,

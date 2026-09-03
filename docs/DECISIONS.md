@@ -65,6 +65,23 @@ automatic merge in v0.x.
 **Decision.** Never change a card's version on save. Create new cards as 3.0.
 **Consequences.** Some 4.0-only properties won't be authorable from the UI. Fine.
 
+## 009 — /dav URL contract: proxy strip prefix
+
+**Context.** The same React app is served by Caddy in production and Vite
+in development. Both need to reach the CardDAV server's paths (e.g.
+`/dav.php/principals/`) without doubling the `/dav` mount prefix.
+
+**Decision.** `BAIKAL_URL` and `VITE_DAV_URL` are origin-only
+(`scheme://host[:port]`, no path) — Caddy `reverse_proxy` upstreams cannot
+contain paths. The app mirrors full CardDAV server paths under `/dav`:
+a request to `/dav/dav.php/…` is proxied to the origin at `/dav.php/…`.
+Caddy's `handle_path /dav/*` strips the `/dav` prefix before proxying;
+Vite's dev proxy has an equivalent `rewrite` that strips `/^\/dav/`.
+
+**Consequences.** Same app URLs work in dev and prod without URL
+adjustment. Must ensure any future proxy target also supports path
+rewriting; Caddy and Vite proxy semantics must stay in sync.
+
 ## Open — to be decided
 
 - **License.** AGPL-3.0 (hosted forks stay open, same as InfCloud) vs MIT
