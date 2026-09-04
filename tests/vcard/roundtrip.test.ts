@@ -24,9 +24,9 @@ function normaliseCRLF(s: string): string {
   return s.replace(/\r\n?/g, "\n");
 }
 
-/** Unfold a vCard string per RFC 6350 §3.2. */
+/** Unfold a vCard string per RFC 6350 §3.2 — handles both CRLF and LF. */
 function unfold(s: string): string {
-  return s.replace(/\r\n[ \t]/g, "");
+  return s.replace(/\r?\n[ \t]/g, "");
 }
 
 /**

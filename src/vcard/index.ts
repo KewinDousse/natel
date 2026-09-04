@@ -6,7 +6,7 @@
  */
 
 import ICAL from "ical.js";
-import type { Contact, ContactField, EditableFields } from "../model/contact";
+import type { Contact, ContactField, EditableFields, RawProperty } from "../model/contact";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -24,10 +24,10 @@ function nValueToStruct(value: unknown): EditableFields["n"] {
   };
 }
 
-/** Convert an ICAL.Property to a ContactField. */
-function propertyToField(prop: ICAL.Property): ContactField {
-  const jcal = prop.toJSON();
-  const params = (jcal[1] as Record<string, string | string[]>) ?? {};
+/** Convert a RawProperty to a ContactField. */
+function propertyToField(prop: RawProperty): ContactField {
+  const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
+  const params = jcal[1] ?? {};
   const type = (jcal[2] as string) ?? undefined;
   const rawValue = prop.getFirstValue();
 
@@ -46,8 +46,8 @@ function propertyToField(prop: ICAL.Property): ContactField {
   return { value, type, params };
 }
 
-/** Rebuild an ICAL.Property from a ContactField. */
-function fieldToProperty(name: string, field: ContactField): ICAL.Property {
+/** Rebuild a RawProperty from a ContactField. */
+function fieldToProperty(name: string, field: ContactField): RawProperty {
   const prop = new ICAL.Property(name);
   if (field.type) {
     prop.resetType(field.type);

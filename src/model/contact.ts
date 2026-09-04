@@ -3,9 +3,33 @@
  *
  * Properties the UI does not explicitly edit are preserved in `raw` and
  * written back unchanged on save.
+ *
+ * model/ never imports ical.js — vCard types here are minimal structural
+ * interfaces (only the members src/vcard/ actually uses), so the architecture
+ * boundary (ical.js → src/vcard/ only) is enforced at the import level.
  */
 
-import type ICAL from "ical.js";
+/** Minimal structural type for a vCard property. Only methods used by src/vcard/ are declared. */
+export interface RawProperty {
+  toJSON(): unknown;
+  getFirstValue(): unknown;
+  resetType(type: string): void;
+  setValue(value: unknown): void;
+  setParameter(name: string, value: string | string[]): void;
+}
+
+/**
+ * Minimal structural type for a vCard component.
+ * Only methods and return shapes used by src/vcard/ are declared.
+ */
+export interface RawComponent {
+  getFirstPropertyValue(name: string): unknown;
+  getFirstProperty(name: string): RawProperty | null;
+  getAllProperties(name: string): RawProperty[];
+  removeAllProperties(name: string): void;
+  addProperty(prop: RawProperty): unknown;
+  toString(): string;
+}
 
 /** A single vCard property value as stored in EditableFields. */
 export type ContactField = {
@@ -39,5 +63,5 @@ export type Contact = {
   /** The subset the UI edits. */
   fields: EditableFields;
   /** The full parsed component, kept as-is for properties the UI never touches. */
-  raw: ICAL.Component;
+  raw: RawComponent;
 };
