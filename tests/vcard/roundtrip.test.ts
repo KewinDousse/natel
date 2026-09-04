@@ -38,6 +38,8 @@ function unfold(s: string): string {
  */
 function normalise(s: string): string {
   let result = normaliseCRLF(unfold(s));
+  // Lowercase group prefixes (ical.js stringify uppercases them)
+  result = result.replace(/^([A-Za-z0-9-]+)\./gm, (_, g) => `${g.toLowerCase()}.`);
   // Pad N values to exactly 5 components
   result = result.replace(/^N:.*$/gm, (line) => {
     const parts = line.slice(2).split(";");
@@ -87,8 +89,9 @@ function getCanonicalProps(text: string): string[] {
     // equal to their 5-component serialised form N:Doe;;;;.
     let valueStr: string;
     const structuredNames = new Set(["n"]);
-    if (structuredNames.has(name) && !Array.isArray(rawValue)) {
-      const parts = [String(rawValue ?? ""), "", "", "", ""];
+    if (structuredNames.has(name)) {
+      const parts = Array.isArray(rawValue) ? rawValue.map(String) : [String(rawValue ?? "")];
+      while (parts.length < 5) parts.push("");
       valueStr = JSON.stringify(parts);
     } else if (
       rawValue !== null &&
