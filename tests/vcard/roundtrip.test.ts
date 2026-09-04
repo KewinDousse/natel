@@ -5,8 +5,7 @@
  * exists), asserts that serialise(parse(x)) is semantically equal to x.
  *
  * Semantic equality = same multiset of properties (name, group, parameters,
- * value), order ignored. Byte-equality is also asserted when possible, but
- * is not required — line-ending and folding differences are common.
+ * value), order ignored.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -33,9 +32,19 @@ function unfold(s: string): string {
  * Normalise both CRLF and folding so we can compare for byte-equality.
  * Returns a string that should be byte-identical if the only differences
  * are line-ending and folding style.
+ *
+ * Also pads N structured values to 5 components so that single-component
+ * forms like `N:Doe` compare equal to `N:Doe;;;;`.
  */
 function normalise(s: string): string {
-  return normaliseCRLF(unfold(s));
+  let result = normaliseCRLF(unfold(s));
+  // Pad N values to exactly 5 components
+  result = result.replace(/^N:.*$/gm, (line) => {
+    const parts = line.slice(2).split(";");
+    while (parts.length < 5) parts.push("");
+    return `N:${parts.join(";")}`;
+  });
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,9 +82,15 @@ function getCanonicalProps(text: string): string[] {
       }
     }
 
-    // Canonical value string
+    // Canonical value string — for structured properties (e.g. N), pad
+    // to design length so that single-component forms like N:Doe compare
+    // equal to their 5-component serialised form N:Doe;;;;.
     let valueStr: string;
-    if (
+    const structuredNames = new Set(["n"]);
+    if (structuredNames.has(name) && !Array.isArray(rawValue)) {
+      const parts = [String(rawValue ?? ""), "", "", "", ""];
+      valueStr = JSON.stringify(parts);
+    } else if (
       rawValue !== null &&
       typeof rawValue === "object" &&
       "value" in (rawValue as unknown as Record<string, unknown>)
@@ -113,6 +128,31 @@ function assertSemanticallyEqual(original: string, serialised: string) {
   }
 
   expect(serProps).toEqual(origProps);
+}
+
+/**
+ * Check whether the property order in the serialised vCard matches the
+ * original. If it does, byte-equality can be enforced (after normalising
+ * CRLF, folding, and structured-value padding).
+ *
+ * BEGIN, VERSION, and END are excluded because their position in the jCal
+ * array is not guaranteed to match the text order.
+ */
+function propertyOrderPreserved(original: string, serialised: string): boolean {
+  const origComp = new ICAL.Component(ICAL.parse(original));
+  const serComp = new ICAL.Component(ICAL.parse(serialised));
+
+  const skipNames = new Set(["begin", "version", "end"]);
+  const origNames = origComp
+    .getAllProperties()
+    .map((p) => p.name.toLowerCase())
+    .filter((n) => !skipNames.has(n));
+  const serNames = serComp
+    .getAllProperties()
+    .map((p) => p.name.toLowerCase())
+    .filter((n) => !skipNames.has(n));
+
+  return JSON.stringify(origNames) === JSON.stringify(serNames);
 }
 
 // ---------------------------------------------------------------------------
@@ -153,17 +193,18 @@ describe("vCard round-trip", () => {
     // 2) Semantic equality — must ALWAYS hold
     assertSemanticallyEqual(original, serialised);
 
-    // 3) Byte-equality when possible — after normalising CRLF and folding,
-    //    the strings should match for well-behaved inputs
-    const origNorm = normalise(original);
-    const serNorm = normalise(serialised);
-    if (origNorm !== serNorm) {
-      // Not a failure — just note the difference type for diagnostics
-      console.log(`  [info] not byte-equal for ${filePath}`);
-    } else {
-      // Byte-equal after normalisation (CRLF + folding) — check exact match too
-      // but don't require it (line endings may differ)
+    // 3) Byte-equality when possible — enforced for fixtures whose property
+    //    order is preserved (no TEL/EMAIL reordering).  Property-order
+    //    differences are a benign side-effect of removeAllProperties +
+    //    addProperty in serialise(); when order is unchanged, any remaining
+    //    byte difference signals a regression.
+    const orderSame = propertyOrderPreserved(original, serialised);
+    if (orderSame) {
+      const origNorm = normalise(original);
+      const serNorm = normalise(serialised);
       expect(origNorm).toBe(serNorm);
+    } else {
+      console.log(`  [info] not byte-equal for ${filePath} (property order changed)`);
     }
   });
 

@@ -1,0 +1,6 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Single N Test
+N:Doe
+UID:n-single-test@example.com
+END:VCARD

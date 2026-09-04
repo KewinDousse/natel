@@ -14,7 +14,7 @@ import type { Contact, ContactField, EditableFields, RawProperty } from "../mode
 
 /** Convert a 5-element N structured value to our model struct. */
 function nValueToStruct(value: unknown): EditableFields["n"] {
-  const arr = Array.isArray(value) ? (value as string[]) : ["", "", "", "", ""];
+  const arr = Array.isArray(value) ? (value as string[]) : [String(value)];
   return {
     family: arr[0] ?? "",
     given: arr[1] ?? "",
