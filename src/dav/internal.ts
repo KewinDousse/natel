@@ -13,49 +13,60 @@ import { createDAVClient } from "tsdav";
 import { DavError } from "./types";
 
 // ---------------------------------------------------------------------------
-// Minimal XML builders (xml-js ElementCompact)
+// Props for tsdav calls (ElementCompact inner maps)
+//
+// tsdav's propfind() wraps the props object inside
+//   { propfind: { _attributes: ..., prop: <props> } }
+// and addressBookMultiGet() wraps it inside
+//   { "addressbook-multiget": { _attributes: ..., "d:prop": <props>, "d:href": <objectUrls> } }
+// So we only pass the inner prop map — NOT a full xml-js body.
+// Evidence: node_modules/tsdav/dist/tsdav.js lines 2662-2686 (propfind),
+//           3018-3033 (addressBookMultiGet), 3095-3101 (fetchVCards example).
 // ---------------------------------------------------------------------------
 
-/** PROPFIND body requesting getetag + resourcetype (for listing contacts). */
-const PROPFIND_LIST_PROPS = {
-  propfind: {
-    _attributes: { xmlns: "DAV:" },
-    prop: { getetag: {}, resourcetype: {} },
-  },
+/** Props for PROPFIND listing members (getetag + resourcetype). */
+const PROPFIND_MEMBER_PROPS = {
+  "d:getetag": {},
+  "d:resourcetype": {},
 };
 
-/** addressbook-multiget REPORT body requesting getetag + address-data. */
-function multigetProps(objectUrls: string[]) {
-  return {
-    "card:addressbook-multiget": {
-      _attributes: {
-        "xmlns:card": "urn:ietf:params:xml:ns:carddav",
-        xmlns: "DAV:",
-      },
-      prop: { getetag: {}, "card:address-data": {} },
-      href: objectUrls.map((u) => ({ _text: u })),
-    },
-  };
-}
+/** Props for addressbook-multiget (getetag + address-data). */
+const MULTIGET_PROPS = {
+  "d:getetag": {},
+  "card:address-data": {},
+};
 
 // ---------------------------------------------------------------------------
 // Response parsing helpers
+//
+// tsdav parses XML with elementNameFn:
+//   (name) => camelCase(name.replace(/^.+:/, ""))
+// so "d:getetag" → "getetag", "card:address-data" → "addressData".
+// Evidence: node_modules/tsdav/dist/tsdav.js line 2610.
 // ---------------------------------------------------------------------------
 
 /** Extract ETag from a DAVResponse props map. */
 function extractEtag(response: DAVResponse): string | undefined {
-  const etagProp = response.props?.getetag as { value: string } | string | undefined;
-  if (!etagProp) return undefined;
-  if (typeof etagProp === "object" && "value" in etagProp) return etagProp.value;
+  const etagProp = response.props?.getetag;
+  if (etagProp == null) return undefined;
   return String(etagProp);
 }
 
-/** Extract address-data from a DAVResponse props map. */
+/**
+ * Extract address-data from a DAVResponse props map.
+ *
+ * tsdav reads this as:
+ *   res.props?.addressData?._cdata ?? res.props?.addressData
+ * Evidence: node_modules/tsdav/dist/tsdav.js line 3121.
+ */
 function extractAddressData(response: DAVResponse): string | undefined {
-  const dataProp = response.props?.["card:address-data"] as { value: string } | string | undefined;
-  if (!dataProp) return undefined;
-  if (typeof dataProp === "object" && "value" in dataProp) return dataProp.value;
-  return String(dataProp);
+  const dataProp = response.props?.addressData;
+  if (dataProp == null) return undefined;
+  if (typeof dataProp === "object" && "_cdata" in dataProp) {
+    return String((dataProp as Record<string, unknown>)._cdata);
+  }
+  if (typeof dataProp !== "object") return String(dataProp);
+  return undefined;
 }
 
 /** Extract displayname from a DAVAddressBook, returning href as fallback. */
@@ -67,20 +78,36 @@ function extractDisplayName(book: DAVAddressBook, fallback: string): string {
 
 // ---------------------------------------------------------------------------
 // Error mapping
+//
+// tsdav throws errors with numeric status codes in messages:
+//   "Collection query failed: 401 Unauthorized. Raw response: ..."
+//   "Invalid credentials: PROPFIND ... returned 401 Unauthorized"
+// Evidence: node_modules/tsdav/dist/tsdav.js lines 2776-2777, 3637.
+// Network errors are native TypeError with messages like "fetch failed".
 // ---------------------------------------------------------------------------
+
+/** Extract a 3-digit HTTP status code from an error message, if any. */
+function extractStatusFromMessage(message: string): number | null {
+  const match = message.match(/\b(4\d{2})\b/);
+  if (match?.[1]) return Number.parseInt(match[1], 10);
+  return null;
+}
 
 /** Map a thrown tsdav error to our DavError. */
 function mapDavError(err: unknown, context: string): never {
   if (err instanceof DavError) throw err;
 
   const message = err instanceof Error ? err.message : String(err);
+  const status = extractStatusFromMessage(message);
 
-  if (message.includes("401") || message.includes("Unauthorized") || message.includes("auth")) {
+  if (status === 401 || status === 403) {
     throw new DavError(`CardDAV authentication failed: ${context}`, "AUTH", err);
   }
-  if (message.includes("404") || message.includes("Not Found")) {
+  if (status === 404) {
     throw new DavError(`CardDAV resource not found: ${context}`, "NOT_FOUND", err);
   }
+
+  // Network errors (native fetch TypeError or custom)
   if (
     message.includes("fetch") ||
     message.includes("network") ||
@@ -155,26 +182,45 @@ export async function createDavSession(auth: {
         () =>
           client.propfind({
             url: bookHref,
-            props: PROPFIND_LIST_PROPS,
+            props: PROPFIND_MEMBER_PROPS,
             depth: "1",
           }),
         `listing contacts in ${bookHref}`,
       );
 
-      // Filter out the collection itself (status !== 200 or resourcetype
-      // indicates a collection) and any non-200 responses.
+      // Check that the book itself was found (first response is the collection).
+      const bookResponse = responses[0];
+      if (!bookResponse?.ok) {
+        throw new DavError(`Address book not found: ${bookHref}`, "NOT_FOUND");
+      }
+
+      // Filter out the collection and non-200 responses.
+      // tsdav checks resourcetype by Object.keys: a collection has keys
+      // (e.g. { collection: '', addressbook: '' }), a member has none.
+      // Evidence: node_modules/tsdav/dist/tsdav.js lines 3054, 3084-3093.
       return responses
         .filter((r) => {
           if (!r.ok && r.status !== 200) return false;
           const rt = r.props?.resourcetype;
-          if (!rt) return true; // no resourcetype = not a collection
-          return false; // has resourcetype = it is a collection (the book itself)
+          // Has resourcetype with at least one key = a collection, skip it
+          if (rt && typeof rt === "object" && Object.keys(rt).length > 0) return false;
+          return true;
         })
         .map((r) => ({
-          href: r.href ?? "",
+          href: r.href ? new URL(r.href, bookHref).href : "",
           etag: extractEtag(r) ?? "",
         }))
-        .filter((s) => s.href.length > 0 && s.etag.length > 0);
+        .filter((s) => {
+          if (s.href.length === 0) return false;
+          // MAJOR 2: throw on missing etag instead of silently dropping
+          if (s.etag.length === 0) {
+            throw new DavError(
+              `Contact ${s.href} is missing an ETag — data integrity risk`,
+              "UNEXPECTED",
+            );
+          }
+          return true;
+        });
     },
 
     async fetchCard(href: string) {
@@ -186,20 +232,39 @@ export async function createDavSession(auth: {
         () =>
           client.addressBookMultiGet({
             url: bookUrl,
-            props: multigetProps([href]),
+            props: MULTIGET_PROPS,
             depth: "1",
             objectUrls: [href],
           }),
         `fetching card ${href}`,
       );
 
-      const match = responses.find((r) => r.href === href || r.href === href.replace(/\/+$/, ""));
+      // Match on normalized (absolute) URLs to handle href format differences
+      // between PROPFIND (server-relative) and multiget responses.
+      // Evidence: node_modules/tsdav/dist/tsdav.js lines 3059, 3090, 3119.
+      const match = responses.find((r) => {
+        if (!r.href) return false;
+        try {
+          return new URL(r.href, bookUrl).href === new URL(href).href;
+        } catch {
+          return false;
+        }
+      });
       if (!match) {
         throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
       }
 
-      const vcardText = extractAddressData(match) ?? "";
-      const etag = extractEtag(match) ?? "";
+      const vcardText = extractAddressData(match);
+      if (vcardText === undefined) {
+        throw new DavError(`Contact ${href} has no address-data in response`, "UNEXPECTED");
+      }
+      const etag = extractEtag(match);
+      if (etag === undefined) {
+        throw new DavError(
+          `Contact ${href} is missing an ETag — data integrity risk`,
+          "UNEXPECTED",
+        );
+      }
 
       return { vcardText, etag };
     },
@@ -223,3 +288,17 @@ function deriveBookUrl(href: string): string {
   url.pathname = segments.length > 0 ? `/${segments.join("/")}/` : "/";
   return url.toString();
 }
+
+// ---------------------------------------------------------------------------
+// Test-only exports
+// ---------------------------------------------------------------------------
+
+/** Exported for unit testing only — not part of the public API. */
+export const __testing = {
+  extractEtag,
+  extractAddressData,
+  mapDavError,
+  deriveBookUrl,
+  PROPFIND_MEMBER_PROPS,
+  MULTIGET_PROPS,
+};

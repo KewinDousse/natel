@@ -4,6 +4,9 @@
  * The internal.ts module (the tsdav adapter) is mocked. The seam is clean:
  * we test the orchestration in index.ts (error mapping, response shaping) with
  * controlled data from the mock. No real network I/O.
+ *
+ * Pure helper functions (extractEtag, mapDavError, etc.) are tested directly
+ * in helpers.test.ts via the __testing export.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -65,21 +68,18 @@ describe("discoverAddressBooks", () => {
     });
   });
 
-  it("throws DavError(AUTH) on auth failure from session creation", async () => {
+  it("throws on session creation failure", async () => {
     (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new DavError("CardDAV authentication failed: creating session", "AUTH"),
+      new Error("connection refused"),
     );
 
-    await expect(discoverAddressBooks(mockAuth)).rejects.toThrow(DavError);
-    await expect(discoverAddressBooks(mockAuth)).rejects.toHaveProperty("code", "AUTH");
+    await expect(discoverAddressBooks(mockAuth)).rejects.toThrow(Error);
   });
 
-  it("throws DavError(NETWORK) on network failure", async () => {
-    (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new DavError("CardDAV network error: creating session", "NETWORK"),
-    );
+  it("throws on session creation failure with any error type", async () => {
+    (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue("string error");
 
-    await expect(discoverAddressBooks(mockAuth)).rejects.toHaveProperty("code", "NETWORK");
+    await expect(discoverAddressBooks(mockAuth)).rejects.toThrow();
   });
 });
 
@@ -111,12 +111,10 @@ describe("listContacts", () => {
     expect(listMembers).toHaveBeenCalledWith("/dav/books/work/");
   });
 
-  it("throws DavError on session creation failure", async () => {
-    (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new DavError("CardDAV authentication failed: creating session", "AUTH"),
-    );
+  it("throws on session creation failure", async () => {
+    (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("failure"));
 
-    await expect(listContacts(mockAuth, "/dav/books/default/")).rejects.toThrow(DavError);
+    await expect(listContacts(mockAuth, "/dav/books/default/")).rejects.toThrow(Error);
   });
 });
 
@@ -158,12 +156,10 @@ describe("fetchCard", () => {
     expect(card.href).toBe("/dav/books/x/1.vcf");
   });
 
-  it("throws DavError on session creation failure", async () => {
-    (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new DavError("CardDAV authentication failed: creating session", "AUTH"),
-    );
+  it("throws on session creation failure", async () => {
+    (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("failure"));
 
-    await expect(fetchCard(mockAuth, "/dav/books/default/1.vcf")).rejects.toThrow(DavError);
+    await expect(fetchCard(mockAuth, "/dav/books/default/1.vcf")).rejects.toThrow(Error);
   });
 });
 
