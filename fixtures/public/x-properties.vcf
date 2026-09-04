@@ -1,0 +1,9 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Has X-Props
+N:Props;X;;;
+X-MY-CUSTOM-PROPERTY;X-PARAM=hello:custom value
+X-OTHER-PROP:another value
+X-NUMERIC:42
+UID:x-props-test@example.com
+END:VCARD

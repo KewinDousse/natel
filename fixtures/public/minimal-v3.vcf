@@ -1,0 +1,6 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:John Doe
+N:Doe;John;;;
+UID:minimal-3.0-test@example.com
+END:VCARD

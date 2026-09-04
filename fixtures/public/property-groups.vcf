@@ -1,0 +1,12 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Grouped Contact
+N:Contact;Grouped;;;
+item1.EMAIL;TYPE=INTERNET:personal@example.com
+item1.X-ABLabel:Personal
+item2.EMAIL;TYPE=INTERNET:work@example.com
+item2.X-ABLabel:Work
+item3.TEL;TYPE=CELL:+1-555-444-4444
+item3.X-ABLabel:Mobile
+UID:grouped-test@example.com
+END:VCARD
