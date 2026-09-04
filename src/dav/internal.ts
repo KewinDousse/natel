@@ -76,6 +76,22 @@ function extractDisplayName(book: DAVAddressBook, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Predicate that filters a PROPFIND response array to keep only individual
+ * member (vCard) entries, excluding the collection itself and non-ok entries.
+ *
+ * tsdav checks resourcetype by Object.keys: a collection has keys
+ * (e.g. { collection: '', addressbook: '' }), a member has none.
+ * Evidence: node_modules/tsdav/dist/tsdav.js lines 3054, 3084-3093.
+ */
+export function isMemberResponse(response: DAVResponse): boolean {
+  if (!response.ok && response.status !== 200) return false;
+  const rt = response.props?.resourcetype;
+  // Has resourcetype with at least one key = a collection, skip it
+  if (rt && typeof rt === "object" && Object.keys(rt).length > 0) return false;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Error mapping
 //
@@ -191,21 +207,26 @@ export async function createDavSession(auth: {
       // Check that the book itself was found (first response is the collection).
       const bookResponse = responses[0];
       if (!bookResponse?.ok) {
-        throw new DavError(`Address book not found: ${bookHref}`, "NOT_FOUND");
+        const status = bookResponse?.status ?? 0;
+        if (status === 404) {
+          throw new DavError(`Address book not found: ${bookHref}`, "NOT_FOUND");
+        }
+        if (status === 401 || status === 403) {
+          throw new DavError(
+            `CardDAV authentication failed: listing contacts in ${bookHref}`,
+            "AUTH",
+          );
+        }
+        throw new DavError(
+          `CardDAV unexpected error: listing contacts in ${bookHref} — HTTP ${status}`,
+          "UNEXPECTED",
+        );
       }
 
       // Filter out the collection and non-200 responses.
-      // tsdav checks resourcetype by Object.keys: a collection has keys
-      // (e.g. { collection: '', addressbook: '' }), a member has none.
-      // Evidence: node_modules/tsdav/dist/tsdav.js lines 3054, 3084-3093.
+      // Uses isMemberResponse (exported for testing).
       return responses
-        .filter((r) => {
-          if (!r.ok && r.status !== 200) return false;
-          const rt = r.props?.resourcetype;
-          // Has resourcetype with at least one key = a collection, skip it
-          if (rt && typeof rt === "object" && Object.keys(rt).length > 0) return false;
-          return true;
-        })
+        .filter(isMemberResponse)
         .map((r) => ({
           href: r.href ? new URL(r.href, bookHref).href : "",
           etag: extractEtag(r) ?? "",
@@ -297,6 +318,7 @@ function deriveBookUrl(href: string): string {
 export const __testing = {
   extractEtag,
   extractAddressData,
+  isMemberResponse,
   mapDavError,
   deriveBookUrl,
   PROPFIND_MEMBER_PROPS,

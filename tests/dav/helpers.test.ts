@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { __testing } from "@/dav/internal";
 import { DavError } from "@/dav/types";
 
-const { extractEtag, extractAddressData, mapDavError, deriveBookUrl } = __testing;
+const { extractEtag, extractAddressData, isMemberResponse, mapDavError, deriveBookUrl } = __testing;
 
 /**
  * Create a minimal DAVResponse-like object for testing.
@@ -240,20 +240,47 @@ describe("mapDavError", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Integration: realistic tsdav PROPFIND response (resourcetype shapes)
+// isMemberResponse (PROPFIND member filter)
 // ---------------------------------------------------------------------------
 
-describe("resourcetype shapes (tsdav XML parsing)", () => {
-  it("empty resourcetype (vCard member with <d:resourcetype/>)", () => {
-    // xml-js parses <d:resourcetype/> as empty string '' in compact mode
-    const rt = "";
-    expect(typeof rt).toBe("string");
-    expect(rt.length).toBe(0);
+describe("isMemberResponse", () => {
+  it("keeps a vCard member (no resourcetype prop)", () => {
+    const resp = { status: 200, statusText: "OK", ok: true } as unknown as DAVResponse;
+    expect(isMemberResponse(resp)).toBe(true);
   });
 
-  it("collection resourcetype with addressbook key", () => {
-    const rt = { collection: "1" as const, addressbook: "" as const };
-    expect(Object.keys(rt)).toEqual(["collection", "addressbook"]);
-    expect(Object.keys(rt).includes("addressbook")).toBe(true);
+  it("keeps a vCard member with empty-string resourcetype (<d:resourcetype/>)", () => {
+    const resp = {
+      status: 200,
+      statusText: "OK",
+      ok: true,
+      props: { resourcetype: "" },
+    } as unknown as DAVResponse;
+    expect(isMemberResponse(resp)).toBe(true);
+  });
+
+  it("keeps a vCard member with empty-object resourcetype ({} — no keys)", () => {
+    const resp = {
+      status: 200,
+      statusText: "OK",
+      ok: true,
+      props: { resourcetype: {} },
+    } as unknown as DAVResponse;
+    expect(isMemberResponse(resp)).toBe(true);
+  });
+
+  it("excludes the collection (resourcetype with keys)", () => {
+    const resp = {
+      status: 200,
+      statusText: "OK",
+      ok: true,
+      props: { resourcetype: { collection: "", addressbook: "" } },
+    } as unknown as DAVResponse;
+    expect(isMemberResponse(resp)).toBe(false);
+  });
+
+  it("excludes a non-ok response", () => {
+    const resp = { status: 404, statusText: "Not Found", ok: false } as unknown as DAVResponse;
+    expect(isMemberResponse(resp)).toBe(false);
   });
 });
