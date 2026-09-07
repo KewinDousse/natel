@@ -10,9 +10,6 @@
 
 import type { DAVResponse } from "tsdav";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { __testing } from "@/dav/internal";
-
-const { PROPFIND_MEMBER_PROPS, MULTIGET_PROPS } = __testing;
 
 // Mock tsdav at the module level. vi.mock is hoisted above imports.
 vi.mock("tsdav", () => {
@@ -103,7 +100,7 @@ describe("listMembers", () => {
 
     expect(pfind).toHaveBeenCalledWith({
       url: "https://dav.example.com/dav/books/default/",
-      props: PROPFIND_MEMBER_PROPS,
+      props: { "d:getetag": {}, "d:resourcetype": {} },
       depth: "1",
     });
   });
@@ -167,6 +164,60 @@ describe("listMembers", () => {
 
     expect(members).toHaveLength(0);
   });
+
+  it("throws NOT_FOUND when the book PROPFIND returns 404", async () => {
+    const pfind = vi.fn().mockResolvedValue([
+      davResp({
+        href: "https://dav.example.com/dav/books/default/",
+        props: { resourcetype: { collection: "", addressbook: "" } },
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ propfind: pfind }));
+
+    const session = await createDavSession(AUTH);
+    await expect(
+      session.listMembers("https://dav.example.com/dav/books/default/"),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("throws AUTH when the book PROPFIND returns 401", async () => {
+    const pfind = vi.fn().mockResolvedValue([
+      davResp({
+        href: "https://dav.example.com/dav/books/default/",
+        props: { resourcetype: { collection: "", addressbook: "" } },
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ propfind: pfind }));
+
+    const session = await createDavSession(AUTH);
+    await expect(
+      session.listMembers("https://dav.example.com/dav/books/default/"),
+    ).rejects.toMatchObject({ code: "AUTH" });
+  });
+
+  it("throws UNEXPECTED when the book PROPFIND returns 500", async () => {
+    const pfind = vi.fn().mockResolvedValue([
+      davResp({
+        href: "https://dav.example.com/dav/books/default/",
+        props: { resourcetype: { collection: "", addressbook: "" } },
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ propfind: pfind }));
+
+    const session = await createDavSession(AUTH);
+    await expect(
+      session.listMembers("https://dav.example.com/dav/books/default/"),
+    ).rejects.toMatchObject({ code: "UNEXPECTED" });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -188,7 +239,7 @@ describe("fetchCard", () => {
 
     expect(multiget).toHaveBeenCalledWith({
       url: "https://dav.example.com/dav/books/default/",
-      props: MULTIGET_PROPS,
+      props: { "d:getetag": {}, "card:address-data": {} },
       depth: "1",
       objectUrls: ["https://dav.example.com/dav/books/default/1.vcf"],
     });
