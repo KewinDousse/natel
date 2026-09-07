@@ -52,8 +52,16 @@ describe("extractEtag", () => {
     expect(extractEtag(resp({ getetag: 123 }))).toBe("123");
   });
 
-  it("coerces object etag (from xml-js) to string", () => {
-    expect(extractEtag(resp({ getetag: { _text: '"abc"' } }))).toBe("[object Object]");
+  it("handles `_cdata` etag from xml-js compact mode", () => {
+    expect(extractEtag(resp({ getetag: { _cdata: '"abc"' } }))).toBe('"abc"');
+  });
+
+  it("handles `_text` etag from xml-js compact mode", () => {
+    expect(extractEtag(resp({ getetag: { _text: '"abc"' } }))).toBe('"abc"');
+  });
+
+  it("returns undefined for object etag without _cdata or _text", () => {
+    expect(extractEtag(resp({ getetag: { unrelated: "val" } }))).toBeUndefined();
   });
 });
 
@@ -114,6 +122,10 @@ describe("deriveBookUrl", () => {
     const result = deriveBookUrl("https://example.com/books/x/1.vcf");
     expect(result).toBe("https://example.com/books/x/");
     expect(result.endsWith("/")).toBe(true);
+  });
+
+  it("maps an invalid href to a DavError instead of a raw TypeError", () => {
+    expectDavError(() => deriveBookUrl("not a url"), "UNEXPECTED", "Invalid card href");
   });
 });
 
@@ -219,7 +231,43 @@ describe("mapDavError", () => {
     });
   });
 
+  describe("conflict errors", () => {
+    it("412 (thrown) → CONFLICT", () => {
+      const err = new Error("Collection query failed: 412 Precondition Failed");
+      expectDavError(
+        () => mapDavError(err, "updating card https://x/1.vcf"),
+        "CONFLICT",
+        "CardDAV conflict: updating card https://x/1.vcf — resource changed on server",
+      );
+    });
+  });
+
+  describe("Safari TypeError", () => {
+    it("TypeError without 'fetch' in message → NETWORK", () => {
+      const err = new TypeError("Load failed");
+      expectDavError(
+        () => mapDavError(err, "listing"),
+        "NETWORK",
+        "CardDAV network error: listing",
+      );
+    });
+
+    it("TypeError takes priority over substring match", () => {
+      const err = new TypeError("something returned 404");
+      expectDavError(() => mapDavError(err, "ctx"), "NETWORK", "CardDAV network error: ctx");
+    });
+  });
+
   describe("unexpected errors", () => {
+    it("5xx (thrown) → UNEXPECTED with HTTP status in message", () => {
+      const err = new Error("Collection query failed: 500 Internal Server Error");
+      expectDavError(
+        () => mapDavError(err, "listing"),
+        "UNEXPECTED",
+        "CardDAV unexpected error: listing — HTTP 500",
+      );
+    });
+
     it("programming errors → UNEXPECTED", () => {
       const err = new Error("cannot find homeUrl");
       expectDavError(

@@ -42,14 +42,20 @@ export interface DavContactDetail {
 
 /** Typed error for CardDAV operations. */
 export class DavError extends Error {
+  /**
+   * Machine-readable error code for programmatic handling.
+   *
+   * - CONFLICT: HTTP 412 Precondition Failed (resource changed on server).
+   */
+  public readonly code: "AUTH" | "NOT_FOUND" | "NETWORK" | "UNEXPECTED" | "CONFLICT";
+
   constructor(
     message: string,
-    /** Machine-readable error code for programmatic handling. */
-    public readonly code: "AUTH" | "NOT_FOUND" | "NETWORK" | "UNEXPECTED",
-    /** The original error/response, if any. */
-    public readonly cause?: unknown,
+    code: "AUTH" | "NOT_FOUND" | "NETWORK" | "UNEXPECTED" | "CONFLICT",
+    cause?: unknown,
   ) {
-    super(message);
+    super(message, { cause });
     this.name = "DavError";
+    this.code = code;
   }
 }

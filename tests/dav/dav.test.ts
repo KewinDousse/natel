@@ -22,11 +22,18 @@ vi.mock("@/dav/internal", () => {
 });
 
 // Import after mock — these are the functions under test.
-import { DavError, discoverAddressBooks, fetchCard, listContacts } from "@/dav/index";
+import {
+  createCard,
+  DavError,
+  deleteCard,
+  discoverAddressBooks,
+  fetchCard,
+  listContacts,
+  updateCard,
+} from "@/dav/index";
 import type { DavAuth } from "@/dav/types";
 
 // Also grab the mock for setup.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { createDavSession } = await import("@/dav/internal");
 
 const mockAuth: DavAuth = {
@@ -48,6 +55,15 @@ function mockSession(overrides: Partial<DavSession> = {}): DavSession {
       vcardText: "BEGIN:VCARD\nVERSION:3.0\nFN:Alice\nEND:VCARD\n",
       etag: '"abc123"',
     }),
+    updateCard: vi.fn().mockResolvedValue({
+      href: "/dav/books/default/1.vcf",
+      etag: '"new-etag"',
+    }),
+    createCard: vi.fn().mockResolvedValue({
+      href: "/dav/books/default/new-uuid.vcf",
+      etag: '"e"',
+    }),
+    deleteCard: vi.fn().mockResolvedValue(undefined),
   };
   return { ...defaultSession, ...overrides };
 }
@@ -160,6 +176,108 @@ describe("fetchCard", () => {
     (createDavSession as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("failure"));
 
     await expect(fetchCard(mockAuth, "/dav/books/default/1.vcf")).rejects.toThrow(Error);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateCard
+// ---------------------------------------------------------------------------
+
+describe("updateCard", () => {
+  it("passes href, etag, and vcardText to the session", async () => {
+    const updateCardMock = vi
+      .fn()
+      .mockResolvedValue({ href: "/dav/books/default/1.vcf", etag: '"new"' });
+    (createDavSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSession({ updateCard: updateCardMock }),
+    );
+
+    const result = await updateCard(
+      mockAuth,
+      "/dav/books/default/1.vcf",
+      '"old"',
+      "BEGIN:VCARD\nEND:VCARD",
+    );
+
+    expect(updateCardMock).toHaveBeenCalledWith(
+      "/dav/books/default/1.vcf",
+      '"old"',
+      "BEGIN:VCARD\nEND:VCARD",
+    );
+    expect(result).toEqual({ href: "/dav/books/default/1.vcf", etag: '"new"' });
+  });
+
+  it("passes through DavError from the session", async () => {
+    (createDavSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSession({
+        updateCard: vi.fn().mockRejectedValue(new DavError("conflict", "CONFLICT")),
+      }),
+    );
+
+    await expect(
+      updateCard(mockAuth, "/dav/books/default/1.vcf", '"old"', "vcard"),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createCard
+// ---------------------------------------------------------------------------
+
+describe("createCard", () => {
+  it("passes bookHref and vcardText to the session", async () => {
+    const createCardMock = vi
+      .fn()
+      .mockResolvedValue({ href: "/dav/books/default/x.vcf", etag: '"e"' });
+    (createDavSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSession({ createCard: createCardMock }),
+    );
+
+    const result = await createCard(mockAuth, "/dav/books/default/", "BEGIN:VCARD\nEND:VCARD");
+
+    expect(createCardMock).toHaveBeenCalledWith("/dav/books/default/", "BEGIN:VCARD\nEND:VCARD");
+    expect(result).toEqual({ href: "/dav/books/default/x.vcf", etag: '"e"' });
+  });
+
+  it("passes through DavError from the session", async () => {
+    (createDavSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSession({
+        createCard: vi.fn().mockRejectedValue(new DavError("auth", "AUTH")),
+      }),
+    );
+
+    await expect(createCard(mockAuth, "/dav/books/default/", "vcard")).rejects.toMatchObject({
+      code: "AUTH",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteCard
+// ---------------------------------------------------------------------------
+
+describe("deleteCard", () => {
+  it("passes href and etag to the session", async () => {
+    const deleteCardMock = vi.fn().mockResolvedValue(undefined);
+    (createDavSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSession({ deleteCard: deleteCardMock }),
+    );
+
+    await deleteCard(mockAuth, "/dav/books/default/1.vcf", '"e"');
+
+    expect(deleteCardMock).toHaveBeenCalledWith("/dav/books/default/1.vcf", '"e"');
+  });
+
+  it("passes through DavError from the session", async () => {
+    (createDavSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSession({
+        deleteCard: vi.fn().mockRejectedValue(new DavError("conflict", "CONFLICT")),
+      }),
+    );
+
+    await expect(deleteCard(mockAuth, "/dav/books/default/1.vcf", '"e"')).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
   });
 });
 

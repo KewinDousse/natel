@@ -4,13 +4,18 @@
  * The ONLY file in src/dav/ that imports tsdav. Exports a `createDavSession`
  * function that returns a minimal typed interface over tsdav client operations.
  *
- * This module is the dependency-injection seam for unit tests: tests stub
- * the exported functions via `vi.mock` rather than mocking tsdav directly.
+ * Two test seams exist:
+ * - tests/dav/dav.test.ts mocks this module (`@/dav/internal`) to exercise the
+ *   public API in index.ts.
+ * - tests/dav/internal.test.ts mocks tsdav itself (`createDAVClient`) to pin
+ *   the exact wire shapes (props, depth, headers, body) sent to tsdav.
  */
 
 import type { DAVAddressBook, DAVResponse } from "tsdav";
 import { createDAVClient } from "tsdav";
 import { DavError } from "./types";
+
+type DAVClient = Awaited<ReturnType<typeof createDAVClient>>;
 
 // ---------------------------------------------------------------------------
 // Props for tsdav calls (ElementCompact inner maps)
@@ -20,8 +25,8 @@ import { DavError } from "./types";
 // and addressBookMultiGet() wraps it inside
 //   { "addressbook-multiget": { _attributes: ..., "d:prop": <props>, "d:href": <objectUrls> } }
 // So we only pass the inner prop map — NOT a full xml-js body.
-// Evidence: node_modules/tsdav/dist/tsdav.js lines 2662-2686 (propfind),
-//           3018-3033 (addressBookMultiGet), 3095-3101 (fetchVCards example).
+// Evidence: tsdav@2.3.1 `propfind` (src/request.ts) and `addressBookMultiGet`
+// (src/addressBook.ts).
 // ---------------------------------------------------------------------------
 
 /** Props for PROPFIND listing members (getetag + resourcetype). */
@@ -42,13 +47,23 @@ const MULTIGET_PROPS = {
 // tsdav parses XML with elementNameFn:
 //   (name) => camelCase(name.replace(/^.+:/, ""))
 // so "d:getetag" → "getetag", "card:address-data" → "addressData".
-// Evidence: node_modules/tsdav/dist/tsdav.js line 2610.
+// Evidence: tsdav@2.3.1 `davRequest` (src/request.ts).
 // ---------------------------------------------------------------------------
 
 /** Extract ETag from a DAVResponse props map. */
 function extractEtag(response: DAVResponse): string | undefined {
   const etagProp = response.props?.getetag;
   if (etagProp == null) return undefined;
+  if (typeof etagProp === "object") {
+    // xml-js compact mode can wrap text in _text / _cdata; a neither case has
+    // no ETag value we can trust.
+    const inner = etagProp as Record<string, unknown>;
+    const cdata = inner._cdata;
+    if (cdata != null) return String(cdata);
+    const text = inner._text;
+    if (text != null) return String(text);
+    return undefined;
+  }
   return String(etagProp);
 }
 
@@ -57,7 +72,8 @@ function extractEtag(response: DAVResponse): string | undefined {
  *
  * tsdav reads this as:
  *   res.props?.addressData?._cdata ?? res.props?.addressData
- * Evidence: node_modules/tsdav/dist/tsdav.js line 3121.
+ * Evidence: tsdav@2.3.1 `fetchVCards` / `smartCollectionSync` (src/addressBook.ts,
+ * src/collection.ts).
  */
 function extractAddressData(response: DAVResponse): string | undefined {
   const dataProp = response.props?.addressData;
@@ -82,10 +98,10 @@ function extractDisplayName(book: DAVAddressBook, fallback: string): string {
  *
  * tsdav checks resourcetype by Object.keys: a collection has keys
  * (e.g. { collection: '', addressbook: '' }), a member has none.
- * Evidence: node_modules/tsdav/dist/tsdav.js lines 3054, 3084-3093.
+ * Evidence: tsdav@2.3.1 `fetchAddressBooks` (src/addressBook.ts).
  */
 export function isMemberResponse(response: DAVResponse): boolean {
-  if (!response.ok && response.status !== 200) return false;
+  if (!response.ok) return false;
   const rt = response.props?.resourcetype;
   // Has resourcetype with at least one key = a collection, skip it
   if (rt && typeof rt === "object" && Object.keys(rt).length > 0) return false;
@@ -95,16 +111,21 @@ export function isMemberResponse(response: DAVResponse): boolean {
 // ---------------------------------------------------------------------------
 // Error mapping
 //
-// tsdav throws errors with numeric status codes in messages:
-//   "Collection query failed: 401 Unauthorized. Raw response: ..."
-//   "Invalid credentials: PROPFIND ... returned 401 Unauthorized"
-// Evidence: node_modules/tsdav/dist/tsdav.js lines 2776-2777, 3637.
-// Network errors are native TypeError with messages like "fetch failed".
+// tsdav@2.3.1 throws errors with status codes embedded in known formats:
+//   "Collection query failed: 401 Unauthorized. Raw response: ..."  (collectionQuery)
+//   "Invalid credentials: PROPFIND ... returned 401 Unauthorized"   (fetchPrincipalUrl)
+// Network failures surface as native TypeError ("fetch failed", Safari's
+// "Load failed"); there is no status in such messages.
 // ---------------------------------------------------------------------------
 
-/** Extract a 3-digit HTTP status code from an error message, if any. */
+/**
+ * Extract an HTTP status code from a tsdav error message, if any.
+ *
+ * Only the formats tsdav actually emits are recognized, so unrelated "412"
+ * digits in a raw response body cannot false-positive.
+ */
 function extractStatusFromMessage(message: string): number | null {
-  const match = message.match(/\b(4\d{2})\b/);
+  const match = message.match(/(?:failed|returned)[ :]+([45]\d{2})/);
   if (match?.[1]) return Number.parseInt(match[1], 10);
   return null;
 }
@@ -116,14 +137,29 @@ function mapDavError(err: unknown, context: string): never {
   const message = err instanceof Error ? err.message : String(err);
   const status = extractStatusFromMessage(message);
 
+  // Browsers (notably Safari) reject failed fetches with a bare TypeError
+  // such as "Load failed". Treat any TypeError as a network failure.
+  if (err instanceof TypeError) {
+    throw new DavError(`CardDAV network error: ${context}`, "NETWORK", err);
+  }
+
+  if (status === 412) {
+    throw new DavError(
+      `CardDAV conflict: ${context} — resource changed on server`,
+      "CONFLICT",
+      err,
+    );
+  }
   if (status === 401 || status === 403) {
     throw new DavError(`CardDAV authentication failed: ${context}`, "AUTH", err);
   }
   if (status === 404) {
     throw new DavError(`CardDAV resource not found: ${context}`, "NOT_FOUND", err);
   }
+  if (status !== null && status >= 500) {
+    throw new DavError(`CardDAV unexpected error: ${context} — HTTP ${status}`, "UNEXPECTED", err);
+  }
 
-  // Network errors (native fetch TypeError or custom)
   if (
     message.includes("fetch") ||
     message.includes("network") ||
@@ -147,6 +183,78 @@ async function wrap<T>(fn: () => Promise<T>, context: string): Promise<T> {
 }
 
 // ---------------------------------------------------------------------------
+// Write responses
+//
+// tsdav's PUT/DELETE helpers (createVCard, updateVCard, deleteVCard) build
+// the conditional headers from a vCard object, so the exact If-Match /
+// If-None-Match values could not be pinned from outside. We therefore go
+// through client.davRequest directly with explicit headers. davRequest only
+// returns { href, ok, status, statusText, raw } — response headers are
+// consumed inside tsdav and never surfaced, so after a successful write the
+// fresh ETag must come from a follow-up PROPFIND (ARCHITECTURE.md §Write path).
+// Evidence: tsdav@2.3.1 `davRequest` (src/request.ts) returns parsed response
+// objects without headers for non-XML bodies.
+// ---------------------------------------------------------------------------
+
+/**
+ * Throw the right DavError for a non-ok write response.
+ *
+ * 412 → CONFLICT (the caller decides the conflict UX: it is the queries layer
+ * that re-fetches the server version). Other statuses map like reads do.
+ */
+function assertWriteOk(
+  response: DAVResponse | undefined,
+  context: string,
+): asserts response is DAVResponse {
+  if (!response) {
+    throw new DavError(
+      `CardDAV unexpected error: ${context} — no response from server`,
+      "UNEXPECTED",
+    );
+  }
+  if (response.ok) return;
+  if (response.status === 412) {
+    throw new DavError(`CardDAV conflict: ${context} — resource changed on server`, "CONFLICT");
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new DavError(`CardDAV authentication failed: ${context}`, "AUTH");
+  }
+  if (response.status === 404) {
+    throw new DavError(`CardDAV resource not found: ${context}`, "NOT_FOUND");
+  }
+  throw new DavError(
+    `CardDAV unexpected error: ${context} — HTTP ${response.status}`,
+    "UNEXPECTED",
+  );
+}
+
+/**
+ * Re-read a card's ETag after a successful write (server may not include it
+ * in the PUT/DELETE response, and tsdav never surfaces response headers).
+ */
+async function fetchFreshEtag(client: DAVClient, href: string): Promise<string> {
+  const bookUrl = deriveBookUrl(href);
+  const responses = await wrap(
+    () =>
+      client.propfind({
+        url: href,
+        props: { "d:getetag": {} },
+        depth: "0",
+      }),
+    `refetching etag for ${href}`,
+  );
+  const match = findResponseByHref(responses, href, bookUrl);
+  const etag = match ? extractEtag(match) : undefined;
+  if (etag === undefined) {
+    throw new DavError(
+      `Contact ${href} is missing an ETag after write — data integrity risk`,
+      "UNEXPECTED",
+    );
+  }
+  return etag;
+}
+
+// ---------------------------------------------------------------------------
 // Public types for the adapter
 // ---------------------------------------------------------------------------
 
@@ -157,6 +265,16 @@ export interface DavSession {
   listMembers(bookHref: string): Promise<Array<{ href: string; etag: string }>>;
   /** Fetch a single vCard body by href, returning text + etag. */
   fetchCard(href: string): Promise<{ vcardText: string; etag: string }>;
+  /** Update a card with a conditional PUT (If-Match); returns the new etag. */
+  updateCard(
+    href: string,
+    etag: string,
+    vcardText: string,
+  ): Promise<{ href: string; etag: string }>;
+  /** Create a card with a conditional PUT (If-None-Match: *); returns href + etag. */
+  createCard(bookHref: string, vcardText: string): Promise<{ href: string; etag: string }>;
+  /** Delete a card with a conditional DELETE (If-Match). */
+  deleteCard(href: string, etag: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,17 +341,18 @@ export async function createDavSession(auth: {
         );
       }
 
-      // Filter out the collection and non-200 responses.
+      // Filter out the collection and non-ok responses.
       // Uses isMemberResponse (exported for testing).
       return responses
         .filter(isMemberResponse)
         .map((r) => ({
-          href: r.href ? new URL(r.href, bookHref).href : "",
+          href: r.href ? absolutizeHref(r.href, bookHref) : "",
           etag: extractEtag(r) ?? "",
         }))
         .filter((s) => {
           if (s.href.length === 0) return false;
-          // MAJOR 2: throw on missing etag instead of silently dropping
+          // Throw on a missing etag instead of silently dropping the contact:
+          // a later conditional write would otherwise be impossible.
           if (s.etag.length === 0) {
             throw new DavError(
               `Contact ${s.href} is missing an ETag — data integrity risk`,
@@ -245,8 +364,8 @@ export async function createDavSession(auth: {
     },
 
     async fetchCard(href: string) {
-      // We need the parent address book URL to use addressBookMultiGet.
-      // Derive it from href: strip the last path segment.
+      // The multiget must run against the parent address book collection;
+      // derive it from href by stripping the last path segment.
       const bookUrl = deriveBookUrl(href);
 
       const responses = await wrap(
@@ -255,22 +374,16 @@ export async function createDavSession(auth: {
             url: bookUrl,
             props: MULTIGET_PROPS,
             depth: "1",
-            objectUrls: [href],
+            // tsdav's fetchVCards sends pathname + search, not the absolute
+            // URL — same practice here for the objectUrls.
+            objectUrls: [pathnamePlusSearch(href)],
           }),
         `fetching card ${href}`,
       );
 
       // Match on normalized (absolute) URLs to handle href format differences
       // between PROPFIND (server-relative) and multiget responses.
-      // Evidence: node_modules/tsdav/dist/tsdav.js lines 3059, 3090, 3119.
-      const match = responses.find((r) => {
-        if (!r.href) return false;
-        try {
-          return new URL(r.href, bookUrl).href === new URL(href).href;
-        } catch {
-          return false;
-        }
-      });
+      const match = findResponseByHref(responses, href, bookUrl);
       if (!match) {
         throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
       }
@@ -289,6 +402,68 @@ export async function createDavSession(auth: {
 
       return { vcardText, etag };
     },
+
+    async updateCard(href: string, etag: string, vcardText: string) {
+      const responses = await wrap(
+        () =>
+          client.davRequest({
+            url: href,
+            init: {
+              method: "PUT",
+              headers: { "Content-Type": "text/vcard; charset=utf-8", "If-Match": etag },
+              body: vcardText,
+            },
+            convertIncoming: false,
+            parseOutgoing: false,
+          }),
+        `updating card ${href}`,
+      );
+
+      assertWriteOk(responses[0], `updating card ${href}`);
+      const newEtag = await fetchFreshEtag(client, href);
+      return { href, etag: newEtag };
+    },
+
+    async createCard(bookHref: string, vcardText: string) {
+      const href = absolutizeHref(generateCardFilename(), bookHref);
+      const responses = await wrap(
+        () =>
+          client.davRequest({
+            url: href,
+            init: {
+              method: "PUT",
+              headers: { "Content-Type": "text/vcard; charset=utf-8", "If-None-Match": "*" },
+              body: vcardText,
+            },
+            convertIncoming: false,
+            parseOutgoing: false,
+          }),
+        `creating card in ${bookHref}`,
+      );
+
+      assertWriteOk(responses[0], `creating card ${href}`);
+      const newEtag = await fetchFreshEtag(client, href);
+      return { href, etag: newEtag };
+    },
+
+    async deleteCard(href: string, etag: string) {
+      const responses = await wrap(
+        () =>
+          client.davRequest({
+            url: href,
+            init: {
+              method: "DELETE",
+              headers: { "If-Match": etag },
+              body: undefined,
+            },
+            convertIncoming: false,
+            parseOutgoing: false,
+          }),
+        `deleting card ${href}`,
+      );
+
+      assertWriteOk(responses[0], `deleting card ${href}`);
+    },
   };
 }
 
@@ -297,17 +472,76 @@ export async function createDavSession(auth: {
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolve an href against a base, mapping malformed input to a DavError
+ * instead of a raw TypeError from `new URL`.
+ */
+function absolutizeHref(href: string, base: string): string {
+  try {
+    return new URL(href, base).href;
+  } catch {
+    throw new DavError(`Invalid DAV href ${href} against base ${base}`, "UNEXPECTED");
+  }
+}
+
+/** Path + query of a URL, as tsdav's fetchVCards uses for multiget objectUrls. */
+function pathnamePlusSearch(href: string): string {
+  const url = new URL(href);
+  return `${url.pathname}${url.search}`;
+}
+
+/**
+ * Find the DAVResponse whose href resolves to the given absolute URL.
+ *
+ * Handles servers returning relative vs absolute hrefs.
+ */
+function findResponseByHref(
+  responses: DAVResponse[],
+  href: string,
+  baseUrl: string,
+): DAVResponse | undefined {
+  return responses.find((r) => {
+    if (!r.href) return false;
+    try {
+      return new URL(r.href, baseUrl).href === new URL(href).href;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
  * Derive the parent collection (address book) URL from a vCard's href.
  *
  * Strips the last path segment. Assumes the vCard is a direct child of the
- * address book collection.
+ * address book collection. Maps malformed input to a DavError.
  */
 function deriveBookUrl(href: string): string {
-  const url = new URL(href);
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    throw new DavError(`Invalid card href: ${href}`, "UNEXPECTED");
+  }
   const segments = url.pathname.split("/").filter(Boolean);
   if (segments.length > 0) segments.pop(); // remove vCard filename
   url.pathname = segments.length > 0 ? `/${segments.join("/")}/` : "/";
   return url.toString();
+}
+
+/**
+ * Generate a unique vCard filename for creation (RFC 6352 PUT to a new href).
+ *
+ * Prefers crypto.randomUUID (secure contexts, Node ≥ 19); non-secure
+ * browsers expose getRandomValues but not randomUUID, so fall back to that.
+ */
+function generateCardFilename(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `${crypto.randomUUID()}.vcf`;
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex}.vcf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +555,4 @@ export const __testing = {
   isMemberResponse,
   mapDavError,
   deriveBookUrl,
-  PROPFIND_MEMBER_PROPS,
-  MULTIGET_PROPS,
 };
