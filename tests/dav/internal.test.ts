@@ -436,6 +436,18 @@ describe("updateCard", () => {
       code: "NETWORK",
     });
   });
+
+  it("throws UNEXPECTED with no davRequest call when etag is empty string", async () => {
+    const davId = vi.fn();
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.updateCard(CARD_HREF, "", VCARD)).rejects.toMatchObject({
+      code: "UNEXPECTED",
+      message: expect.stringContaining("missing or empty ETag"),
+    });
+    expect(davId).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -593,5 +605,17 @@ describe("deleteCard", () => {
       code: "UNEXPECTED",
       message: expect.stringContaining("HTTP 500"),
     });
+  });
+
+  it("throws UNEXPECTED with no davRequest call when etag is empty string", async () => {
+    const davId = vi.fn();
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.deleteCard(CARD_HREF, "")).rejects.toMatchObject({
+      code: "UNEXPECTED",
+      message: expect.stringContaining("missing or empty ETag"),
+    });
+    expect(davId).not.toHaveBeenCalled();
   });
 });

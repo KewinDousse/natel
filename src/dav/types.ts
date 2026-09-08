@@ -46,6 +46,8 @@ export class DavError extends Error {
    * Machine-readable error code for programmatic handling.
    *
    * - CONFLICT: HTTP 412 Precondition Failed (resource changed on server).
+   * - UNEXPECTED: data integrity violation (e.g. missing/empty ETag for a
+   *   conditional write) or any unrecognised server error.
    */
   public readonly code: "AUTH" | "NOT_FOUND" | "NETWORK" | "UNEXPECTED" | "CONFLICT";
 

@@ -63,6 +63,18 @@ describe("extractEtag", () => {
   it("returns undefined for object etag without _cdata or _text", () => {
     expect(extractEtag(resp({ getetag: { unrelated: "val" } }))).toBeUndefined();
   });
+
+  it("returns undefined for empty-string etag (literal '')", () => {
+    expect(extractEtag(resp({ getetag: "" }))).toBeUndefined();
+  });
+
+  it("returns undefined for empty _text etag (<d:getetag/>)", () => {
+    expect(extractEtag(resp({ getetag: { _text: "" } }))).toBeUndefined();
+  });
+
+  it("returns undefined for empty _cdata etag", () => {
+    expect(extractEtag(resp({ getetag: { _cdata: "" } }))).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

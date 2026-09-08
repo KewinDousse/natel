@@ -59,12 +59,19 @@ function extractEtag(response: DAVResponse): string | undefined {
     // no ETag value we can trust.
     const inner = etagProp as Record<string, unknown>;
     const cdata = inner._cdata;
-    if (cdata != null) return String(cdata);
+    if (cdata != null) {
+      const val = String(cdata);
+      return val.length > 0 ? val : undefined;
+    }
     const text = inner._text;
-    if (text != null) return String(text);
+    if (text != null) {
+      const val = String(text);
+      return val.length > 0 ? val : undefined;
+    }
     return undefined;
   }
-  return String(etagProp);
+  const val = String(etagProp);
+  return val.length > 0 ? val : undefined;
 }
 
 /**
@@ -404,6 +411,16 @@ export async function createDavSession(auth: {
     },
 
     async updateCard(href: string, etag: string, vcardText: string) {
+      // Guards: a falsy/empty etag would be silently stripped by tsdav's
+      // cleanupFalsy (tsdav.js:2491-2497), making the PUT unconditional and
+      // violating the lost-update invariant (AGENTS.md §5). Throw before any
+      // davRequest call as a safety net.
+      if (!etag) {
+        throw new DavError(
+          `Cannot update ${href}: missing or empty ETag — conditional write impossible`,
+          "UNEXPECTED",
+        );
+      }
       const responses = await wrap(
         () =>
           client.davRequest({
@@ -447,6 +464,16 @@ export async function createDavSession(auth: {
     },
 
     async deleteCard(href: string, etag: string) {
+      // Guards: a falsy/empty etag would be silently stripped by tsdav's
+      // cleanupFalsy (tsdav.js:2491-2497), making the DELETE unconditional and
+      // violating the lost-update invariant (AGENTS.md §5). Throw before any
+      // davRequest call as a safety net.
+      if (!etag) {
+        throw new DavError(
+          `Cannot delete ${href}: missing or empty ETag — conditional write impossible`,
+          "UNEXPECTED",
+        );
+      }
       const responses = await wrap(
         () =>
           client.davRequest({
