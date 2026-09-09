@@ -323,6 +323,7 @@ async function makeSession(auth: {
   username: string;
   password: string;
 }): Promise<DavSession> {
+  const key = `${auth.serverUrl}|${auth.username}`;
   const client = await wrap(
     () =>
       createDAVClient({
@@ -334,187 +335,215 @@ async function makeSession(auth: {
     "creating session",
   );
 
+  /**
+   * Wrap an operation so that if it throws DavError with code AUTH, the
+   * session cache entry is evicted. This lets a corrected login get a fresh
+   * session without a page reload (MAJOR 1 from task/queries review).
+   */
+  async function withAuthEviction<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err instanceof DavError && err.code === "AUTH") {
+        sessionCache.delete(key);
+      }
+      throw err;
+    }
+  }
+
   return {
     async discoverAddressBooks() {
-      const books = await wrap(() => client.fetchAddressBooks(), "discovering address books");
-      return books.map((b) => ({
-        href: b.url,
-        displayName: extractDisplayName(b, b.url),
-      }));
+      return withAuthEviction(async () => {
+        const books = await wrap(() => client.fetchAddressBooks(), "discovering address books");
+        return books.map((b) => ({
+          href: b.url,
+          displayName: extractDisplayName(b, b.url),
+        }));
+      });
     },
 
     async listMembers(bookHref: string) {
-      const responses = await wrap(
-        () =>
-          client.propfind({
-            url: bookHref,
-            props: PROPFIND_MEMBER_PROPS,
-            depth: "1",
-          }),
-        `listing contacts in ${bookHref}`,
-      );
-
-      // Check that the book itself was found (first response is the collection).
-      const bookResponse = responses[0];
-      if (!bookResponse?.ok) {
-        const status = bookResponse?.status ?? 0;
-        if (status === 404) {
-          throw new DavError(`Address book not found: ${bookHref}`, "NOT_FOUND");
-        }
-        if (status === 401 || status === 403) {
-          throw new DavError(
-            `CardDAV authentication failed: listing contacts in ${bookHref}`,
-            "AUTH",
-          );
-        }
-        throw new DavError(
-          `CardDAV unexpected error: listing contacts in ${bookHref} — HTTP ${status}`,
-          "UNEXPECTED",
+      return withAuthEviction(async () => {
+        const responses = await wrap(
+          () =>
+            client.propfind({
+              url: bookHref,
+              props: PROPFIND_MEMBER_PROPS,
+              depth: "1",
+            }),
+          `listing contacts in ${bookHref}`,
         );
-      }
 
-      // Filter out the collection and non-ok responses.
-      // Uses isMemberResponse (exported for testing).
-      return responses
-        .filter(isMemberResponse)
-        .map((r) => ({
-          href: r.href ? absolutizeHref(r.href, bookHref) : "",
-          etag: extractEtag(r) ?? "",
-        }))
-        .filter((s) => {
-          if (s.href.length === 0) return false;
-          // Throw on a missing etag instead of silently dropping the contact:
-          // a later conditional write would otherwise be impossible.
-          if (s.etag.length === 0) {
+        // Check that the book itself was found (first response is the collection).
+        const bookResponse = responses[0];
+        if (!bookResponse?.ok) {
+          const status = bookResponse?.status ?? 0;
+          if (status === 404) {
+            throw new DavError(`Address book not found: ${bookHref}`, "NOT_FOUND");
+          }
+          if (status === 401 || status === 403) {
             throw new DavError(
-              `Contact ${s.href} is missing an ETag — data integrity risk`,
-              "UNEXPECTED",
+              `CardDAV authentication failed: listing contacts in ${bookHref}`,
+              "AUTH",
             );
           }
-          return true;
-        });
+          throw new DavError(
+            `CardDAV unexpected error: listing contacts in ${bookHref} — HTTP ${status}`,
+            "UNEXPECTED",
+          );
+        }
+
+        // Filter out the collection and non-ok responses.
+        // Uses isMemberResponse (exported for testing).
+        return responses
+          .filter(isMemberResponse)
+          .map((r) => ({
+            href: r.href ? absolutizeHref(r.href, bookHref) : "",
+            etag: extractEtag(r) ?? "",
+          }))
+          .filter((s) => {
+            if (s.href.length === 0) return false;
+            // Throw on a missing etag instead of silently dropping the contact:
+            // a later conditional write would otherwise be impossible.
+            if (s.etag.length === 0) {
+              throw new DavError(
+                `Contact ${s.href} is missing an ETag — data integrity risk`,
+                "UNEXPECTED",
+              );
+            }
+            return true;
+          });
+      });
     },
 
     async fetchCard(href: string) {
-      // The multiget must run against the parent address book collection;
-      // derive it from href by stripping the last path segment.
-      const bookUrl = deriveBookUrl(href);
+      return withAuthEviction(async () => {
+        // The multiget must run against the parent address book collection;
+        // derive it from href by stripping the last path segment.
+        const bookUrl = deriveBookUrl(href);
 
-      const responses = await wrap(
-        () =>
-          client.addressBookMultiGet({
-            url: bookUrl,
-            props: MULTIGET_PROPS,
-            depth: "1",
-            // tsdav's fetchVCards sends pathname + search, not the absolute
-            // URL — same practice here for the objectUrls.
-            objectUrls: [pathnamePlusSearch(href)],
-          }),
-        `fetching card ${href}`,
-      );
-
-      // Match on normalized (absolute) URLs to handle href format differences
-      // between PROPFIND (server-relative) and multiget responses.
-      const match = findResponseByHref(responses, href, bookUrl);
-      if (!match) {
-        throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
-      }
-
-      const vcardText = extractAddressData(match);
-      if (vcardText === undefined) {
-        throw new DavError(`Contact ${href} has no address-data in response`, "UNEXPECTED");
-      }
-      const etag = extractEtag(match);
-      if (etag === undefined) {
-        throw new DavError(
-          `Contact ${href} is missing an ETag — data integrity risk`,
-          "UNEXPECTED",
+        const responses = await wrap(
+          () =>
+            client.addressBookMultiGet({
+              url: bookUrl,
+              props: MULTIGET_PROPS,
+              depth: "1",
+              // tsdav's fetchVCards sends pathname + search, not the absolute
+              // URL — same practice here for the objectUrls.
+              objectUrls: [pathnamePlusSearch(href)],
+            }),
+          `fetching card ${href}`,
         );
-      }
 
-      return { vcardText, etag };
+        // Match on normalized (absolute) URLs to handle href format differences
+        // between PROPFIND (server-relative) and multiget responses.
+        const match = findResponseByHref(responses, href, bookUrl);
+        if (!match) {
+          throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
+        }
+
+        const vcardText = extractAddressData(match);
+        if (vcardText === undefined) {
+          throw new DavError(`Contact ${href} has no address-data in response`, "UNEXPECTED");
+        }
+        const etag = extractEtag(match);
+        if (etag === undefined) {
+          throw new DavError(
+            `Contact ${href} is missing an ETag — data integrity risk`,
+            "UNEXPECTED",
+          );
+        }
+
+        return { vcardText, etag };
+      });
     },
 
     async updateCard(href: string, etag: string, vcardText: string) {
-      // Guards: a falsy/empty etag would be silently stripped by tsdav's
-      // cleanupFalsy (tsdav.js:2491-2497), making the PUT unconditional and
-      // violating the lost-update invariant (AGENTS.md §5). Throw before any
-      // davRequest call as a safety net.
-      if (!etag) {
-        throw new DavError(
-          `Cannot update ${href}: missing or empty ETag — conditional write impossible`,
-          "UNEXPECTED",
+      return withAuthEviction(async () => {
+        // Guards: a falsy/empty etag would be silently stripped by tsdav's
+        // cleanupFalsy (tsdav.js:2491-2497), making the PUT unconditional and
+        // violating the lost-update invariant (AGENTS.md §5). Throw before any
+        // davRequest call as a safety net.
+        if (!etag) {
+          throw new DavError(
+            `Cannot update ${href}: missing or empty ETag — conditional write impossible`,
+            "UNEXPECTED",
+          );
+        }
+        const responses = await wrap(
+          () =>
+            client.davRequest({
+              url: href,
+              init: {
+                method: "PUT",
+                headers: { "Content-Type": "text/vcard; charset=utf-8", "If-Match": etag },
+                body: vcardText,
+              },
+              convertIncoming: false,
+              parseOutgoing: false,
+            }),
+          `updating card ${href}`,
         );
-      }
-      const responses = await wrap(
-        () =>
-          client.davRequest({
-            url: href,
-            init: {
-              method: "PUT",
-              headers: { "Content-Type": "text/vcard; charset=utf-8", "If-Match": etag },
-              body: vcardText,
-            },
-            convertIncoming: false,
-            parseOutgoing: false,
-          }),
-        `updating card ${href}`,
-      );
 
-      assertWriteOk(responses[0], `updating card ${href}`);
-      const newEtag = await fetchFreshEtag(client, href);
-      return { href, etag: newEtag };
+        assertWriteOk(responses[0], `updating card ${href}`);
+        const newEtag = await fetchFreshEtag(client, href);
+        return { href, etag: newEtag };
+      });
     },
 
     async createCard(bookHref: string, vcardText: string) {
-      const href = absolutizeHref(generateCardFilename(), bookHref);
-      const responses = await wrap(
-        () =>
-          client.davRequest({
-            url: href,
-            init: {
-              method: "PUT",
-              headers: { "Content-Type": "text/vcard; charset=utf-8", "If-None-Match": "*" },
-              body: vcardText,
-            },
-            convertIncoming: false,
-            parseOutgoing: false,
-          }),
-        `creating card in ${bookHref}`,
-      );
+      return withAuthEviction(async () => {
+        const href = absolutizeHref(generateCardFilename(), bookHref);
+        const responses = await wrap(
+          () =>
+            client.davRequest({
+              url: href,
+              init: {
+                method: "PUT",
+                headers: { "Content-Type": "text/vcard; charset=utf-8", "If-None-Match": "*" },
+                body: vcardText,
+              },
+              convertIncoming: false,
+              parseOutgoing: false,
+            }),
+          `creating card in ${bookHref}`,
+        );
 
-      assertWriteOk(responses[0], `creating card ${href}`);
-      const newEtag = await fetchFreshEtag(client, href);
-      return { href, etag: newEtag };
+        assertWriteOk(responses[0], `creating card ${href}`);
+        const newEtag = await fetchFreshEtag(client, href);
+        return { href, etag: newEtag };
+      });
     },
 
     async deleteCard(href: string, etag: string) {
-      // Guards: a falsy/empty etag would be silently stripped by tsdav's
-      // cleanupFalsy (tsdav.js:2491-2497), making the DELETE unconditional and
-      // violating the lost-update invariant (AGENTS.md §5). Throw before any
-      // davRequest call as a safety net.
-      if (!etag) {
-        throw new DavError(
-          `Cannot delete ${href}: missing or empty ETag — conditional write impossible`,
-          "UNEXPECTED",
+      return withAuthEviction(async () => {
+        // Guards: a falsy/empty etag would be silently stripped by tsdav's
+        // cleanupFalsy (tsdav.js:2491-2497), making the DELETE unconditional and
+        // violating the lost-update invariant (AGENTS.md §5). Throw before any
+        // davRequest call as a safety net.
+        if (!etag) {
+          throw new DavError(
+            `Cannot delete ${href}: missing or empty ETag — conditional write impossible`,
+            "UNEXPECTED",
+          );
+        }
+        const responses = await wrap(
+          () =>
+            client.davRequest({
+              url: href,
+              init: {
+                method: "DELETE",
+                headers: { "If-Match": etag },
+                body: undefined,
+              },
+              convertIncoming: false,
+              parseOutgoing: false,
+            }),
+          `deleting card ${href}`,
         );
-      }
-      const responses = await wrap(
-        () =>
-          client.davRequest({
-            url: href,
-            init: {
-              method: "DELETE",
-              headers: { "If-Match": etag },
-              body: undefined,
-            },
-            convertIncoming: false,
-            parseOutgoing: false,
-          }),
-        `deleting card ${href}`,
-      );
 
-      assertWriteOk(responses[0], `deleting card ${href}`);
+        assertWriteOk(responses[0], `deleting card ${href}`);
+      });
     },
   };
 }

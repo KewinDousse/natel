@@ -24,6 +24,9 @@ vi.mock("tsdav", () => {
 // Import after mock — internal.ts's dependency on tsdav resolves to the mock.
 import { createDavSession, __testing as internalTesting } from "@/dav/internal";
 
+// DavError is needed for AUTH-eviction tests.
+import { DavError } from "@/dav/types";
+
 // Get references to the mocked functions for per-test setup.
 const tsdavModule = await import("tsdav");
 const mockCreateDAVClient = tsdavModule.createDAVClient as ReturnType<typeof vi.fn>;
@@ -81,6 +84,68 @@ describe("createDavSession", () => {
       authMethod: "Basic",
       defaultAccountType: "carddav",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Session cache semantics
+// ---------------------------------------------------------------------------
+
+describe("session cache", () => {
+  beforeEach(() => {
+    mockCreateDAVClient.mockResolvedValue(mockClient());
+  });
+
+  it("dedupes concurrent calls — createDAVClient called once", async () => {
+    const [s1, s2] = await Promise.all([createDavSession(AUTH), createDavSession(AUTH)]);
+    expect(mockCreateDAVClient).toHaveBeenCalledTimes(1);
+    // Both resolve to sessions (they are the same underlying promise).
+    expect(s1).toBeDefined();
+    expect(s2).toBeDefined();
+  });
+
+  it("reuses cached session on sequential calls", async () => {
+    const s1 = await createDavSession(AUTH);
+    const s2 = await createDavSession(AUTH);
+    expect(mockCreateDAVClient).toHaveBeenCalledTimes(1);
+    expect(s1).toBeDefined();
+    expect(s2).toBeDefined();
+  });
+
+  it("evicts on creation rejection so a corrected password gets a fresh session", async () => {
+    mockCreateDAVClient.mockReset();
+    mockCreateDAVClient.mockRejectedValueOnce(new Error("Connection refused"));
+    await expect(createDavSession(AUTH)).rejects.toThrow();
+
+    // Second attempt should retry createDAVClient (cache was evicted).
+    mockCreateDAVClient.mockResolvedValueOnce(mockClient());
+    const session = await createDavSession(AUTH);
+    expect(mockCreateDAVClient).toHaveBeenCalledTimes(2);
+    expect(session).toBeDefined();
+  });
+
+  it("evicts on operation AUTH error so the next call creates a fresh session", async () => {
+    // Set up a client whose discoverAddressBooks fails with AUTH.
+    const brokenClient = mockClient({
+      fetchAddressBooks: vi.fn().mockRejectedValue(new DavError("auth failed", "AUTH")),
+    });
+    mockCreateDAVClient.mockReset();
+    mockCreateDAVClient.mockResolvedValue(brokenClient);
+
+    const session = await createDavSession(AUTH);
+    expect(mockCreateDAVClient).toHaveBeenCalledTimes(1);
+
+    // Operation throws AUTH → cache entry evicted.
+    await expect(session.discoverAddressBooks()).rejects.toMatchObject({ code: "AUTH" });
+
+    // Now set up a working client for the next createDavSession call.
+    const workingClient = mockClient();
+    mockCreateDAVClient.mockResolvedValue(workingClient);
+
+    const session2 = await createDavSession(AUTH);
+    // createDAVClient was called again because the AUTH eviction cleared the cache.
+    expect(mockCreateDAVClient).toHaveBeenCalledTimes(2);
+    expect(session2).toBeDefined();
   });
 });
 

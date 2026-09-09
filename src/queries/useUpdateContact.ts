@@ -22,10 +22,12 @@ export function useUpdateContact(auth: DavAuth) {
       return await updateCard(auth, contact.href, contact.etag, vcardText);
     },
     onSuccess: (result, contact) => {
-      // Patch the cached Contact with the new ETag instead of invalidating.
-      // The body is already what we sent — only the etag changed on the server.
+      // Patch the cached Contact with the SUBMITTED contact and the new ETag
+      // instead of invalidating. Spreading `contact` (not the cached copy)
+      // keeps the submitted fields — serialise() mutates the shared `raw`, so
+      // the cached copy on its own would hold stale fields here.
       queryClient.setQueriesData<Contact[]>({ queryKey: contactsAuthPrefix(auth) }, (old) =>
-        old?.map((c) => (c.href === contact.href ? { ...c, etag: result.etag } : c)),
+        old?.map((c) => (c.href === contact.href ? { ...contact, etag: result.etag } : c)),
       );
     },
   });

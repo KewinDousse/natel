@@ -386,6 +386,54 @@ describe("useUpdateContact", () => {
     ]);
     expect(cached).toHaveLength(1);
     expect(cached![0]!.etag).toBe('"new-etag"');
+
+    // The serialised vcard and the original etag were passed to updateCard.
+    expect(mockUpdateCard).toHaveBeenCalledWith(
+      MOCK_AUTH,
+      updatedContact.href,
+      '"e1"',
+      "SERIALISED_VCARD",
+    );
+  });
+
+  it("patches the cache with the submitted contact fields (not the stale cached ones)", async () => {
+    mockSerialise.mockReturnValue("SERIALISED_VCARD");
+    mockUpdateCard.mockResolvedValue({
+      href: "https://dav.example.com/dav/books/default/1.vcf",
+      etag: '"new-etag"',
+    });
+
+    // Pre-populate cache with a contact.
+    const oldContact = makeContact({ etag: '"e1"' });
+    const client = createTestClient();
+    client.setQueryData(
+      ["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href],
+      [oldContact],
+    );
+
+    const { result } = renderHook(() => useUpdateContact(MOCK_AUTH), {
+      wrapper: wrapper(client),
+    });
+
+    // Copy-edit pattern: spread the contact, change a field, pass the copy.
+    const editedContact = {
+      ...oldContact,
+      fields: { ...oldContact.fields, fn: "Alice Updated" },
+    };
+    result.current.mutate(editedContact);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+
+    // The cache should carry the edited fields AND the new etag — a regression
+    // test against spreading the stale cached copy instead of the submitted one.
+    const cached = client.getQueryData<Contact[]>([
+      "contacts",
+      MOCK_AUTH.serverUrl,
+      MOCK_AUTH.username,
+      MOCK_BOOK.href,
+    ]);
+    expect(cached).toHaveLength(1);
+    expect(cached![0]!.etag).toBe('"new-etag"');
+    expect(cached![0]!.fields.fn).toBe("Alice Updated");
   });
 
   it("exposes CONFLICT DavError to the caller", async () => {
