@@ -13,7 +13,7 @@
  * conflict UX — this module never auto-retries or auto-merges.
  */
 
-import { createDavSession } from "./internal";
+import { clearCachedDavSessions, createDavSession } from "./internal";
 import type { DavAddressBook, DavAuth, DavContactDetail, DavContactSummary } from "./types";
 import { DavError } from "./types";
 
@@ -96,4 +96,4 @@ export async function deleteCard(auth: DavAuth, href: string, etag: string): Pro
 }
 
 export type { DavAddressBook, DavAuth, DavContactDetail, DavContactSummary } from "./types";
-export { DavError };
+export { clearCachedDavSessions, DavError };

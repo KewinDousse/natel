@@ -5,12 +5,11 @@
  * cookies, or IndexedDB. Only `serverUrl` (without username/password) is stored
  * in localStorage so the field survives page reloads.
  *
- * On logout the in-memory DAV session cache is also cleared via the
- * `__testing.clearSessionCache()` seam — the only production use of a
- * `__testing` export, and intentionally documented as such.
+ * On logout the in-memory DAV session cache is also cleared via
+ * `clearCachedDavSessions()`, exported from `@/dav`.
  */
 import { create } from "zustand";
-import { __testing as davTesting } from "@/dav/internal";
+import { clearCachedDavSessions } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 
 /** localStorage key for the server URL. */
@@ -94,7 +93,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
   },
 
   logout: () => {
-    davTesting.clearSessionCache();
+    clearCachedDavSessions();
     set({ auth: null, selectedBook: null });
   },
 

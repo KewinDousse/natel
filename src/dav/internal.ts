@@ -660,6 +660,11 @@ function generateCardFilename(): string {
   return `${fallback}.vcf`;
 }
 
+/** Clear the in-memory session cache. Used on logout, and between tests. */
+export function clearCachedDavSessions(): void {
+  sessionCache.clear();
+}
+
 // ---------------------------------------------------------------------------
 // Test-only exports
 // ---------------------------------------------------------------------------
@@ -672,7 +677,5 @@ export const __testing = {
   mapDavError,
   deriveBookUrl,
   /** Clear the in-memory session cache (needed between tests with mocked tsdav). */
-  clearSessionCache(): void {
-    sessionCache.clear();
-  },
+  clearSessionCache: clearCachedDavSessions,
 };

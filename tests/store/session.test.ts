@@ -1,20 +1,17 @@
 /**
  * Tests for src/store/session.ts — Zustand session store.
  *
- * The DAV session cache clear is tested by mocking `@/dav/internal`'s
- * `__testing.clearSessionCache`.
+ * The DAV session cache clear is tested by mocking `@/dav`'s
+ * `clearCachedDavSessions`.
  */
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 
-// Mock the internal module before importing the store.
-vi.mock("@/dav/internal", () => {
-  const clearSessionCache = vi.fn();
-  return {
-    __testing: { clearSessionCache },
-    __esModule: true,
-  };
+// Mock the dav module before importing the store.
+vi.mock("@/dav", () => {
+  const clearCachedDavSessions = vi.fn();
+  return { clearCachedDavSessions, __esModule: true };
 });
 
 import {
@@ -37,8 +34,8 @@ const mockBook: DavAddressBook = {
   displayName: "Default Address Book",
 };
 
-// Grab the mocked dav/internal module so we can assert on clearSessionCache.
-const { __testing: davTesting } = await import("@/dav/internal");
+// Grab the mocked dav module so we can assert on clearCachedDavSessions.
+const { clearCachedDavSessions } = await import("@/dav");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -112,13 +109,13 @@ describe("logout", () => {
     expect(state.selectedBook).toBeNull();
   });
 
-  it("calls clearSessionCache on the dav internal module", () => {
+  it("calls clearCachedDavSessions on the dav module", () => {
     resetStore();
     useSessionStore.getState().login(mockAuth);
 
     useSessionStore.getState().logout();
 
-    expect(davTesting.clearSessionCache).toHaveBeenCalledTimes(1);
+    expect(clearCachedDavSessions).toHaveBeenCalledTimes(1);
   });
 
   it("keeps serverUrl unchanged (pre-fills next login)", () => {
