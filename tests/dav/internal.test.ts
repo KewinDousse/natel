@@ -22,7 +22,7 @@ vi.mock("tsdav", () => {
 });
 
 // Import after mock — internal.ts's dependency on tsdav resolves to the mock.
-import { createDavSession } from "@/dav/internal";
+import { createDavSession, __testing as internalTesting } from "@/dav/internal";
 
 // Get references to the mocked functions for per-test setup.
 const tsdavModule = await import("tsdav");
@@ -58,6 +58,11 @@ function davResp(overrides: Partial<DAVResponse>): DAVResponse {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Clear the session cache so each test gets a fresh tsdav client from the
+  // per-test mock setup. Without this, the cache would return the first test's
+  // session for all subsequent tests (same serverUrl + username key), breaking
+  // the mocked per-test client configuration.
+  internalTesting.clearSessionCache();
 });
 
 // ---------------------------------------------------------------------------

@@ -289,11 +289,36 @@ export interface DavSession {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a tsdav client session for the given credentials.
+ * Session cache keyed on (serverUrl, username) to avoid redundant tsdav
+ * discovery across concurrent hook mounts. The password is deliberately
+ * excluded from the key (and never stored) — AGENTS.md invariant 3.
+ * If a session creation fails, the cache entry is evicted so the next caller
+ * retries rather than getting a stale rejected promise.
+ */
+const sessionCache = new Map<string, Promise<DavSession>>();
+
+/**
+ * Create (or reuse) a tsdav client session for the given credentials.
  *
  * Credentials are held in the local client object and never stored externally.
  */
 export async function createDavSession(auth: {
+  serverUrl: string;
+  username: string;
+  password: string;
+}): Promise<DavSession> {
+  const key = `${auth.serverUrl}|${auth.username}`;
+  const cached = sessionCache.get(key);
+  if (cached) return cached;
+  const promise = makeSession(auth).catch((err) => {
+    sessionCache.delete(key);
+    throw err;
+  });
+  sessionCache.set(key, promise);
+  return promise;
+}
+
+async function makeSession(auth: {
   serverUrl: string;
   username: string;
   password: string;
@@ -582,4 +607,8 @@ export const __testing = {
   isMemberResponse,
   mapDavError,
   deriveBookUrl,
+  /** Clear the in-memory session cache (needed between tests with mocked tsdav). */
+  clearSessionCache(): void {
+    sessionCache.clear();
+  },
 };
