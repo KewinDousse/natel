@@ -68,6 +68,10 @@ beforeEach(() => {
   internalTesting.clearSessionCache();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 // ---------------------------------------------------------------------------
 // createDavSession — session creation
 // ---------------------------------------------------------------------------
@@ -518,6 +522,31 @@ describe("updateCard", () => {
     });
     expect(davId).not.toHaveBeenCalled();
   });
+
+  it("throws UNEXPECTED when davRequest returns an empty multistatus (no response from server)", async () => {
+    const davId = vi.fn().mockResolvedValue([]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
+      code: "UNEXPECTED",
+      message: expect.stringContaining("no response from server"),
+    });
+  });
+
+  it("throws UNEXPECTED when re-PROPFIND returns a response without etag", async () => {
+    const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
+    const pfind = vi
+      .fn()
+      .mockResolvedValue([davResp({ href: "/dav/books/default/1.vcf", props: { getetag: "" } })]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
+      code: "UNEXPECTED",
+      message: expect.stringContaining("missing an ETag after write"),
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -597,6 +626,43 @@ describe("createCard", () => {
     const session = await createDavSession(AUTH);
     await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({ code: "AUTH" });
   });
+
+  it("throws AUTH when PUT returns 403", async () => {
+    const davId = vi
+      .fn()
+      .mockResolvedValue([davResp({ ok: false, status: 403, statusText: "Forbidden" })]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({ code: "AUTH" });
+  });
+
+  it("throws NOT_FOUND when PUT returns 404", async () => {
+    const davId = vi
+      .fn()
+      .mockResolvedValue([davResp({ ok: false, status: 404, statusText: "Not Found" })]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("throws UNEXPECTED with HTTP status when PUT returns 500", async () => {
+    const davId = vi
+      .fn()
+      .mockResolvedValue([
+        davResp({ ok: false, status: 500, statusText: "Internal Server Error" }),
+      ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({
+      code: "UNEXPECTED",
+      message: expect.stringContaining("HTTP 500"),
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -646,6 +712,16 @@ describe("deleteCard", () => {
     const davId = vi
       .fn()
       .mockResolvedValue([davResp({ ok: false, status: 401, statusText: "Unauthorized" })]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.deleteCard(CARD_HREF, '"e"')).rejects.toMatchObject({ code: "AUTH" });
+  });
+
+  it("throws AUTH when DELETE returns 403", async () => {
+    const davId = vi
+      .fn()
+      .mockResolvedValue([davResp({ ok: false, status: 403, statusText: "Forbidden" })]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);

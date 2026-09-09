@@ -68,7 +68,11 @@ describe("extractEtag", () => {
     expect(extractEtag(resp({ getetag: "" }))).toBeUndefined();
   });
 
-  it("returns undefined for empty _text etag (<d:getetag/>)", () => {
+  it("returns undefined for empty object etag ({} — tsdav real shape for empty <d:getetag/>)", () => {
+    expect(extractEtag(resp({ getetag: {} }))).toBeUndefined();
+  });
+
+  it("returns undefined for empty _text string", () => {
     expect(extractEtag(resp({ getetag: { _text: "" } }))).toBeUndefined();
   });
 

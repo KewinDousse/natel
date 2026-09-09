@@ -221,17 +221,22 @@ function assertWriteOk(
   }
   if (response.ok) return;
   if (response.status === 412) {
-    throw new DavError(`CardDAV conflict: ${context} — resource changed on server`, "CONFLICT");
+    throw new DavError(
+      `CardDAV conflict: ${context} — resource changed on server`,
+      "CONFLICT",
+      response,
+    );
   }
   if (response.status === 401 || response.status === 403) {
-    throw new DavError(`CardDAV authentication failed: ${context}`, "AUTH");
+    throw new DavError(`CardDAV authentication failed: ${context}`, "AUTH", response);
   }
   if (response.status === 404) {
-    throw new DavError(`CardDAV resource not found: ${context}`, "NOT_FOUND");
+    throw new DavError(`CardDAV resource not found: ${context}`, "NOT_FOUND", response);
   }
   throw new DavError(
     `CardDAV unexpected error: ${context} — HTTP ${response.status}`,
     "UNEXPECTED",
+    response,
   );
 }
 
@@ -251,6 +256,24 @@ async function fetchFreshEtag(client: DAVClient, href: string): Promise<string> 
     `refetching etag for ${href}`,
   );
   const match = findResponseByHref(responses, href, bookUrl);
+
+  // If the response is non-ok (e.g. 404 after deletion, 500 from server),
+  // throw a mapped DavError with the status included — mirroring the
+  // approach in listMembers for the book response.
+  if (match && !match.ok) {
+    const status = match.status ?? 0;
+    if (status === 404) {
+      throw new DavError(`CardDAV resource not found: refetching etag for ${href}`, "NOT_FOUND");
+    }
+    if (status === 401 || status === 403) {
+      throw new DavError(`CardDAV authentication failed: refetching etag for ${href}`, "AUTH");
+    }
+    throw new DavError(
+      `CardDAV unexpected error: refetching etag for ${href} — HTTP ${status}`,
+      "UNEXPECTED",
+    );
+  }
+
   const etag = match ? extractEtag(match) : undefined;
   if (etag === undefined) {
     throw new DavError(
@@ -291,10 +314,16 @@ export interface DavSession {
 /**
  * Session cache keyed on (serverUrl, username) to avoid redundant tsdav
  * discovery across concurrent hook mounts. The password is deliberately
- * excluded from the key (and never stored) — AGENTS.md invariant 3.
+ * excluded from the key (and never persisted outside memory) — AGENTS.md
+ * invariant 3.
  * If a session creation fails, the cache entry is evicted so the next caller
  * retries rather than getting a stale rejected promise.
  */
+
+/** Build a session cache key from auth credentials (excludes password). */
+function sessionKey(auth: { serverUrl: string; username: string }): string {
+  return `${auth.serverUrl}|${auth.username}`;
+}
 const sessionCache = new Map<string, Promise<DavSession>>();
 
 /**
@@ -307,7 +336,7 @@ export async function createDavSession(auth: {
   username: string;
   password: string;
 }): Promise<DavSession> {
-  const key = `${auth.serverUrl}|${auth.username}`;
+  const key = sessionKey(auth);
   const cached = sessionCache.get(key);
   if (cached) return cached;
   const promise = makeSession(auth).catch((err) => {
@@ -323,7 +352,7 @@ async function makeSession(auth: {
   username: string;
   password: string;
 }): Promise<DavSession> {
-  const key = `${auth.serverUrl}|${auth.username}`;
+  const key = sessionKey(auth);
   const client = await wrap(
     () =>
       createDAVClient({
@@ -461,7 +490,7 @@ async function makeSession(auth: {
     async updateCard(href: string, etag: string, vcardText: string) {
       return withAuthEviction(async () => {
         // Guards: a falsy/empty etag would be silently stripped by tsdav's
-        // cleanupFalsy (tsdav.js:2491-2497), making the PUT unconditional and
+        // cleanupFalsy (tsdav@2.3.1, src/util.ts), making the PUT unconditional and
         // violating the lost-update invariant (AGENTS.md §5). Throw before any
         // davRequest call as a safety net.
         if (!etag) {
@@ -518,7 +547,7 @@ async function makeSession(auth: {
     async deleteCard(href: string, etag: string) {
       return withAuthEviction(async () => {
         // Guards: a falsy/empty etag would be silently stripped by tsdav's
-        // cleanupFalsy (tsdav.js:2491-2497), making the DELETE unconditional and
+        // cleanupFalsy (tsdav@2.3.1, src/util.ts), making the DELETE unconditional and
         // violating the lost-update invariant (AGENTS.md §5). Throw before any
         // davRequest call as a safety net.
         if (!etag) {
@@ -619,10 +648,16 @@ function generateCardFilename(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `${crypto.randomUUID()}.vcf`;
   }
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `${hex}.vcf`;
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    return `${hex}.vcf`;
+  }
+  // Last resort: Math.random (non-cryptographic, but avoids a hard crash).
+  // In practice every modern browser and Node.js has crypto.getRandomValues.
+  const fallback = Math.random().toString(36).slice(2, 10);
+  return `${fallback}.vcf`;
 }
 
 // ---------------------------------------------------------------------------

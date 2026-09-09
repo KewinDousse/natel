@@ -11,7 +11,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 
@@ -117,7 +117,7 @@ function createTestClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
-      mutations: { retry: 0, retryDelay: 0 },
+      mutations: { retry: false, retryDelay: 0 },
     },
   });
 }
