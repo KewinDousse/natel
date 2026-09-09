@@ -11,6 +11,7 @@ import { createCard } from "@/dav";
 import type { DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 import { serialise } from "@/vcard";
+import { contactsKey } from "./keys";
 
 export function useCreateContact(auth: DavAuth, bookHref: string) {
   const queryClient = useQueryClient();
@@ -24,7 +25,7 @@ export function useCreateContact(auth: DavAuth, bookHref: string) {
       // Invalidate only the contacts query for this specific book, not all
       // books of the auth.
       void queryClient.invalidateQueries({
-        queryKey: ["contacts", auth.serverUrl, auth.username, bookHref],
+        queryKey: contactsKey(auth, { href: bookHref }),
       });
     },
   });

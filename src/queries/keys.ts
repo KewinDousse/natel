@@ -4,7 +4,7 @@
  * Each helper returns a readonly tuple that serves both as the cache key and
  * as a filter for partial invalidation / setQueriesData.
  */
-import type { DavAddressBook, DavAuth } from "@/dav/types";
+import type { DavAuth } from "@/dav/types";
 
 /** Key for the address-books query, scoped to auth. */
 export function addressBooksKey(
@@ -16,7 +16,7 @@ export function addressBooksKey(
 /** Key for a contacts query, scoped to auth + book. */
 export function contactsKey(
   auth: DavAuth | undefined,
-  book: DavAddressBook | undefined,
+  book: { href: string } | undefined,
 ): readonly ["contacts", string, string, string] {
   return ["contacts", auth?.serverUrl ?? "", auth?.username ?? "", book?.href ?? ""];
 }

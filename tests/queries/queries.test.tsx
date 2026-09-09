@@ -334,6 +334,7 @@ describe("useCreateContact", () => {
 
     const contact = makeContact({ etag: "", href: "" });
     const client = createTestClient();
+    const invalidateSpy = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(() => useCreateContact(MOCK_AUTH, MOCK_BOOK.href), {
       wrapper: wrapper(client),
     });
@@ -343,6 +344,9 @@ describe("useCreateContact", () => {
 
     expect(mockSerialise).toHaveBeenCalledWith(contact);
     expect(mockCreateCard).toHaveBeenCalledWith(MOCK_AUTH, MOCK_BOOK.href, "SERIALISED_VCARD");
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href],
+    });
   });
 });
 
