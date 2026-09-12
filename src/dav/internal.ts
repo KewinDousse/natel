@@ -493,8 +493,11 @@ async function makeSession(auth: {
       return withAuthEviction(async () => {
         if (hrefs.length === 0) return [];
 
+        const first = hrefs[0];
+        if (first === undefined) return [];
+
         // All hrefs must share the same parent book URL.
-        const bookUrl = deriveBookUrl(hrefs[0] as string);
+        const bookUrl = deriveBookUrl(first);
 
         const responses = await wrap(
           () =>

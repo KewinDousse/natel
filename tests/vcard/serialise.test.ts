@@ -63,4 +63,37 @@ describe("serialise", () => {
     expect(nArr[0]).toBe("Last");
     expect(nArr[1]).toBe("First");
   });
+
+  it("clears stale params when TEL list shrinks and reorders", () => {
+    // Start with a card that has two TELs with different TYPE params.
+    const text = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "FN:Test",
+      "N:Test;;;",
+      "TEL;TYPE=HOME:111",
+      "TEL;TYPE=WORK:222",
+      "UID:reorder-test@example.com",
+      "END:VCARD",
+    ].join("\n");
+
+    const contact = parse(text);
+
+    // Delete the HOME TEL (index 0) so the WORK TEL shifts into index 0.
+    // The remaining TEL must NOT carry the stale TYPE=HOME.
+    contact.fields.tel = [{ value: "222", type: "phone-number", params: { type: "WORK" } }];
+
+    const output = serialise(contact);
+
+    const jCal = ICAL.parse(output);
+    const comp = new ICAL.Component(jCal);
+    const tels = comp.getAllProperties("tel");
+    expect(tels).toHaveLength(1);
+
+    // The single remaining TEL must have TYPE=WORK, not HOME.
+    const tel = tels[0]!;
+    const jcal = tel.toJSON() as [string, Record<string, string | string[]>, string, unknown];
+    const params = jcal[1] ?? {};
+    expect(params.type).toBe("WORK");
+  });
 });

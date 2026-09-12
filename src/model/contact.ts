@@ -16,6 +16,7 @@ export interface RawProperty {
   resetType(type: string): void;
   setValue(value: unknown): void;
   setParameter(name: string, value: string | string[]): void;
+  removeParameter(name: string): void;
 }
 
 /**

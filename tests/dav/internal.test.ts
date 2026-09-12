@@ -373,6 +373,126 @@ describe("fetchCard", () => {
 });
 
 // ---------------------------------------------------------------------------
+// fetchCards — batched addressBookMultiGet
+// ---------------------------------------------------------------------------
+
+describe("fetchCards", () => {
+  it("calls addressBookMultiGet once with all objectUrls as path-only URLs", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({
+        href: "/dav/books/default/1.vcf",
+        props: { getetag: '"e1"', addressData: "VCARD1" },
+      }),
+      davResp({
+        href: "/dav/books/default/2.vcf",
+        props: { getetag: '"e2"', addressData: "VCARD2" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards([
+      "https://dav.example.com/dav/books/default/1.vcf",
+      "https://dav.example.com/dav/books/default/2.vcf",
+    ]);
+
+    // Single multiget call with all hrefs as path-only URLs.
+    expect(multiget).toHaveBeenCalledTimes(1);
+    expect(multiget).toHaveBeenCalledWith({
+      url: "https://dav.example.com/dav/books/default/",
+      props: { "d:getetag": {}, "card:address-data": {} },
+      depth: "1",
+      objectUrls: ["/dav/books/default/1.vcf", "/dav/books/default/2.vcf"],
+    });
+    expect(results).toHaveLength(2);
+  });
+
+  it("matches responses out of order (response order != request order)", async () => {
+    // Responses come back in reverse order.
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({
+        href: "/dav/books/default/2.vcf",
+        props: { getetag: '"e2"', addressData: "VCARD2" },
+      }),
+      davResp({
+        href: "/dav/books/default/1.vcf",
+        props: { getetag: '"e1"', addressData: "VCARD1" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards([
+      "https://dav.example.com/dav/books/default/1.vcf",
+      "https://dav.example.com/dav/books/default/2.vcf",
+    ]);
+
+    expect(results).toHaveLength(2);
+    // Results are returned in request order.
+    expect(results[0]?.href).toBe("https://dav.example.com/dav/books/default/1.vcf");
+    expect(results[1]?.href).toBe("https://dav.example.com/dav/books/default/2.vcf");
+  });
+
+  it("skips responses missing address-data", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({
+        href: "/dav/books/default/1.vcf",
+        props: { getetag: '"e1"' }, // no addressData
+      }),
+      davResp({
+        href: "/dav/books/default/2.vcf",
+        props: { getetag: '"e2"', addressData: "VCARD2" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards([
+      "https://dav.example.com/dav/books/default/1.vcf",
+      "https://dav.example.com/dav/books/default/2.vcf",
+    ]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.href).toBe("https://dav.example.com/dav/books/default/2.vcf");
+  });
+
+  it("skips responses missing etag", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({
+        href: "/dav/books/default/1.vcf",
+        props: { getetag: '"e1"', addressData: "VCARD1" },
+      }),
+      davResp({
+        href: "/dav/books/default/2.vcf",
+        props: { addressData: "VCARD2" }, // no getetag
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards([
+      "https://dav.example.com/dav/books/default/1.vcf",
+      "https://dav.example.com/dav/books/default/2.vcf",
+    ]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.href).toBe("https://dav.example.com/dav/books/default/1.vcf");
+  });
+
+  it("returns empty array when hrefs is empty (short-circuit)", async () => {
+    const multiget = vi.fn();
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards([]);
+
+    // No call to addressBookMultiGet at all.
+    expect(multiget).not.toHaveBeenCalled();
+    expect(results).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // updateCard — conditional PUT via davRequest + re-PROPFIND
 // ---------------------------------------------------------------------------
 

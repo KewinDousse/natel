@@ -73,6 +73,18 @@ function updatePropertyInPlace(prop: RawProperty, field: ContactField): void {
     prop.resetType(field.type);
   }
   prop.setValue(field.value);
+
+  // Remove any existing params that are absent from the incoming field,
+  // so deleted/reordered properties don't carry stale parameters.
+  const currentParams =
+    (prop.toJSON() as [string, Record<string, string | string[]>, string, unknown])[1] ?? {};
+  const fieldKeys = new Set(field.params ? Object.keys(field.params) : []);
+  for (const key of Object.keys(currentParams)) {
+    if (!fieldKeys.has(key)) {
+      prop.removeParameter(key);
+    }
+  }
+  // Apply the incoming params.
   if (field.params) {
     for (const [key, val] of Object.entries(field.params)) {
       prop.setParameter(key, val);
