@@ -55,6 +55,13 @@ function mockSession(overrides: Partial<DavSession> = {}): DavSession {
       vcardText: "BEGIN:VCARD\nVERSION:3.0\nFN:Alice\nEND:VCARD\n",
       etag: '"abc123"',
     }),
+    fetchCards: vi.fn().mockResolvedValue([
+      {
+        href: "/dav/books/default/1.vcf",
+        vcardText: "BEGIN:VCARD\nVERSION:3.0\nFN:Alice\nEND:VCARD\n",
+        etag: '"abc123"',
+      },
+    ]),
     updateCard: vi.fn().mockResolvedValue({
       href: "/dav/books/default/1.vcf",
       etag: '"new-etag"',

@@ -82,10 +82,12 @@ Vite's dev proxy has an equivalent `rewrite` that strips `/^\/dav/`.
 adjustment. Must ensure any future proxy target also supports path
 rewriting; Caddy and Vite proxy semantics must stay in sync.
 
-## Open — to be decided
+## 010 — License and project name
 
-- **License.** AGPL-3.0 (hosted forks stay open, same as InfCloud) vs MIT
-  (maximum adoption). Decide before the first public commit.
-- **Groups.** `CATEGORIES` (Android/DAVx⁵) vs `KIND:group` + `MEMBER` (Apple)
-  for writing. Read both; pick one to write after seeing real fixtures in phase 1.
-- **Project name.**
+**Context.** The repo was set up without a license or name committed, leaving
+both as open questions through phase 0.
+**Decision.** MIT license (maximum adoption, aligned with InfCloud's
+predecessor licensing philosophy) and the name "Natel" (a play on
+"navigateur de contacts" / "natel" as a Swiss term for mobile phone).
+**Consequences.** MIT allows unrestricted use, modification, and
+redistribution. The name is short and available on npm/Docker Hub.

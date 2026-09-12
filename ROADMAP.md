@@ -5,11 +5,11 @@ its checklist is ticked. Later phases are intentions, not commitments.
 
 ## Phase 0 — Framing ✅ when: repo exists with README, AGENTS.md, ARCHITECTURE.md, DECISIONS.md
 
-- [ ] Project name and license chosen
-- [ ] Intent files committed
-- [ ] Scaffold: Vite + React + TS strict, router, query, Tailwind, shadcn, Biome, Vitest
-- [ ] `pnpm check` green on an empty app
-- [ ] Multi-stage Dockerfile producing a Caddy image that serves the empty app
+- [x] Project name and license chosen
+- [x] Intent files committed
+- [x] Scaffold: Vite + React + TS strict, router, query, Tailwind, shadcn, Biome, Vitest
+- [x] `pnpm check` green on an empty app
+- [x] Multi-stage Dockerfile producing a Caddy image that serves the empty app
 
 ## Phase 1 — Spike ✅ when: real vCards round-trip byte-for-byte through the parser
 

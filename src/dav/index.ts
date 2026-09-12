@@ -52,6 +52,18 @@ export async function fetchCard(auth: DavAuth, href: string): Promise<DavContact
 }
 
 /**
+ * Fetch multiple vCards in a single addressbook-multiget REPORT.
+ *
+ * Returns only the hrefs that were successfully fetched; any missing or
+ * unparseable responses are silently omitted (the caller can compare with
+ * the requested hrefs to surface partial-load warnings).
+ */
+export async function fetchCards(auth: DavAuth, hrefs: string[]): Promise<DavContactDetail[]> {
+  const session = await createDavSession(auth);
+  return await session.fetchCards(hrefs);
+}
+
+/**
  * Update an existing card with a conditional PUT.
  *
  * `etag` must be the last-known ETag (from fetchCard / listContacts). On HTTP

@@ -27,6 +27,7 @@ export interface RawComponent {
   getFirstProperty(name: string): RawProperty | null;
   getAllProperties(name: string): RawProperty[];
   removeAllProperties(name: string): void;
+  removeProperty(nameOrProp: string | RawProperty): boolean;
   addProperty(prop: RawProperty): unknown;
   toString(): string;
 }

@@ -295,6 +295,8 @@ export interface DavSession {
   listMembers(bookHref: string): Promise<Array<{ href: string; etag: string }>>;
   /** Fetch a single vCard body by href, returning text + etag. */
   fetchCard(href: string): Promise<{ vcardText: string; etag: string }>;
+  /** Fetch multiple vCards in a single addressbook-multiget REPORT. */
+  fetchCards(hrefs: string[]): Promise<Array<{ href: string; vcardText: string; etag: string }>>;
   /** Update a card with a conditional PUT (If-Match); returns the new etag. */
   updateCard(
     href: string,
@@ -484,6 +486,42 @@ async function makeSession(auth: {
         }
 
         return { vcardText, etag };
+      });
+    },
+
+    async fetchCards(hrefs: string[]) {
+      return withAuthEviction(async () => {
+        if (hrefs.length === 0) return [];
+
+        // All hrefs must share the same parent book URL.
+        const bookUrl = deriveBookUrl(hrefs[0] as string);
+
+        const responses = await wrap(
+          () =>
+            client.addressBookMultiGet({
+              url: bookUrl,
+              props: MULTIGET_PROPS,
+              depth: "1",
+              objectUrls: hrefs.map((h) => pathnamePlusSearch(h)),
+            }),
+          `fetching ${hrefs.length} cards`,
+        );
+
+        const results: Array<{ href: string; vcardText: string; etag: string }> = [];
+        for (const href of hrefs) {
+          const match = findResponseByHref(responses, href, bookUrl);
+          if (!match) continue; // caller handles missing
+
+          const vcardText = extractAddressData(match);
+          if (vcardText === undefined) continue;
+
+          const etag = extractEtag(match);
+          if (etag === undefined) continue;
+
+          results.push({ href, vcardText, etag });
+        }
+
+        return results;
       });
     },
 

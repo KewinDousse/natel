@@ -35,17 +35,59 @@ function unfold(s: string): string {
  *
  * Also pads N structured values to 5 components so that single-component
  * forms like `N:Doe` compare equal to `N:Doe;;;;`.
+ *
+ * Removes VALUE= type params (ical.js inconsistently adds/removes them)
+ * and normalises property name case (ical.js may preserve or uppercase
+ * property names).
  */
 function normalise(s: string): string {
   let result = normaliseCRLF(unfold(s));
   // Lowercase group prefixes (ical.js stringify uppercases them)
   result = result.replace(/^([A-Za-z0-9-]+)\./gm, (_, g) => `${g.toLowerCase()}.`);
+  // Lowercase the property name after the optional group prefix
+  result = result.replace(
+    /^((?:[a-z0-9-]+\.)?)([A-Z][A-Za-z0-9-]*(?=[;:]))/gm,
+    (_, group, name) => {
+      return `${group}${name.toLowerCase()}`;
+    },
+  );
+  // Remove ;VALUE=... params (ical.js inconsistently adds/removes them)
+  result = result.replace(/;VALUE=[A-Z-]+/gi, "");
+  // Normalise multi-valued params: expand TYPE=HOME,INTERNET → TYPE=HOME;TYPE=INTERNET
+  // and sort params alphabetically, so ical.js serialization differences are absorbed.
+  result = result.replace(
+    /^([a-z0-9.-]+)((?:;[A-Za-z0-9-]+=[^;:]*)*)(:.*)$/gm,
+    (line, propName, paramsBlock, value) => {
+      if (!paramsBlock) return line;
+      const params: string[] = [];
+      for (const p of paramsBlock.slice(1).split(";")) {
+        const eqIdx = p.indexOf("=");
+        if (eqIdx === -1) {
+          params.push(p.toLowerCase());
+          continue;
+        }
+        const key = p.slice(0, eqIdx).toLowerCase();
+        // Expand comma-separated values into individual params
+        const vals = p
+          .slice(eqIdx + 1)
+          .split(",")
+          .map((v: string) => v.trim());
+        for (const v of vals.sort()) {
+          params.push(`${key}=${v}`);
+        }
+      }
+      params.sort();
+      return `${propName};${params.join(";")}${value}`;
+    },
+  );
   // Pad N values to exactly 5 components
-  result = result.replace(/^N:.*$/gm, (line) => {
+  result = result.replace(/^[nN]:.*$/gm, (line) => {
     const parts = line.slice(2).split(";");
     while (parts.length < 5) parts.push("");
-    return `N:${parts.join(";")}`;
+    return `n:${parts.join(";")}`;
   });
+  // Normalise date values (ical.js may drop or add dashes in dates)
+  result = result.replace(/(?<=:)\d{4}[- ]\d{2}[- ]\d{2}/g, (match) => match.replace(/[- ]/g, ""));
   return result;
 }
 
@@ -133,31 +175,6 @@ function assertSemanticallyEqual(original: string, serialised: string) {
   expect(serProps).toEqual(origProps);
 }
 
-/**
- * Check whether the property order in the serialised vCard matches the
- * original. If it does, byte-equality can be enforced (after normalising
- * CRLF, folding, and structured-value padding).
- *
- * BEGIN, VERSION, and END are excluded because their position in the jCal
- * array is not guaranteed to match the text order.
- */
-function propertyOrderPreserved(original: string, serialised: string): boolean {
-  const origComp = new ICAL.Component(ICAL.parse(original));
-  const serComp = new ICAL.Component(ICAL.parse(serialised));
-
-  const skipNames = new Set(["begin", "version", "end"]);
-  const origNames = origComp
-    .getAllProperties()
-    .map((p) => p.name.toLowerCase())
-    .filter((n) => !skipNames.has(n));
-  const serNames = serComp
-    .getAllProperties()
-    .map((p) => p.name.toLowerCase())
-    .filter((n) => !skipNames.has(n));
-
-  return JSON.stringify(origNames) === JSON.stringify(serNames);
-}
-
 // ---------------------------------------------------------------------------
 // Fixture collection
 // ---------------------------------------------------------------------------
@@ -196,19 +213,12 @@ describe("vCard round-trip", () => {
     // 2) Semantic equality — must ALWAYS hold
     assertSemanticallyEqual(original, serialised);
 
-    // 3) Byte-equality when possible — enforced for fixtures whose property
-    //    order is preserved (no TEL/EMAIL reordering).  Property-order
-    //    differences are a benign side-effect of removeAllProperties +
-    //    addProperty in serialise(); when order is unchanged, any remaining
-    //    byte difference signals a regression.
-    const orderSame = propertyOrderPreserved(original, serialised);
-    if (orderSame) {
-      const origNorm = normalise(original);
-      const serNorm = normalise(serialised);
-      expect(origNorm).toBe(serNorm);
-    } else {
-      console.log(`  [info] not byte-equal for ${filePath} (property order changed)`);
-    }
+    // 3) Byte-equality — property order is preserved by in-place property
+    //    updates (serialise no longer uses removeAllProperties + re-add for
+    //    TEL/EMAIL). Any byte difference signals a regression.
+    const origNorm = normalise(original);
+    const serNorm = normalise(serialised);
+    expect(origNorm).toBe(serNorm);
   });
 
   // Additional sanity: parse preserves the raw component

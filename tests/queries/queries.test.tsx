@@ -23,6 +23,7 @@ const {
   mockDiscoverAddressBooks,
   mockListContacts,
   mockFetchCard,
+  mockFetchCards,
   mockCreateCard,
   mockUpdateCard,
   mockDeleteCard,
@@ -35,6 +36,13 @@ const {
   mockFetchCard:
     vi.fn<
       (auth: DavAuth, href: string) => Promise<{ href: string; etag: string; vcardText: string }>
+    >(),
+  mockFetchCards:
+    vi.fn<
+      (
+        auth: DavAuth,
+        hrefs: string[],
+      ) => Promise<Array<{ href: string; etag: string; vcardText: string }>>
     >(),
   mockCreateCard:
     vi.fn<
@@ -68,6 +76,7 @@ vi.mock("@/dav", () => ({
   discoverAddressBooks: mockDiscoverAddressBooks,
   listContacts: mockListContacts,
   fetchCard: mockFetchCard,
+  fetchCards: mockFetchCards,
   createCard: mockCreateCard,
   updateCard: mockUpdateCard,
   deleteCard: mockDeleteCard,
@@ -184,37 +193,30 @@ describe("useAddressBooks", () => {
 // ---------------------------------------------------------------------------
 
 describe("useContacts", () => {
-  it("returns empty array when auth or book is undefined", () => {
+  it("returns empty result when auth or book is undefined", () => {
     const client = createTestClient();
 
     const { result: noAuth } = renderHook(() => useContacts(undefined, MOCK_BOOK), {
       wrapper: wrapper(client),
     });
-    expect(noAuth.current.data).toEqual([]);
+    expect(noAuth.current.data).toEqual({ contacts: [], skipped: [] });
 
     const { result: noBook } = renderHook(() => useContacts(MOCK_AUTH, undefined), {
       wrapper: wrapper(client),
     });
-    expect(noBook.current.data).toEqual([]);
+    expect(noBook.current.data).toEqual({ contacts: [], skipped: [] });
   });
 
-  it("loads the full book (list + fetch + parse)", async () => {
+  it("loads the full book (list + batched fetch + parse)", async () => {
     const summaries = [
       { href: "https://dav.example.com/dav/books/default/1.vcf", etag: '"e1"' },
       { href: "https://dav.example.com/dav/books/default/2.vcf", etag: '"e2"' },
     ];
     mockListContacts.mockResolvedValue(summaries);
-    mockFetchCard
-      .mockResolvedValueOnce({
-        href: summaries[0]!.href,
-        etag: '"e1"',
-        vcardText: "VCARD1",
-      })
-      .mockResolvedValueOnce({
-        href: summaries[1]!.href,
-        etag: '"e2"',
-        vcardText: "VCARD2",
-      });
+    mockFetchCards.mockResolvedValue([
+      { href: summaries[0]!.href, etag: '"e1"', vcardText: "VCARD1" },
+      { href: summaries[1]!.href, etag: '"e2"', vcardText: "VCARD2" },
+    ]);
 
     const contact1 = makeContact({ href: summaries[0]!.href, etag: '"e1"' });
     const contact2 = makeContact({ href: summaries[1]!.href, etag: '"e2"' });
@@ -226,28 +228,27 @@ describe("useContacts", () => {
     });
 
     await waitForFetchComplete(result);
-    expect(result.current.data).toHaveLength(2);
+    expect(result.current.data?.contacts).toHaveLength(2);
+    expect(result.current.data?.skipped).toHaveLength(0);
+    // Assert a single batched call was made with all hrefs
+    expect(mockFetchCards).toHaveBeenCalledWith(
+      MOCK_AUTH,
+      summaries.map((s) => s.href),
+    );
     expect(mockParse).toHaveBeenCalledWith("VCARD1", summaries[0]!.href, '"e1"');
     expect(mockParse).toHaveBeenCalledWith("VCARD2", summaries[1]!.href, '"e2"');
   });
 
-  it("isolates a corrupt card without breaking the book", async () => {
+  it("isolates a corrupt card and tracks its href in skipped", async () => {
     const summaries = [
       { href: "https://dav.example.com/dav/books/default/1.vcf", etag: '"e1"' },
       { href: "https://dav.example.com/dav/books/default/2.vcf", etag: '"e2"' },
     ];
     mockListContacts.mockResolvedValue(summaries);
-    mockFetchCard
-      .mockResolvedValueOnce({
-        href: summaries[0]!.href,
-        etag: '"e1"',
-        vcardText: "GOOD",
-      })
-      .mockResolvedValueOnce({
-        href: summaries[1]!.href,
-        etag: '"e2"',
-        vcardText: "CORRUPT",
-      });
+    mockFetchCards.mockResolvedValue([
+      { href: summaries[0]!.href, etag: '"e1"', vcardText: "GOOD" },
+      { href: summaries[1]!.href, etag: '"e2"', vcardText: "CORRUPT" },
+    ]);
 
     const goodContact = makeContact({ href: summaries[0]!.href, etag: '"e1"' });
     mockParse.mockReturnValueOnce(goodContact).mockImplementationOnce(() => {
@@ -260,23 +261,22 @@ describe("useContacts", () => {
     });
 
     await waitForFetchComplete(result);
-    expect(result.current.data!.length).toBe(1);
-    expect(result.current.data![0]?.href).toBe(summaries[0]!.href);
+    expect(result.current.data?.contacts).toHaveLength(1);
+    expect(result.current.data?.contacts[0]?.href).toBe(summaries[0]!.href);
+    expect(result.current.data?.skipped).toHaveLength(1);
+    expect(result.current.data?.skipped[0]).toBe(summaries[1]!.href);
   });
 
-  it("isolates a fetch failure without breaking the book", async () => {
+  it("tracks a missing fetch response in skipped", async () => {
     const summaries = [
       { href: "https://dav.example.com/dav/books/default/1.vcf", etag: '"e1"' },
       { href: "https://dav.example.com/dav/books/default/2.vcf", etag: '"e2"' },
     ];
     mockListContacts.mockResolvedValue(summaries);
-    mockFetchCard
-      .mockResolvedValueOnce({
-        href: summaries[0]!.href,
-        etag: '"e1"',
-        vcardText: "GOOD",
-      })
-      .mockRejectedValueOnce(new Error("network error"));
+    // Only one card returned by the batched call (second is missing)
+    mockFetchCards.mockResolvedValue([
+      { href: summaries[0]!.href, etag: '"e1"', vcardText: "GOOD" },
+    ]);
 
     const goodContact = makeContact({ href: summaries[0]!.href, etag: '"e1"' });
     mockParse.mockReturnValue(goodContact);
@@ -287,8 +287,9 @@ describe("useContacts", () => {
     });
 
     await waitForFetchComplete(result);
-    expect(result.current.data!.length).toBe(1);
-    expect(result.current.data![0]?.href).toBe(summaries[0]!.href);
+    expect(result.current.data?.contacts).toHaveLength(1);
+    expect(result.current.data?.skipped).toHaveLength(1);
+    expect(result.current.data?.skipped[0]).toBe(summaries[1]!.href);
   });
 });
 
@@ -297,26 +298,47 @@ describe("useContacts", () => {
 // ---------------------------------------------------------------------------
 
 describe("loadFullBook", () => {
-  it("assembles list + fetch + parse correctly", async () => {
+  it("assembles list + batched fetch + parse correctly", async () => {
     const summaries = [{ href: "https://dav.example.com/dav/books/default/1.vcf", etag: '"e1"' }];
     mockListContacts.mockResolvedValue(summaries);
-    mockFetchCard.mockResolvedValue({
-      href: summaries[0]!.href,
-      etag: '"e1"',
-      vcardText: "VCARD",
-    });
+    mockFetchCards.mockResolvedValue([
+      { href: summaries[0]!.href, etag: '"e1"', vcardText: "VCARD" },
+    ]);
     const contact = makeContact({ href: summaries[0]!.href, etag: '"e1"' });
     mockParse.mockReturnValue(contact);
 
     const result = await loadFullBook(MOCK_AUTH, "https://dav.example.com/dav/books/default/");
 
-    expect(result).toHaveLength(1);
+    expect(result.contacts).toHaveLength(1);
+    expect(result.skipped).toHaveLength(0);
     expect(mockListContacts).toHaveBeenCalledWith(
       MOCK_AUTH,
       "https://dav.example.com/dav/books/default/",
     );
-    expect(mockFetchCard).toHaveBeenCalledWith(MOCK_AUTH, summaries[0]!.href);
+    // Assert single batched call instead of per-card calls
+    expect(mockFetchCards).toHaveBeenCalledWith(MOCK_AUTH, [summaries[0]!.href]);
+    expect(mockFetchCard).not.toHaveBeenCalled();
     expect(mockParse).toHaveBeenCalledWith("VCARD", summaries[0]!.href, '"e1"');
+  });
+
+  it("tracks parse failures as skipped", async () => {
+    const summaries = [
+      { href: "https://dav.example.com/dav/books/default/1.vcf", etag: '"e1"' },
+      { href: "https://dav.example.com/dav/books/default/2.vcf", etag: '"e2"' },
+    ];
+    mockListContacts.mockResolvedValue(summaries);
+    mockFetchCards.mockResolvedValue([
+      { href: summaries[0]!.href, etag: '"e1"', vcardText: "GOOD" },
+      { href: summaries[1]!.href, etag: '"e2"', vcardText: "CORRUPT" },
+    ]);
+    const goodContact = makeContact({ href: summaries[0]!.href, etag: '"e1"' });
+    mockParse.mockReturnValueOnce(goodContact).mockImplementationOnce(() => {
+      throw new Error("parse error");
+    });
+
+    const result = await loadFullBook(MOCK_AUTH, "https://dav.example.com/dav/books/default/");
+    expect(result.contacts).toHaveLength(1);
+    expect(result.skipped).toEqual([summaries[1]!.href]);
   });
 });
 
