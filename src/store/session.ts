@@ -41,6 +41,19 @@ function persistServerUrl(url: string): void {
   }
 }
 
+/**
+ * Forget the persisted server URL (best-effort, silent on failure).
+ * Called when the user signs in with "remember server" unchecked, so the
+ * next visit really starts from a clean field.
+ */
+function removePersistedServerUrl(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY_SERVER_URL);
+  } catch {
+    // Silently ignore — storage may be unavailable.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -90,7 +103,11 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   login: (auth: DavAuth, options?: { rememberServer?: boolean }) => {
     const rememberServer = options?.rememberServer ?? true;
-    if (rememberServer) persistServerUrl(auth.serverUrl);
+    if (rememberServer) {
+      persistServerUrl(auth.serverUrl);
+    } else {
+      removePersistedServerUrl();
+    }
     set({ auth, selectedBook: null, serverUrl: auth.serverUrl });
   },
 
