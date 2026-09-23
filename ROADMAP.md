@@ -18,25 +18,33 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] `scripts/spike.ts`: discover principal → list address books → fetch all
       vCards → parse → serialise → diff
 - [x] Round-trip test suite in `tests/vcard/`
-- [ ] Confirm Baïkal returns `412` on stale `If-Match`
+- [x] Confirm Baïkal returns `412` on stale `If-Match`
       — Verified in mocked unit tests (DavError code CONFLICT on 412).
-        Live end-to-end: `caddy run` with `BAIKAL_URL` and `SITE_ADDRESS` set, then
-        PUT a stale If-Match with curl:
-        ```
-        curl -u user:pass -X PUT -H 'If-Match: "stale"' \
-          -H 'Content-Type: text/vcard; charset=utf-8' \
-          -d 'BEGIN:VCARD\nVERSION:3.0\nFN:Test\nEND:VCARD' \
-          'https://server/dav.php/addressbooks/user/default/test.vcf'
-        ```
-        Expect HTTP 412.
-- [ ] Caddy proxy config validated end to end with Basic Auth
+        Live end-to-end, validated on 2026-09-23 against the author's Baïkal
+        instance (sabredav 4.7.0, address book
+        `/dav.php/addressbooks/<user>/default/`): full conditional-write
+        contract exercised on a throwaway contact:
+        - PUT create with `If-None-Match: *` → **201**
+        - PUT with stale `If-Match` → **412**
+        - PUT with the correct ETag → 204
+        - DELETE with stale `If-Match` → **412**
+        - DELETE with the correct ETag → 204
+        The spike script itself also ran end to end: 381 real cards fetched,
+        parse+serialise comparison showed only the already-documented ical.js
+        normalisations (line folding, `VALUE=DATE` on BDAY, `VALUE=URI`
+        stripping on URL) — consistent with the round-trip suite's findings.
+- [x] Caddy proxy config validated end to end with Basic Auth
       — Config structure is coherent (handle_path strips /dav, reverse_proxy
         forwards Authorization unchanged, Caddyfile matches ARCHITECTURE.md).
-        Live validation: set `BAIKAL_URL` and `SITE_ADDRESS` env vars, run
-        `caddy run` (requires `BAIKAL_URL` and `SITE_ADDRESS` env vars), then verify that:
-        - `GET /` serves the SPA (or its `index.html` fallback)
-        - `GET /dav/dav.php/` reaches the CardDAV server (e.g. Baïkal login page)
-        - `PROPFIND /dav/dav.php/principals/` with Basic Auth returns 207
+        Live end-to-end, validated on 2026-09-23 against the author's Baïkal
+        instance: Docker image rebuilt from the current Dockerfile + Caddyfile,
+        run locally with `BAIKAL_URL` pointing at the Baïkal origin:
+        - `GET /` serves the SPA (200, "Natel" title)
+        - `GET /dav/dav.php/` reaches Baïkal (401 without auth — request hit
+          the CardDAV server, `/dav` prefix stripped)
+        - `PROPFIND /dav/dav.php/addressbooks/<user>/default/` with Basic Auth
+          through the proxy → 207 with the address book displayname
+          (Authorization header forwarded unchanged)
 - [x] Findings recorded in `docs/DECISIONS.md`
 
 ## Phase 2 — MVP v0.1 ✅ when: the author has uninstalled InfCloud

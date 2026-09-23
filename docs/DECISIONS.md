@@ -116,11 +116,15 @@ expansion).
 - Proxy strip-prefix contract: Caddy `handle_path /dav/*` and Vite dev proxy
   `rewrite /^\/dav/` are in sync. Both require origin-only upstream URLs.
 
-**What remains manual (no live CardDAV server in CI):**
-1. "Baïkal returns 412 on stale If-Match" — code path is unit-tested; to run
-   end-to-end, follow the curl recipe in ROADMAP.md.
-2. "Caddy proxy validated end to end with Basic Auth" — config is structurally
-   coherent; run `caddy run` with `BAIKAL_URL` and `SITE_ADDRESS` set to confirm.
+**What was validated live on 2026-09-23 (against the author's Baïkal instance, sabredav 4.7.0):**
+1. "Baïkal returns 412 on stale If-Match" — full conditional-write contract
+   validated on a throwaway contact (see ROADMAP.md for the sequence). The
+   spike script also ran end to end: 381 real cards fetched, parse+serialise
+   comparison matched the round-trip suite's normalisation results.
+2. "Caddy proxy validated end to end with Basic Auth" — Docker image rebuilt
+   from the current Dockerfile + Caddyfile, run locally with `BAIKAL_URL`
+   pointing at the Baïkal origin. SPA served at `/`, CardDAV reachable at
+   `/dav/dav.php/`, `PROPFIND` with Basic Auth returns 207 (see ROADMAP.md).
 
 **How to re-run the live checks.**
 ```bash
@@ -137,7 +141,5 @@ caddy run
 # Then open http://localhost:8080/ and http://localhost:8080/dav/dav.php/
 ```
 
-**Consequences.** The code-level exit criterion (real vCards round-trip
-byte-for-byte) is validated. Phase 1 remains open — the two unticked manual
-checks in ROADMAP.md must be confirmed before the phase can close and MVP work
-can start.
+**Consequences.** Both manual checks validated live on 2026-09-23.
+Phase 1 exit criterion is met; MVP work can start.
