@@ -133,6 +133,27 @@ function replacePropertiesInPlace(
 }
 
 // ---------------------------------------------------------------------------
+// Read-only display accessors
+// ---------------------------------------------------------------------------
+
+/**
+ * ORG value for display, read from the parsed raw component.
+ *
+ * Read-only on purpose: ORG is not part of the editable subset and nothing
+ * here ever writes to `raw`. Multi-part values (org name + units) are joined
+ * with ", ".
+ */
+export function orgOf(contact: Contact): string {
+  const value = contact.raw.getFirstPropertyValue("org");
+  if (Array.isArray(value)) {
+    return value
+      .filter((part): part is string => typeof part === "string" && part.length > 0)
+      .join(", ");
+  }
+  return typeof value === "string" ? value : "";
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
