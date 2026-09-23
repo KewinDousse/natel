@@ -20,8 +20,7 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] Round-trip test suite in `tests/vcard/`
 - [ ] Confirm Baïkal returns `412` on stale `If-Match`
       — Verified in mocked unit tests (DavError code CONFLICT on 412).
-        Live end-to-end: `caddy run` with `BAIKAL_URL` and `SITE_ADDRESS` set, then run
-        `pnpm vitest run tests/dav/internal.test.ts` against it, or manually
+        Live end-to-end: `caddy run` with `BAIKAL_URL` and `SITE_ADDRESS` set, then
         PUT a stale If-Match with curl:
         ```
         curl -u user:pass -X PUT -H 'If-Match: "stale"' \
