@@ -5,6 +5,8 @@
  * guards are exercised too. `@/dav` is mocked (real DavError kept) so the
  * credential check never hits the network.
  */
+
+import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DavError } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
+import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
 import { useSessionStore } from "@/store/session";
 
@@ -40,9 +43,11 @@ function renderApp(path: string) {
     history: createMemoryHistory({ initialEntries: [path] }),
   });
   render(
-    <I18nProvider>
-      <RouterProvider router={router} />
-    </I18nProvider>,
+    <QueryClientProvider client={createQueryClient()}>
+      <I18nProvider>
+        <RouterProvider router={router} />
+      </I18nProvider>
+    </QueryClientProvider>,
   );
   return router;
 }

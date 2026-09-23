@@ -10,4 +10,5 @@ export { useAddressBooks } from "./useAddressBooks";
 export { loadFullBook, useContacts } from "./useContacts";
 export { useCreateContact } from "./useCreateContact";
 export { useDeleteContact } from "./useDeleteContact";
+export { useLogin } from "./useLogin";
 export { useUpdateContact } from "./useUpdateContact";
