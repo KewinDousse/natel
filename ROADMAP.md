@@ -13,14 +13,32 @@ its checklist is ticked. Later phases are intentions, not commitments.
 
 ## Phase 1 — Spike ✅ when: real vCards round-trip byte-for-byte through the parser
 
-- [ ] 10–20 real vCards from Baïkal/DAVx⁵ in `fixtures/private/` (gitignored)
+- [x] 10–20 real vCards from Baïkal/DAVx⁵ in `fixtures/private/` (gitignored)
       plus synthetic public ones in `fixtures/public/`
-- [ ] `scripts/spike.ts`: discover principal → list address books → fetch all
+- [x] `scripts/spike.ts`: discover principal → list address books → fetch all
       vCards → parse → serialise → diff
-- [ ] Round-trip test suite in `tests/vcard/`
+- [x] Round-trip test suite in `tests/vcard/`
 - [ ] Confirm Baïkal returns `412` on stale `If-Match`
+      — Verified in mocked unit tests (DavError code CONFLICT on 412).
+        Live end-to-end: `docker compose up` with Baïkal, then run
+        `pnpm vitest run tests/dav/internal.test.ts` against it, or manually
+        PUT a stale If-Match with curl:
+        ```
+        curl -u user:pass -X PUT -H 'If-Match: "stale"' \
+          -H 'Content-Type: text/vcard; charset=utf-8' \
+          -d 'BEGIN:VCARD\nVERSION:3.0\nFN:Test\nEND:VCARD' \
+          'https://server/dav.php/addressbooks/user/default/test.vcf'
+        ```
+        Expect HTTP 412.
 - [ ] Caddy proxy config validated end to end with Basic Auth
-- [ ] Findings recorded in `docs/DECISIONS.md`
+      — Config structure is coherent (handle_path strips /dav, reverse_proxy
+        forwards Authorization unchanged, Caddyfile matches ARCHITECTURE.md).
+        Live validation: set `BAIKAL_URL` and `SITE_ADDRESS` env vars, run
+        `docker compose up` or `caddy run`, then verify that:
+        - `GET /` serves the SPA (or its `index.html` fallback)
+        - `GET /dav/dav.php/` reaches the CardDAV server (e.g. Baïkal login page)
+        - `PROPFIND /dav/dav.php/principals/` with Basic Auth returns 207
+- [x] Findings recorded in `docs/DECISIONS.md`
 
 ## Phase 2 — MVP v0.1 ✅ when: the author has uninstalled InfCloud
 

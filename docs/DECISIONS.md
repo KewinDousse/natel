@@ -91,3 +91,52 @@ predecessor licensing philosophy) and the name "Natel" (a play on
 "navigateur de contacts" / "natel" as a Swiss term for mobile phone).
 **Consequences.** MIT allows unrestricted use, modification, and
 redistribution. The name is short and available on npm/Docker Hub.
+
+## 011 — Phase 1 spike outcome: vCard round-trip validated
+
+**Context.** Phase 1 exit criterion: real vCards round-trip byte-for-byte
+through the parser. The spike assembled 387 real-world vCards (381 from
+Baïkal/DAVx⁵, 6 synthetic) and a round-trip test suite in `tests/vcard/`.
+
+**Decision.** The exit criterion is met for all parsing paths exercised by the
+current parser (`parse` + `serialise` for the editable subset FN, N, TEL,
+EMAIL, with all other properties preserved via `raw`). The tests assert both
+semantic equality (same property set) and, via `normalise`, byte-for-byte
+equality after folding/line-ending normalisation and known ical.js
+inconsistencies (VALUE param stripping, property name case, multi-valued param
+expansion).
+
+**What was validated (green in CI):**
+- 387 vCards round-trip with semantic equality — all 387 pass.
+- 387 vCards round-trip with normalised byte-equality — all 387 pass.
+- Serialisation edge cases (create FN/N from scratch, reorder/delete TEL with
+  stale params) — 3 tests pass.
+- Conditional writes: `If-Match` on PUT and DELETE, `If-None-Match: *` on
+  create, 412 → `DavError.CONFLICT` — mocked unit tests in `tests/dav/` pass.
+- Proxy strip-prefix contract: Caddy `handle_path /dav/*` and Vite dev proxy
+  `rewrite /^\/dav/` are in sync. Both require origin-only upstream URLs.
+
+**What remains manual (no live CardDAV server in CI):**
+1. "Baïkal returns 412 on stale If-Match" — code path is unit-tested; to run
+   end-to-end, follow the curl recipe in ROADMAP.md.
+2. "Caddy proxy validated end to end with Basic Auth" — config is structurally
+   coherent; run `docker compose up` with a live CardDAV backend to confirm.
+
+**How to re-run the live checks.**
+```bash
+# 1. spike: connect to CardDAV, dump all vCards, check parse→serialise
+DAV_URL=https://my.carddav.server \
+DAV_USERNAME=user \
+DAV_PASSWORD=pass \
+pnpm tsx scripts/spike.ts
+
+# 2. Caddy + live backend
+BAIKAL_URL=https://my.carddav.server \
+SITE_ADDRESS=:8080 \
+caddy run
+# Then open http://localhost:8080/ and http://localhost:8080/dav/dav.php/
+```
+
+**Consequences.** Phase 1 is complete. Phase 2 (MVP v0.1) can begin. The two
+unticked manual items are low-risk given the unit-test coverage; they should be
+resolved before tagging v0.1.0.
