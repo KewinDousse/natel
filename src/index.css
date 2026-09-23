@@ -66,6 +66,10 @@
     0 1px 2px oklch(0.2 0.006 270 / 0.06), 0 8px 24px -6px oklch(0.2 0.006 270 / 0.16);
   --elevation-overlay:
     0 2px 4px oklch(0.2 0.006 270 / 0.06), 0 24px 48px -12px oklch(0.2 0.006 270 / 0.28);
+  /* Mobile header height (band 0.375rem + 56px bar + search row), consumed by
+     sticky group letters (top-[var(--header-h)]) and section scroll margins.
+     On lg+ Tailwind overrides (lg:top-2 / lg:scroll-mt-0) take precedence. */
+  --header-h: 7.375rem;
 }
 
 /* Esquisse dark — non finalisée, sert à vérifier l'extensibilité */

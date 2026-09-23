@@ -149,8 +149,8 @@ describe("searchTargetOf", () => {
         email: [{ value: "k.benali@tlp.ch" }],
       }),
     );
-    expect(target.folded).toBe("benali karim 078 330 12 45 k.benali@tlp.ch tlp");
-    expect(target.digits).toBe("benalikarim0783301245kbenali@tlpchtlp");
+    expect(target.folded).toBe("benali karim k.benali@tlp.ch tlp");
+    expect(target.digits).toBe("benalikarimkbenali@tlpchtlp0783301245");
   });
 });
 
@@ -185,6 +185,20 @@ describe("matchesQuery", () => {
     // "01" is also in the compact digits — but 2 digits is below the rule's
     // threshold, and the spaced text does not contain it.
     expect(matchesQuery(searchTargetOf(zebra), "01")).toBe(false);
+  });
+
+  it("a 1-digit query never matches phone digits", () => {
+    const zebra = makeContact({ family: "Zebra", tel: [{ value: "040 000 12 34" }] });
+    // "1" appears in the phone but is below the ≥3-digit gate and is not in
+    // folded (TEL is excluded from folded).
+    expect(matchesQuery(searchTargetOf(zebra), "1")).toBe(false);
+  });
+
+  it("a 2-digit query never matches phone digits", () => {
+    const zebra = makeContact({ family: "Zebra", tel: [{ value: "040 000 12 34" }] });
+    // "12" appears in the phone but is below the ≥3-digit gate and is not in
+    // folded (TEL is excluded from folded).
+    expect(matchesQuery(searchTargetOf(zebra), "12")).toBe(false);
   });
 
   it("never lets a query with letters match phone digits", () => {

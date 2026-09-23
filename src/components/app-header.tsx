@@ -2,14 +2,14 @@
  * AppHeader — brand band + bar (wordmark, book switcher, language switch,
  * xl-only sync status) + search row, per DESIGN.md "Header".
  *
- * Exposes `--header-h`, the mobile header height used by sticky group letters
- * (`top-[var(--header-h)]`): band 0.375rem + 56px bar + search row =
- * 7.375rem. On lg+ the header is static (`lg:static`) and the letters use
- * `lg:top-2`, so the property is only meaningful below lg. The mockup's "+"
- * create button is deliberately not rendered — creation is a later task.
+ * `--header-h` (defined in src/index.css :root, 7.375rem on mobile) is the
+ * mobile header height used by sticky group letters (`top-[var(--header-h)]`):
+ * band 0.375rem + 56px bar + search row = 7.375rem. On lg+ the header is
+ * static (`lg:static`) and the letters use `lg:top-2`, so the property is
+ * only meaningful below lg. The mockup's "+" create button is deliberately
+ * not rendered — creation is a later task.
  */
 
-import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { DavAddressBook } from "@/dav/types";
 import { useI18n } from "@/i18n/react";
@@ -69,12 +69,9 @@ export function AppHeader({
     searchRef.current?.focus();
   }
 
-  const headerStyle = { "--header-h": "7.375rem" } as CSSProperties;
-
   return (
     <header
       id="app-header"
-      style={headerStyle}
       className={cn(
         "sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 lg:static",
         hiddenOnMobile && "max-lg:hidden",

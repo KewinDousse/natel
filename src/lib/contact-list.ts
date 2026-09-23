@@ -106,23 +106,26 @@ function isCellType(field: ContactField): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Precomputed search text: folded lowercase name + numbers as stored (spaces
- * kept, so spaced queries match) + emails + org, plus the same text with
- * spaces/dots/+/- stripped for compact digit queries. Order follows the
- * mockup's data-search attribute.
+ * Precomputed search text: folded lowercase name + emails + org (no TEL —
+ * phones match only through the digits field, gated to ≥3-digit queries),
+ * plus the same with spaces/dots/+/- stripped for compact digit matching.
+ * Order follows the mockup's data-search attribute.
  */
 export function searchTargetOf(contact: Contact): SearchTarget {
   const parts = namePartsOf(contact);
-  const text = [
+  const textParts = [
     parts.display,
-    ...contact.fields.tel.map((tel) => tel.value),
     ...contact.fields.email.map((email) => email.value),
     orgOf(contact),
-  ]
+  ].filter((part) => part.length > 0);
+  const telText = contact.fields.tel
+    .map((tel) => tel.value)
     .filter((part) => part.length > 0)
     .join(" ");
-  const folded = fold(text);
-  return { folded, digits: folded.replace(/[\s.+-]/g, "") };
+  const folded = fold(textParts.join(" "));
+  const allText = telText.length > 0 ? `${textParts.join(" ")} ${telText}` : textParts.join(" ");
+  const digits = fold(allText).replace(/[\s.+-]/g, "");
+  return { folded, digits };
 }
 
 /**
