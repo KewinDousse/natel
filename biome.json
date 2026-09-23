@@ -28,7 +28,14 @@
     }
   },
   "files": {
-    "includes": ["**", "!**/dist", "!**/node_modules", "!**/.git", "!**/src/routeTree.gen.ts"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/.git",
+      "!**/src/routeTree.gen.ts",
+      "!**/natel-design*"
+    ]
   },
   "overrides": [
     {
@@ -37,6 +44,16 @@
         "rules": {
           "style": {
             "noNonNullAssertion": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.css"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
           }
         }
       }

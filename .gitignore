@@ -26,3 +26,6 @@ Thumbs.db
 
 # private fixtures
 fixtures/private/*
+
+# design handoff (visual references only, never committed)
+natel-design*/

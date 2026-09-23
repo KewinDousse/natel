@@ -63,10 +63,11 @@ export interface SessionState {
 
 export interface SessionActions {
   /**
-   * Store credentials in memory and persist the server URL.
-   * The password is never written to disk.
+   * Store credentials in memory. The server URL is persisted to localStorage
+   * unless `rememberServer` is false (the "remember server" checkbox on the
+   * login screen); the password is never written to disk.
    */
-  login: (auth: DavAuth) => void;
+  login: (auth: DavAuth, options?: { rememberServer?: boolean }) => void;
   /**
    * Clear credentials, selected book, and the DAV in-memory session cache.
    * The persisted server URL stays so the field is pre-filled on next login.
@@ -87,8 +88,9 @@ export const useSessionStore = create<SessionStore>((set) => ({
   selectedBook: null,
   serverUrl: readPersistedServerUrl(),
 
-  login: (auth: DavAuth) => {
-    persistServerUrl(auth.serverUrl);
+  login: (auth: DavAuth, options?: { rememberServer?: boolean }) => {
+    const rememberServer = options?.rememberServer ?? true;
+    if (rememberServer) persistServerUrl(auth.serverUrl);
     set({ auth, selectedBook: null, serverUrl: auth.serverUrl });
   },
 
