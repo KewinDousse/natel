@@ -106,7 +106,7 @@ equality after folding/line-ending normalisation and known ical.js
 inconsistencies (VALUE param stripping, property name case, multi-valued param
 expansion).
 
-**What was validated (green in CI):**
+**What was validated (green locally via `pnpm check`):**
 - 387 vCards round-trip with semantic equality — all 387 pass.
 - 387 vCards round-trip with normalised byte-equality — all 387 pass.
 - Serialisation edge cases (create FN/N from scratch, reorder/delete TEL with
@@ -120,7 +120,7 @@ expansion).
 1. "Baïkal returns 412 on stale If-Match" — code path is unit-tested; to run
    end-to-end, follow the curl recipe in ROADMAP.md.
 2. "Caddy proxy validated end to end with Basic Auth" — config is structurally
-   coherent; run `docker compose up` with a live CardDAV backend to confirm.
+   coherent; run `caddy run` with `BAIKAL_URL` and `SITE_ADDRESS` set to confirm.
 
 **How to re-run the live checks.**
 ```bash
@@ -137,6 +137,7 @@ caddy run
 # Then open http://localhost:8080/ and http://localhost:8080/dav/dav.php/
 ```
 
-**Consequences.** Phase 1 is complete. Phase 2 (MVP v0.1) can begin. The two
-unticked manual items are low-risk given the unit-test coverage; they should be
-resolved before tagging v0.1.0.
+**Consequences.** The code-level exit criterion (real vCards round-trip
+byte-for-byte) is validated. Phase 1 remains open — the two unticked manual
+checks in ROADMAP.md must be confirmed before the phase can close and MVP work
+can start.

@@ -20,7 +20,7 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] Round-trip test suite in `tests/vcard/`
 - [ ] Confirm Baïkal returns `412` on stale `If-Match`
       — Verified in mocked unit tests (DavError code CONFLICT on 412).
-        Live end-to-end: `docker compose up` with Baïkal, then run
+        Live end-to-end: `caddy run` with `BAIKAL_URL` and `SITE_ADDRESS` set, then run
         `pnpm vitest run tests/dav/internal.test.ts` against it, or manually
         PUT a stale If-Match with curl:
         ```
@@ -34,7 +34,7 @@ its checklist is ticked. Later phases are intentions, not commitments.
       — Config structure is coherent (handle_path strips /dav, reverse_proxy
         forwards Authorization unchanged, Caddyfile matches ARCHITECTURE.md).
         Live validation: set `BAIKAL_URL` and `SITE_ADDRESS` env vars, run
-        `docker compose up` or `caddy run`, then verify that:
+        `caddy run` (requires `BAIKAL_URL` and `SITE_ADDRESS` env vars), then verify that:
         - `GET /` serves the SPA (or its `index.html` fallback)
         - `GET /dav/dav.php/` reaches the CardDAV server (e.g. Baïkal login page)
         - `PROPFIND /dav/dav.php/principals/` with Basic Auth returns 207
