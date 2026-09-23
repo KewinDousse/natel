@@ -36,6 +36,7 @@ src/
                  The ONLY module that imports tsdav.
   vcard/         Parse/serialise vCard ↔ Contact model. Wraps ical.js.
                  The ONLY module that imports ical.js.
+  lib/           Pure helpers: contact-list grouping, sorting, search logic.
   model/         Contact type, address book type. Plain data, no I/O.
   store/         Zustand: session (credentials, selected book). Memory only.
   queries/       TanStack Query hooks; the bridge between dav/ and routes/.
