@@ -3,15 +3,8 @@ import { useSessionStore } from "@/store/session";
 
 export const Route = createFileRoute("/")({
   beforeLoad: () => {
-    if (!useSessionStore.getState().auth) throw redirect({ to: "/login" });
+    if (useSessionStore.getState().auth) throw redirect({ to: "/contacts" });
+    throw redirect({ to: "/login" });
   },
-  component: IndexRoute,
+  component: () => null,
 });
-
-function IndexRoute() {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <h1 className="text-2xl font-bold">Natel</h1>
-    </div>
-  );
-}

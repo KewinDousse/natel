@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
+import { LanguageSwitch } from "@/components/language-switch";
 import { LoginForm } from "@/components/login-form";
 import { useI18n } from "@/i18n/react";
 import { useSessionStore } from "@/store/session";
@@ -13,7 +14,7 @@ import { useSessionStore } from "@/store/session";
  */
 export const Route = createFileRoute("/login")({
   beforeLoad: () => {
-    if (useSessionStore.getState().auth) throw redirect({ to: "/" });
+    if (useSessionStore.getState().auth) throw redirect({ to: "/contacts" });
   },
   component: LoginRoute,
 });
@@ -98,28 +99,5 @@ function LoginRoute() {
         </div>
       </main>
     </div>
-  );
-}
-
-function LanguageSwitch() {
-  const { locale, setLocale, t } = useI18n();
-  return (
-    <fieldset
-      aria-label={t("lang_label")}
-      className="m-0 inline-flex items-center gap-0.5 rounded-full border-0 bg-muted p-0.5"
-    >
-      {(["fr", "en"] as const).map((lang) => (
-        <button
-          key={lang}
-          type="button"
-          lang={lang}
-          aria-pressed={locale === lang}
-          onClick={() => setLocale(lang)}
-          className="inline-flex h-8 min-w-9 items-center justify-center rounded-full px-2.5 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          {lang.toUpperCase()}
-        </button>
-      ))}
-    </fieldset>
   );
 }

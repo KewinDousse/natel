@@ -172,7 +172,7 @@ describe("submit", () => {
     expect(alert.textContent).toContain("Nom d’utilisateur ou mot de passe incorrect.");
   });
 
-  it("stores credentials and navigates to / on success", async () => {
+  it("stores credentials and navigates to /contacts on success", async () => {
     mockDiscoverAddressBooks.mockResolvedValue([]);
     const router = renderApp("/login");
     await screen.findByRole("heading", { name: "Ouvrir le carnet" });
@@ -183,7 +183,7 @@ describe("submit", () => {
       expect(useSessionStore.getState().auth).toEqual(AUTH);
     });
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/");
+      expect(router.state.location.pathname).toBe("/contacts");
     });
     // Remember is checked by default → the server URL is persisted.
     expect(localStorage.getItem("natel:serverUrl")).toBe(SERVER);
@@ -202,7 +202,7 @@ describe("submit", () => {
     await user.click(screen.getByRole("button", { name: "Se connecter" }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/");
+      expect(router.state.location.pathname).toBe("/contacts");
     });
     // Remember unchecked → the URL is kept in memory only, never persisted.
     expect(localStorage.getItem("natel:serverUrl")).toBeNull();
@@ -221,11 +221,12 @@ describe("route guards", () => {
     expect(router.state.location.pathname).toBe("/login");
   });
 
-  it("redirects /login to / when logged in", async () => {
+  it("redirects /login to /contacts when logged in", async () => {
     useSessionStore.setState({ auth: AUTH });
     const router = renderApp("/login");
 
-    expect(await screen.findByRole("heading", { name: "Natel" })).toBeTruthy();
-    expect(router.state.location.pathname).toBe("/");
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/contacts");
+    });
   });
 });

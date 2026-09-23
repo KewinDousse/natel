@@ -1,0 +1,308 @@
+/**
+ * ContactList — the directory list pane: toolbar (count + sort toggle),
+ * letter-grouped rows, and the A–Z rail. Group/letter/sort/search logic lives
+ * in src/lib/contact-list.ts; this file only composes and styles it.
+ */
+
+import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
+import { useI18n } from "@/i18n/react";
+import {
+  ALPHABET,
+  buildGroups,
+  type ContactGroup,
+  contactIdOf,
+  type HighlightSegment,
+  namePartsOf,
+  OTHER_GROUP,
+  type SortBy,
+  splitByQuery,
+  trailingValueOf,
+} from "@/lib/contact-list";
+import type { Contact } from "@/model/contact";
+
+type ContactListProps = {
+  /** Contacts of the selected book; undefined while the book is loading. */
+  contacts: Contact[] | undefined;
+  /** Discovery returned zero address books — dedicated state, no crash. */
+  noBooks: boolean;
+  query: string;
+  sortBy: SortBy;
+  onSortBy: (sortBy: SortBy) => void;
+};
+
+export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: ContactListProps) {
+  const { t } = useI18n();
+  const groups = useMemo(
+    () => buildGroups(contacts ?? [], sortBy, query),
+    [contacts, sortBy, query],
+  );
+  const shown = groups.reduce((total, group) => total + group.contacts.length, 0);
+  const searching = query.trim().length > 0;
+
+  if (noBooks) {
+    return (
+      <ListShell>
+        <StateBox title={t("no_books")} />
+      </ListShell>
+    );
+  }
+  if (contacts === undefined) return null;
+
+  const countLabel = searching
+    ? shown === 0
+      ? t("results_0")
+      : shown === 1
+        ? t("results_1")
+        : t("results_n", { n: String(shown) })
+    : t("count", { n: String(contacts.length) });
+
+  const showEmptyBook = !searching && contacts.length === 0;
+  const showNoResults = searching && shown === 0;
+
+  return (
+    <ListShell>
+      <div className="flex items-center justify-between gap-3 px-2 pb-1 pt-3">
+        <p className="text-caption text-muted-foreground" aria-live="polite">
+          <span className="tabular">{countLabel}</span>
+        </p>
+        <fieldset
+          aria-label={t("sort_label")}
+          className="m-0 inline-flex items-center gap-1 border-0 p-0 text-caption"
+        >
+          <button
+            type="button"
+            aria-pressed={sortBy === "family"}
+            onClick={() => onSortBy("family")}
+            className="rounded-full px-2 py-0.5 font-bold text-muted-foreground transition-colors aria-pressed:bg-secondary aria-pressed:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t("sort_family")}
+          </button>
+          <button
+            type="button"
+            aria-pressed={sortBy === "given"}
+            onClick={() => onSortBy("given")}
+            className="rounded-full px-2 py-0.5 font-bold text-muted-foreground transition-colors aria-pressed:bg-secondary aria-pressed:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t("sort_given")}
+          </button>
+        </fieldset>
+      </div>
+
+      {showEmptyBook ? (
+        <StateBox title={t("book_empty")} />
+      ) : showNoResults ? (
+        <StateBox title={t("results_0")} hint={t("empty_hint")} />
+      ) : (
+        <>
+          {groups.map((group) => (
+            <GroupSection key={group.letter} group={group} query={query} />
+          ))}
+          <AlphabetRail
+            present={new Set(groups.filter((g) => g.letter !== OTHER_GROUP).map((g) => g.letter))}
+            hidden={searching}
+          />
+        </>
+      )}
+    </ListShell>
+  );
+}
+
+function ListShell({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
+  return (
+    <nav
+      id="list"
+      aria-label={t("list_label")}
+      className="pb-24 pl-2 pr-7 lg:h-full lg:overflow-y-auto lg:pb-10 lg:pr-8"
+    >
+      {children}
+    </nav>
+  );
+}
+
+function StateBox({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="px-4 py-14 text-center">
+      <p className="font-display text-3xl font-bold leading-tight">{title}</p>
+      {hint && <p className="mt-2 text-sm leading-snug text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function GroupSection({ group, query }: { group: ContactGroup; query: string }) {
+  return (
+    <section
+      id={`g-${group.letter}`}
+      className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 first:border-t-0 sm:grid-cols-[4rem_1fr] lg:scroll-mt-0 lg:grid-cols-[4.25rem_1fr]"
+    >
+      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-2 font-display text-[2.25rem] font-bold leading-[0.8] text-brand sm:text-[2.75rem] lg:top-2 lg:text-index">
+        {group.letter}
+      </h2>
+      {/* biome-ignore lint/a11y/noRedundantRoles: DESIGN.md mandates <ul role="list"> */}
+      <ul role="list" className="min-w-0">
+        {group.contacts.map((contact) => (
+          <ContactRow key={contact.href} contact={contact} query={query} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ContactRow({ contact, query }: { contact: Contact; query: string }) {
+  const { family, given, display } = namePartsOf(contact);
+  const trailing = trailingValueOf(contact);
+  const id = contactIdOf(contact);
+  const orgOnly = display.length === 0;
+
+  const nameValue = (
+    <>
+      <b className="font-bold">
+        <Marked value={family} query={query} />
+      </b>
+      {given && (
+        <>
+          {" "}
+          <span>
+            <Marked value={given} query={query} />
+          </span>
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <li>
+      {/*
+        The router's Link marks the active row with aria-current="page" and
+        data-status="active"; the design's aria-[current=true] classes target
+        that attribute, so the "true" token is matched through data-status
+        instead (same a11y contract, styles live on the router's marker).
+      */}
+      <Link
+        to="/contacts/$id"
+        params={{ id }}
+        className="group relative flex min-h-[3.5rem] items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted data-[status=active]:bg-selection data-[status=active]:text-selection-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-[3.25rem] sm:py-0"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-brand opacity-0 transition-opacity group-data-[status=active]:opacity-100"
+        />
+        {orgOnly ? <BuildingAvatar /> : <InitialsAvatar family={family} given={given} />}
+        <span className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
+          <span className="block min-w-0 truncate text-base sm:text-[0.9375rem]" title={display}>
+            {nameValue}
+          </span>
+          {trailing && <span className="leader hidden sm:block" aria-hidden="true" />}
+          {trailing &&
+            (trailing.kind === "tel" ? (
+              <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-[0.9375rem] sm:text-foreground">
+                <Marked value={trailing.value} query={query} />
+              </span>
+            ) : (
+              <span className="block truncate text-sm text-muted-foreground sm:max-w-[42%] sm:shrink-0">
+                <Marked value={trailing.value} query={query} />
+              </span>
+            ))}
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/** Initials avatar per DESIGN.md rule 7 (no photo → initials on bg-avatar). */
+function InitialsAvatar({ family, given }: { family: string; given: string }) {
+  const letters = `${family.charAt(0)}${given.charAt(0)}`.toUpperCase();
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-10 shrink-0 place-items-center rounded-lg bg-avatar font-display text-lg font-bold text-avatar-foreground"
+    >
+      {letters || "?"}
+    </span>
+  );
+}
+
+/** Organisation-only cards get a building icon instead of initials. */
+function BuildingAvatar() {
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-10 shrink-0 place-items-center rounded-lg bg-avatar text-avatar-foreground"
+    >
+      <svg
+        className="size-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="4" y="2" width="16" height="20" rx="2" />
+        <path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01" />
+      </svg>
+    </span>
+  );
+}
+
+/** <mark> around every fold-insensitive match inside `value`. */
+function Marked({ value, query }: { value: string; query: string }) {
+  const segments: HighlightSegment[] = splitByQuery(value, query);
+  if (segments.length === 1 && !(segments[0]?.hit ?? false)) return <>{value}</>;
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.hit ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static display segments, rebuilt per render, never reordered
+          <mark key={index}>{segment.text}</mark>
+        ) : (
+          // biome-ignore lint/suspicious/noArrayIndexKey: same as above
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * A–Z rail — absent letters are aria-hidden and out of the tab order; anchors
+ * jump without smooth scrolling. Hidden entirely while a search is active.
+ */
+function AlphabetRail({ present, hidden }: { present: Set<string>; hidden: boolean }) {
+  const { t } = useI18n();
+  return (
+    <nav
+      id="rail"
+      hidden={hidden}
+      aria-label={t("index_label")}
+      className="fixed bottom-6 right-0.5 top-[8.25rem] z-10 flex flex-col items-center justify-center font-display text-[0.8125rem] font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
+    >
+      {ALPHABET.split("").map((letter) => {
+        if (present.has(letter)) {
+          return (
+            <a
+              key={letter}
+              href={`#g-${letter}`}
+              className="grid h-4 w-5 place-items-center rounded-sm text-foreground transition-colors hover:text-brand"
+            >
+              {letter}
+            </a>
+          );
+        }
+        // Absent letters are not navigable: a span, hidden from assistive tech.
+        return (
+          <span
+            key={letter}
+            aria-hidden="true"
+            className="pointer-events-none grid h-4 w-5 place-items-center rounded-sm text-leader"
+          >
+            {letter}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}

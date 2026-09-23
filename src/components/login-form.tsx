@@ -91,7 +91,7 @@ export function LoginForm() {
     try {
       await loginMutation.mutateAsync(auth);
       login(auth, { rememberServer });
-      await navigate({ to: "/" });
+      await navigate({ to: "/contacts" });
     } catch (err) {
       setFormError(mapLoginError(err));
     }
