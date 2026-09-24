@@ -28,7 +28,7 @@ import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { cn } from "@/lib/utils";
 import type { Contact, ContactField } from "@/model/contact";
-import { DavError, useRefetchCard, useUpdateContact } from "@/queries";
+import { type DavAuth, DavError, useRefetchCard, useUpdateContact } from "@/queries";
 import { useAuth } from "@/store/session";
 import {
   addressOf,
@@ -58,10 +58,11 @@ type ContactPageProps = {
  * book gets an honest not-found state.
  */
 export function ContactPage({ contacts, id, edit = false }: ContactPageProps) {
-  if (contacts === undefined) return null;
+  const auth = useAuth();
+  if (contacts === undefined || auth === null) return null;
   const contact = contactById(contacts, id);
   if (contact === undefined) return <NotFoundView />;
-  return <ContactFiche contact={contact} edit={edit} />;
+  return <ContactFiche auth={auth} contact={contact} edit={edit} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,10 +309,9 @@ function countUnknownProperties(raw: Contact["raw"]): number {
  * Custom component that manages edit state for a single contact.
  * Extracted as a separate component so hooks are in a stable order.
  */
-function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
+function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact; edit: boolean }) {
   const { t, locale } = useI18n();
   const router = useRouter();
-  const auth = useAuth() as Exclude<ReturnType<typeof useAuth>, null>;
   const updateContact = useUpdateContact(auth);
   const refetchCard = useRefetchCard(auth);
   const queryClient = useQueryClient();

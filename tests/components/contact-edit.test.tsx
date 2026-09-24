@@ -11,12 +11,14 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ContactPage } from "@/components/contact-page";
 import { DavError } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
 import { useSessionStore } from "@/store/session";
+import { parse } from "@/vcard";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -519,5 +521,17 @@ describe("free-text birthday (VALUE=text on vCard 3.0)", () => {
     expect(etag).toBe('"e"');
     expect(vcardText).toContain("BDAY;VALUE=TEXT:circa 1987");
     expect(screen.queryByText(/inattendue/)).toBeNull();
+  });
+});
+
+describe("contact page without a session", () => {
+  it("renders nothing when auth is missing", () => {
+    useSessionStore.setState({ auth: null });
+    const { container } = render(
+      <I18nProvider>
+        <ContactPage contacts={[parse(CARD_MINIMAL, "minimal.vcf", '"e"')]} id="minimal" />
+      </I18nProvider>,
+    );
+    expect(container.innerHTML).toBe("");
   });
 });
