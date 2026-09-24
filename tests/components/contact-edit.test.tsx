@@ -296,6 +296,19 @@ describe("edit mode — validation", () => {
   });
 });
 
+describe("edit mode — birthday input", () => {
+  it("keeps a non-numeric year as typed instead of clearing it", async () => {
+    await renderEditView("editable");
+    const user = userEvent.setup();
+
+    const year = screen.getByDisplayValue("1987");
+    await user.clear(year);
+    await user.type(year, "19x");
+
+    expect((year as HTMLInputElement).value).toBe("19x");
+  });
+});
+
 describe("edit mode — dirty dialog", () => {
   it("shows discard dialog on cancel when dirty", async () => {
     await renderEditView("editable");

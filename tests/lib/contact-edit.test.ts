@@ -81,9 +81,9 @@ END:VCARD`;
     expect(draft.adr).not.toBeNull();
     expect(draft.adr!.street).toBe("123 Main St");
     expect(draft.bday).not.toBeNull();
-    expect(draft.bday!.year).toBe(1987);
-    expect(draft.bday!.month).toBe(3);
-    expect(draft.bday!.day).toBe(14);
+    expect(draft.bday!.year).toBe("1987");
+    expect(draft.bday!.month).toBe("3");
+    expect(draft.bday!.day).toBe("14");
   });
 });
 
@@ -191,9 +191,26 @@ UID:test@example.com
 END:VCARD`;
     const contact = parse(vcard);
     const draft = buildDraft(contact);
-    draft.bday = draft.bday ? { ...draft.bday, year: 1990 } : null;
+    draft.bday = draft.bday ? { ...draft.bday, year: "1990" } : null;
     const diff = dirtyDiff(contact, draft);
     expect(diff.bday).toBe(true);
+  });
+
+  it("keeps typed birthday text as-is and treats a zero-padded equal value as clean", () => {
+    const contact = parse(`BEGIN:VCARD
+VERSION:3.0
+FN:Test
+N:Test;Test;;;
+BDAY:1987-03-14
+UID:test@example.com
+END:VCARD`);
+    const draft = buildDraft(contact);
+    if (draft.bday) draft.bday.month = "03";
+    expect(dirtyDiff(contact, draft).bday).toBe(false);
+    if (draft.bday) draft.bday.year = "19x";
+    expect(draft.bday?.year).toBe("19x");
+    expect(dirtyDiff(contact, draft).bday).toBe(true);
+    expect(validateDraft(draft).bday_year).toBe("field_bday_year");
   });
 });
 
@@ -308,7 +325,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: null, month: NaN, day: null },
+        bday: { source: "", year: "", month: "abc", day: "" },
         org: "",
         title: "",
         url: "",
@@ -326,7 +343,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: null, month: 13, day: null },
+        bday: { source: "", year: "", month: "13", day: "" },
         org: "",
         title: "",
         url: "",
@@ -344,7 +361,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: null, month: null, day: 15 },
+        bday: { source: "", year: "", month: "", day: "15" },
         org: "",
         title: "",
         url: "",
@@ -362,7 +379,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: NaN, month: 1, day: 15 },
+        bday: { source: "", year: "abc", month: "1", day: "15" },
         org: "",
         title: "",
         url: "",
@@ -380,7 +397,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: null, month: 3, day: null },
+        bday: { source: "", year: "", month: "3", day: "" },
         org: "",
         title: "",
         url: "",
@@ -398,7 +415,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: 2000, month: 3, day: null },
+        bday: { source: "", year: "2000", month: "3", day: "" },
         org: "",
         title: "",
         url: "",
@@ -416,7 +433,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: null, month: 3, day: 14 },
+        bday: { source: "", year: "", month: "3", day: "14" },
         org: "",
         title: "",
         url: "",
@@ -434,7 +451,7 @@ describe("validateDraft", () => {
         email: [],
         nickname: "",
         adr: null,
-        bday: { source: "", year: 2000, month: 12, day: 31 },
+        bday: { source: "", year: "2000", month: "12", day: "31" },
         org: "",
         title: "",
         url: "",

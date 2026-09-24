@@ -320,7 +320,7 @@ END:VCARD`;
   it("creates BDAY on a card that lacks it", () => {
     const contact = parse(MINIMAL);
     const draft = buildDraft(contact);
-    draft.bday = { source: "", year: 1987, month: 3, day: 14 };
+    draft.bday = { source: "", year: "1987", month: "3", day: "14" };
     applyDraft(contact, draft);
     const result = serialise(contact);
     // Must have a BDAY line with the date (format may vary:
@@ -408,7 +408,7 @@ UID:bday-clear-day@example.com
 END:VCARD`;
     const contact = parse(vcard);
     const draft = buildDraft(contact);
-    draft.bday = draft.bday ? { ...draft.bday, day: null, source: "1987-03" } : null;
+    draft.bday = draft.bday ? { ...draft.bday, day: "", source: "1987-03" } : null;
     applyDraft(contact, draft);
     const result = serialise(contact);
     // Must contain month, year but NOT day 14
@@ -594,7 +594,7 @@ END:VCARD`;
     const contact = parse(vcard);
     const draft = buildDraft(contact);
     // User cleared all three inputs — source is now stale, every part is null
-    draft.bday = draft.bday ? { ...draft.bday, year: null, month: null, day: null } : null;
+    draft.bday = draft.bday ? { ...draft.bday, year: "", month: "", day: "" } : null;
     applyDraft(contact, draft);
     const result = serialise(contact);
     const lines = result.replace(/\r\n?/g, "\n").split("\n");
@@ -640,7 +640,7 @@ describe("BDAY matrix via real parse()", () => {
     it("1987-03-14: editing the year applies", () => {
       const card = bdayCard("BDAY:1987-03-14", version);
       const result = editField(card, (draft) => {
-        if (draft.bday) draft.bday.year = 1990;
+        if (draft.bday) draft.bday.year = "1990";
       });
       expect(bdayLineOf(result)).toBe(
         version === "3.0" ? "BDAY;VALUE=DATE:19900314" : "BDAY:19900314",
@@ -651,9 +651,9 @@ describe("BDAY matrix via real parse()", () => {
       const card = bdayCard("BDAY:1987-03-14", version);
       const result = editField(card, (draft) => {
         if (draft.bday) {
-          draft.bday.year = null;
-          draft.bday.month = null;
-          draft.bday.day = null;
+          draft.bday.year = "";
+          draft.bday.month = "";
+          draft.bday.day = "";
         }
       });
       expect(bdayLineOf(result)).toBeUndefined();
@@ -662,7 +662,7 @@ describe("BDAY matrix via real parse()", () => {
     it("1987-03-14: clearing the day alone keeps year and month", () => {
       const card = bdayCard("BDAY:1987-03-14", version);
       const result = editField(card, (draft) => {
-        if (draft.bday) draft.bday.day = null;
+        if (draft.bday) draft.bday.day = "";
       });
       expect(bdayLineOf(result)).toBe(
         version === "3.0" ? "BDAY;VALUE=DATE:1987-03" : "BDAY:1987-03",
@@ -679,7 +679,7 @@ describe("BDAY matrix via real parse()", () => {
     it("1987-03-14T10:30:00Z: editing the year keeps the time of day", () => {
       const card = bdayCard("BDAY:1987-03-14T10:30:00Z", version);
       const result = editField(card, (draft) => {
-        if (draft.bday) draft.bday.year = 1990;
+        if (draft.bday) draft.bday.year = "1990";
       });
       expect(bdayLineOf(result)).toBe("BDAY:19900314T103000Z");
     });
@@ -730,7 +730,7 @@ describe("BDAY matrix via real parse()", () => {
     it("VALUE=text:circa 1987: typing a year replaces the text with a date", () => {
       const card = bdayCard("BDAY;VALUE=text:circa 1987", version);
       const result = editField(card, (draft) => {
-        if (draft.bday) draft.bday.year = 1987;
+        if (draft.bday) draft.bday.year = "1987";
       });
       expect(bdayLineOf(result)).toBe(version === "3.0" ? "BDAY;VALUE=DATE:1987" : "BDAY:1987");
     });
@@ -738,7 +738,7 @@ describe("BDAY matrix via real parse()", () => {
 
   it("--0314: a lone month is rejected by validateDraft", () => {
     const draft = buildDraft(parse(bdayCard("BDAY:--0314")));
-    if (draft.bday) draft.bday.day = null;
+    if (draft.bday) draft.bday.day = "";
     expect(validateDraft(draft).bday_month).toBe("field_bday_month");
   });
 

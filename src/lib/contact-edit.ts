@@ -20,11 +20,24 @@ export type ContactDraft = {
   /** null when the card has no address; may have partial content. */
   adr: VCardAddressField | null;
   /** null when the card has no birthday. */
-  bday: VCardBirthdayField | null;
+  bday: DraftBirthday | null;
   org: string;
   title: string;
   url: string;
   note: string;
+};
+
+/**
+ * Birthday parts as typed. They stay strings while editing so a partial or
+ * invalid entry ("19x") is shown as typed; they are parsed on validation,
+ * dirty-diff and apply.
+ */
+export type DraftBirthday = {
+  source: string;
+  valueType?: string;
+  year: string;
+  month: string;
+  day: string;
 };
 
 /** A TEL or EMAIL field in the draft, with a stable id for React keys. */
@@ -61,11 +74,39 @@ export function buildDraft(contact: Contact): ContactDraft {
     email: contact.fields.email.map(toDraftField),
     nickname: contact.fields.nickname,
     adr: contact.fields.adr ? { ...contact.fields.adr } : null,
-    bday: contact.fields.bday ? { ...contact.fields.bday } : null,
+    bday: contact.fields.bday ? toDraftBirthday(contact.fields.bday) : null,
     org: contact.fields.org,
     title: contact.fields.title,
     url: contact.fields.url,
     note: contact.fields.note,
+  };
+}
+
+function toDraftBirthday(bday: VCardBirthdayField): DraftBirthday {
+  const part = (n: number | null) => (n === null ? "" : String(n));
+  return {
+    source: bday.source,
+    valueType: bday.valueType,
+    year: part(bday.year),
+    month: part(bday.month),
+    day: part(bday.day),
+  };
+}
+
+/** Parse a typed birthday part: null when empty, NaN when not a whole number. */
+export function parseBirthdayPart(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+}
+
+function fromDraftBirthday(bday: DraftBirthday): VCardBirthdayField {
+  return {
+    source: bday.source,
+    valueType: bday.valueType,
+    year: parseBirthdayPart(bday.year),
+    month: parseBirthdayPart(bday.month),
+    day: parseBirthdayPart(bday.day),
   };
 }
 
@@ -141,13 +182,11 @@ function addressesDiffer(orig: VCardAddressField | null, draft: VCardAddressFiel
   );
 }
 
-function birthdaysDiffer(
-  orig: VCardBirthdayField | null,
-  draft: VCardBirthdayField | null,
-): boolean {
+function birthdaysDiffer(orig: VCardBirthdayField | null, draft: DraftBirthday | null): boolean {
   if (orig === null && draft === null) return false;
   if (orig === null || draft === null) return true;
-  return orig.year !== draft.year || orig.month !== draft.month || orig.day !== draft.day;
+  const parsed = fromDraftBirthday(draft);
+  return orig.year !== parsed.year || orig.month !== parsed.month || orig.day !== parsed.day;
 }
 
 /** True when any field is dirty. */
@@ -189,27 +228,28 @@ export function validateDraft(draft: ContactDraft): ValidationErrors {
 
   // BDAY day/month/year ranges and NaN guards
   if (draft.bday) {
-    if (draft.bday.month !== null) {
-      if (!Number.isInteger(draft.bday.month) || draft.bday.month < 1 || draft.bday.month > 12) {
+    const { year, month, day } = fromDraftBirthday(draft.bday);
+    if (month !== null) {
+      if (!Number.isInteger(month) || month < 1 || month > 12) {
         errors.bday_month = "field_bday_month";
       }
     }
-    if (draft.bday.day !== null) {
-      if (!Number.isInteger(draft.bday.day) || draft.bday.day < 1 || draft.bday.day > 31) {
+    if (day !== null) {
+      if (!Number.isInteger(day) || day < 1 || day > 31) {
         errors.bday_day = "field_bday_day";
       }
     }
-    if (draft.bday.year !== null) {
-      if (!Number.isInteger(draft.bday.year) || draft.bday.year < 1) {
+    if (year !== null) {
+      if (!Number.isInteger(year) || year < 1) {
         errors.bday_year = "field_bday_year";
       }
     }
     // Day requires month
-    if (draft.bday.day !== null && draft.bday.month === null) {
+    if (day !== null && month === null) {
       errors.bday_month = "field_bday_month";
     }
     // Month requires year or day — a lone month is not representable in RFC 6350
-    if (draft.bday.month !== null && draft.bday.year === null && draft.bday.day === null) {
+    if (month !== null && year === null && day === null) {
       errors.bday_month = "field_bday_month";
     }
   }
@@ -275,11 +315,7 @@ export function applyDraft(contact: Contact, draft: ContactDraft): Contact {
   } else {
     contact.fields.adr = null;
   }
-  if (draft.bday !== null) {
-    contact.fields.bday = { ...draft.bday };
-  } else {
-    contact.fields.bday = null;
-  }
+  contact.fields.bday = draft.bday !== null ? fromDraftBirthday(draft.bday) : null;
   contact.fields.org = draft.org;
   contact.fields.title = draft.title;
   contact.fields.url = draft.url;

@@ -127,17 +127,6 @@ function NotFoundView() {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Parse an integer from a string, returning NaN for invalid input. */
-function safeParseInt(value: string): number | null {
-  if (value.length === 0) return null;
-  const n = Number(value);
-  return Number.isInteger(n) ? n : null;
-}
-
-// ---------------------------------------------------------------------------
 // Draft reducer
 // ---------------------------------------------------------------------------
 
@@ -163,7 +152,7 @@ type DraftAction =
   | { type: "SET_BDAY_YEAR"; value: string }
   | { type: "SET_BDAY_MONTH"; value: string }
   | { type: "SET_BDAY_DAY"; value: string }
-  | { type: "ADD_BDAY"; value: string }
+  | { type: "ADD_BDAY" }
   | { type: "SET_ORG"; value: string }
   | { type: "SET_TITLE"; value: string }
   | { type: "SET_URL"; value: string }
@@ -250,40 +239,16 @@ function draftReducer(state: ContactDraft, action: DraftAction): ContactDraft {
         },
       };
     case "SET_BDAY_YEAR":
-      return {
-        ...state,
-        bday: state.bday
-          ? {
-              ...state.bday,
-              year: action.value.length > 0 ? safeParseInt(action.value) : null,
-            }
-          : null,
-      };
+      return { ...state, bday: state.bday ? { ...state.bday, year: action.value } : null };
     case "SET_BDAY_MONTH":
-      return {
-        ...state,
-        bday: state.bday
-          ? {
-              ...state.bday,
-              month: action.value.length > 0 ? safeParseInt(action.value) : null,
-            }
-          : null,
-      };
+      return { ...state, bday: state.bday ? { ...state.bday, month: action.value } : null };
     case "SET_BDAY_DAY":
-      return {
-        ...state,
-        bday: state.bday
-          ? {
-              ...state.bday,
-              day: action.value.length > 0 ? safeParseInt(action.value) : null,
-            }
-          : null,
-      };
+      return { ...state, bday: state.bday ? { ...state.bday, day: action.value } : null };
     case "ADD_BDAY":
       if (state.bday) return state;
       return {
         ...state,
-        bday: { source: action.value, year: null, month: null, day: null },
+        bday: { source: "", year: "", month: "", day: "" },
       };
     case "SET_ORG":
       return { ...state, org: action.value };
@@ -1037,7 +1002,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                           type="text"
                           inputMode="numeric"
                           placeholder="JJ"
-                          value={draft.bday.day !== null ? String(draft.bday.day) : ""}
+                          value={draft.bday.day}
                           onChange={(e) =>
                             dispatch({ type: "SET_BDAY_DAY", value: e.target.value })
                           }
@@ -1060,7 +1025,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                           type="text"
                           inputMode="numeric"
                           placeholder="MM"
-                          value={draft.bday.month !== null ? String(draft.bday.month) : ""}
+                          value={draft.bday.month}
                           onChange={(e) =>
                             dispatch({ type: "SET_BDAY_MONTH", value: e.target.value })
                           }
@@ -1082,7 +1047,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                         type="text"
                         inputMode="numeric"
                         placeholder="AAAA"
-                        value={draft.bday.year !== null ? String(draft.bday.year) : ""}
+                        value={draft.bday.year}
                         onChange={(e) => dispatch({ type: "SET_BDAY_YEAR", value: e.target.value })}
                         className="h-11 w-24 rounded-md border border-input bg-card px-3 text-center text-base lg:text-[0.9375rem]"
                       />
@@ -1260,10 +1225,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                 <AddPill label={t("add_address")} onClick={() => dispatch({ type: "ADD_ADR" })} />
               )}
               {draft.bday === null && (
-                <AddPill
-                  label={t("add_bday")}
-                  onClick={() => dispatch({ type: "ADD_BDAY", value: "" })}
-                />
+                <AddPill label={t("add_bday")} onClick={() => dispatch({ type: "ADD_BDAY" })} />
               )}
             </div>
             {unknownCount > 0 && (
