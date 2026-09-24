@@ -3,6 +3,8 @@
  *
  * Route stays thin: resolves the id param and passes contacts + id to the
  * ContactPage component. Page logic lives in src/components/contact-page.tsx.
+ *
+ * Supports ?edit search param for switching between view and edit mode.
  */
 
 import { createFileRoute } from "@tanstack/react-router";
@@ -16,9 +18,10 @@ export const Route = createFileRoute("/contacts/$id")({
 
 function ContactDetailRoute() {
   const { id } = Route.useParams();
+  const edit = new URLSearchParams(window.location.search).get("edit") === "true";
   const auth = useAuth();
   const book = useSelectedBook();
   const contactsQuery = useContacts(auth ?? undefined, book ?? undefined);
   const contacts = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data?.contacts;
-  return <ContactPage contacts={contacts} id={id} />;
+  return <ContactPage contacts={contacts} id={id} edit={edit} />;
 }

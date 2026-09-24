@@ -138,7 +138,7 @@ function wrapper(client: QueryClient): ({ children }: { children: ReactNode }) =
 }
 
 function makeContact(overrides: Partial<Contact> = {}): Contact {
-  return {
+  const base: Contact = {
     href: "https://dav.example.com/dav/books/default/1.vcf",
     etag: '"e1"',
     uid: "uid-1",
@@ -147,9 +147,20 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
       n: { family: "A", given: "B", additional: "", prefix: "", suffix: "" },
       tel: [],
       email: [],
+      nickname: "",
+      adr: null,
+      bday: null,
+      org: "",
+      title: "",
+      url: "",
+      note: "",
     },
     raw: { toString: () => "vcard" } as unknown as Contact["raw"],
+  };
+  return {
+    ...base,
     ...overrides,
+    fields: { ...base.fields, ...overrides.fields } as Contact["fields"],
   };
 }
 

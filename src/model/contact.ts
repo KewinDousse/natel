@@ -28,7 +28,7 @@ export interface RawProperty {
 export interface RawComponent {
   getFirstPropertyValue(name: string): unknown;
   getFirstProperty(name: string): RawProperty | null;
-  getAllProperties(name: string): RawProperty[];
+  getAllProperties(name?: string): RawProperty[];
   removeAllProperties(name: string): void;
   removeProperty(nameOrProp: string | RawProperty): boolean;
   addProperty(prop: RawProperty): unknown;
@@ -56,6 +56,36 @@ export type EditableFields = {
   };
   tel: ContactField[];
   email: ContactField[];
+  nickname: string;
+  adr: VCardAddressField | null;
+  bday: VCardBirthdayField | null;
+  org: string;
+  title: string;
+  url: string;
+  note: string;
+};
+
+/** A single ADR property as stored in EditableFields. */
+export type VCardAddressField = {
+  poBox: string;
+  extended: string;
+  street: string;
+  locality: string;
+  region: string;
+  postalCode: string;
+  country: string;
+  type: string[];
+  /** Any extra components beyond the standard 7 (some clients add a
+   *  formatted-address component). These are preserved as-is. */
+  extraParts: string[];
+};
+
+/** A single BDAY property as stored in EditableFields. */
+export type VCardBirthdayField = {
+  source: string;
+  year: number | null;
+  month: number | null;
+  day: number | null;
 };
 
 export type Contact = {

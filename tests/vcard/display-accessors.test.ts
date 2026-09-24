@@ -45,7 +45,8 @@ describe("addressOf", () => {
       region: "VD",
       postalCode: "1009",
       country: "Suisse",
-      type: ["work"],
+      extraParts: [],
+      type: ["WORK"],
     });
   });
 
@@ -59,7 +60,7 @@ describe("addressOf", () => {
 
   it("reads the TYPE parameter as an array", () => {
     const card = CARD_RICH.replace("ADR;TYPE=WORK:", "ADR;TYPE=HOME:");
-    expect(addressOf(parse(card))?.type).toEqual(["home"]);
+    expect(addressOf(parse(card))?.type).toEqual(["HOME"]);
   });
 });
 

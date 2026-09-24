@@ -3,6 +3,10 @@
  *
  * The ONLY module that imports ical.js. UI code imports parse/serialise from
  * here, never from ical.js directly.
+ *
+ * EXTENSION (edit task): NICKNAME, ADR, BDAY, ORG, TITLE, URL, NOTE are now
+ * part of the editable subset. Everything the UI does not edit round-trips
+ * byte-preserved via raw.
  */
 
 import ICAL from "ical.js";
@@ -133,6 +137,167 @@ function replacePropertiesInPlace(
 }
 
 // ---------------------------------------------------------------------------
+// Serialiser helpers for the extended editable subset
+// ---------------------------------------------------------------------------
+
+/**
+ * Update or remove a single-string property (NICKNAME, TITLE).
+ * This is the "owned" property (only one, always updated):
+ * if the value is non-empty, create or update the property;
+ * if the value is empty, remove the property.
+ */
+function updateStringProperty(raw: RawComponent, name: string, value: string): void {
+  const prop = raw.getFirstProperty(name);
+  if (value.length > 0) {
+    if (prop) {
+      prop.setValue(value);
+    } else {
+      const newProp = new ICAL.Property(name);
+      newProp.setValue(value);
+      raw.addProperty(newProp);
+    }
+  } else if (prop) {
+    raw.removeProperty(prop);
+  }
+}
+
+/**
+ * Update or remove the FIRST occurrence of a multi-string property (URL, NOTE).
+ * Subsequent properties with the same name are left untouched in raw.
+ */
+function updateFirstStringProperty(raw: RawComponent, name: string, value: string): void {
+  const prop = raw.getFirstProperty(name);
+  if (value.length > 0) {
+    if (prop) {
+      prop.setValue(value);
+    } else {
+      const newProp = new ICAL.Property(name);
+      newProp.setValue(value);
+      // Insert before END:VCARD — find the last property position
+      raw.addProperty(newProp);
+    }
+  } else if (prop) {
+    raw.removeProperty(prop);
+  }
+}
+
+/**
+ * Update the first ADR property in place, preserving all 7 structured parts.
+ * Other ADR properties remain untouched.
+ */
+function updateAddressProperty(raw: RawComponent, adr: EditableFields["adr"]): void {
+  if (adr === null) return;
+  const hasContent = [
+    adr.poBox,
+    adr.extended,
+    adr.street,
+    adr.locality,
+    adr.region,
+    adr.postalCode,
+    adr.country,
+  ].some((p) => p.length > 0);
+  let prop = raw.getFirstProperty("adr");
+  if (hasContent) {
+    if (!prop) {
+      prop = new ICAL.Property("adr");
+      raw.addProperty(prop);
+    }
+    const parts = [
+      adr.poBox,
+      adr.extended,
+      adr.street,
+      adr.locality,
+      adr.region,
+      adr.postalCode,
+      adr.country,
+      ...adr.extraParts,
+    ];
+    prop.resetType("text");
+    prop.setValue(parts);
+    // Clear stale TYPE params, then set from field
+    const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
+    for (const key of Object.keys(jcal[1] ?? {})) {
+      if (key.toLowerCase() === "type") {
+        prop.removeParameter(key);
+      }
+    }
+    if (adr.type.length > 0) {
+      const firstType = adr.type[0];
+      if (firstType !== undefined) {
+        prop.setParameter("type", adr.type.length === 1 ? firstType : adr.type);
+      }
+    }
+  } else if (prop) {
+    raw.removeProperty(prop);
+  }
+}
+
+/** Reconstruct a BDAY date string from year/month/day parts. */
+function reconstructBdaySource(bday: EditableFields["bday"]): string {
+  if (bday === null) return "";
+  const { year, month, day } = bday;
+  if (year !== null && month !== null && day !== null) {
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  if (month !== null && day !== null) {
+    return `--${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  if (year !== null && month !== null) {
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+  }
+  if (year !== null) {
+    return String(year);
+  }
+  return "";
+}
+
+/**
+ * Update the first BDAY property in place, reconstructing the date string
+ * from the structured parts. Other BDAY properties remain untouched.
+ */
+function updateBdayProperty(raw: RawComponent, bday: EditableFields["bday"]): void {
+  if (bday === null) return;
+  const dateStr = reconstructBdaySource(bday);
+  let prop = raw.getFirstProperty("bday");
+  if (dateStr.length > 0) {
+    if (!prop) {
+      prop = new ICAL.Property("bday");
+      raw.addProperty(prop);
+    }
+    // Set the date value via ICAL.Time for proper serialisation
+    try {
+      const time = ICAL.Time.fromString(dateStr, null);
+      time.isDate = true;
+      prop.setValue(time);
+    } catch {
+      prop.setValue(dateStr);
+    }
+  } else if (prop) {
+    raw.removeProperty(prop);
+  }
+}
+
+/**
+ * Update the first ORG property in place, replacing only the first component
+ * (org name) and preserving any additional components (org units).
+ */
+function updateOrgProperty(raw: RawComponent, org: string): void {
+  let prop = raw.getFirstProperty("org");
+  if (org.length > 0) {
+    if (!prop) {
+      prop = new ICAL.Property("org");
+      raw.addProperty(prop);
+    }
+    const existing = prop.getFirstValue();
+    const parts = Array.isArray(existing) ? [...(existing as string[])] : [];
+    parts[0] = org;
+    prop.setValue(parts);
+  } else if (prop) {
+    raw.removeProperty(prop);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Read-only display accessors
 // ---------------------------------------------------------------------------
 
@@ -153,12 +318,15 @@ export function typeValuesOf(typed: TypedProp): string[] {
 /**
  * ORG value for display, read from the parsed raw component.
  *
- * Read-only on purpose: ORG is not part of the editable subset and nothing
- * here ever writes to `raw`. Multi-part values (org name + units) are joined
- * with ", ".
+ * Multi-part values (org name + units) are joined with ", ".
  */
 export function orgOf(contact: Contact): string {
-  const value = contact.raw.getFirstPropertyValue("org");
+  return readOrg(contact.raw);
+}
+
+/** @internal Read ORG from a raw component. */
+function readOrg(raw: RawComponent): string {
+  const value = raw.getFirstPropertyValue("org");
   if (Array.isArray(value)) {
     return value
       .filter((part): part is string => typeof part === "string" && part.length > 0)
@@ -169,7 +337,12 @@ export function orgOf(contact: Contact): string {
 
 /** TITLE (job title) value for display, read from the parsed raw component. */
 export function jobTitleOf(contact: Contact): string {
-  const value = contact.raw.getFirstPropertyValue("title");
+  return readTitle(contact.raw);
+}
+
+/** @internal Read TITLE from a raw component. */
+function readTitle(raw: RawComponent): string {
+  const value = raw.getFirstPropertyValue("title");
   return typeof value === "string" ? value : "";
 }
 
@@ -184,32 +357,49 @@ export type VCardAddress = {
   country: string;
   /** TYPE parameter values (e.g. ["HOME"]) — used for the row label. */
   type: string[];
+  /** Extra components beyond the standard 7 (e.g. formatted-address in
+   *  some vCard 3.0 exports). These are always preserved as-is. */
+  extraParts: string[];
 };
 
 /** ADR parts of the first ADR property, or null when the card has none. */
 export function addressOf(contact: Contact): VCardAddress | null {
-  const prop = contact.raw.getFirstProperty("adr");
+  return readAddress(contact.raw);
+}
+
+/** @internal Read first ADR from a raw component. */
+function readAddress(raw: RawComponent): VCardAddress | null {
+  const prop = raw.getFirstProperty("adr");
   if (!prop) return null;
   const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
-  const parts = Array.isArray(prop.getFirstValue())
+  const rawParts = Array.isArray(prop.getFirstValue())
     ? (prop.getFirstValue() as unknown[]).map((part) => String(part ?? ""))
     : [];
-  const type = typeValuesOf({ params: jcal[1] });
+  const rawParams = jcal[1] ?? {};
+  const rawType = rawParams.TYPE ?? rawParams.type;
+  const type = Array.isArray(rawType)
+    ? rawType.map((v) => String(v))
+    : typeof rawType === "string"
+      ? [rawType]
+      : [];
   return {
-    poBox: parts[0] ?? "",
-    extended: parts[1] ?? "",
-    street: parts[2] ?? "",
-    locality: parts[3] ?? "",
-    region: parts[4] ?? "",
-    postalCode: parts[5] ?? "",
-    country: parts[6] ?? "",
+    poBox: rawParts[0] ?? "",
+    extended: rawParts[1] ?? "",
+    street: rawParts[2] ?? "",
+    locality: rawParts[3] ?? "",
+    region: rawParts[4] ?? "",
+    postalCode: rawParts[5] ?? "",
+    country: rawParts[6] ?? "",
+    extraParts: rawParts.slice(7),
     type,
   };
 }
 
 /** BDAY as plain date parts plus the raw stored text (used for copy). */
 export type Birthday = {
-  /** Raw property value as stored ("1987-03-14", "--03-14", "1987", …). */
+  /** Raw property value as stored ("1987-03-14", "--03-14", "1987", …).
+   *  This is the ical.js-normalised value, not the raw text from the vCard
+   *  (ical.js may normalise "1987-3-14" to "1987-03-14"). */
   source: string;
   year: number | null;
   month: number | null;
@@ -221,7 +411,12 @@ export type Birthday = {
  * kept as-is: a missing part is null, never a zero or invented value.
  */
 export function birthdayOf(contact: Contact): Birthday | null {
-  const prop = contact.raw.getFirstProperty("bday");
+  return readBirthday(contact.raw);
+}
+
+/** @internal Read BDAY from a raw component. */
+function readBirthday(raw: RawComponent): Birthday | null {
+  const prop = raw.getFirstProperty("bday");
   if (!prop) return null;
   const value = prop.getFirstValue();
   const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
@@ -243,7 +438,12 @@ export function birthdayOf(contact: Contact): Birthday | null {
  * whitespace (including line breaks) is preserved for pre-wrap display.
  */
 export function noteOf(contact: Contact): string {
-  const value = contact.raw.getFirstPropertyValue("note");
+  return readNote(contact.raw);
+}
+
+/** @internal Read NOTE from a raw component. */
+function readNote(raw: RawComponent): string {
+  const value = raw.getFirstPropertyValue("note");
   return typeof value === "string" ? value : "";
 }
 
@@ -296,7 +496,19 @@ export function parse(text: string, href = "", etag = ""): Contact {
   const emailProps = raw.getAllProperties("email");
   const email = emailProps.map(propertyToField);
 
-  const fields: EditableFields = { fn, n, tel, email };
+  const fields: EditableFields = {
+    fn,
+    n,
+    tel,
+    email,
+    nickname: String(raw.getFirstPropertyValue("nickname") ?? ""),
+    adr: readAddress(raw),
+    bday: readBirthday(raw),
+    org: readOrg(raw),
+    title: readTitle(raw),
+    url: String(raw.getFirstPropertyValue("url") ?? ""),
+    note: readNote(raw),
+  };
 
   return { href, etag, uid, fields, raw };
 }
@@ -304,9 +516,8 @@ export function parse(text: string, href = "", etag = ""): Contact {
 /**
  * Serialise a Contact back to vCard text.
  *
- * Applies the editable fields (FN, N, TEL, EMAIL) onto `contact.raw`, then
- * serialises the full component. Properties the UI never touches are emitted
- * exactly as parsed.
+ * Applies the editable fields onto `contact.raw`, then serialises the full
+ * component. Properties the UI never touches are emitted exactly as parsed.
  */
 export function serialise(contact: Contact): string {
   const { raw, fields } = contact;
@@ -340,6 +551,27 @@ export function serialise(contact: Contact): string {
 
   // --- Update EMAIL properties in place ---
   replacePropertiesInPlace(raw, "email", fields.email);
+
+  // --- Update NICKNAME ---
+  updateStringProperty(raw, "nickname", fields.nickname);
+
+  // --- Update ADR (first property only) ---
+  updateAddressProperty(raw, fields.adr);
+
+  // --- Update BDAY (first property only) ---
+  updateBdayProperty(raw, fields.bday);
+
+  // --- Update ORG (first property only, first component) ---
+  updateOrgProperty(raw, fields.org);
+
+  // --- Update TITLE ---
+  updateStringProperty(raw, "title", fields.title);
+
+  // --- Update URL (first property only) ---
+  updateFirstStringProperty(raw, "url", fields.url);
+
+  // --- Update NOTE (first property only) ---
+  updateFirstStringProperty(raw, "note", fields.note);
 
   return raw.toString();
 }

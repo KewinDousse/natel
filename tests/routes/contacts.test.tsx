@@ -83,7 +83,7 @@ function rawStub(): RawComponent {
 }
 
 function makeContact(uid: string, overrides: Partial<Contact> = {}): Contact {
-  return {
+  const base: Contact = {
     href: `https://dav.example.ch/dav/books/a/${uid}.vcf`,
     etag: `"${uid}"`,
     uid,
@@ -92,9 +92,20 @@ function makeContact(uid: string, overrides: Partial<Contact> = {}): Contact {
       n: { family: "Dupont", given: "Jean", additional: "", prefix: "", suffix: "" },
       tel: [],
       email: [],
+      nickname: "",
+      adr: null,
+      bday: null,
+      org: "",
+      title: "",
+      url: "",
+      note: "",
     },
     raw: rawStub(),
+  };
+  return {
+    ...base,
     ...overrides,
+    fields: { ...base.fields, ...overrides.fields } as Contact["fields"],
   };
 }
 
@@ -107,6 +118,13 @@ function bookAContacts(): Contact[] {
         n: { family: "Benali", given: "Karim", additional: "", prefix: "", suffix: "" },
         tel: [{ value: "078 330 12 45", params: { TYPE: "CELL" } }],
         email: [],
+        nickname: "",
+        adr: null,
+        bday: null,
+        org: "",
+        title: "",
+        url: "",
+        note: "",
       },
     }),
     makeContact("bernasconi", {
@@ -115,6 +133,13 @@ function bookAContacts(): Contact[] {
         n: { family: "Bernasconi", given: "Giulia", additional: "", prefix: "", suffix: "" },
         tel: [{ value: "091 923 77 60", params: { TYPE: "HOME" } }],
         email: [],
+        nickname: "",
+        adr: null,
+        bday: null,
+        org: "",
+        title: "",
+        url: "",
+        note: "",
       },
     }),
     makeContact("chen", {
@@ -123,6 +148,13 @@ function bookAContacts(): Contact[] {
         n: { family: "Chen", given: "Olivia", additional: "", prefix: "", suffix: "" },
         tel: [],
         email: [{ value: "olivia@chen.ch" }],
+        nickname: "",
+        adr: null,
+        bday: null,
+        org: "",
+        title: "",
+        url: "",
+        note: "",
       },
     }),
     makeContact("evrat", {
@@ -131,6 +163,13 @@ function bookAContacts(): Contact[] {
         n: { family: "Évrat", given: "Luc", additional: "", prefix: "", suffix: "" },
         tel: [],
         email: [],
+        nickname: "",
+        adr: null,
+        bday: null,
+        org: "",
+        title: "",
+        url: "",
+        note: "",
       },
     }),
     makeContact("numero", {
@@ -139,6 +178,13 @@ function bookAContacts(): Contact[] {
         n: { family: "123 Service", given: "", additional: "", prefix: "", suffix: "" },
         tel: [],
         email: [],
+        nickname: "",
+        adr: null,
+        bday: null,
+        org: "",
+        title: "",
+        url: "",
+        note: "",
       },
     }),
   ];
@@ -360,13 +406,16 @@ describe("search", () => {
     const user = userEvent.setup();
 
     await screen.findByText(/Benali/);
-    // Compact digit query: matches only through the digit rule. The displayed
-    // (spaced) value contains no "078330" substring, so nothing is marked.
+    // Compact digit query matches through the digit rule. The digits-only
+    // query "078330" matches the digits of "078 330 12 45" → the whole
+    // formatted value is highlighted.
     await user.type(screen.getByRole("searchbox"), "078330");
 
     expect(screen.getByRole("link", { name: /Benali/ })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Bernasconi/ })).toBeNull();
-    expect(screen.getByRole("link", { name: /Benali/ }).querySelector("mark")).toBeNull();
+    const digitsMark = screen.getByRole("link", { name: /Benali/ }).querySelector("mark");
+    expect(digitsMark).not.toBeNull();
+    expect(digitsMark?.textContent).toBe("078 330 12 45");
 
     await user.clear(screen.getByRole("searchbox"));
     await user.type(screen.getByRole("searchbox"), "078 330");

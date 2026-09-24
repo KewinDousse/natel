@@ -339,7 +339,8 @@ describe("avatar and special sections", () => {
     await renderLoggedIn("/contacts/org-card");
 
     const article = await screen.findByRole("article");
-    expect(within(article).getByText("Commune de Pully")).toBeTruthy();
+    const orgTexts = within(article).getAllByText("Commune de Pully");
+    expect(orgTexts.length).toBeGreaterThanOrEqual(1);
     expect(article.querySelector("svg")).not.toBeNull();
     expect(within(article).queryByText(/^[A-Z]{2}$/)).toBeNull();
   });
@@ -371,10 +372,15 @@ describe("avatar and special sections", () => {
 
     const article = await screen.findByRole("article");
     // getByText normalises whitespace, so match the collapsed form.
-    const note = within(article).getByText(
+    // The note appears in both the view span and the hidden edit textarea.
+    const noteElements = within(article).getAllByText(
       "Rencontrée au Repair Café de Renens. Préfère les messages aux appels.",
     );
-    expect(note.parentElement?.className).toContain("whitespace-pre-wrap");
+    expect(noteElements.length).toBeGreaterThanOrEqual(1);
+    const viewNote = noteElements[0] as HTMLElement;
+    expect(viewNote).toBeTruthy();
+    const parent = viewNote.parentElement;
+    expect(parent?.className).toContain("whitespace-pre-wrap");
   });
 });
 

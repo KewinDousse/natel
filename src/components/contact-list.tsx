@@ -199,7 +199,7 @@ function ContactRow({ contact, query }: { contact: Contact; query: string }) {
           {trailing &&
             (trailing.kind === "tel" ? (
               <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-[0.9375rem] sm:text-foreground">
-                <Marked value={formatPhone(trailing.value)} query={query} />
+                <TelMarked value={trailing.value} query={query} />
               </span>
             ) : (
               <span className="block truncate text-sm text-muted-foreground sm:max-w-[42%] sm:shrink-0">
@@ -253,11 +253,37 @@ function BuildingAvatar() {
 function Marked({ value, query }: { value: string; query: string }) {
   const segments: HighlightSegment[] = splitByQuery(value, query);
   if (segments.length === 1 && !(segments[0]?.hit ?? false)) return <>{value}</>;
+  return <MarkedSegments segments={segments} />;
+}
+
+/**
+ * Like Marked but for phone numbers: also matches digit-only queries against
+ * the digit form of the displayed value. When a digit query matches the
+ * digits-only form, the entire formatted value is marked.
+ */
+function TelMarked({ value, query }: { value: string; query: string }) {
+  const formatted = formatPhone(value);
+  const segments = splitByQuery(formatted, query);
+  if (segments.length > 1 || (segments[0]?.hit ?? false)) {
+    return <MarkedSegments segments={segments} />;
+  }
+  const qDigits = query.replace(/[\s.+-]/g, "");
+  if (qDigits.length >= 3) {
+    const formattedDigits = formatted.replace(/[\s.+-]/g, "");
+    const digitSegments = splitByQuery(formattedDigits, qDigits);
+    if (digitSegments.length > 1 || (digitSegments[0]?.hit ?? false)) {
+      return <mark>{formatted}</mark>;
+    }
+  }
+  return <>{formatted}</>;
+}
+
+function MarkedSegments({ segments }: { segments: HighlightSegment[] }) {
   return (
     <>
       {segments.map((segment, index) =>
         segment.hit ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static display segments, rebuilt per render, never reordered
+          // biome-ignore lint/suspicious/noArrayIndexKey: static display segments
           <mark key={index}>{segment.text}</mark>
         ) : (
           // biome-ignore lint/suspicious/noArrayIndexKey: same as above

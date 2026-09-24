@@ -48,6 +48,13 @@ function makeContact(overrides: ContactOverrides = {}): Contact {
       n: { family, given, additional: "", prefix: "", suffix: "" },
       tel: rest.tel ?? [],
       email: rest.email ?? [],
+      nickname: "",
+      adr: null,
+      bday: null,
+      org: "",
+      title: "",
+      url: "",
+      note: "",
     },
     raw: {
       getFirstPropertyValue: (name: string) => (name === "org" ? (org ?? "") : ""),
