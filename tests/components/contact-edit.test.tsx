@@ -11,6 +11,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DavError } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import { createQueryClient } from "@/queries";
@@ -288,9 +289,7 @@ describe("edit mode — dirty dialog", () => {
 
 describe("edit mode — save error", () => {
   it("shows network error in the bottom bar", async () => {
-    mockUpdateCard.mockRejectedValueOnce(
-      Object.assign(new Error("Network error"), { code: "NETWORK", name: "DavError" }),
-    );
+    mockUpdateCard.mockRejectedValueOnce(new DavError("Network error", "NETWORK"));
     await renderEditView("editable");
     const user = userEvent.setup();
 
@@ -304,9 +303,7 @@ describe("edit mode — save error", () => {
 
 describe("edit mode — conflict", () => {
   it("shows conflict banner on 412", async () => {
-    mockUpdateCard.mockRejectedValueOnce(
-      Object.assign(new Error("Conflict"), { code: "CONFLICT", name: "DavError" }),
-    );
+    mockUpdateCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
     await renderEditView("editable");
     const user = userEvent.setup();
 
