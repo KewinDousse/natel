@@ -644,3 +644,47 @@ describe("edit mode — cancel during an in-flight save", () => {
     expect(screen.getByRole("button", { name: "Enregistrer" })).toHaveProperty("disabled", false);
   });
 });
+
+describe("view mode — E shortcut", () => {
+  // Lets a navigation the key may have triggered land before asserting.
+  const settle = () => act(() => new Promise((r) => setTimeout(r, 100)));
+
+  async function renderView() {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ["/contacts/editable"] }),
+    });
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    return screen.findByRole("article", {}, { timeout: 5000 });
+  }
+
+  it("enters edit mode on a plain E", async () => {
+    const article = await renderView();
+    await userEvent.setup().keyboard("e");
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("edit"));
+  });
+
+  it.each(["{Control>}e{/Control}", "{Meta>}e{/Meta}", "{Alt>}e{/Alt}"])(
+    "ignores %s",
+    async (keys) => {
+      const article = await renderView();
+      await userEvent.setup().keyboard(keys);
+      await settle();
+      expect(article.getAttribute("data-mode")).toBe("view");
+    },
+  );
+
+  it("ignores auto-repeat", async () => {
+    const article = await renderView();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "e", repeat: true }));
+    await settle();
+    expect(article.getAttribute("data-mode")).toBe("view");
+  });
+});

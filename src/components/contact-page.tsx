@@ -443,6 +443,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
   useEffect(() => {
     if (edit) return;
     const handler = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
       if (e.key === "e" || e.key === "E") {
         if (
           document.activeElement &&
