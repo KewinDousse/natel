@@ -9,9 +9,9 @@
 
 import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DavAddressBook } from "@/dav/types";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
+import type { DavAddressBook } from "@/queries";
 
 type BookSwitcherProps = {
   books: DavAddressBook[];

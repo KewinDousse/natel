@@ -11,9 +11,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { DavAddressBook } from "@/dav/types";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
+import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
 import { LanguageSwitch } from "./language-switch";
 
