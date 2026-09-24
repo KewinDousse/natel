@@ -343,15 +343,10 @@ describe("edit round-trip — type edit (item 2)", () => {
     const result = editField(VCARD_MULTI_TYPE, (draft) => {
       if (draft.tel[0]) draft.tel[0].type = "work";
     });
-    // The edited TEL should have exactly one TYPE param with the new value
+    // Exactly one TYPE param, uppercase like the original list, VOICE kept.
     const lines = result.replace(/\r\n?/g, "\n").split("\n");
     const editedTel = lines.find((l) => l.includes("+1-555-111-1111"));
-    expect(editedTel).toBeDefined();
-    // Count TYPE occurrences in the line (ical.js stringify uppercases param names)
-    const typeCount = (editedTel!.match(/TYPE=/gi) || []).length;
-    expect(typeCount).toBe(1);
-    // The type should contain WORK
-    expect(editedTel!.toUpperCase()).toContain("WORK");
+    expect(editedTel).toBe("TEL;TYPE=WORK,VOICE:+1-555-111-1111");
   });
 
   it("changes TEL type work→home with exactly one TYPE param", () => {
@@ -360,18 +355,18 @@ describe("edit round-trip — type edit (item 2)", () => {
     });
     const lines = result.replace(/\r\n?/g, "\n").split("\n");
     const editedTel = lines.find((l) => l.includes("+1-555-222-2222"));
-    expect(editedTel).toBeDefined();
-    const typeCount = (editedTel!.match(/TYPE=/gi) || []).length;
-    expect(typeCount).toBe(1);
-    expect(editedTel!.toUpperCase()).toContain("HOME");
+    expect(editedTel).toBe("TEL;TYPE=HOME:+1-555-222-2222");
   });
 
   it("preserves other params when changing type", () => {
     const result = editField(VCARD_GROUPS, (draft) => {
       if (draft.tel[0]) draft.tel[0].type = "work";
     });
-    // The group prefix (item3) must survive the type change
-    expect(contains(result, "item3.TEL;TYPE=WORK:+1-555-444-4444")).toBe(true);
+    // The group prefix (item3) must survive the type change; ical.js
+    // uppercases group and property names on every line.
+    expect(result.replace(/\r\n?/g, "\n").split("\n")).toContain(
+      "ITEM3.TEL;TYPE=WORK:+1-555-444-4444",
+    );
   });
 });
 
