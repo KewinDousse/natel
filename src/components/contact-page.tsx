@@ -69,7 +69,12 @@ export function ContactPage({ contacts, id, edit = false }: ContactPageProps) {
 // Mobile top bar
 // ---------------------------------------------------------------------------
 
-function MobileTopBar({ editLabel }: { editLabel?: string }) {
+/**
+ * Mobile-only top bar. With `onEdit`, the right slot stacks the "Modifier" pill
+ * (view) and the "Modification" label (edit) in one cell so neither reflows;
+ * the fiche's data-mode picks which one shows.
+ */
+function MobileTopBar({ onEdit }: { onEdit?: () => void }) {
   const { t } = useI18n();
   return (
     <div className="sticky top-0 z-20 flex h-14 items-center border-b bg-muted/95 px-2 backdrop-blur lg:hidden">
@@ -82,8 +87,19 @@ function MobileTopBar({ editLabel }: { editLabel?: string }) {
         <ChevronLeftIcon />
         <span>{t("list_label")}</span>
       </Link>
-      {editLabel !== undefined && (
-        <span className="ml-auto mr-2 text-sm font-bold text-muted-foreground">{editLabel}</span>
+      {onEdit !== undefined && (
+        <div className="ml-auto mr-1 grid [&>*]:[grid-area:1/1]">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex h-9 items-center justify-center rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground transition-opacity hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group-data-[mode=edit]/fiche:invisible group-data-[mode=edit]/fiche:opacity-0"
+          >
+            {t("edit")}
+          </button>
+          <span className="invisible inline-flex h-9 items-center justify-center text-sm font-bold text-muted-foreground opacity-0 transition-opacity group-data-[mode=edit]/fiche:visible group-data-[mode=edit]/fiche:opacity-100">
+            {t("edit_label")}
+          </span>
+        </div>
       )}
     </div>
   );
@@ -602,7 +618,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
       data-mode={edit ? "edit" : "view"}
       aria-labelledby="fiche-title"
     >
-      <MobileTopBar editLabel={edit ? t("edit_label") : undefined} />
+      <MobileTopBar onEdit={handleToggleEdit} />
       <div className="mx-auto w-full max-w-[44rem] px-5 pb-28 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
         <h1 id="fiche-title" className="sr-only">
           {parts.display.length > 0 ? parts.display : org}

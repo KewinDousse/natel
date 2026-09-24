@@ -687,6 +687,27 @@ describe("view mode — E shortcut", () => {
     return screen.findByRole("article", {}, { timeout: 5000 });
   }
 
+  it("offers a Modifier pill in the mobile top bar, even on a name-only card", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ["/contacts/minimal"] }),
+    });
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const article = await screen.findByRole("article", {}, { timeout: 5000 });
+
+    await userEvent.setup().click(within(article).getByRole("button", { name: "Modifier" }));
+
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("edit"));
+    expect(within(article).getAllByText("Modification").length).toBeGreaterThan(0);
+  });
+
   it("enters edit mode on a plain E", async () => {
     const article = await renderView();
     await userEvent.setup().keyboard("e");
