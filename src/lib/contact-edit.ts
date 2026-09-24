@@ -392,26 +392,35 @@ function fromDraftField(field: DraftField): ContactField {
   // preserving all unknown params, groups, and the value type.
   const params: Record<string, string | string[]> = { ...(field._orig.params ?? {}) };
 
-  // Determine the original first TYPE value
   const origTypes = field._orig.params?.TYPE ?? field._orig.params?.type;
-  const origFirstType = Array.isArray(origTypes)
-    ? (origTypes[0] ?? "")
+  const origTypeValues = Array.isArray(origTypes)
+    ? origTypes
     : typeof origTypes === "string"
-      ? origTypes
-      : "";
+      ? [origTypes]
+      : [];
+  const origFirstType = origTypeValues[0] ?? "";
 
   // Only update TYPE if the user explicitly changed it
   if (field.type.toLowerCase() !== origFirstType.toLowerCase()) {
+    // The UI edits the first TYPE value only; the others (VOICE, PREF…) stay.
+    const others = origTypeValues
+      .slice(1)
+      .filter((value) => value.toLowerCase() !== field.type.toLowerCase());
+    const first = field.type.length > 0 ? [inCaseOf(field.type, origFirstType)] : [];
+    const types = [...first, ...others];
+
     // Remove BOTH casings of the type param before writing the new one
     delete params.TYPE;
     delete params.type;
 
-    if (field.type.length > 0) {
-      // Use lowercase 'type' for ical.js compatibility — uppercase 'TYPE'
-      // causes stringification crashes when a lowercase 'type' param coexists.
-      params.type = field.type;
+    // Use lowercase 'type' for ical.js compatibility — uppercase 'TYPE'
+    // causes stringification crashes when a lowercase 'type' param coexists.
+    const [only] = types;
+    if (types.length > 1) {
+      params.type = types;
+    } else if (only !== undefined) {
+      params.type = only;
     }
-    // else: user set type to "other" — TYPE params already removed above
   }
 
   return {
@@ -419,4 +428,11 @@ function fromDraftField(field: DraftField): ContactField {
     type: field._orig.type,
     params: Object.keys(params).length > 0 ? params : undefined,
   };
+}
+
+/** `value` in the letter case of `reference`, so an uppercase TYPE list stays uppercase. */
+function inCaseOf(value: string, reference: string): string {
+  return reference.length > 0 && reference === reference.toUpperCase()
+    ? value.toUpperCase()
+    : value;
 }

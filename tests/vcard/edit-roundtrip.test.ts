@@ -375,6 +375,36 @@ describe("edit round-trip — type edit (item 2)", () => {
   });
 });
 
+describe("edit round-trip — type edit keeps the other TYPE values", () => {
+  it("keeps VOICE when the first type changes from CELL to WORK", () => {
+    const result = editField(VCARD_MULTI_TYPE, (draft) => {
+      if (draft.tel[0]) draft.tel[0].type = "work";
+    });
+    expect(result.split("\n").map((l) => l.trimEnd())).toContain(
+      "TEL;TYPE=WORK,VOICE:+1-555-111-1111",
+    );
+  });
+
+  it("keeps PREF when an email type changes", () => {
+    const result = editField(VCARD_MULTI_TYPE, (draft) => {
+      if (draft.email[0]) draft.email[0].type = "work";
+    });
+    expect(result.split("\n").map((l) => l.trimEnd())).toContain(
+      "EMAIL;TYPE=WORK,PREF:primary@example.com",
+    );
+  });
+
+  it("keeps a lowercase TYPE list lowercase", () => {
+    const result = editField(
+      "BEGIN:VCARD\nVERSION:4.0\nFN:A\nN:A;;;;\nTEL;TYPE=cell,voice:+1\nEND:VCARD",
+      (draft) => {
+        if (draft.tel[0]) draft.tel[0].type = "home";
+      },
+    );
+    expect(result.split("\n").map((l) => l.trimEnd())).toContain("TEL;TYPE=home,voice:+1");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Tests for item 5: BDAY datetime preservation (no VALUE param added)
 // ---------------------------------------------------------------------------
