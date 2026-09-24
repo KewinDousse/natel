@@ -350,6 +350,40 @@ describe("edit mode — dirty dialog", () => {
   });
 });
 
+describe("edit mode — discard dialog keyboard", () => {
+  async function openDiscard() {
+    await renderEditView("editable");
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+    await screen.findByRole("dialog");
+    return user;
+  }
+
+  it("focuses Continuer l’édition first and keeps Tab inside the dialog", async () => {
+    const user = await openDiscard();
+    const keep = screen.getByRole("button", { name: /continuer/i });
+    const abandon = screen.getByRole("button", { name: /^abandonner$/i });
+    expect(document.activeElement).toBe(keep);
+
+    await user.tab();
+    expect(document.activeElement).toBe(abandon);
+    await user.tab();
+    expect(document.activeElement).toBe(keep);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(abandon);
+  });
+
+  it("closes on Esc and stays in edit mode with the draft kept", async () => {
+    const user = await openDiscard();
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("article").getAttribute("data-mode")).toBe("edit");
+    expect(screen.getByDisplayValue("Johnx")).toBeTruthy();
+  });
+});
+
 describe("edit mode — beforeunload guard (review item 4)", () => {
   it("does not crash with beforeunload enabled while dirty", async () => {
     // With enableBeforeUnload now at its default (true), the component

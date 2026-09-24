@@ -8,7 +8,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useRouter } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
@@ -454,17 +454,6 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     }
   }, [hasChanges, exitEdit]);
 
-  useEffect(() => {
-    if (!edit) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        handleCancel();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [edit, handleCancel]);
-
   // History blocker — intercept back/forward when dirty using TanStack Router's blocker API
   const blocker = useBlocker({
     shouldBlockFn: () => hasChanges,
@@ -480,6 +469,26 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
       setShowDiscard(true);
     }
   }, [blockerActive]);
+
+  const closeDiscard = useCallback(() => {
+    setShowDiscard(false);
+    if (blockerActive) blocker?.reset?.();
+  }, [blockerActive, blocker]);
+
+  // Esc closes the discard dialog when it is open, otherwise it cancels editing.
+  useEffect(() => {
+    if (!edit) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (showDiscard) {
+        closeDiscard();
+      } else {
+        handleCancel();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [edit, showDiscard, closeDiscard, handleCancel]);
 
   // Validate on blur
   const handleBlurValidate = useCallback(() => {
@@ -1303,60 +1312,102 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
         </div>
       )}
 
-      {/* Discard dialog */}
       {showDiscard && (
-        <div
-          onClick={() => {
+        <DiscardDialog
+          onContinue={closeDiscard}
+          onAbandon={() => {
             setShowDiscard(false);
-            if (blockerActive) blocker?.reset?.();
-          }}
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setShowDiscard(false);
-              if (blockerActive) blocker?.reset?.();
+            if (blockerActive) {
+              blocker?.proceed?.();
+            } else {
+              exitEdit();
             }
           }}
-        >
-          <div
-            role="document"
-            className="w-full max-w-md rounded-t-xl bg-background p-6 shadow-overlay sm:rounded-xl"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={() => {}}
-          >
-            <h2 className="font-display text-2xl font-bold leading-tight">{t("discard_title")}</h2>
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDiscard(false);
-                  if (blockerActive) blocker?.reset?.();
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {t("discard_continue")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDiscard(false);
-                  if (blockerActive) {
-                    blocker?.proceed?.();
-                  } else {
-                    exitEdit();
-                  }
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-destructive px-4 text-sm font-bold text-destructive-foreground hover:bg-destructive/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {t("discard_abandon")}
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
     </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Discard dialog
+// ---------------------------------------------------------------------------
+
+/**
+ * Modal asking whether to drop unsaved edits. Focus starts on the safe action
+ * and Tab cycles between the two buttons; Esc is handled by the page, which
+ * owns the window key listener.
+ */
+function DiscardDialog({
+  onContinue,
+  onAbandon,
+}: {
+  onContinue: () => void;
+  onAbandon: () => void;
+}) {
+  const { t } = useI18n();
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const abandonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const previous = document.activeElement;
+    continueRef.current?.focus();
+    return () => {
+      if (previous instanceof HTMLElement) previous.focus();
+    };
+  }, []);
+
+  const trapTab = (e: ReactKeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const first = continueRef.current;
+    const last = abandonRef.current;
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last?.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first?.focus();
+    }
+  };
+
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onContinue();
+      }}
+      onKeyDown={trapTab}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="discard-title"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+    >
+      <div
+        role="document"
+        className="w-full max-w-md rounded-t-xl bg-background p-6 shadow-overlay sm:rounded-xl"
+      >
+        <h2 id="discard-title" className="font-display text-2xl font-bold leading-tight">
+          {t("discard_title")}
+        </h2>
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button
+            ref={continueRef}
+            type="button"
+            onClick={onContinue}
+            className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {t("discard_continue")}
+          </button>
+          <button
+            ref={abandonRef}
+            type="button"
+            onClick={onAbandon}
+            className="inline-flex h-10 items-center justify-center rounded-full bg-destructive px-4 text-sm font-bold text-destructive-foreground hover:bg-destructive/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {t("discard_abandon")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
