@@ -6,10 +6,11 @@
  * data-mode view⇄edit; `?edit` in the URL reflects and drives it.
  */
 
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DavError } from "@/dav";
+import { DavError, fetchCard } from "@/dav";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import {
@@ -19,6 +20,7 @@ import {
   dirtyDiff,
   isDirty,
   isValid,
+  nextId,
   type ValidationErrors,
   validateDraft,
 } from "@/lib/contact-edit";
@@ -36,6 +38,7 @@ import {
   jobTitleOf,
   noteOf,
   orgOf,
+  parse,
   typeValuesOf,
   type VCardAddress,
 } from "@/vcard";
@@ -125,10 +128,24 @@ function NotFoundView() {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Parse an integer from a string, returning NaN for invalid input. */
+function safeParseInt(value: string): number | null {
+  if (value.length === 0) return null;
+  const n = Number(value);
+  return Number.isInteger(n) ? n : null;
+}
+
+// ---------------------------------------------------------------------------
 // Draft reducer
 // ---------------------------------------------------------------------------
 
 type DraftAction =
+  | { type: "REBUILD"; draft: ContactDraft }
+  | { type: "ADD_TEL" }
+  | { type: "ADD_EMAIL" }
   | { type: "SET_FAMILY"; value: string }
   | { type: "SET_GIVEN"; value: string }
   | { type: "SET_TEL"; index: number; value: string }
@@ -138,13 +155,16 @@ type DraftAction =
   | { type: "SET_EMAIL_TYPE"; index: number; value: string }
   | { type: "REMOVE_EMAIL"; index: number }
   | { type: "SET_NICKNAME"; value: string }
+  | { type: "SET_ADR_TYPE"; value: string }
   | { type: "SET_ADR_STREET"; value: string }
   | { type: "SET_ADR_POSTAL_CODE"; value: string }
   | { type: "SET_ADR_LOCALITY"; value: string }
   | { type: "SET_ADR_COUNTRY"; value: string }
+  | { type: "ADD_ADR" }
   | { type: "SET_BDAY_YEAR"; value: string }
   | { type: "SET_BDAY_MONTH"; value: string }
   | { type: "SET_BDAY_DAY"; value: string }
+  | { type: "ADD_BDAY"; value: string }
   | { type: "SET_ORG"; value: string }
   | { type: "SET_TITLE"; value: string }
   | { type: "SET_URL"; value: string }
@@ -152,6 +172,18 @@ type DraftAction =
 
 function draftReducer(state: ContactDraft, action: DraftAction): ContactDraft {
   switch (action.type) {
+    case "REBUILD":
+      return { ...action.draft };
+    case "ADD_TEL":
+      return {
+        ...state,
+        tel: [...state.tel, { id: nextId(), value: "", type: "", _orig: { value: "" } }],
+      };
+    case "ADD_EMAIL":
+      return {
+        ...state,
+        email: [...state.email, { id: nextId(), value: "", type: "", _orig: { value: "" } }],
+      };
     case "SET_FAMILY":
       return { ...state, family: action.value };
     case "SET_GIVEN":
@@ -188,6 +220,12 @@ function draftReducer(state: ContactDraft, action: DraftAction): ContactDraft {
     }
     case "SET_NICKNAME":
       return { ...state, nickname: action.value };
+    case "SET_ADR_TYPE":
+      if (!state.adr) return state;
+      return {
+        ...state,
+        adr: { ...state.adr, type: action.value.length > 0 ? [action.value] : [] },
+      };
     case "SET_ADR_STREET":
       return { ...state, adr: state.adr ? { ...state.adr, street: action.value } : null };
     case "SET_ADR_POSTAL_CODE":
@@ -196,26 +234,57 @@ function draftReducer(state: ContactDraft, action: DraftAction): ContactDraft {
       return { ...state, adr: state.adr ? { ...state.adr, locality: action.value } : null };
     case "SET_ADR_COUNTRY":
       return { ...state, adr: state.adr ? { ...state.adr, country: action.value } : null };
+    case "ADD_ADR":
+      if (state.adr) return state;
+      return {
+        ...state,
+        adr: {
+          poBox: "",
+          extended: "",
+          street: "",
+          locality: "",
+          region: "",
+          postalCode: "",
+          country: "",
+          type: [],
+          extraParts: [],
+        },
+      };
     case "SET_BDAY_YEAR":
       return {
         ...state,
         bday: state.bday
-          ? { ...state.bday, year: action.value.length > 0 ? Number(action.value) : null }
+          ? {
+              ...state.bday,
+              year: action.value.length > 0 ? safeParseInt(action.value) : null,
+            }
           : null,
       };
     case "SET_BDAY_MONTH":
       return {
         ...state,
         bday: state.bday
-          ? { ...state.bday, month: action.value.length > 0 ? Number(action.value) : null }
+          ? {
+              ...state.bday,
+              month: action.value.length > 0 ? safeParseInt(action.value) : null,
+            }
           : null,
       };
     case "SET_BDAY_DAY":
       return {
         ...state,
         bday: state.bday
-          ? { ...state.bday, day: action.value.length > 0 ? Number(action.value) : null }
+          ? {
+              ...state.bday,
+              day: action.value.length > 0 ? safeParseInt(action.value) : null,
+            }
           : null,
+      };
+    case "ADD_BDAY":
+      if (state.bday) return state;
+      return {
+        ...state,
+        bday: { source: action.value, year: null, month: null, day: null },
       };
     case "SET_ORG":
       return { ...state, org: action.value };
@@ -280,6 +349,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
   const router = useRouter();
   const auth = useAuth() as Exclude<ReturnType<typeof useAuth>, null>;
   const updateContact = useUpdateContact(auth);
+  const queryClient = useQueryClient();
 
   // Derived display values (view mode)
   const parts = useMemo(() => namePartsOf(contact), [contact]);
@@ -307,6 +377,10 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
   // Edit state
   const initialDraft = useMemo(() => buildDraft(contact), [contact]);
   const [draft, dispatch] = useReducer(draftReducer, initialDraft);
+  const draftPrimary = useMemo(
+    () => draft.tel.find((f) => f.type === "cell") ?? draft.tel[0],
+    [draft.tel],
+  );
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [conflict, setConflict] = useState<
     { kind: "none" } | { kind: "conflict"; serverEtag: string }
@@ -314,6 +388,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     kind: "none",
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -327,68 +402,14 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
   const prevEdit = useRef(edit);
   useEffect(() => {
     if (edit && !prevEdit.current) {
-      const newDraft = buildDraft(contact);
-      dispatch({ type: "SET_FAMILY", value: newDraft.family });
-      dispatch({ type: "SET_GIVEN", value: newDraft.given });
-      dispatch({ type: "SET_NICKNAME", value: newDraft.nickname });
-      dispatch({ type: "SET_ORG", value: newDraft.org });
-      dispatch({ type: "SET_TITLE", value: newDraft.title });
-      dispatch({ type: "SET_URL", value: newDraft.url });
-      dispatch({ type: "SET_NOTE", value: newDraft.note });
-      if (newDraft.adr) {
-        dispatch({ type: "SET_ADR_STREET", value: newDraft.adr.street });
-        dispatch({ type: "SET_ADR_POSTAL_CODE", value: newDraft.adr.postalCode });
-        dispatch({ type: "SET_ADR_LOCALITY", value: newDraft.adr.locality });
-        dispatch({ type: "SET_ADR_COUNTRY", value: newDraft.adr.country });
-      }
-      if (newDraft.bday) {
-        dispatch({
-          type: "SET_BDAY_YEAR",
-          value: newDraft.bday.year !== null ? String(newDraft.bday.year) : "",
-        });
-        dispatch({
-          type: "SET_BDAY_MONTH",
-          value: newDraft.bday.month !== null ? String(newDraft.bday.month) : "",
-        });
-        dispatch({
-          type: "SET_BDAY_DAY",
-          value: newDraft.bday.day !== null ? String(newDraft.bday.day) : "",
-        });
-      }
+      dispatch({ type: "REBUILD", draft: buildDraft(contact) });
     }
     prevEdit.current = edit;
   }, [edit, contact]);
 
   // Exit edit mode
   const exitEdit = useCallback(() => {
-    const newDraft = buildDraft(contact);
-    dispatch({ type: "SET_FAMILY", value: newDraft.family });
-    dispatch({ type: "SET_GIVEN", value: newDraft.given });
-    dispatch({ type: "SET_NICKNAME", value: newDraft.nickname });
-    dispatch({ type: "SET_ORG", value: newDraft.org });
-    dispatch({ type: "SET_TITLE", value: newDraft.title });
-    dispatch({ type: "SET_URL", value: newDraft.url });
-    dispatch({ type: "SET_NOTE", value: newDraft.note });
-    if (newDraft.adr) {
-      dispatch({ type: "SET_ADR_STREET", value: newDraft.adr.street });
-      dispatch({ type: "SET_ADR_POSTAL_CODE", value: newDraft.adr.postalCode });
-      dispatch({ type: "SET_ADR_LOCALITY", value: newDraft.adr.locality });
-      dispatch({ type: "SET_ADR_COUNTRY", value: newDraft.adr.country });
-    }
-    if (newDraft.bday) {
-      dispatch({
-        type: "SET_BDAY_YEAR",
-        value: newDraft.bday.year !== null ? String(newDraft.bday.year) : "",
-      });
-      dispatch({
-        type: "SET_BDAY_MONTH",
-        value: newDraft.bday.month !== null ? String(newDraft.bday.month) : "",
-      });
-      dispatch({
-        type: "SET_BDAY_DAY",
-        value: newDraft.bday.day !== null ? String(newDraft.bday.day) : "",
-      });
-    }
+    dispatch({ type: "REBUILD", draft: buildDraft(contact) });
     setErrors({});
     setConflict({ kind: "none" });
     router.navigate({ to: "/contacts/$id", params: { id: routeId }, replace: true });
@@ -478,24 +499,43 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     return () => window.removeEventListener("keydown", handler);
   }, [edit, handleCancel]);
 
+  // History blocker — intercept back/forward when dirty
+  useEffect(() => {
+    if (!edit) return;
+    const handler = () => {
+      if (hasChanges) {
+        // Re-push current state to stay on the page and show discard dialog
+        window.history.pushState(null, "", window.location.href);
+        setShowDiscard(true);
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [edit, hasChanges]);
+
   // Validate on blur
   const handleBlurValidate = useCallback(() => {
     setErrors(validateDraft(draft));
   }, [draft]);
 
-  // Save
+  // Save — applies draft to a clone so the cached contact is not mutated
+  // on failure (item 14), and surfaces non-CONFLICT errors in the bar (item 13).
   const handleSave = useCallback(async () => {
     const validation = validateDraft(draft);
     setErrors(validation);
     if (!isValid(validation)) return;
 
     setSaveStatus("saving");
+    setSaveError(null);
     setConflict({ kind: "none" });
 
-    applyDraft(contact, draft);
+    // Clone fields to avoid mutating the cached contact on failure
+    const clonedFields = structuredClone(contact.fields);
+    const clonedContact = { ...contact, fields: clonedFields };
+    applyDraft(clonedContact, draft);
 
     try {
-      await updateContact.mutateAsync(contact);
+      await updateContact.mutateAsync(clonedContact);
       setToast(t("saved"));
       setSaveStatus("idle");
       setTimeout(() => setToast(null), 2500);
@@ -508,22 +548,34 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
       setSaveStatus("idle");
       if (err instanceof DavError && err.code === "CONFLICT") {
         setConflict({ kind: "conflict", serverEtag: "" });
+      } else if (err instanceof DavError && err.code === "NETWORK") {
+        setSaveError(t("err_save_network"));
+      } else if (err instanceof DavError && err.code === "AUTH") {
+        setSaveError(t("err_save_auth"));
+      } else {
+        setSaveError(t("err_save_unexpected"));
       }
     }
   }, [draft, contact, updateContact, t, router, routeId]);
 
-  // Conflict actions
+  // Conflict — reload by invalidating the contact query and exiting edit
   const handleConflictReload = useCallback(() => {
-    // Refetch by invalidating the contact query
-    window.location.reload();
-  }, []);
+    queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    exitEdit();
+  }, [queryClient, exitEdit]);
 
+  // Conflict — overwrite: refetch for a fresh ETag first, then PUT
   const handleConflictOverwrite = useCallback(async () => {
     setConflict({ kind: "none" });
     setSaveStatus("saving");
-    applyDraft(contact, draft);
+    setSaveError(null);
     try {
-      await updateContact.mutateAsync(contact);
+      // Refetch the card for a fresh ETag
+      const fresh = await fetchCard(auth, contact.href);
+      const freshContact = parse(fresh.vcardText, fresh.href, fresh.etag);
+      // Apply draft to the fresh copy
+      applyDraft(freshContact, draft);
+      await updateContact.mutateAsync(freshContact);
       setToast(t("saved"));
       setSaveStatus("idle");
       setTimeout(() => setToast(null), 2500);
@@ -534,8 +586,9 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
       });
     } catch {
       setSaveStatus("idle");
+      setSaveError(t("err_save_unexpected"));
     }
-  }, [draft, contact, updateContact, t, router, routeId]);
+  }, [draft, contact, auth, updateContact, t, router, routeId]);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -633,7 +686,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
               </div>
             }
           />
-          {parts.given.length > 0 && (
+          {edit || parts.given.length > 0 ? (
             <EditableCell
               frameClassName={cn(NAME_FRAME, "text-muted-foreground")}
               view={<span className="truncate">{parts.given}</span>}
@@ -662,7 +715,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                 </div>
               }
             />
-          )}
+          ) : null}
         </div>
 
         {/* Job / Org */}
@@ -765,7 +818,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
               title={t("s_phones")}
               edit={edit}
               addLabel={t("add_phone")}
-              onAddClick={() => dispatch({ type: "SET_TEL", index: draft.tel.length, value: "" })}
+              onAddClick={() => dispatch({ type: "ADD_TEL" })}
             >
               {draft.tel.map((field, i) => (
                 <ValueRow
@@ -780,7 +833,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                     <EditableCell
                       frameClassName={cn(
                         TEXT,
-                        field.value === primary?.value ? "text-xl font-bold tabular" : TEXT,
+                        field === draftPrimary ? "text-xl font-bold tabular" : TEXT,
                       )}
                       view={
                         <a
@@ -799,7 +852,12 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                           onChange={(e) =>
                             dispatch({ type: "SET_TEL", index: i, value: e.target.value })
                           }
-                          className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base tabular lg:text-[0.9375rem]"
+                          className={cn(
+                            "h-11 w-full rounded-md border border-input bg-card px-3.5 tabular",
+                            field === draftPrimary
+                              ? "text-xl font-bold"
+                              : "text-base lg:text-[0.9375rem]",
+                          )}
                         />
                       }
                     />
@@ -852,9 +910,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
               title={t("s_emails")}
               edit={edit}
               addLabel={t("add_email")}
-              onAddClick={() =>
-                dispatch({ type: "SET_EMAIL", index: draft.email.length, value: "" })
-              }
+              onAddClick={() => dispatch({ type: "ADD_EMAIL" })}
             >
               {draft.email.map((field, i) => (
                 <ValueRow
@@ -915,7 +971,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
           )}
 
           {/* Address */}
-          {(edit || (address !== null && addressHasContent)) && (
+          {((edit && draft.adr !== null) || (!edit && address !== null && addressHasContent)) && (
             <Section
               title={t("s_address")}
               edit={edit}
@@ -925,8 +981,11 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
               <ValueRow
                 type={
                   address !== null ? (
-                    edit ? (
-                      <TypeSelect value={address.type[0] ?? ""} onChange={() => {}} />
+                    edit && draft.adr ? (
+                      <TypeSelect
+                        value={draft.adr.type[0] ?? ""}
+                        onChange={(v) => dispatch({ type: "SET_ADR_TYPE", value: v })}
+                      />
                     ) : (
                       <AddressTypeCell address={address} />
                     )
@@ -952,7 +1011,8 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
           )}
 
           {/* Birthday */}
-          {(edit || (birthday !== null && birthday.source.length > 0)) && (
+          {((edit && draft.bday !== null) ||
+            (!edit && birthday !== null && birthday.source.length > 0)) && (
             <Section
               title={t("s_bday")}
               edit={edit}
@@ -1187,16 +1247,13 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
         {edit && (
           <div className="mt-6 space-y-4">
             <div className="flex flex-wrap gap-2">
-              {draft.url.length === 0 && (
-                <AddPill
-                  label={t("add_url")}
-                  onClick={() => dispatch({ type: "SET_URL", value: "" })}
-                />
+              {draft.adr === null && (
+                <AddPill label={t("add_address")} onClick={() => dispatch({ type: "ADD_ADR" })} />
               )}
-              {draft.nickname.length === 0 && (
+              {draft.bday === null && (
                 <AddPill
-                  label={t("add_nickname")}
-                  onClick={() => dispatch({ type: "SET_NICKNAME", value: "" })}
+                  label={t("add_bday")}
+                  onClick={() => dispatch({ type: "ADD_BDAY", value: "" })}
                 />
               )}
             </div>
@@ -1233,6 +1290,12 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                   {t("conflict_overwrite")}
                 </button>
               </div>
+            </div>
+          )}
+
+          {saveError !== null && (
+            <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-2">
+              <p className="text-sm text-destructive">{saveError}</p>
             </div>
           )}
 
@@ -1429,7 +1492,7 @@ function TypeCell({ field }: { field: ContactField }) {
 }
 
 function AddressTypeCell({ address }: { address: VCardAddress }) {
-  return <TypeLabel types={address.type} />;
+  return <TypeLabel types={address.type.map((t) => t.toLowerCase())} />;
 }
 
 function TypeLabel({ types }: { types: string[] }) {

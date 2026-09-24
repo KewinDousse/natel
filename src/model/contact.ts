@@ -15,6 +15,7 @@ export interface RawProperty {
   getFirstValue(): unknown;
   /** All values of a multi-value property (e.g. CATEGORIES). */
   getValues(): unknown[];
+  setValues(values: unknown[]): void;
   resetType(type: string): void;
   setValue(value: unknown): void;
   setParameter(name: string, value: string | string[]): void;

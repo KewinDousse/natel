@@ -77,6 +77,7 @@
   "add_email": "+ Add email",
   "add_url": "+ Add website",
   "add_nickname": "+ Add nickname",
+  "add_address": "+ Add address",
   "add_bday": "+ Add birthday",
   "add_note": "+ Add note",
   "remove_tel": "Remove phone number",
@@ -94,6 +95,10 @@
   "field_url_invalid": "Invalid URL",
   "field_bday_month": "Invalid month",
   "field_bday_day": "Invalid day",
+  "field_bday_year": "Invalid year",
+  "err_save_network": "Network error — could not save.",
+  "err_save_auth": "Session expired — sign in again.",
+  "err_save_unexpected": "Unexpected error — try again.",
   "label_family": "Last name",
   "label_given": "First name"
 }

@@ -142,18 +142,17 @@ function replacePropertiesInPlace(
 
 /**
  * Update or remove a single-string property (NICKNAME, TITLE).
- * This is the "owned" property (only one, always updated):
- * if the value is non-empty, create or update the property;
- * if the value is empty, remove the property.
+ * Preserves multi-values beyond the first (NICKNAME:Jean,Petit stays intact)
+ * when the property supports it (ical.js multi-value types).
  */
 function updateStringProperty(raw: RawComponent, name: string, value: string): void {
   const prop = raw.getFirstProperty(name);
   if (value.length > 0) {
     if (prop) {
-      prop.setValue(value);
+      setPropertyValue(prop, value);
     } else {
       const newProp = new ICAL.Property(name);
-      newProp.setValue(value);
+      newProp.setValues([value]);
       raw.addProperty(newProp);
     }
   } else if (prop) {
@@ -164,15 +163,16 @@ function updateStringProperty(raw: RawComponent, name: string, value: string): v
 /**
  * Update or remove the FIRST occurrence of a multi-string property (URL, NOTE).
  * Subsequent properties with the same name are left untouched in raw.
+ * Preserves multi-values beyond the first when the property supports it.
  */
 function updateFirstStringProperty(raw: RawComponent, name: string, value: string): void {
   const prop = raw.getFirstProperty(name);
   if (value.length > 0) {
     if (prop) {
-      prop.setValue(value);
+      setPropertyValue(prop, value);
     } else {
       const newProp = new ICAL.Property(name);
-      newProp.setValue(value);
+      newProp.setValues([value]);
       // Insert before END:VCARD — find the last property position
       raw.addProperty(newProp);
     }
@@ -182,20 +182,39 @@ function updateFirstStringProperty(raw: RawComponent, name: string, value: strin
 }
 
 /**
+ * Set a property value while preserving multi-values beyond the first.
+ * Falls back to setValue when the property type does not support setValues.
+ */
+function setPropertyValue(prop: RawProperty, value: string): void {
+  const values = prop.getValues();
+  if (Array.isArray(values) && values.length > 1) {
+    values[0] = value;
+    try {
+      prop.setValues(values);
+      return;
+    } catch {
+      // Property type does not support setValues — fall through to setValue
+    }
+  }
+  prop.setValue(value);
+}
+
+/**
  * Update the first ADR property in place, preserving all 7 structured parts.
  * Other ADR properties remain untouched.
  */
 function updateAddressProperty(raw: RawComponent, adr: EditableFields["adr"]): void {
   if (adr === null) return;
-  const hasContent = [
-    adr.poBox,
-    adr.extended,
-    adr.street,
-    adr.locality,
-    adr.region,
-    adr.postalCode,
-    adr.country,
-  ].some((p) => p.length > 0);
+  const hasContent =
+    [
+      adr.poBox,
+      adr.extended,
+      adr.street,
+      adr.locality,
+      adr.region,
+      adr.postalCode,
+      adr.country,
+    ].some((p) => p.length > 0) || adr.extraParts.length > 0;
   let prop = raw.getFirstProperty("adr");
   if (hasContent) {
     if (!prop) {
@@ -253,18 +272,57 @@ function reconstructBdaySource(bday: EditableFields["bday"]): string {
 
 /**
  * Update the first BDAY property in place, reconstructing the date string
- * from the structured parts. Other BDAY properties remain untouched.
+ * from the structured parts. Preserves the original source text (incl. time,
+ * timezone, VALUE=text) when the user did not edit the date. Other BDAY
+ * properties remain untouched.
  */
 function updateBdayProperty(raw: RawComponent, bday: EditableFields["bday"]): void {
   if (bday === null) return;
-  const dateStr = reconstructBdaySource(bday);
+
   let prop = raw.getFirstProperty("bday");
+
+  // When all parts are null but source is non-empty, write source back unchanged
+  // (e.g. VALUE=text with a non-structured date like "circa 1987")
+  if (bday.year === null && bday.month === null && bday.day === null && bday.source.length > 0) {
+    if (!prop) {
+      prop = new ICAL.Property("bday");
+      raw.addProperty(prop);
+    }
+    // Set the value type to text to prevent ical.js from trying to
+    // parse a non-date string as a date
+    prop.resetType("text");
+    prop.setValue(bday.source);
+    return;
+  }
+
+  const dateStr = reconstructBdaySource(bday);
+
+  // If the reconstructed date matches the source's date portion AND the source
+  // has extra content (time, timezone), preserve the original source text to
+  // avoid losing time info. For plain dates (source === dateStr), use the
+  // date-typed path which keeps the dashes in the format.
+  if (
+    dateStr.length > 0 &&
+    bday.source.length > dateStr.length &&
+    bday.source.startsWith(dateStr)
+  ) {
+    if (!prop) {
+      prop = new ICAL.Property("bday");
+      raw.addProperty(prop);
+    }
+    // Set type to text to preserve the exact source text (including time
+    // parts) without ical.js date normalisation
+    prop.resetType("text");
+    prop.setValue(bday.source);
+    return;
+  }
+
   if (dateStr.length > 0) {
     if (!prop) {
       prop = new ICAL.Property("bday");
       raw.addProperty(prop);
     }
-    // Set the date value via ICAL.Time for proper serialisation
+    // Set via ICAL.Time for proper serialisation
     try {
       const time = ICAL.Time.fromString(dateStr, null);
       time.isDate = true;
@@ -321,11 +379,21 @@ export function typeValuesOf(typed: TypedProp): string[] {
  * Multi-part values (org name + units) are joined with ", ".
  */
 export function orgOf(contact: Contact): string {
-  return readOrg(contact.raw);
+  return readOrgDisplay(contact.raw);
 }
 
-/** @internal Read ORG from a raw component. */
+/** @internal Read ORG first component from a raw component. */
 function readOrg(raw: RawComponent): string {
+  const value = raw.getFirstPropertyValue("org");
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return typeof first === "string" ? first : "";
+  }
+  return typeof value === "string" ? value : "";
+}
+
+/** @internal Read ORG from raw and join all components for display. */
+function readOrgDisplay(raw: RawComponent): string {
   const value = raw.getFirstPropertyValue("org");
   if (Array.isArray(value)) {
     return value

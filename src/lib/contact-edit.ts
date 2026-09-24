@@ -32,6 +32,10 @@ export type DraftField = {
   id: string;
   value: string;
   type: string;
+  /** Original ContactField — preserved for round-trip fidelity.
+   *  Only value/type are mutated in place; all params, groups and the value
+   *  type are written back unchanged. */
+  _orig: ContactField;
 };
 
 // ---------------------------------------------------------------------------
@@ -39,7 +43,7 @@ export type DraftField = {
 // ---------------------------------------------------------------------------
 
 let _counter = 0;
-function nextId(): string {
+export function nextId(): string {
   return `f_${++_counter}`;
 }
 
@@ -68,7 +72,7 @@ export function buildDraft(contact: Contact): ContactDraft {
 function toDraftField(field: ContactField): DraftField {
   const types = field.params?.TYPE ?? field.params?.type;
   const type = Array.isArray(types) ? (types[0] ?? "") : typeof types === "string" ? types : "";
-  return { id: nextId(), value: field.value, type: type.toLowerCase() };
+  return { id: nextId(), value: field.value, type: type.toLowerCase(), _orig: field };
 }
 
 // ---------------------------------------------------------------------------
@@ -183,13 +187,26 @@ export function validateDraft(draft: ContactDraft): ValidationErrors {
     errors.url = "field_url_invalid";
   }
 
-  // BDAY day/month ranges
+  // BDAY day/month/year ranges and NaN guards
   if (draft.bday) {
-    if (draft.bday.month !== null && (draft.bday.month < 1 || draft.bday.month > 12)) {
-      errors.bday_month = "field_bday_month";
+    if (draft.bday.month !== null) {
+      if (!Number.isInteger(draft.bday.month) || draft.bday.month < 1 || draft.bday.month > 12) {
+        errors.bday_month = "field_bday_month";
+      }
     }
-    if (draft.bday.day !== null && (draft.bday.day < 1 || draft.bday.day > 31)) {
-      errors.bday_day = "field_bday_day";
+    if (draft.bday.day !== null) {
+      if (!Number.isInteger(draft.bday.day) || draft.bday.day < 1 || draft.bday.day > 31) {
+        errors.bday_day = "field_bday_day";
+      }
+    }
+    if (draft.bday.year !== null) {
+      if (!Number.isInteger(draft.bday.year) || draft.bday.year < 1) {
+        errors.bday_year = "field_bday_year";
+      }
+    }
+    // Day requires month
+    if (draft.bday.day !== null && draft.bday.month === null) {
+      errors.bday_month = "field_bday_month";
     }
   }
 
@@ -230,7 +247,10 @@ function isValidUrl(value: string): boolean {
 export function applyDraft(contact: Contact, draft: ContactDraft): Contact {
   contact.fields.n.family = draft.family;
   contact.fields.n.given = draft.given;
-  contact.fields.fn = [draft.family, draft.given].filter((p) => p.length > 0).join(" ");
+  // Do NOT overwrite FN — serialise already round-trips the parsed value
+  // stored in fields.fn. Deriving FN from N would destroy custom FN values
+  // like "Maman", "Dupont, Jean", prefix/suffix forms, and empty FN on
+  // org-only cards (RFC 6350 §6.2.1, invariant 4).
   contact.fields.tel = draft.tel.map(fromDraftField);
   contact.fields.email = draft.email.map(fromDraftField);
   contact.fields.nickname = draft.nickname;
@@ -252,9 +272,32 @@ export function applyDraft(contact: Contact, draft: ContactDraft): Contact {
 }
 
 function fromDraftField(field: DraftField): ContactField {
-  const params: Record<string, string | string[]> = {};
-  if (field.type.length > 0) {
-    params.TYPE = field.type.toUpperCase();
+  // Clone the original contact field and update value/type in place,
+  // preserving all unknown params, groups, and the value type.
+  const params: Record<string, string | string[]> = { ...(field._orig.params ?? {}) };
+
+  // Determine the original first TYPE value
+  const origTypes = field._orig.params?.TYPE ?? field._orig.params?.type;
+  const origFirstType = Array.isArray(origTypes)
+    ? (origTypes[0] ?? "")
+    : typeof origTypes === "string"
+      ? origTypes
+      : "";
+
+  // Only update TYPE if the user explicitly changed it
+  if (field.type.toLowerCase() !== origFirstType.toLowerCase()) {
+    if (field.type.length > 0) {
+      params.TYPE = field.type.toUpperCase();
+    } else {
+      // User set type to "other" — remove TYPE param
+      delete params.TYPE;
+      delete params.type;
+    }
   }
-  return { value: field.value, params };
+
+  return {
+    value: field.value,
+    type: field._orig.type,
+    params: Object.keys(params).length > 0 ? params : undefined,
+  };
 }
