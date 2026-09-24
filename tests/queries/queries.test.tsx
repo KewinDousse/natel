@@ -100,6 +100,7 @@ import {
   useDeleteContact,
   useUpdateContact,
 } from "@/queries/index";
+import type { LoadFullBookResult } from "@/queries/useContacts";
 
 // Reset mock call counts between tests so later tests' assertions are
 // unaffected by calls made by earlier ones.
@@ -398,10 +399,10 @@ describe("useUpdateContact", () => {
     // Pre-populate the contacts cache.
     const oldContact = makeContact({ etag: '"e1"' });
     const client = createTestClient();
-    client.setQueryData(
-      ["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href],
-      [oldContact],
-    );
+    client.setQueryData(["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href], {
+      contacts: [oldContact],
+      skipped: [],
+    });
 
     const { result } = renderHook(() => useUpdateContact(MOCK_AUTH), {
       wrapper: wrapper(client),
@@ -415,12 +416,12 @@ describe("useUpdateContact", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
 
     // The cache should have the new etag.
-    const cached = client.getQueryData<Contact[]>([
+    const cached = client.getQueryData<LoadFullBookResult>([
       "contacts",
       MOCK_AUTH.serverUrl,
       MOCK_AUTH.username,
       MOCK_BOOK.href,
-    ]);
+    ])?.contacts;
     expect(cached).toHaveLength(1);
     expect(cached![0]!.etag).toBe('"new-etag"');
 
@@ -443,10 +444,10 @@ describe("useUpdateContact", () => {
     // Pre-populate cache with a contact.
     const oldContact = makeContact({ etag: '"e1"' });
     const client = createTestClient();
-    client.setQueryData(
-      ["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href],
-      [oldContact],
-    );
+    client.setQueryData(["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href], {
+      contacts: [oldContact],
+      skipped: [],
+    });
 
     const { result } = renderHook(() => useUpdateContact(MOCK_AUTH), {
       wrapper: wrapper(client),
@@ -462,12 +463,12 @@ describe("useUpdateContact", () => {
 
     // The cache should carry the edited fields AND the new etag — a regression
     // test against spreading the stale cached copy instead of the submitted one.
-    const cached = client.getQueryData<Contact[]>([
+    const cached = client.getQueryData<LoadFullBookResult>([
       "contacts",
       MOCK_AUTH.serverUrl,
       MOCK_AUTH.username,
       MOCK_BOOK.href,
-    ]);
+    ])?.contacts;
     expect(cached).toHaveLength(1);
     expect(cached![0]!.etag).toBe('"new-etag"');
     expect(cached![0]!.fields.fn).toBe("Alice Updated");
@@ -507,10 +508,10 @@ describe("useDeleteContact", () => {
     });
 
     const client = createTestClient();
-    client.setQueryData(
-      ["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href],
-      [contact, otherContact],
-    );
+    client.setQueryData(["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href], {
+      contacts: [contact, otherContact],
+      skipped: ["https://dav.example.com/broken.vcf"],
+    });
 
     const { result } = renderHook(() => useDeleteContact(MOCK_AUTH), {
       wrapper: wrapper(client),
@@ -521,14 +522,22 @@ describe("useDeleteContact", () => {
 
     expect(mockDeleteCard).toHaveBeenCalledWith(MOCK_AUTH, contact.href, contact.etag);
 
-    const cached = client.getQueryData<Contact[]>([
+    const cached = client.getQueryData<LoadFullBookResult>([
       "contacts",
       MOCK_AUTH.serverUrl,
       MOCK_AUTH.username,
       MOCK_BOOK.href,
-    ]);
+    ])?.contacts;
     expect(cached).toHaveLength(1);
     expect(cached![0]?.href).toBe(otherContact.href);
+    expect(
+      client.getQueryData<LoadFullBookResult>([
+        "contacts",
+        MOCK_AUTH.serverUrl,
+        MOCK_AUTH.username,
+        MOCK_BOOK.href,
+      ])?.skipped,
+    ).toEqual(["https://dav.example.com/broken.vcf"]);
   });
 
   it("exposes CONFLICT DavError to the caller", async () => {

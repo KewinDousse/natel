@@ -12,6 +12,7 @@ import type { DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 import { serialise } from "@/vcard";
 import { contactsAuthPrefix } from "./keys";
+import type { LoadFullBookResult } from "./useContacts";
 
 export function useUpdateContact(auth: DavAuth) {
   const queryClient = useQueryClient();
@@ -26,8 +27,15 @@ export function useUpdateContact(auth: DavAuth) {
       // instead of invalidating. Spreading `contact` (not the cached copy)
       // keeps the submitted fields — serialise() mutates the shared `raw`, so
       // the cached copy on its own would hold stale fields here.
-      queryClient.setQueriesData<Contact[]>({ queryKey: contactsAuthPrefix(auth) }, (old) =>
-        old?.map((c) => (c.href === contact.href ? { ...contact, etag: result.etag } : c)),
+      queryClient.setQueriesData<LoadFullBookResult>(
+        { queryKey: contactsAuthPrefix(auth) },
+        (old) =>
+          old && {
+            ...old,
+            contacts: old.contacts.map((c) =>
+              c.href === contact.href ? { ...contact, etag: result.etag } : c,
+            ),
+          },
       );
     },
   });

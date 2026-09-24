@@ -9,6 +9,7 @@ import { deleteCard } from "@/dav";
 import type { DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 import { contactsAuthPrefix } from "./keys";
+import type { LoadFullBookResult } from "./useContacts";
 
 export function useDeleteContact(auth: DavAuth) {
   const queryClient = useQueryClient();
@@ -19,8 +20,9 @@ export function useDeleteContact(auth: DavAuth) {
     },
     onSuccess: (_result, contact) => {
       // Remove the deleted contact from every cached book of this auth.
-      queryClient.setQueriesData<Contact[]>({ queryKey: contactsAuthPrefix(auth) }, (old) =>
-        old?.filter((c) => c.href !== contact.href),
+      queryClient.setQueriesData<LoadFullBookResult>(
+        { queryKey: contactsAuthPrefix(auth) },
+        (old) => old && { ...old, contacts: old.contacts.filter((c) => c.href !== contact.href) },
       );
     },
   });
