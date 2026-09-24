@@ -288,38 +288,43 @@ function isValidUrl(value: string): boolean {
  * Apply a draft's values onto a Contact's fields, mutating in place.
  * Returns the same contact reference for chaining.
  *
+ * With `only`, fields that are not marked dirty keep the contact's values:
+ * the overwrite flow applies just what the user changed onto the server's
+ * fresh copy, so edits made elsewhere to other fields survive.
+ *
  * FN is updated only when the original FN was derived from N parts
  * ("Given Family" or "Family Given" convention). Custom FN values like
  * "Maman", "Dupont, Jean", or prefix/suffix forms are preserved untouched.
  */
-export function applyDraft(contact: Contact, draft: ContactDraft): Contact {
+export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFields): Contact {
+  const take = (field: keyof DirtyFields) => only === undefined || only[field];
+  const f = contact.fields;
+
   // Capture original N parts BEFORE updating, so FN derivation can compare
   // the original FN against the original N composition
-  const origN = { family: contact.fields.n.family, given: contact.fields.n.given };
-
-  contact.fields.n.family = draft.family;
-  contact.fields.n.given = draft.given;
+  const origN = { family: f.n.family, given: f.n.given };
+  const newN = {
+    family: take("family") ? draft.family : origN.family,
+    given: take("given") ? draft.given : origN.given,
+  };
+  f.n.family = newN.family;
+  f.n.given = newN.given;
 
   // Update FN if it was derived from N parts (not custom)
-  const derivedFn = deriveFnFromN(contact.fields.fn, origN, draft);
+  const derivedFn = deriveFnFromN(f.fn, origN, newN);
   if (derivedFn !== null) {
-    contact.fields.fn = derivedFn;
+    f.fn = derivedFn;
   }
-  // else: FN was custom — preserve it untouched
 
-  contact.fields.tel = draft.tel.map(fromDraftField);
-  contact.fields.email = draft.email.map(fromDraftField);
-  contact.fields.nickname = draft.nickname;
-  if (draft.adr !== null) {
-    contact.fields.adr = { ...draft.adr };
-  } else {
-    contact.fields.adr = null;
-  }
-  contact.fields.bday = draft.bday !== null ? fromDraftBirthday(draft.bday) : null;
-  contact.fields.org = draft.org;
-  contact.fields.title = draft.title;
-  contact.fields.url = draft.url;
-  contact.fields.note = draft.note;
+  if (take("tel")) f.tel = draft.tel.map(fromDraftField);
+  if (take("email")) f.email = draft.email.map(fromDraftField);
+  if (take("nickname")) f.nickname = draft.nickname;
+  if (take("adr")) f.adr = draft.adr !== null ? { ...draft.adr } : null;
+  if (take("bday")) f.bday = draft.bday !== null ? fromDraftBirthday(draft.bday) : null;
+  if (take("org")) f.org = draft.org;
+  if (take("title")) f.title = draft.title;
+  if (take("url")) f.url = draft.url;
+  if (take("note")) f.note = draft.note;
   return contact;
 }
 
@@ -339,13 +344,13 @@ export function applyDraft(contact: Contact, draft: ContactDraft): Contact {
 function deriveFnFromN(
   currentFn: string,
   oldN: { family: string; given: string },
-  draft: ContactDraft,
+  newN: { family: string; given: string },
 ): string | null {
   const trimmed = (s: string) => s.trim();
   const oldGiven = trimmed(oldN.given);
   const oldFamily = trimmed(oldN.family);
-  const newGiven = trimmed(draft.given);
-  const newFamily = trimmed(draft.family);
+  const newGiven = trimmed(newN.given);
+  const newFamily = trimmed(newN.family);
 
   // If both new parts are empty, leave FN alone
   if (newGiven.length === 0 && newFamily.length === 0) return null;

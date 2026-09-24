@@ -577,15 +577,15 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     exitEdit();
   }, [queryClient, exitEdit]);
 
-  // Conflict — overwrite: refetch for a fresh ETag first, then a conditional PUT.
-  // A second 412 surfaces the conflict again.
+  // Conflict — overwrite: refetch for a fresh ETag first, apply only the fields
+  // the user changed, then a conditional PUT. A second 412 surfaces the conflict again.
   const handleConflictOverwrite = useCallback(async () => {
     await runSave(async () => {
       const freshContact = await refetchCard(contact.href);
-      applyDraft(freshContact, draft);
+      applyDraft(freshContact, draft, dirty);
       await updateContact.mutateAsync(freshContact);
     });
-  }, [draft, contact, refetchCard, updateContact, runSave]);
+  }, [draft, dirty, contact, refetchCard, updateContact, runSave]);
 
   // Toast auto-dismiss
   useEffect(() => {

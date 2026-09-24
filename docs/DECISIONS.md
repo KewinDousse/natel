@@ -169,3 +169,21 @@ for the untouched card, and the date value is equivalent.
 field, and are replaced by a date only when the user types date parts. REV
 has the same `detectType` on vCard 3.0 but is not retyped: the UI never reads
 it, and a malformed REV is left to ical.js's normalisation.
+
+## 013 — "Écraser avec ma version" applies only the fields the user changed
+
+**Context.** On a 412, the user can overwrite: the app refetches the card for
+a fresh ETag, then PUTs with `If-Match`. Applying the whole draft onto the
+fresh copy reverted every editable field changed elsewhere since the page
+loaded, even fields the user never touched (a phone number fixed on another
+device came back to its old value).
+
+**Decision.** The overwrite applies only the fields marked dirty against the
+version the user started editing (`applyDraft(fresh, draft, dirtyDiff(...))`).
+Untouched fields keep the server's current values. A normal save still
+applies the whole draft onto the version it was built from.
+
+**Consequences.** "My version" means "my changes": a concurrent edit to a
+field the user also changed is still overwritten, which is what the button
+says. A TEL or EMAIL list the user changed is written as a whole, since rows
+are matched by position.

@@ -758,3 +758,30 @@ describe("switching contacts", () => {
     expect(screen.queryByDisplayValue("John")).toBeNull();
   });
 });
+
+describe("edit mode — Écraser keeps changes made elsewhere", () => {
+  it("PUTs the server's fresh card with only the user's changed fields applied", async () => {
+    mockUpdateCard
+      .mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"))
+      .mockResolvedValueOnce({ href: "editable", etag: '"new-etag"' });
+    mockFetchCard.mockImplementation(async (_auth, href) => ({
+      href,
+      etag: '"fresh"',
+      vcardText: CARD_EDITABLE.replace("+1-555-222-2222", "+1-555-999-9999"),
+    }));
+    await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "ny");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
+    await user.click(screen.getByRole("button", { name: /écraser/i }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(2));
+    const [, , etag, vcardText] = mockUpdateCard.mock.calls[1] ?? [];
+    expect(etag).toBe('"fresh"');
+    expect(vcardText).toContain("N:Doe;Johnny;;;");
+    expect(vcardText).toContain("TEL;TYPE=WORK:+1-555-999-9999");
+    expect(vcardText).not.toContain("+1-555-222-2222");
+  });
+});

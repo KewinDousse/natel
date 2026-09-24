@@ -484,3 +484,42 @@ describe("replaceFirstType", () => {
     expect(replaceFirstType([], "home")).toEqual(["home"]);
   });
 });
+
+describe("applyDraft limited to dirty fields", () => {
+  const MINE = `BEGIN:VCARD
+VERSION:3.0
+FN:John Doe
+N:Doe;John;;;
+TEL;TYPE=CELL:+41 79 000 00 00
+NOTE:old note
+UID:dirty@example.com
+END:VCARD`;
+  const THEIRS = `BEGIN:VCARD
+VERSION:3.0
+FN:John Doe
+N:Doe;John;;;
+TEL;TYPE=CELL:+41 79 111 11 11
+NOTE:their note
+UID:dirty@example.com
+END:VCARD`;
+
+  it("applies only the fields the user changed onto the fresh copy", () => {
+    const original = parse(MINE);
+    const draft = buildDraft(original);
+    draft.given = "Johnny";
+    const fresh = applyDraft(parse(THEIRS), draft, dirtyDiff(original, draft));
+
+    expect(fresh.fields.n.given).toBe("Johnny");
+    expect(fresh.fields.fn).toBe("Johnny Doe");
+    expect(fresh.fields.tel[0]?.value).toBe("+41 79 111 11 11");
+    expect(fresh.fields.note).toBe("their note");
+  });
+
+  it("applies every field when no dirty filter is given", () => {
+    const original = parse(MINE);
+    const draft = buildDraft(original);
+    const fresh = applyDraft(parse(THEIRS), draft);
+    expect(fresh.fields.tel[0]?.value).toBe("+41 79 000 00 00");
+    expect(fresh.fields.note).toBe("old note");
+  });
+});
