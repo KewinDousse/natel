@@ -567,3 +567,47 @@ END:VCARD`;
     expect(contains(result, "N:Dupont;Pierre;;;")).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests for review item 1: clearing all BDAY inputs removes the property
+// ---------------------------------------------------------------------------
+
+describe("edit round-trip — BDAY clear all parts (review item 1)", () => {
+  it("removes BDAY when all three date parts are cleared on a structured date", () => {
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:Bday Clear All
+N:Test;Bday;;;
+BDAY:1987-03-14
+UID:bday-clear-all@example.com
+END:VCARD`;
+    const contact = parse(vcard);
+    const draft = buildDraft(contact);
+    // User cleared all three inputs — source is now stale, every part is null
+    draft.bday = draft.bday ? { ...draft.bday, year: null, month: null, day: null } : null;
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    const lines = result.replace(/\r\n?/g, "\n").split("\n");
+    const bdayLine = lines.find((l) => l.startsWith("BDAY") || l.startsWith("bday"));
+    expect(bdayLine).toBeUndefined();
+  });
+
+  it("preserves BDAY;VALUE=text source when parts are null", () => {
+    // Simulate a card with BDAY;VALUE=text:some text (non-structured)
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:Bday Text Preserve
+N:Test;Bday;;;
+BDAY:1987-03-01
+UID:bday-text-preserve@example.com
+END:VCARD`;
+    const contact = parse(vcard);
+    // Set the bday to a text field manually
+    contact.fields.bday = { source: "circa 1987", year: null, month: null, day: null };
+    const draft = buildDraft(contact);
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    // The text value must survive (not be removed)
+    expect(result.replace(/\r\n?/g, "\n")).toContain("circa 1987");
+  });
+});

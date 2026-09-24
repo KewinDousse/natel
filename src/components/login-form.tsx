@@ -9,10 +9,8 @@
 import { useNavigate } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DavError } from "@/dav";
-import type { DavAuth } from "@/dav/types";
 import { useI18n } from "@/i18n/react";
-import { useLogin } from "@/queries";
+import { type DavAuth, DavError, useLogin } from "@/queries";
 import { useServerUrl, useSessionStore } from "@/store/session";
 
 type FieldName = "server" | "username" | "password";

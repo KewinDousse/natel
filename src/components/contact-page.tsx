@@ -10,7 +10,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DavError } from "@/dav";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import {
@@ -29,7 +28,7 @@ import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { cn } from "@/lib/utils";
 import type { Contact, ContactField } from "@/model/contact";
-import { useRefetchCard, useUpdateContact } from "@/queries";
+import { DavError, useRefetchCard, useUpdateContact } from "@/queries";
 import { useAuth } from "@/store/session";
 import {
   addressOf,
@@ -505,7 +504,6 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     shouldBlockFn: () => hasChanges,
     disabled: !edit,
     withResolver: true,
-    enableBeforeUnload: false,
   });
 
   // When the blocker fires, show the discard dialog
@@ -588,9 +586,17 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
         params: { id: routeId },
         replace: true,
       });
-    } catch {
+    } catch (err) {
       setSaveStatus("idle");
-      setSaveError(t("err_save_unexpected"));
+      if (err instanceof DavError && err.code === "CONFLICT") {
+        setConflict({ kind: "conflict", serverEtag: "" });
+      } else if (err instanceof DavError && err.code === "NETWORK") {
+        setSaveError(t("err_save_network"));
+      } else if (err instanceof DavError && err.code === "AUTH") {
+        setSaveError(t("err_save_auth"));
+      } else {
+        setSaveError(t("err_save_unexpected"));
+      }
     }
   }, [draft, contact, refetchCard, updateContact, t, router, routeId]);
 

@@ -275,6 +275,12 @@ function updateAddressProperty(raw: RawComponent, adr: EditableFields["adr"]): v
   }
 }
 
+/** True when the source string represents a structured vCard date, not free-form text. */
+function isStructuredDateSource(source: string): boolean {
+  // Structured vCard dates: YYYY, YYYY-MM, YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS, --MM-DD
+  return /^\d/.test(source) || source.startsWith("--");
+}
+
 /** Reconstruct a BDAY date string from year/month/day parts. */
 function reconstructBdaySource(bday: EditableFields["bday"]): string {
   if (bday === null) return "";
@@ -306,8 +312,16 @@ function updateBdayProperty(raw: RawComponent, bday: EditableFields["bday"]): vo
   let prop = raw.getFirstProperty("bday");
 
   // When all parts are null but source is non-empty, write source back unchanged
-  // (e.g. VALUE=text with a non-structured date like "circa 1987")
-  if (bday.year === null && bday.month === null && bday.day === null && bday.source.length > 0) {
+  // (e.g. VALUE=text with a non-structured date like "circa 1987").
+  // Only do this when the source is NOT a structured date — if the user cleared
+  // all three inputs on a structured birthday, remove the property instead.
+  if (
+    bday.year === null &&
+    bday.month === null &&
+    bday.day === null &&
+    bday.source.length > 0 &&
+    !isStructuredDateSource(bday.source)
+  ) {
     if (!prop) {
       prop = new ICAL.Property("bday");
       raw.addProperty(prop);

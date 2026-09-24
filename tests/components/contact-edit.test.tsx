@@ -22,29 +22,37 @@ import { useSessionStore } from "@/store/session";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockDiscoverAddressBooks, mockListContacts, mockFetchCards, mockUpdateCard } = vi.hoisted(
-  () => ({
-    mockDiscoverAddressBooks: vi.fn<(auth: DavAuth) => Promise<DavAddressBook[]>>(),
-    mockListContacts:
-      vi.fn<(auth: DavAuth, bookHref: string) => Promise<{ href: string; etag: string }[]>>(),
-    mockFetchCards:
-      vi.fn<
-        (
-          auth: DavAuth,
-          hrefs: string[],
-        ) => Promise<Array<{ href: string; etag: string; vcardText: string }>>
-      >(),
-    mockUpdateCard:
-      vi.fn<
-        (
-          auth: DavAuth,
-          href: string,
-          etag: string,
-          vcardText: string,
-        ) => Promise<{ href: string; etag: string }>
-      >(),
-  }),
-);
+const {
+  mockDiscoverAddressBooks,
+  mockListContacts,
+  mockFetchCards,
+  mockFetchCard,
+  mockUpdateCard,
+} = vi.hoisted(() => ({
+  mockDiscoverAddressBooks: vi.fn<(auth: DavAuth) => Promise<DavAddressBook[]>>(),
+  mockListContacts:
+    vi.fn<(auth: DavAuth, bookHref: string) => Promise<{ href: string; etag: string }[]>>(),
+  mockFetchCards:
+    vi.fn<
+      (
+        auth: DavAuth,
+        hrefs: string[],
+      ) => Promise<Array<{ href: string; etag: string; vcardText: string }>>
+    >(),
+  mockFetchCard:
+    vi.fn<
+      (auth: DavAuth, href: string) => Promise<{ href: string; etag: string; vcardText: string }>
+    >(),
+  mockUpdateCard:
+    vi.fn<
+      (
+        auth: DavAuth,
+        href: string,
+        etag: string,
+        vcardText: string,
+      ) => Promise<{ href: string; etag: string }>
+    >(),
+}));
 
 vi.mock("@/dav", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/dav")>();
@@ -53,6 +61,7 @@ vi.mock("@/dav", async (importOriginal) => {
     discoverAddressBooks: mockDiscoverAddressBooks,
     listContacts: mockListContacts,
     fetchCards: mockFetchCards,
+    fetchCard: mockFetchCard,
     updateCard: mockUpdateCard,
   };
 });
@@ -148,6 +157,10 @@ function setupMocks() {
       vcardText: CARDS[href.split("/").at(-1)?.replace(".vcf", "") ?? ""] ?? "",
     })),
   );
+  mockFetchCard.mockImplementation(async (_auth, href) => {
+    const vcardText = CARDS[href.split("/").at(-1)?.replace(".vcf", "") ?? ""] ?? "";
+    return { href, etag: '"e"', vcardText };
+  });
   mockUpdateCard.mockResolvedValue({ href: "editable", etag: '"new-etag"' });
 }
 
@@ -287,6 +300,26 @@ describe("edit mode — dirty dialog", () => {
   });
 });
 
+describe("edit mode — beforeunload guard (review item 4)", () => {
+  it("does not crash with beforeunload enabled while dirty", async () => {
+    // With enableBeforeUnload now at its default (true), the component
+    // registers a beforeunload listener while dirty. jsdom doesn't fire it,
+    // but the registration must not throw and the blocker must still work.
+    const { article } = await renderEditView("editable");
+
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("John"), "x");
+
+    // Article is still in edit mode — no crash from the listener registration
+    expect(article.getAttribute("data-mode")).toBe("edit");
+
+    // The blocker should still block navigation (cancel shows discard dialog)
+    const cancelBtn = screen.getByRole("button", { name: "Annuler" });
+    await user.click(cancelBtn);
+    expect(await screen.findByRole("heading", { name: /Abandonner/ })).toBeTruthy();
+  });
+});
+
 describe("edit mode — save error", () => {
   it("shows network error in the bottom bar", async () => {
     mockUpdateCard.mockRejectedValueOnce(new DavError("Network error", "NETWORK"));
@@ -311,6 +344,28 @@ describe("edit mode — conflict", () => {
     const saveBtn = screen.getByRole("button", { name: "Enregistrer" });
     await user.click(saveBtn);
 
+    await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
+  });
+
+  it("shows conflict banner again on Écraser if the PUT gets a second 412", async () => {
+    // First save → CONFLICT, then overwrite PUT → CONFLICT again
+    mockUpdateCard.mockRejectedValue(new DavError("Conflict", "CONFLICT"));
+    await renderEditView("editable");
+    const user = userEvent.setup();
+
+    // Make a change and save
+    await user.type(screen.getByDisplayValue("John"), "x");
+    const saveBtn = screen.getByRole("button", { name: "Enregistrer" });
+    await user.click(saveBtn);
+
+    // Conflict banner must appear
+    await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
+
+    // Click "Écraser" — the overwrite flow refetches and PUTs, which also fails
+    const ecraserBtn = screen.getByRole("button", { name: /écraser/i });
+    await user.click(ecraserBtn);
+
+    // The conflict banner must still be visible (not replaced by "Erreur inattendue")
     await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
   });
 });
