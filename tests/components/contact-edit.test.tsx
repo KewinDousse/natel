@@ -8,7 +8,7 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContactPage } from "@/components/contact-page";
@@ -567,5 +567,45 @@ describe("contact page without a session", () => {
       </I18nProvider>,
     );
     expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("toast timing", () => {
+  it("gives a repeated toast its own full display time", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ["/contacts/editable"] }),
+    });
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const article = await screen.findByRole("article", {}, { timeout: 5000 });
+    const user = userEvent.setup();
+    const copy = within(article).getAllByRole("button", { name: "Copier le numéro" })[0];
+    if (!copy) throw new Error("no copy button");
+
+    const advance = (ms: number) =>
+      act(async () => {
+        vi.advanceTimersByTime(ms);
+      });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await user.click(copy);
+      await screen.findByText("Copié");
+      await advance(2000);
+      await user.click(copy);
+      await advance(1000);
+      // 3 s after the first toast, but only 1 s after the second one.
+      expect(screen.queryByText("Copié")).not.toBeNull();
+      await advance(2000);
+      expect(screen.queryByText("Copié")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

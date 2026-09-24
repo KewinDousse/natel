@@ -350,7 +350,8 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
   const [conflict, setConflict] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  // An object per toast, so showing the same text twice restarts the timer.
+  const [toast, setToast] = useState<{ text: string } | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -515,9 +516,8 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
 
     try {
       await updateContact.mutateAsync(detachedContact);
-      setToast(t("saved"));
+      setToast({ text: t("saved") });
       setSaveStatus("idle");
-      setTimeout(() => setToast(null), 2500);
       exitEdit();
     } catch (err) {
       setSaveStatus("idle");
@@ -550,9 +550,8 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
       // Apply draft to the fresh copy
       applyDraft(freshContact, draft);
       await updateContact.mutateAsync(freshContact);
-      setToast(t("saved"));
+      setToast({ text: t("saved") });
       setSaveStatus("idle");
-      setTimeout(() => setToast(null), 2500);
       exitEdit();
     } catch (err) {
       setSaveStatus("idle");
@@ -581,8 +580,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     async (value: string) => {
       try {
         await navigator.clipboard.writeText(value);
-        setToast(t("copied"));
-        setTimeout(() => setToast(null), 2500);
+        setToast({ text: t("copied") });
       } catch {
         // silent
       }
@@ -1308,7 +1306,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
           role="status"
           aria-live="polite"
         >
-          {toast}
+          {toast.text}
         </div>
       )}
 
