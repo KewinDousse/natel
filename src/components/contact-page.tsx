@@ -63,7 +63,8 @@ export function ContactPage({ contacts, id, edit = false }: ContactPageProps) {
   if (contacts === undefined || auth === null) return null;
   const contact = contactById(contacts, id);
   if (contact === undefined) return <NotFoundView />;
-  return <ContactFiche auth={auth} contact={contact} edit={edit} />;
+  // Keyed by contact so draft, errors and in-flight saves never carry over.
+  return <ContactFiche key={contactIdOf(contact)} auth={auth} contact={contact} edit={edit} />;
 }
 
 // ---------------------------------------------------------------------------

@@ -740,3 +740,21 @@ describe("view mode — E shortcut", () => {
     expect(article.getAttribute("data-mode")).toBe("view");
   });
 });
+
+describe("switching contacts", () => {
+  it("shows the new contact's values when moving between contacts in edit mode", async () => {
+    const { router } = await renderEditView("editable");
+    expect(screen.getByDisplayValue("John")).toBeTruthy();
+
+    await act(async () => {
+      await router.navigate({
+        to: "/contacts/$id",
+        params: { id: "minimal" },
+        search: { edit: true },
+      });
+    });
+
+    await waitFor(() => expect(screen.getByDisplayValue("Minimal")).toBeTruthy());
+    expect(screen.queryByDisplayValue("John")).toBeNull();
+  });
+});
