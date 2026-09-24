@@ -339,8 +339,12 @@ describe("avatar and special sections", () => {
     await renderLoggedIn("/contacts/org-card");
 
     const article = await screen.findByRole("article");
-    const orgTexts = within(article).getAllByText("Commune de Pully");
-    expect(orgTexts.length).toBeGreaterThanOrEqual(1);
+    // Once as the page's accessible name, once as the visible org line.
+    expect(within(article).getByRole("heading", { level: 1 }).textContent).toBe("Commune de Pully");
+    const visible = within(article)
+      .getAllByText("Commune de Pully")
+      .filter((el) => el.closest(".sr-only") === null);
+    expect(visible).toHaveLength(1);
     expect(article.querySelector("svg")).not.toBeNull();
     expect(within(article).queryByText(/^[A-Z]{2}$/)).toBeNull();
   });
