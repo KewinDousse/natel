@@ -298,6 +298,20 @@ describe("edit mode — dirty dialog", () => {
 
     expect(await screen.findByRole("heading", { name: /Abandonner/ })).toBeTruthy();
   });
+
+  it("exits edit immediately on cancel when clean (no dialog)", async () => {
+    // When the draft has no changes, cancel should exit edit mode without
+    // showing the discard dialog — the beforeunload guard is gated on dirtiness.
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    // Make NO changes — draft is clean
+    const cancelBtn = screen.getByRole("button", { name: "Annuler" });
+    await user.click(cancelBtn);
+
+    // No discard dialog should appear; article should switch to view mode
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+  });
 });
 
 describe("edit mode — beforeunload guard (review item 4)", () => {
@@ -317,6 +331,59 @@ describe("edit mode — beforeunload guard (review item 4)", () => {
     const cancelBtn = screen.getByRole("button", { name: "Annuler" });
     await user.click(cancelBtn);
     expect(await screen.findByRole("heading", { name: /Abandonner/ })).toBeTruthy();
+  });
+});
+
+describe("edit mode — ignoreBlocker on intentional exit (review item 4)", () => {
+  it("Abandonner closes the dialog and exits edit once (no second dialog)", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    // Make the draft dirty
+    await user.type(screen.getByDisplayValue("John"), "x");
+
+    // Click Cancel to open the discard dialog
+    const cancelBtn = screen.getByRole("button", { name: "Annuler" });
+    await user.click(cancelBtn);
+    expect(await screen.findByRole("heading", { name: /Abandonner/ })).toBeTruthy();
+
+    // Click Abandonner — navigates with ignoreBlocker: true
+    const abandonBtn = screen.getByRole("button", { name: /abandonner/i });
+    await user.click(abandonBtn);
+
+    // The dialog should close and the article should switch to view mode
+    await waitFor(() => {
+      expect(article.getAttribute("data-mode")).toBe("view");
+    });
+    // No second dialog should appear
+    const headings = screen.queryAllByRole("heading", { name: /Abandonner/ });
+    // The heading from the first dialog may still be in the DOM if cleanup
+    // is async — check that no dialog container is present
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Recharger exits edit with no discard prompt", async () => {
+    mockUpdateCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    // Make the draft dirty and save to trigger conflict
+    await user.type(screen.getByDisplayValue("John"), "x");
+    const saveBtn = screen.getByRole("button", { name: "Enregistrer" });
+    await user.click(saveBtn);
+
+    // Conflict banner should appear
+    await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
+
+    // Click Recharger — runs exitEdit which navigates with ignoreBlocker: true
+    const reloadBtn = screen.getByRole("button", { name: /recharger/i });
+    await user.click(reloadBtn);
+
+    // Should exit edit mode without showing any discard dialog
+    await waitFor(() => {
+      expect(article.getAttribute("data-mode")).toBe("view");
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 

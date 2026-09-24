@@ -67,17 +67,35 @@ describe("addressOf", () => {
 describe("birthdayOf", () => {
   it("reads a full date as plain parts plus the raw source", () => {
     const birthday = birthdayOf(parse(CARD_RICH));
-    expect(birthday).toEqual({ source: "1987-03-14", year: 1987, month: 3, day: 14 });
+    expect(birthday).toEqual({
+      source: "1987-03-14",
+      year: 1987,
+      month: 3,
+      day: 14,
+      valueType: "date",
+    });
   });
 
   it("keeps a month-day (no year) with year null", () => {
     const card = CARD_RICH.replace("BDAY:1987-03-14", "BDAY:--03-14");
-    expect(birthdayOf(parse(card))).toEqual({ source: "--03-14", year: null, month: 3, day: 14 });
+    expect(birthdayOf(parse(card))).toEqual({
+      source: "--03-14",
+      year: null,
+      month: 3,
+      day: 14,
+      valueType: "date",
+    });
   });
 
   it("keeps a year-only date with month/day null", () => {
     const card = CARD_RICH.replace("BDAY:1987-03-14", "BDAY:1987");
-    expect(birthdayOf(parse(card))).toEqual({ source: "1987", year: 1987, month: null, day: null });
+    expect(birthdayOf(parse(card))).toEqual({
+      source: "1987",
+      year: 1987,
+      month: null,
+      day: null,
+      valueType: "date",
+    });
   });
 
   it("returns null when BDAY is absent", () => {

@@ -208,6 +208,10 @@ export function validateDraft(draft: ContactDraft): ValidationErrors {
     if (draft.bday.day !== null && draft.bday.month === null) {
       errors.bday_month = "field_bday_month";
     }
+    // Month requires year or day — a lone month is not representable in RFC 6350
+    if (draft.bday.month !== null && draft.bday.year === null && draft.bday.day === null) {
+      errors.bday_month = "field_bday_month";
+    }
   }
 
   return errors;

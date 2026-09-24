@@ -87,6 +87,8 @@ export type VCardBirthdayField = {
   year: number | null;
   month: number | null;
   day: number | null;
+  /** jCal value type (e.g. "text", "date", "date-time"). When undefined the default date type applies. */
+  valueType?: string;
 };
 
 export type Contact = {

@@ -9,6 +9,7 @@
  * property may change; the rest must byte-round-trip.
  */
 
+import ICAL from "ical.js";
 import { describe, expect, it } from "vitest";
 import { applyDraft, buildDraft } from "../../src/lib/contact-edit";
 import { parse, serialise } from "../../src/vcard";
@@ -233,7 +234,13 @@ BDAY:2000-01-01
 UID:bday-text-test@example.com
 END:VCARD`);
     // Simulate a text BDAY by setting source with non-numeric text
-    contact.fields.bday = { source: "circa 1987", year: null, month: null, day: null };
+    contact.fields.bday = {
+      source: "circa 1987",
+      year: null,
+      month: null,
+      day: null,
+      valueType: "text",
+    };
     const draft = buildDraft(contact);
     applyDraft(contact, draft);
     const result = serialise(contact);
@@ -569,6 +576,106 @@ END:VCARD`;
 });
 
 // ---------------------------------------------------------------------------
+// Tests for review item 2: isStructuredDateSource uses jCal value type, not regex
+// ---------------------------------------------------------------------------
+
+describe("edit round-trip — BDAY VALUE=text preservation via jCal value type (review item 2)", () => {
+  it("preserves BDAY;VALUE=text:1950 after untouched save (digit-leading text parsed by ical.js)", () => {
+    // ical.js normalizes BDAY;VALUE=text:1950 to a date with year=1950.
+    // The value survives because readBirthday extracts year=1950.
+    // The fix ensures the preserve-vs-clear branch uses jCal value type (not regex).
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:Bday Digit
+N:Test;Bday;;;
+BDAY;VALUE=text:1950
+UID:bday-digit-test@example.com
+END:VCARD`;
+    const contact = parse(vcard);
+    const draft = buildDraft(contact);
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    // The year 1950 must survive in the output
+    const lines = result.replace(/\r\n?/g, "\n").split("\n");
+    const bdayLine = lines.find((l) => l.startsWith("BDAY") || l.startsWith("bday"));
+    expect(bdayLine).toBeDefined();
+    expect(bdayLine!.includes("1950")).toBe(true);
+  });
+
+  it("preserves BDAY with text value type via jCal manipulation after parse", () => {
+    // ical.js cannot parse BDAY;VALUE=text:circa 1987 directly (getFirstValue
+    // throws). Instead we parse from jCal with the value type set to "text".
+    const jCal = ICAL.parse(`BEGIN:VCARD
+VERSION:3.0
+FN:Bday Text
+N:Test;Bday;;;
+BDAY;VALUE=text:circa 1987
+UID:bday-text-test@example.com
+END:VCARD`);
+    // Override the bday entry's type to "text" in the jCal so ical.js
+    // treats it as a text property (readBirthday reads valueType from jcal[2])
+    const components = jCal[1] as Array<unknown>;
+    for (const entry of components) {
+      const e = entry as [string, unknown, string, unknown];
+      if (e[0].toLowerCase() === "bday") {
+        e[1] = { value: "text" };
+        e[2] = "text";
+        e[3] = "circa 1987";
+      }
+    }
+    const raw = new ICAL.Component(jCal);
+    const bdayProp = raw.getFirstProperty("bday");
+    const bdayJCal = bdayProp!.toJSON() as [
+      string,
+      Record<string, string | string[]>,
+      string,
+      unknown,
+    ];
+    const source = String(bdayJCal[3] ?? "");
+    const valueType = bdayJCal[2] || undefined;
+    const nProp = raw.getFirstProperty("n");
+    const nValue = nProp ? (nProp.getFirstValue() as string[]) : [];
+    // Simulate parse field extraction without calling getFirstValue on bday
+    // (which throws for text values)
+    const contact = {
+      href: "",
+      etag: "",
+      uid: String(raw.getFirstPropertyValue("uid") ?? ""),
+      fields: {
+        fn: String(raw.getFirstPropertyValue("fn") ?? ""),
+        n: {
+          family: nValue[0] ?? "",
+          given: nValue[1] ?? "",
+          additional: "",
+          prefix: "",
+          suffix: "",
+        },
+        tel: [],
+        email: [],
+        nickname: "",
+        adr: null,
+        bday: { source, valueType, year: null, month: null, day: null },
+        org: "",
+        title: "",
+        url: "",
+        note: "",
+      },
+      raw,
+    };
+    expect(contact.fields.bday!.source).toBe("circa 1987");
+    expect(contact.fields.bday!.valueType).toBe("text");
+
+    const draft = buildDraft(contact);
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    // The text value must survive
+    expect(result.replace(/\r\n?/g, "\n")).toContain("circa 1987");
+  });
+
+  // The existing test already covers clearing structured 1987-03-14
+});
+
+// ---------------------------------------------------------------------------
 // Tests for review item 1: clearing all BDAY inputs removes the property
 // ---------------------------------------------------------------------------
 
@@ -603,7 +710,13 @@ UID:bday-text-preserve@example.com
 END:VCARD`;
     const contact = parse(vcard);
     // Set the bday to a text field manually
-    contact.fields.bday = { source: "circa 1987", year: null, month: null, day: null };
+    contact.fields.bday = {
+      source: "circa 1987",
+      year: null,
+      month: null,
+      day: null,
+      valueType: "text",
+    };
     const draft = buildDraft(contact);
     applyDraft(contact, draft);
     const result = serialise(contact);

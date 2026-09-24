@@ -275,12 +275,6 @@ function updateAddressProperty(raw: RawComponent, adr: EditableFields["adr"]): v
   }
 }
 
-/** True when the source string represents a structured vCard date, not free-form text. */
-function isStructuredDateSource(source: string): boolean {
-  // Structured vCard dates: YYYY, YYYY-MM, YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS, --MM-DD
-  return /^\d/.test(source) || source.startsWith("--");
-}
-
 /** Reconstruct a BDAY date string from year/month/day parts. */
 function reconstructBdaySource(bday: EditableFields["bday"]): string {
   if (bday === null) return "";
@@ -313,14 +307,14 @@ function updateBdayProperty(raw: RawComponent, bday: EditableFields["bday"]): vo
 
   // When all parts are null but source is non-empty, write source back unchanged
   // (e.g. VALUE=text with a non-structured date like "circa 1987").
-  // Only do this when the source is NOT a structured date — if the user cleared
-  // all three inputs on a structured birthday, remove the property instead.
+  // Only do this when the original value type is "text" — if the user cleared
+  // all three inputs on a structured date, remove the property instead.
   if (
     bday.year === null &&
     bday.month === null &&
     bday.day === null &&
     bday.source.length > 0 &&
-    !isStructuredDateSource(bday.source)
+    bday.valueType === "text"
   ) {
     if (!prop) {
       prop = new ICAL.Property("bday");
@@ -517,6 +511,8 @@ export type Birthday = {
   year: number | null;
   month: number | null;
   day: number | null;
+  /** jCal value type (e.g. "text", "date", "date-time"). When undefined the default date type applies. */
+  valueType?: string;
 };
 
 /**
@@ -534,16 +530,18 @@ function readBirthday(raw: RawComponent): Birthday | null {
   const value = prop.getFirstValue();
   const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
   const source = String(jcal[3] ?? "");
+  const valueType = jcal[2] || undefined;
   if (value !== null && typeof value === "object" && value !== undefined) {
     const t = value as { year?: unknown; month?: unknown; day?: unknown };
     return {
       source,
+      valueType,
       year: typeof t.year === "number" ? t.year : null,
       month: typeof t.month === "number" ? t.month : null,
       day: typeof t.day === "number" ? t.day : null,
     };
   }
-  return { source, year: null, month: null, day: null };
+  return { source, valueType, year: null, month: null, day: null };
 }
 
 /**

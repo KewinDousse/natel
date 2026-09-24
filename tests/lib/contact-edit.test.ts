@@ -372,6 +372,60 @@ describe("validateDraft", () => {
       expect(errors.bday_year).toBe("field_bday_year");
     });
 
+    it("rejects month-only (no year, no day)", () => {
+      const draft = {
+        family: "Doe",
+        given: "John",
+        tel: [],
+        email: [],
+        nickname: "",
+        adr: null,
+        bday: { source: "", year: null, month: 3, day: null },
+        org: "",
+        title: "",
+        url: "",
+        note: "",
+      };
+      const errors = validateDraft(draft);
+      expect(errors.bday_month).toBe("field_bday_month");
+    });
+
+    it("accepts year and month (no day)", () => {
+      const draft = {
+        family: "Doe",
+        given: "John",
+        tel: [],
+        email: [],
+        nickname: "",
+        adr: null,
+        bday: { source: "", year: 2000, month: 3, day: null },
+        org: "",
+        title: "",
+        url: "",
+        note: "",
+      };
+      const errors = validateDraft(draft);
+      expect(errors.bday_month).toBeUndefined();
+    });
+
+    it("accepts month and day (no year)", () => {
+      const draft = {
+        family: "Doe",
+        given: "John",
+        tel: [],
+        email: [],
+        nickname: "",
+        adr: null,
+        bday: { source: "", year: null, month: 3, day: 14 },
+        org: "",
+        title: "",
+        url: "",
+        note: "",
+      };
+      const errors = validateDraft(draft);
+      expect(errors.bday_month).toBeUndefined();
+    });
+
     it("accepts valid month and day", () => {
       const draft = {
         family: "Doe",

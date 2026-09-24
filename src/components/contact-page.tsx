@@ -412,7 +412,13 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     dispatch({ type: "REBUILD", draft: buildDraft(contact) });
     setErrors({});
     setConflict({ kind: "none" });
-    router.navigate({ to: "/contacts/$id", params: { id: routeId }, replace: true });
+    router.navigate({
+      to: "/contacts/$id",
+      params: { id: routeId },
+      search: {},
+      replace: true,
+      ignoreBlocker: true,
+    });
   }, [contact, router, routeId]);
 
   // Toggle edit mode with no-reflow safety net
@@ -502,6 +508,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
   // History blocker — intercept back/forward when dirty using TanStack Router's blocker API
   const blocker = useBlocker({
     shouldBlockFn: () => hasChanges,
+    enableBeforeUnload: () => hasChanges,
     disabled: !edit,
     withResolver: true,
   });
