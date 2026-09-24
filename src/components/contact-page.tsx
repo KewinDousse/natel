@@ -228,7 +228,7 @@ function ContactFiche({ contact }: { contact: Contact }) {
                   type={<TypeCell field={field} />}
                   value={
                     <EditableCell
-                      frameClassName={cn(TEXT, field === primary && "text-xl font-bold tabular")}
+                      frameClassName={cn(field === primary ? "text-xl font-bold tabular" : TEXT)}
                       view={
                         <a
                           href={`tel:${field.value}`}

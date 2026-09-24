@@ -261,6 +261,9 @@ describe("phones and action row", () => {
     const primary = await screen.findByRole("link", { name: "079 318 44 27" });
     expect(primary.parentElement?.className).toContain("text-xl");
     expect(primary.parentElement?.className).toContain("font-bold");
+    // The primary must NOT carry the lg:text-[0.9375rem] step-down from TEXT;
+    // at ≥1024px that would override text-xl and silently shrink the primary.
+    expect(primary.parentElement?.className).not.toContain("lg:text-[0.9375rem]");
 
     const work = screen.getByRole("link", { name: "021 721 33 00" });
     expect(work.parentElement?.className).not.toContain("text-xl");
