@@ -1004,7 +1004,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                         <input
                           type="text"
                           inputMode="numeric"
-                          placeholder="JJ"
+                          placeholder={t("placeholder_bday_day")}
                           value={draft.bday.day}
                           onChange={(e) =>
                             dispatch({ type: "SET_BDAY_DAY", value: e.target.value })
@@ -1027,7 +1027,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                         <input
                           type="text"
                           inputMode="numeric"
-                          placeholder="MM"
+                          placeholder={t("placeholder_bday_month")}
                           value={draft.bday.month}
                           onChange={(e) =>
                             dispatch({ type: "SET_BDAY_MONTH", value: e.target.value })
@@ -1046,14 +1046,29 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                           </p>
                         )}
                       </div>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="AAAA"
-                        value={draft.bday.year}
-                        onChange={(e) => dispatch({ type: "SET_BDAY_YEAR", value: e.target.value })}
-                        className="h-11 w-24 rounded-md border border-input bg-card px-3 text-center text-base lg:text-[0.9375rem]"
-                      />
+                      <div>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder={t("placeholder_bday_year")}
+                          value={draft.bday.year}
+                          onChange={(e) =>
+                            dispatch({ type: "SET_BDAY_YEAR", value: e.target.value })
+                          }
+                          onBlur={handleBlurValidate}
+                          aria-invalid={errors.bday_year !== undefined}
+                          aria-describedby={errors.bday_year ? "err-bday-year" : undefined}
+                          className={cn(
+                            "h-11 w-24 rounded-md border bg-card px-3 text-center text-base lg:text-[0.9375rem]",
+                            errors.bday_year ? "border-destructive" : "border-input",
+                          )}
+                        />
+                        {errors.bday_year && (
+                          <p id="err-bday-year" className="mt-1 text-sm text-destructive">
+                            {t(errors.bday_year as TranslationKey)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ) : birthday !== null ? (
                     <EditableCell

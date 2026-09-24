@@ -309,6 +309,28 @@ describe("edit mode — birthday input", () => {
 
     expect((year as HTMLInputElement).value).toBe("19x");
   });
+
+  it("flags an invalid year on blur like day and month", async () => {
+    await renderEditView("editable");
+    const user = userEvent.setup();
+
+    const year = screen.getByDisplayValue("1987");
+    await user.clear(year);
+    await user.type(year, "19x");
+    await user.tab();
+
+    expect(year.getAttribute("aria-invalid")).toBe("true");
+    const message = await screen.findByText("Année invalide");
+    expect(year.getAttribute("aria-describedby")).toBe(message.id);
+  });
+
+  it("translates the date placeholders", async () => {
+    setLanguage("en-US");
+    await renderEditView("editable");
+    expect(screen.getByPlaceholderText("DD")).toBeTruthy();
+    expect(screen.getByPlaceholderText("MM")).toBeTruthy();
+    expect(screen.getByPlaceholderText("YYYY")).toBeTruthy();
+  });
 });
 
 describe("edit mode — dirty dialog", () => {
