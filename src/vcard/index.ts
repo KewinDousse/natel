@@ -223,54 +223,74 @@ function setPropertyValue(prop: RawProperty, value: string): void {
 }
 
 /**
- * Update the first ADR property in place, preserving all 7 structured parts.
- * Other ADR properties remain untouched.
+ * Update the first ADR property in place. Only the parts and TYPE the user
+ * changed are rewritten, so untouched components (including list values like
+ * "Rue A,Bât B") and parameter order survive. Other ADR properties remain
+ * untouched.
  */
 function updateAddressProperty(raw: RawComponent, adr: EditableFields["adr"]): void {
   if (adr === null) return;
-  const hasContent =
-    [
-      adr.poBox,
-      adr.extended,
-      adr.street,
-      adr.locality,
-      adr.region,
-      adr.postalCode,
-      adr.country,
-    ].some((p) => p.length > 0) || adr.extraParts.length > 0;
+  const edited = [
+    adr.poBox,
+    adr.extended,
+    adr.street,
+    adr.locality,
+    adr.region,
+    adr.postalCode,
+    adr.country,
+    ...adr.extraParts,
+  ];
+  const current = readAddress(raw);
+  const currentParts =
+    current === null
+      ? []
+      : [
+          current.poBox,
+          current.extended,
+          current.street,
+          current.locality,
+          current.region,
+          current.postalCode,
+          current.country,
+          ...current.extraParts,
+        ];
+  const typeChanged = JSON.stringify(current?.type ?? []) !== JSON.stringify(adr.type);
+  const partsChanged = JSON.stringify(currentParts) !== JSON.stringify(edited);
+  if (current !== null && !typeChanged && !partsChanged) return;
+
   let prop = raw.getFirstProperty("adr");
-  if (hasContent) {
-    if (!prop) {
-      prop = new ICAL.Property("adr");
-      raw.addProperty(prop);
-    }
-    const parts = [
-      adr.poBox,
-      adr.extended,
-      adr.street,
-      adr.locality,
-      adr.region,
-      adr.postalCode,
-      adr.country,
-      ...adr.extraParts,
-    ];
-    prop.resetType("text");
-    prop.setValue(parts);
-    // Clear stale TYPE params, then set from field
+  if (!edited.some((p) => p.length > 0) && adr.extraParts.length === 0) {
+    if (prop) raw.removeProperty(prop);
+    return;
+  }
+  if (!prop) {
+    prop = new ICAL.Property("adr");
+    raw.addProperty(prop);
+  }
+
+  if (partsChanged) {
+    // Keep the parsed value of every part the user left alone.
+    const parsed = prop.getFirstValue();
+    const parsedParts: unknown[] = Array.isArray(parsed) ? parsed : [];
+    prop.setValue(
+      edited.map((part, i) => (currentParts[i] === part ? (parsedParts[i] ?? part) : part)),
+    );
+  }
+
+  if (typeChanged) {
+    // Clear both spellings ical.js may hold, then set from the field
     const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
     for (const key of Object.keys(jcal[1] ?? {})) {
       if (key.toLowerCase() === "type") {
         prop.removeParameter(key);
       }
     }
-    if (adr.type.length > 0) {
-      const firstType = adr.type[0];
-      if (firstType !== undefined) {
-        prop.setParameter("type", adr.type.length === 1 ? firstType : adr.type);
-      }
+    const [only] = adr.type;
+    if (adr.type.length > 1) {
+      prop.setParameter("type", adr.type);
+    } else if (only !== undefined) {
+      prop.setParameter("type", only);
     }
-  } else if (prop) {
-    raw.removeProperty(prop);
   }
 }
 
