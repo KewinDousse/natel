@@ -13,9 +13,9 @@ import { useContacts } from "@/queries";
 import { useAuth, useSelectedBook } from "@/store/session";
 
 export const Route = createFileRoute("/contacts/$id")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    edit: search.edit === "true" || search.edit === true,
-  }),
+  // Leaving edit mode drops the param entirely rather than leaving ?edit=false.
+  validateSearch: (search: Record<string, unknown>): { edit?: true } =>
+    search.edit === "true" || search.edit === true ? { edit: true } : {},
   component: ContactDetailRoute,
 });
 
@@ -26,5 +26,5 @@ function ContactDetailRoute() {
   const book = useSelectedBook();
   const contactsQuery = useContacts(auth ?? undefined, book ?? undefined);
   const contacts = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data?.contacts;
-  return <ContactPage contacts={contacts} id={id} edit={edit ?? false} />;
+  return <ContactPage contacts={contacts} id={id} edit={edit === true} />;
 }

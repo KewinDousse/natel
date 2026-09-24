@@ -323,6 +323,16 @@ describe("edit mode — dirty dialog", () => {
     // No discard dialog should appear; article should switch to view mode
     await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
   });
+
+  it("drops the edit param from the URL when leaving edit mode", async () => {
+    const { router, article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+    expect(router.state.location.href).toBe("/contacts/editable");
+  });
 });
 
 describe("edit mode — beforeunload guard (review item 4)", () => {
