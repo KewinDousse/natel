@@ -143,3 +143,29 @@ caddy run
 
 **Consequences.** Both manual checks validated live on 2026-09-23.
 Phase 1 exit criterion is met; MVP work can start.
+
+## 012 — ical.js BDAY normalisation on vCard 3.0
+
+**Context.** ical.js's vCard 3.0 design gives BDAY a `detectType` that types
+every value as `date` or `date-time` and drops the `VALUE` parameter. Three
+consequences for real cards:
+- a free-text birthday (`BDAY;VALUE=text:circa 1987`) is typed `date`;
+  `getFirstValue()` then throws while hydrating it, which made `parse()` fail
+  for the whole card, and `toString()` mangles it (`VALUE=DATE:circ 187`);
+- a digit-only text birthday (`BDAY;VALUE=text:1950`) hydrates as a year and
+  is written back as `BDAY;VALUE=DATE:1950`;
+- vCard 4.0 is not affected: `VALUE=text` is kept.
+
+**Decision.** `retypeTextBirthdays` in `src/vcard/` runs right after parsing:
+any BDAY whose value cannot be hydrated is retyped `text` with its original
+string, so it parses, displays as-is and serialises as `BDAY;VALUE=TEXT:…`.
+`readBirthday` also reads the jCal first and falls back to
+`valueType: "text"` with null parts if hydration throws. On save, a BDAY whose
+year/month/day are unchanged is not touched at all. The `VALUE=TEXT → DATE`
+rewrite of digit-only v3 text birthdays is accepted: it is what ical.js emits
+for the untouched card, and the date value is equivalent.
+
+**Consequences.** Free-text birthdays are visible, survive a save of any other
+field, and are replaced by a date only when the user types date parts. REV
+has the same `detectType` on vCard 3.0 but is not retyped: the UI never reads
+it, and a malformed REV is left to ical.js's normalisation.

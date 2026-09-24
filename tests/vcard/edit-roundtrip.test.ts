@@ -11,7 +11,7 @@
 
 import ICAL from "ical.js";
 import { describe, expect, it } from "vitest";
-import { applyDraft, buildDraft } from "../../src/lib/contact-edit";
+import { applyDraft, buildDraft, validateDraft } from "../../src/lib/contact-edit";
 import { parse, serialise } from "../../src/vcard";
 
 // ---------------------------------------------------------------------------
@@ -223,31 +223,6 @@ describe("edit round-trip — NICKNAME multi-value preservation (item 4)", () =>
 });
 
 describe("edit round-trip — BDAY text / datetime preservation (item 5)", () => {
-  it("preserves BDAY VALUE=text on untouched round-trip via manual construction", () => {
-    // ical.js cannot directly parse BDAY;VALUE=text, so we construct the
-    // contact manually to test that serialise preserves text BDAY values.
-    const contact = parse(`BEGIN:VCARD
-VERSION:3.0
-FN:Bday Text Test
-N:Test;Bday;;;
-BDAY:2000-01-01
-UID:bday-text-test@example.com
-END:VCARD`);
-    // Simulate a text BDAY by setting source with non-numeric text
-    contact.fields.bday = {
-      source: "circa 1987",
-      year: null,
-      month: null,
-      day: null,
-      valueType: "text",
-    };
-    const draft = buildDraft(contact);
-    applyDraft(contact, draft);
-    const result = serialise(contact);
-    // The text value should be preserved (not deleted)
-    expect(result.replace(/\r\n?/g, "\n")).toContain("circa 1987");
-  });
-
   it("preserves BDAY datetime time part on untouched round-trip", () => {
     const contact = parse(`BEGIN:VCARD
 VERSION:3.0
@@ -601,78 +576,6 @@ END:VCARD`;
     expect(bdayLine).toBeDefined();
     expect(bdayLine!.includes("1950")).toBe(true);
   });
-
-  it("preserves BDAY with text value type via jCal manipulation after parse", () => {
-    // ical.js cannot parse BDAY;VALUE=text:circa 1987 directly (getFirstValue
-    // throws). Instead we parse from jCal with the value type set to "text".
-    const jCal = ICAL.parse(`BEGIN:VCARD
-VERSION:3.0
-FN:Bday Text
-N:Test;Bday;;;
-BDAY;VALUE=text:circa 1987
-UID:bday-text-test@example.com
-END:VCARD`);
-    // Override the bday entry's type to "text" in the jCal so ical.js
-    // treats it as a text property (readBirthday reads valueType from jcal[2])
-    const components = jCal[1] as Array<unknown>;
-    for (const entry of components) {
-      const e = entry as [string, unknown, string, unknown];
-      if (e[0].toLowerCase() === "bday") {
-        e[1] = { value: "text" };
-        e[2] = "text";
-        e[3] = "circa 1987";
-      }
-    }
-    const raw = new ICAL.Component(jCal);
-    const bdayProp = raw.getFirstProperty("bday");
-    const bdayJCal = bdayProp!.toJSON() as [
-      string,
-      Record<string, string | string[]>,
-      string,
-      unknown,
-    ];
-    const source = String(bdayJCal[3] ?? "");
-    const valueType = bdayJCal[2] || undefined;
-    const nProp = raw.getFirstProperty("n");
-    const nValue = nProp ? (nProp.getFirstValue() as string[]) : [];
-    // Simulate parse field extraction without calling getFirstValue on bday
-    // (which throws for text values)
-    const contact = {
-      href: "",
-      etag: "",
-      uid: String(raw.getFirstPropertyValue("uid") ?? ""),
-      fields: {
-        fn: String(raw.getFirstPropertyValue("fn") ?? ""),
-        n: {
-          family: nValue[0] ?? "",
-          given: nValue[1] ?? "",
-          additional: "",
-          prefix: "",
-          suffix: "",
-        },
-        tel: [],
-        email: [],
-        nickname: "",
-        adr: null,
-        bday: { source, valueType, year: null, month: null, day: null },
-        org: "",
-        title: "",
-        url: "",
-        note: "",
-      },
-      raw,
-    };
-    expect(contact.fields.bday!.source).toBe("circa 1987");
-    expect(contact.fields.bday!.valueType).toBe("text");
-
-    const draft = buildDraft(contact);
-    applyDraft(contact, draft);
-    const result = serialise(contact);
-    // The text value must survive
-    expect(result.replace(/\r\n?/g, "\n")).toContain("circa 1987");
-  });
-
-  // The existing test already covers clearing structured 1987-03-14
 });
 
 // ---------------------------------------------------------------------------
@@ -698,29 +601,150 @@ END:VCARD`;
     const bdayLine = lines.find((l) => l.startsWith("BDAY") || l.startsWith("bday"));
     expect(bdayLine).toBeUndefined();
   });
+});
 
-  it("preserves BDAY;VALUE=text source when parts are null", () => {
-    // Simulate a card with BDAY;VALUE=text:some text (non-structured)
-    const vcard = `BEGIN:VCARD
-VERSION:3.0
-FN:Bday Text Preserve
-N:Test;Bday;;;
-BDAY:1987-03-01
-UID:bday-text-preserve@example.com
-END:VCARD`;
-    const contact = parse(vcard);
-    // Set the bday to a text field manually
-    contact.fields.bday = {
-      source: "circa 1987",
-      year: null,
-      month: null,
-      day: null,
-      valueType: "text",
-    };
-    const draft = buildDraft(contact);
-    applyDraft(contact, draft);
-    const result = serialise(contact);
-    // The text value must survive (not be removed)
-    expect(result.replace(/\r\n?/g, "\n")).toContain("circa 1987");
+// ---------------------------------------------------------------------------
+// BDAY matrix — every case goes through the real ICAL.parse → parse() path
+// ---------------------------------------------------------------------------
+
+/** A minimal card around one BDAY line, with CRLF endings as servers send them. */
+function bdayCard(bdayLine: string, version = "3.0"): string {
+  return [
+    "BEGIN:VCARD",
+    `VERSION:${version}`,
+    "FN:Bday Matrix",
+    "N:Matrix;Bday;;;",
+    bdayLine,
+    "UID:bday-matrix@example.com",
+    "END:VCARD",
+    "",
+  ].join("\r\n");
+}
+
+/** What ical.js emits for the card when nothing is edited. */
+function untouched(text: string): string {
+  return new ICAL.Component(ICAL.parse(text)).toString();
+}
+
+function bdayLineOf(text: string): string | undefined {
+  return text.split("\r\n").find((l) => l.startsWith("BDAY"));
+}
+
+describe("BDAY matrix via real parse()", () => {
+  describe.each(["3.0", "4.0"])("vCard %s", (version) => {
+    it("1987-03-14: untouched save is identical", () => {
+      const card = bdayCard("BDAY:1987-03-14", version);
+      expect(editField(card, () => {})).toBe(untouched(card));
+    });
+
+    it("1987-03-14: editing the year applies", () => {
+      const card = bdayCard("BDAY:1987-03-14", version);
+      const result = editField(card, (draft) => {
+        if (draft.bday) draft.bday.year = 1990;
+      });
+      expect(bdayLineOf(result)).toBe(
+        version === "3.0" ? "BDAY;VALUE=DATE:19900314" : "BDAY:19900314",
+      );
+    });
+
+    it("1987-03-14: clearing all three parts removes the property", () => {
+      const card = bdayCard("BDAY:1987-03-14", version);
+      const result = editField(card, (draft) => {
+        if (draft.bday) {
+          draft.bday.year = null;
+          draft.bday.month = null;
+          draft.bday.day = null;
+        }
+      });
+      expect(bdayLineOf(result)).toBeUndefined();
+    });
+
+    it("1987-03-14: clearing the day alone keeps year and month", () => {
+      const card = bdayCard("BDAY:1987-03-14", version);
+      const result = editField(card, (draft) => {
+        if (draft.bday) draft.bday.day = null;
+      });
+      expect(bdayLineOf(result)).toBe(
+        version === "3.0" ? "BDAY;VALUE=DATE:1987-03" : "BDAY:1987-03",
+      );
+    });
+
+    it("1987-03-14T10:30:00Z: untouched save is identical, time kept, no VALUE added", () => {
+      const card = bdayCard("BDAY:1987-03-14T10:30:00Z", version);
+      const result = editField(card, () => {});
+      expect(result).toBe(untouched(card));
+      expect(bdayLineOf(result)).toBe("BDAY:19870314T103000Z");
+    });
+
+    it("1987-03-14T10:30:00Z: editing the year keeps the time of day", () => {
+      const card = bdayCard("BDAY:1987-03-14T10:30:00Z", version);
+      const result = editField(card, (draft) => {
+        if (draft.bday) draft.bday.year = 1990;
+      });
+      expect(bdayLineOf(result)).toBe("BDAY:19900314T103000Z");
+    });
+
+    it("--0314: untouched save is identical", () => {
+      const card = bdayCard("BDAY:--0314", version);
+      expect(editField(card, () => {})).toBe(untouched(card));
+    });
+
+    it("VALUE=text:1950: untouched save is identical", () => {
+      const card = bdayCard("BDAY;VALUE=text:1950", version);
+      const result = editField(card, () => {});
+      expect(result).toBe(untouched(card));
+      // ical.js retypes digit-only v3 text as a date (DECISIONS.md 012).
+      expect(bdayLineOf(result)).toBe(
+        version === "3.0" ? "BDAY;VALUE=DATE:1950" : "BDAY;VALUE=TEXT:1950",
+      );
+    });
+
+    it("VALUE=text:circa 1987: parses without throwing", () => {
+      const contact = parse(bdayCard("BDAY;VALUE=text:circa 1987", version));
+      expect(contact.fields.bday).toEqual({
+        source: "circa 1987",
+        valueType: "text",
+        year: null,
+        month: null,
+        day: null,
+      });
+      expect(contact.fields.fn).toBe("Bday Matrix");
+    });
+
+    it("VALUE=text:circa 1987: survives an untouched save", () => {
+      const card = bdayCard("BDAY;VALUE=text:circa 1987", version);
+      const result = editField(card, () => {});
+      expect(bdayLineOf(result)).toBe("BDAY;VALUE=TEXT:circa 1987");
+      const withoutBday = (text: string) => text.split("\r\n").filter((l) => !l.startsWith("BDAY"));
+      expect(withoutBday(result)).toEqual(withoutBday(untouched(card)));
+    });
+
+    it("VALUE=text:circa 1987: survives saving an edit to another field", () => {
+      const card = bdayCard("BDAY;VALUE=text:circa 1987", version);
+      const result = editField(card, (draft) => {
+        draft.given = "Renamed";
+      });
+      expect(bdayLineOf(result)).toBe("BDAY;VALUE=TEXT:circa 1987");
+    });
+
+    it("VALUE=text:circa 1987: typing a year replaces the text with a date", () => {
+      const card = bdayCard("BDAY;VALUE=text:circa 1987", version);
+      const result = editField(card, (draft) => {
+        if (draft.bday) draft.bday.year = 1987;
+      });
+      expect(bdayLineOf(result)).toBe(version === "3.0" ? "BDAY;VALUE=DATE:1987" : "BDAY:1987");
+    });
+  });
+
+  it("--0314: a lone month is rejected by validateDraft", () => {
+    const draft = buildDraft(parse(bdayCard("BDAY:--0314")));
+    if (draft.bday) draft.bday.day = null;
+    expect(validateDraft(draft).bday_month).toBe("field_bday_month");
+  });
+
+  it("serialising twice gives the same text", () => {
+    const contact = parse(bdayCard("BDAY;VALUE=text:circa 1987"));
+    const first = serialise(contact);
+    expect(serialise(contact)).toBe(first);
   });
 });

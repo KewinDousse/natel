@@ -295,74 +295,56 @@ function reconstructBdaySource(bday: EditableFields["bday"]): string {
 }
 
 /**
- * Update the first BDAY property in place, reconstructing the date string
- * from the structured parts. Preserves the original source text (incl. time,
- * timezone, VALUE=text) when the user did not edit the date. Other BDAY
- * properties remain untouched.
+ * Update the first BDAY property in place from the structured parts. Other
+ * BDAY properties remain untouched.
  */
 function updateBdayProperty(raw: RawComponent, bday: EditableFields["bday"]): void {
   if (bday === null) return;
 
+  // Parts the user did not change: leave the property exactly as parsed, so
+  // text values, date-times and reduced dates keep their original form.
+  const current = readBirthday(raw);
+  if (
+    current !== null &&
+    current.year === bday.year &&
+    current.month === bday.month &&
+    current.day === bday.day
+  ) {
+    return;
+  }
+
   let prop = raw.getFirstProperty("bday");
 
-  // When all parts are null but source is non-empty, write source back unchanged
-  // (e.g. VALUE=text with a non-structured date like "circa 1987").
-  // Only do this when the original value type is "text" — if the user cleared
-  // all three inputs on a structured date, remove the property instead.
-  if (
-    bday.year === null &&
-    bday.month === null &&
-    bday.day === null &&
-    bday.source.length > 0 &&
-    bday.valueType === "text"
-  ) {
-    if (!prop) {
-      prop = new ICAL.Property("bday");
-      raw.addProperty(prop);
-    }
-    // Set the value type to text to prevent ical.js from trying to
-    // parse a non-date string as a date
-    prop.resetType("text");
-    prop.setValue(bday.source);
-    return;
-  }
-
   const dateStr = reconstructBdaySource(bday);
-
-  // Extract the date-only portion from source (before any time parts)
-  const sourceDatePart = bday.source.replace(/T.*$/, "");
-
-  // If the reconstructed date exactly matches the source's date portion AND
-  // the source has extra content (time, timezone), preserve the original source
-  // text to avoid losing time info. Only do this when the date parts are unchanged
-  // (exact match — prevents partial dates like "1987-03" from matching "1987-03-14").
-  if (dateStr.length > 0 && sourceDatePart === dateStr && bday.source.length > dateStr.length) {
-    if (!prop) {
-      prop = new ICAL.Property("bday");
-      raw.addProperty(prop);
-    }
-    // Set the original source text without changing the value type,
-    // preserving the original format (datetime, timezone, etc.)
-    prop.setValue(bday.source);
+  if (dateStr.length === 0) {
+    if (prop) raw.removeProperty(prop);
     return;
   }
 
-  if (dateStr.length > 0) {
-    if (!prop) {
-      prop = new ICAL.Property("bday");
-      raw.addProperty(prop);
-    }
-    // Set via ICAL.Time for proper serialisation
-    try {
-      const time = ICAL.Time.fromString(dateStr, null);
-      time.isDate = true;
-      prop.setValue(time);
-    } catch {
-      prop.setValue(dateStr);
-    }
-  } else if (prop) {
-    raw.removeProperty(prop);
+  if (!prop) {
+    prop = new ICAL.Property("bday");
+    raw.addProperty(prop);
   }
+
+  // Keep the time of day when the edited date has the same shape as the
+  // original one. Otherwise the time is dropped on purpose: RFC 6350 has no
+  // date-time form for a year-month or year-only date.
+  const sourceDate = bday.source.replace(/T.*$/, "");
+  const sourceTime = bday.source.slice(sourceDate.length);
+  if (bday.valueType !== "text" && sourceTime.length > 0 && sourceDate.length === dateStr.length) {
+    prop.setValue(dateStr + sourceTime);
+    return;
+  }
+
+  const dateType = dateValueTypeOf(raw);
+  const jcal = prop.toJSON() as [string, unknown, string, unknown];
+  if (jcal[2] !== dateType) prop.resetType(dateType);
+  prop.setValue(dateStr);
+}
+
+/** Value type for a date without time: RFC 6350 only allows date-and-or-time on BDAY. */
+function dateValueTypeOf(raw: RawComponent): string {
+  return raw.getFirstPropertyValue("version") === "4.0" ? "date-and-or-time" : "date";
 }
 
 /**
@@ -527,11 +509,17 @@ export function birthdayOf(contact: Contact): Birthday | null {
 function readBirthday(raw: RawComponent): Birthday | null {
   const prop = raw.getFirstProperty("bday");
   if (!prop) return null;
-  const value = prop.getFirstValue();
   const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
   const source = String(jcal[3] ?? "");
   const valueType = jcal[2] || undefined;
-  if (value !== null && typeof value === "object" && value !== undefined) {
+  let value: unknown;
+  try {
+    value = prop.getFirstValue();
+  } catch {
+    // ical.js retyped a free-text value as a date and cannot hydrate it.
+    return { source, valueType: "text", year: null, month: null, day: null };
+  }
+  if (value !== null && typeof value === "object") {
     const t = value as { year?: unknown; month?: unknown; day?: unknown };
     return {
       source,
@@ -574,6 +562,29 @@ export function groupsOf(contact: Contact): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// ical.js workarounds
+// ---------------------------------------------------------------------------
+
+/**
+ * ical.js's vCard 3.0 `detectType` types every BDAY as date/date-time and
+ * drops `VALUE=text`, so a free-text birthday ("circa 1987") throws when
+ * hydrated and is mangled when stringified. Retype such properties as text
+ * so the card parses and the value round-trips. See DECISIONS.md 012.
+ */
+function retypeTextBirthdays(raw: RawComponent): void {
+  for (const prop of raw.getAllProperties("bday")) {
+    try {
+      prop.getFirstValue();
+    } catch {
+      const jcal = prop.toJSON() as [string, unknown, string, unknown];
+      const source = String(jcal[3] ?? "");
+      prop.resetType("text");
+      prop.setValue(source);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -586,6 +597,7 @@ export function groupsOf(contact: Contact): string[] {
 export function parse(text: string, href = "", etag = ""): Contact {
   const jCal = ICAL.parse(text);
   const raw = new ICAL.Component(jCal);
+  retypeTextBirthdays(raw);
 
   const uid = String(raw.getFirstPropertyValue("uid") ?? "");
 

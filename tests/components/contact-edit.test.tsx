@@ -105,9 +105,20 @@ const CARD_MINIMAL = [
   "END:VCARD",
 ].join("\r\n");
 
+const CARD_TEXT_BDAY = [
+  "BEGIN:VCARD",
+  "VERSION:3.0",
+  "UID:textbday",
+  "FN:Text Bday",
+  "N:Bday;Text;;;",
+  "BDAY;VALUE=text:circa 1987",
+  "END:VCARD",
+].join("\r\n");
+
 const CARDS: Record<string, string> = {
   editable: CARD_EDITABLE,
   minimal: CARD_MINIMAL,
+  textbday: CARD_TEXT_BDAY,
 };
 
 // ---------------------------------------------------------------------------
@@ -447,6 +458,46 @@ describe("edit mode — save success", () => {
 
     await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
     expect(screen.getByRole("status").textContent).toBe("Enregistré");
+    expect(screen.queryByText(/inattendue/)).toBeNull();
+  });
+});
+
+describe("free-text birthday (VALUE=text on vCard 3.0)", () => {
+  it("shows the contact and its birthday text in view mode", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ["/contacts/textbday"] }),
+    });
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const article = await screen.findByRole("article", {}, { timeout: 5000 });
+    expect(within(article).getByText("circa 1987")).toBeTruthy();
+  });
+
+  it("Écraser refetches and PUTs the card with the birthday intact", async () => {
+    mockUpdateCard
+      .mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"))
+      .mockResolvedValueOnce({ href: "textbday", etag: '"new-etag"' });
+    await renderEditView("textbday");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("Text"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
+
+    await user.click(screen.getByRole("button", { name: /écraser/i }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(2));
+    expect(mockFetchCard).toHaveBeenCalled();
+    const [, , etag, vcardText] = mockUpdateCard.mock.calls[1] ?? [];
+    expect(etag).toBe('"e"');
+    expect(vcardText).toContain("BDAY;VALUE=TEXT:circa 1987");
     expect(screen.queryByText(/inattendue/)).toBeNull();
   });
 });
