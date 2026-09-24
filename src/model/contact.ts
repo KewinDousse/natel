@@ -13,6 +13,8 @@
 export interface RawProperty {
   toJSON(): unknown;
   getFirstValue(): unknown;
+  /** All values of a multi-value property (e.g. CATEGORIES). */
+  getValues(): unknown[];
   resetType(type: string): void;
   setValue(value: unknown): void;
   setParameter(name: string, value: string | string[]): void;

@@ -20,6 +20,7 @@ import {
   splitByQuery,
   trailingValueOf,
 } from "@/lib/contact-list";
+import { formatPhone } from "@/lib/format-phone";
 import type { Contact } from "@/model/contact";
 
 type ContactListProps = {
@@ -198,7 +199,7 @@ function ContactRow({ contact, query }: { contact: Contact; query: string }) {
           {trailing &&
             (trailing.kind === "tel" ? (
               <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-[0.9375rem] sm:text-foreground">
-                <Marked value={trailing.value} query={query} />
+                <Marked value={formatPhone(trailing.value)} query={query} />
               </span>
             ) : (
               <span className="block truncate text-sm text-muted-foreground sm:max-w-[42%] sm:shrink-0">
@@ -278,7 +279,7 @@ function AlphabetRail({ present, hidden }: { present: Set<string>; hidden: boole
       id="rail"
       hidden={hidden}
       aria-label={t("index_label")}
-      className="fixed bottom-6 right-0.5 top-[8.25rem] z-10 flex flex-col items-center justify-center font-display text-[0.8125rem] font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
+      className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex flex-col items-center justify-center font-display text-[0.8125rem] font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
     >
       {ALPHABET.split("").map((letter) => {
         if (present.has(letter)) {

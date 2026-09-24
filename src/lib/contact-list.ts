@@ -8,7 +8,7 @@
  */
 
 import type { Contact, ContactField } from "@/model/contact";
-import { orgOf } from "@/vcard";
+import { orgOf, typeValuesOf } from "@/vcard";
 
 export type SortBy = "family" | "given";
 
@@ -96,9 +96,17 @@ export function trailingValueOf(contact: Contact): TrailingValue | null {
 
 /** True when a TEL/EMAIL has TYPE=cell among its params (case-insensitive). */
 function isCellType(field: ContactField): boolean {
-  const type = field.params?.TYPE;
-  if (Array.isArray(type)) return type.some((t) => t.toLowerCase() === "cell");
-  return typeof type === "string" && type.toLowerCase() === "cell";
+  return typeValuesOf(field).includes("cell");
+}
+
+/**
+ * The detail page's primary number, per DESIGN.md: first TEL with TYPE=cell,
+ * else the first TEL. Returns null when the contact has no phone at all.
+ */
+export function primaryNumberOf(contact: Contact): ContactField | null {
+  const cell = contact.fields.tel.find(isCellType);
+  if (cell) return cell;
+  return contact.fields.tel[0] ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +117,6 @@ function isCellType(field: ContactField): boolean {
  * Precomputed search text: folded lowercase name + emails + org (no TEL —
  * phones match only through the digits field, gated to ≥3-digit queries),
  * plus the same with spaces/dots/+/- stripped for compact digit matching.
- * Order follows the mockup's data-search attribute.
  */
 export function searchTargetOf(contact: Contact): SearchTarget {
   const parts = namePartsOf(contact);

@@ -136,6 +136,20 @@ function replacePropertiesInPlace(
 // Read-only display accessors
 // ---------------------------------------------------------------------------
 
+export type TypedProp = { params?: Record<string, string | string[]> };
+
+/**
+ * TYPE parameter values of a TEL/EMAIL/ADR property, lowercased. Handles
+ * both spellings ical.js emits (lowercase `type` on parsed cards) and the
+ * uppercase `TYPE` constructed models use, plus string/array forms.
+ */
+export function typeValuesOf(typed: TypedProp): string[] {
+  const raw = typed.params?.TYPE ?? typed.params?.type;
+  if (raw === undefined) return [];
+  const values = Array.isArray(raw) ? raw : [raw];
+  return values.map((value) => value.toLowerCase());
+}
+
 /**
  * ORG value for display, read from the parsed raw component.
  *
@@ -151,6 +165,101 @@ export function orgOf(contact: Contact): string {
       .join(", ");
   }
   return typeof value === "string" ? value : "";
+}
+
+/** TITLE (job title) value for display, read from the parsed raw component. */
+export function jobTitleOf(contact: Contact): string {
+  const value = contact.raw.getFirstPropertyValue("title");
+  return typeof value === "string" ? value : "";
+}
+
+/** The 7 structured parts of an ADR property, as a plain object. */
+export type VCardAddress = {
+  poBox: string;
+  extended: string;
+  street: string;
+  locality: string;
+  region: string;
+  postalCode: string;
+  country: string;
+  /** TYPE parameter values (e.g. ["HOME"]) — used for the row label. */
+  type: string[];
+};
+
+/** ADR parts of the first ADR property, or null when the card has none. */
+export function addressOf(contact: Contact): VCardAddress | null {
+  const prop = contact.raw.getFirstProperty("adr");
+  if (!prop) return null;
+  const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
+  const parts = Array.isArray(prop.getFirstValue())
+    ? (prop.getFirstValue() as unknown[]).map((part) => String(part ?? ""))
+    : [];
+  const type = typeValuesOf({ params: jcal[1] });
+  return {
+    poBox: parts[0] ?? "",
+    extended: parts[1] ?? "",
+    street: parts[2] ?? "",
+    locality: parts[3] ?? "",
+    region: parts[4] ?? "",
+    postalCode: parts[5] ?? "",
+    country: parts[6] ?? "",
+    type,
+  };
+}
+
+/** BDAY as plain date parts plus the raw stored text (used for copy). */
+export type Birthday = {
+  /** Raw property value as stored ("1987-03-14", "--03-14", "1987", …). */
+  source: string;
+  year: number | null;
+  month: number | null;
+  day: number | null;
+};
+
+/**
+ * BDAY for display, read from the parsed raw component. Partial dates are
+ * kept as-is: a missing part is null, never a zero or invented value.
+ */
+export function birthdayOf(contact: Contact): Birthday | null {
+  const prop = contact.raw.getFirstProperty("bday");
+  if (!prop) return null;
+  const value = prop.getFirstValue();
+  const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
+  const source = String(jcal[3] ?? "");
+  if (value !== null && typeof value === "object" && value !== undefined) {
+    const t = value as { year?: unknown; month?: unknown; day?: unknown };
+    return {
+      source,
+      year: typeof t.year === "number" ? t.year : null,
+      month: typeof t.month === "number" ? t.month : null,
+      day: typeof t.day === "number" ? t.day : null,
+    };
+  }
+  return { source, year: null, month: null, day: null };
+}
+
+/**
+ * NOTE text, read from the parsed raw component. Returns "" when absent;
+ * whitespace (including line breaks) is preserved for pre-wrap display.
+ */
+export function noteOf(contact: Contact): string {
+  const value = contact.raw.getFirstPropertyValue("note");
+  return typeof value === "string" ? value : "";
+}
+
+/**
+ * CATEGORIES (groups) values, flattened across all properties — so a card
+ * with two CATEGORIES lines yields all values in order. Arrangement of the
+ * values is display-only; nothing here ever writes to `raw`.
+ */
+export function groupsOf(contact: Contact): string[] {
+  const groups: string[] = [];
+  for (const prop of contact.raw.getAllProperties("categories")) {
+    for (const value of prop.getValues()) {
+      if (typeof value === "string" && value.length > 0) groups.push(value);
+    }
+  }
+  return groups;
 }
 
 // ---------------------------------------------------------------------------
