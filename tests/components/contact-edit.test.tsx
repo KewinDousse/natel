@@ -278,6 +278,15 @@ describe("edit mode — add/remove fields", () => {
   });
 });
 
+describe("edit mode — address type", () => {
+  it("shows the address's own type in the select", async () => {
+    const { article } = await renderEditView("editable");
+    const section = article.querySelector("#sec-adr");
+    const select = section?.querySelector("select");
+    expect(select?.value).toBe("home");
+  });
+});
+
 describe("edit mode — validation", () => {
   it("rejects invalid email on save", async () => {
     await renderEditView("editable");

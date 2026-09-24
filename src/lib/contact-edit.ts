@@ -402,12 +402,7 @@ function fromDraftField(field: DraftField): ContactField {
 
   // Only update TYPE if the user explicitly changed it
   if (field.type.toLowerCase() !== origFirstType.toLowerCase()) {
-    // The UI edits the first TYPE value only; the others (VOICE, PREF…) stay.
-    const others = origTypeValues
-      .slice(1)
-      .filter((value) => value.toLowerCase() !== field.type.toLowerCase());
-    const first = field.type.length > 0 ? [inCaseOf(field.type, origFirstType)] : [];
-    const types = [...first, ...others];
+    const types = replaceFirstType(origTypeValues, field.type);
 
     // Remove BOTH casings of the type param before writing the new one
     delete params.TYPE;
@@ -428,6 +423,17 @@ function fromDraftField(field: DraftField): ContactField {
     type: field._orig.type,
     params: Object.keys(params).length > 0 ? params : undefined,
   };
+}
+
+/**
+ * Replace the first TYPE value — the one the UI shows and edits — keeping the
+ * others (VOICE, PREF…) and the letter case of the list. An empty `value`
+ * ("other") drops the first value only.
+ */
+export function replaceFirstType(types: string[], value: string): string[] {
+  const [first = "", ...others] = types;
+  const kept = others.filter((type) => type.toLowerCase() !== value.toLowerCase());
+  return value.length > 0 ? [inCaseOf(value, first), ...kept] : kept;
 }
 
 /** `value` in the letter case of `reference`, so an uppercase TYPE list stays uppercase. */

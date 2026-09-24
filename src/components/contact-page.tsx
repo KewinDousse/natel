@@ -20,6 +20,7 @@ import {
   isDirty,
   isValid,
   nextId,
+  replaceFirstType,
   type ValidationErrors,
   validateDraft,
 } from "@/lib/contact-edit";
@@ -229,7 +230,7 @@ function draftReducer(state: ContactDraft, action: DraftAction): ContactDraft {
       if (!state.adr) return state;
       return {
         ...state,
-        adr: { ...state.adr, type: action.value.length > 0 ? [action.value] : [] },
+        adr: { ...state.adr, type: replaceFirstType(state.adr.type, action.value) },
       };
     case "SET_ADR_STREET":
       return { ...state, adr: state.adr ? { ...state.adr, street: action.value } : null };
@@ -976,7 +977,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                   address !== null ? (
                     edit && draft.adr ? (
                       <TypeSelect
-                        value={draft.adr.type[0] ?? ""}
+                        value={(draft.adr.type[0] ?? "").toLowerCase()}
                         onChange={(v) => dispatch({ type: "SET_ADR_TYPE", value: v })}
                       />
                     ) : (

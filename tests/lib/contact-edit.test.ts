@@ -11,6 +11,7 @@ import {
   dirtyDiff,
   isDirty,
   isValid,
+  replaceFirstType,
   validateDraft,
 } from "../../src/lib/contact-edit";
 import type { Contact } from "../../src/model/contact";
@@ -462,5 +463,24 @@ describe("validateDraft", () => {
       expect(errors.bday_day).toBeUndefined();
       expect(errors.bday_year).toBeUndefined();
     });
+  });
+});
+
+describe("replaceFirstType", () => {
+  it("replaces the first value and keeps the others in the list's case", () => {
+    expect(replaceFirstType(["HOME", "PREF"], "work")).toEqual(["WORK", "PREF"]);
+    expect(replaceFirstType(["cell", "voice"], "home")).toEqual(["home", "voice"]);
+  });
+
+  it("drops only the first value for Other", () => {
+    expect(replaceFirstType(["HOME", "PREF"], "")).toEqual(["PREF"]);
+  });
+
+  it("does not duplicate a value already in the list", () => {
+    expect(replaceFirstType(["HOME", "CELL"], "cell")).toEqual(["CELL"]);
+  });
+
+  it("starts a list when there was none", () => {
+    expect(replaceFirstType([], "home")).toEqual(["home"]);
   });
 });
