@@ -549,11 +549,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
       setToast(t("saved"));
       setSaveStatus("idle");
       setTimeout(() => setToast(null), 2500);
-      router.navigate({
-        to: "/contacts/$id",
-        params: { id: routeId },
-        replace: true,
-      });
+      exitEdit();
     } catch (err) {
       setSaveStatus("idle");
       if (err instanceof DavError && err.code === "CONFLICT") {
@@ -566,7 +562,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
         setSaveError(t("err_save_unexpected"));
       }
     }
-  }, [draft, contact, updateContact, t, router, routeId]);
+  }, [draft, contact, updateContact, t, exitEdit]);
 
   // Conflict — reload by invalidating the contact query and exiting edit
   const handleConflictReload = useCallback(() => {
@@ -588,11 +584,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
       setToast(t("saved"));
       setSaveStatus("idle");
       setTimeout(() => setToast(null), 2500);
-      router.navigate({
-        to: "/contacts/$id",
-        params: { id: routeId },
-        replace: true,
-      });
+      exitEdit();
     } catch (err) {
       setSaveStatus("idle");
       if (err instanceof DavError && err.code === "CONFLICT") {
@@ -605,7 +597,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
         setSaveError(t("err_save_unexpected"));
       }
     }
-  }, [draft, contact, refetchCard, updateContact, t, router, routeId]);
+  }, [draft, contact, refetchCard, updateContact, t, exitEdit]);
 
   // Toast auto-dismiss
   useEffect(() => {

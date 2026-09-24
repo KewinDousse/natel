@@ -436,3 +436,17 @@ describe("edit mode — conflict", () => {
     await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
   });
 });
+
+describe("edit mode — save success", () => {
+  it("returns to view mode with the saved toast, no error", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+    expect(screen.getByRole("status").textContent).toBe("Enregistré");
+    expect(screen.queryByText(/inattendue/)).toBeNull();
+  });
+});
