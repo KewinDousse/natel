@@ -609,3 +609,38 @@ describe("toast timing", () => {
     }
   });
 });
+
+describe("edit mode — cancel during an in-flight save", () => {
+  it("drops a conflict that settles after leaving edit mode", async () => {
+    let rejectPut: (err: unknown) => void = () => {};
+    mockUpdateCard.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectPut = reject;
+        }),
+    );
+    const { router, article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+    await user.click(await screen.findByRole("button", { name: /^abandonner$/i }));
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+
+    await act(async () => {
+      rejectPut(new DavError("Conflict", "CONFLICT"));
+    });
+    await act(async () => {
+      await router.navigate({
+        to: "/contacts/$id",
+        params: { id: "editable" },
+        search: { edit: true },
+      });
+    });
+
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("edit"));
+    expect(screen.queryByText(/modifié ailleurs/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toHaveProperty("disabled", false);
+  });
+});

@@ -369,10 +369,22 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
   }, [edit, contact]);
 
   // Exit edit mode
+  // Bumped whenever edit mode ends, so a save that settles afterwards is ignored.
+  const editSession = useRef(0);
+  useEffect(
+    () => () => {
+      editSession.current++;
+    },
+    [],
+  );
+
   const exitEdit = useCallback(() => {
+    editSession.current++;
     dispatch({ type: "REBUILD", draft: buildDraft(contact) });
     setErrors({});
     setConflict(false);
+    setSaveError(null);
+    setSaveStatus("idle");
     router.navigate({
       to: "/contacts/$id",
       params: { id: routeId },
@@ -496,42 +508,49 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     setErrors(validateDraft(draft));
   }, [draft]);
 
-  // Save — applies draft to a clone so the cached contact is not mutated
-  // on failure (item 14), and surfaces non-CONFLICT errors in the bar (item 13).
+  // Runs one PUT attempt and maps its outcome onto the bottom bar. Results
+  // that settle after edit mode has ended are dropped.
+  const runSave = useCallback(
+    async (put: () => Promise<unknown>) => {
+      const session = editSession.current;
+      setSaveStatus("saving");
+      setSaveError(null);
+      setConflict(false);
+      try {
+        await put();
+        if (session !== editSession.current) return;
+        setToast({ text: t("saved") });
+        exitEdit();
+      } catch (err) {
+        if (session !== editSession.current) return;
+        setSaveStatus("idle");
+        if (err instanceof DavError && err.code === "CONFLICT") {
+          setConflict(true);
+        } else if (err instanceof DavError && err.code === "NETWORK") {
+          setSaveError(t("err_save_network"));
+        } else if (err instanceof DavError && err.code === "AUTH") {
+          setSaveError(t("err_save_auth"));
+        } else {
+          setSaveError(t("err_save_unexpected"));
+        }
+      }
+    },
+    [t, exitEdit],
+  );
+
+  // Save — applies the draft to a detached copy: serialise() mutates `raw`
+  // in place, so re-parsing keeps the cached contact intact on failure.
   const handleSave = useCallback(async () => {
     const validation = validateDraft(draft);
     setErrors(validation);
     if (!isValid(validation)) return;
 
-    setSaveStatus("saving");
-    setSaveError(null);
-    setConflict(false);
-
-    // Clone fields AND raw to avoid mutating the cached contact on failure:
-    // serialise() mutates `raw` in place, so a simple structuredClone of
-    // fields is insufficient. Re-parse the raw text to get a fully detached copy.
-    const vcardText = contact.raw.toString();
-    const detachedContact = parse(vcardText, contact.href, contact.etag);
-    applyDraft(detachedContact, draft);
-
-    try {
-      await updateContact.mutateAsync(detachedContact);
-      setToast({ text: t("saved") });
-      setSaveStatus("idle");
-      exitEdit();
-    } catch (err) {
-      setSaveStatus("idle");
-      if (err instanceof DavError && err.code === "CONFLICT") {
-        setConflict(true);
-      } else if (err instanceof DavError && err.code === "NETWORK") {
-        setSaveError(t("err_save_network"));
-      } else if (err instanceof DavError && err.code === "AUTH") {
-        setSaveError(t("err_save_auth"));
-      } else {
-        setSaveError(t("err_save_unexpected"));
-      }
-    }
-  }, [draft, contact, updateContact, t, exitEdit]);
+    await runSave(() => {
+      const detachedContact = parse(contact.raw.toString(), contact.href, contact.etag);
+      applyDraft(detachedContact, draft);
+      return updateContact.mutateAsync(detachedContact);
+    });
+  }, [draft, contact, updateContact, runSave]);
 
   // Conflict — reload by invalidating the contact query and exiting edit
   const handleConflictReload = useCallback(() => {
@@ -539,33 +558,15 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     exitEdit();
   }, [queryClient, exitEdit]);
 
-  // Conflict — overwrite: refetch for a fresh ETag first, then PUT
+  // Conflict — overwrite: refetch for a fresh ETag first, then a conditional PUT.
+  // A second 412 surfaces the conflict again.
   const handleConflictOverwrite = useCallback(async () => {
-    setConflict(false);
-    setSaveStatus("saving");
-    setSaveError(null);
-    try {
-      // Refetch the card for a fresh ETag via the queries layer
+    await runSave(async () => {
       const freshContact = await refetchCard(contact.href);
-      // Apply draft to the fresh copy
       applyDraft(freshContact, draft);
       await updateContact.mutateAsync(freshContact);
-      setToast({ text: t("saved") });
-      setSaveStatus("idle");
-      exitEdit();
-    } catch (err) {
-      setSaveStatus("idle");
-      if (err instanceof DavError && err.code === "CONFLICT") {
-        setConflict(true);
-      } else if (err instanceof DavError && err.code === "NETWORK") {
-        setSaveError(t("err_save_network"));
-      } else if (err instanceof DavError && err.code === "AUTH") {
-        setSaveError(t("err_save_auth"));
-      } else {
-        setSaveError(t("err_save_unexpected"));
-      }
-    }
-  }, [draft, contact, refetchCard, updateContact, t, exitEdit]);
+    });
+  }, [draft, contact, refetchCard, updateContact, runSave]);
 
   // Toast auto-dismiss
   useEffect(() => {
