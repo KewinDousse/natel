@@ -152,11 +152,24 @@ function updateStringProperty(raw: RawComponent, name: string, value: string): v
       setPropertyValue(prop, value);
     } else {
       const newProp = new ICAL.Property(name);
-      newProp.setValues([value]);
+      newProp.setValue(value);
       raw.addProperty(newProp);
     }
   } else if (prop) {
-    raw.removeProperty(prop);
+    // When clearing: keep the property if there are remaining values beyond the first,
+    // preserving multi-value properties like NICKNAME:Jean,Petit
+    const values = prop.getValues();
+    if (Array.isArray(values) && values.length > 1) {
+      values.shift();
+      try {
+        prop.setValues(values);
+      } catch {
+        prop.removeParameter("value");
+        prop.setValue(values.join(","));
+      }
+    } else {
+      raw.removeProperty(prop);
+    }
   }
 }
 
@@ -172,12 +185,23 @@ function updateFirstStringProperty(raw: RawComponent, name: string, value: strin
       setPropertyValue(prop, value);
     } else {
       const newProp = new ICAL.Property(name);
-      newProp.setValues([value]);
+      newProp.setValue(value);
       // Insert before END:VCARD — find the last property position
       raw.addProperty(newProp);
     }
   } else if (prop) {
-    raw.removeProperty(prop);
+    // When clearing: keep the property if there are remaining values beyond the first
+    const values = prop.getValues();
+    if (Array.isArray(values) && values.length > 1) {
+      values.shift();
+      try {
+        prop.setValues(values);
+      } catch {
+        prop.setValue(values.join(","));
+      }
+    } else {
+      raw.removeProperty(prop);
+    }
   }
 }
 
@@ -297,22 +321,20 @@ function updateBdayProperty(raw: RawComponent, bday: EditableFields["bday"]): vo
 
   const dateStr = reconstructBdaySource(bday);
 
-  // If the reconstructed date matches the source's date portion AND the source
-  // has extra content (time, timezone), preserve the original source text to
-  // avoid losing time info. For plain dates (source === dateStr), use the
-  // date-typed path which keeps the dashes in the format.
-  if (
-    dateStr.length > 0 &&
-    bday.source.length > dateStr.length &&
-    bday.source.startsWith(dateStr)
-  ) {
+  // Extract the date-only portion from source (before any time parts)
+  const sourceDatePart = bday.source.replace(/T.*$/, "");
+
+  // If the reconstructed date exactly matches the source's date portion AND
+  // the source has extra content (time, timezone), preserve the original source
+  // text to avoid losing time info. Only do this when the date parts are unchanged
+  // (exact match — prevents partial dates like "1987-03" from matching "1987-03-14").
+  if (dateStr.length > 0 && sourceDatePart === dateStr && bday.source.length > dateStr.length) {
     if (!prop) {
       prop = new ICAL.Property("bday");
       raw.addProperty(prop);
     }
-    // Set type to text to preserve the exact source text (including time
-    // parts) without ical.js date normalisation
-    prop.resetType("text");
+    // Set the original source text without changing the value type,
+    // preserving the original format (datetime, timezone, etc.)
     prop.setValue(bday.source);
     return;
   }
@@ -351,7 +373,16 @@ function updateOrgProperty(raw: RawComponent, org: string): void {
     parts[0] = org;
     prop.setValue(parts);
   } else if (prop) {
-    raw.removeProperty(prop);
+    // When clearing org name: keep the property if there are secondary components
+    // (org units) beyond the first, preserving "Acme, Unit"
+    const existing = prop.getFirstValue();
+    const parts = Array.isArray(existing) ? [...(existing as string[])] : [];
+    if (parts.length > 1) {
+      parts[0] = "";
+      prop.setValue(parts);
+    } else {
+      raw.removeProperty(prop);
+    }
   }
 }
 

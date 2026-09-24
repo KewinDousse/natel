@@ -7,10 +7,10 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useBlocker, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DavError, fetchCard } from "@/dav";
+import { DavError } from "@/dav";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import {
@@ -29,7 +29,7 @@ import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { cn } from "@/lib/utils";
 import type { Contact, ContactField } from "@/model/contact";
-import { useUpdateContact } from "@/queries";
+import { useRefetchCard, useUpdateContact } from "@/queries";
 import { useAuth } from "@/store/session";
 import {
   addressOf,
@@ -349,6 +349,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
   const router = useRouter();
   const auth = useAuth() as Exclude<ReturnType<typeof useAuth>, null>;
   const updateContact = useUpdateContact(auth);
+  const refetchCard = useRefetchCard(auth);
   const queryClient = useQueryClient();
 
   // Derived display values (view mode)
@@ -499,19 +500,21 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     return () => window.removeEventListener("keydown", handler);
   }, [edit, handleCancel]);
 
-  // History blocker — intercept back/forward when dirty
+  // History blocker — intercept back/forward when dirty using TanStack Router's blocker API
+  const blocker = useBlocker({
+    shouldBlockFn: () => hasChanges,
+    disabled: !edit,
+    withResolver: true,
+    enableBeforeUnload: false,
+  });
+
+  // When the blocker fires, show the discard dialog
+  const blockerActive = blocker?.status === "blocked";
   useEffect(() => {
-    if (!edit) return;
-    const handler = () => {
-      if (hasChanges) {
-        // Re-push current state to stay on the page and show discard dialog
-        window.history.pushState(null, "", window.location.href);
-        setShowDiscard(true);
-      }
-    };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, [edit, hasChanges]);
+    if (blockerActive) {
+      setShowDiscard(true);
+    }
+  }, [blockerActive]);
 
   // Validate on blur
   const handleBlurValidate = useCallback(() => {
@@ -529,13 +532,15 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     setSaveError(null);
     setConflict({ kind: "none" });
 
-    // Clone fields to avoid mutating the cached contact on failure
-    const clonedFields = structuredClone(contact.fields);
-    const clonedContact = { ...contact, fields: clonedFields };
-    applyDraft(clonedContact, draft);
+    // Clone fields AND raw to avoid mutating the cached contact on failure:
+    // serialise() mutates `raw` in place, so a simple structuredClone of
+    // fields is insufficient. Re-parse the raw text to get a fully detached copy.
+    const vcardText = contact.raw.toString();
+    const detachedContact = parse(vcardText, contact.href, contact.etag);
+    applyDraft(detachedContact, draft);
 
     try {
-      await updateContact.mutateAsync(clonedContact);
+      await updateContact.mutateAsync(detachedContact);
       setToast(t("saved"));
       setSaveStatus("idle");
       setTimeout(() => setToast(null), 2500);
@@ -570,9 +575,8 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     setSaveStatus("saving");
     setSaveError(null);
     try {
-      // Refetch the card for a fresh ETag
-      const fresh = await fetchCard(auth, contact.href);
-      const freshContact = parse(fresh.vcardText, fresh.href, fresh.etag);
+      // Refetch the card for a fresh ETag via the queries layer
+      const freshContact = await refetchCard(contact.href);
       // Apply draft to the fresh copy
       applyDraft(freshContact, draft);
       await updateContact.mutateAsync(freshContact);
@@ -588,7 +592,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
       setSaveStatus("idle");
       setSaveError(t("err_save_unexpected"));
     }
-  }, [draft, contact, auth, updateContact, t, router, routeId]);
+  }, [draft, contact, refetchCard, updateContact, t, router, routeId]);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -1341,12 +1345,18 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
       {/* Discard dialog */}
       {showDiscard && (
         <div
-          onClick={() => setShowDiscard(false)}
+          onClick={() => {
+            setShowDiscard(false);
+            if (blockerActive) blocker?.reset?.();
+          }}
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
           onKeyDown={(e) => {
-            if (e.key === "Escape") setShowDiscard(false);
+            if (e.key === "Escape") {
+              setShowDiscard(false);
+              if (blockerActive) blocker?.reset?.();
+            }
           }}
         >
           <div
@@ -1359,7 +1369,10 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => setShowDiscard(false)}
+                onClick={() => {
+                  setShowDiscard(false);
+                  if (blockerActive) blocker?.reset?.();
+                }}
                 className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 {t("discard_continue")}
@@ -1368,7 +1381,11 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
                 type="button"
                 onClick={() => {
                   setShowDiscard(false);
-                  exitEdit();
+                  if (blockerActive) {
+                    blocker?.proceed?.();
+                  } else {
+                    exitEdit();
+                  }
                 }}
                 className="inline-flex h-10 items-center justify-center rounded-full bg-destructive px-4 text-sm font-bold text-destructive-foreground hover:bg-destructive/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >

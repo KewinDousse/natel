@@ -243,14 +243,26 @@ function isValidUrl(value: string): boolean {
 /**
  * Apply a draft's values onto a Contact's fields, mutating in place.
  * Returns the same contact reference for chaining.
+ *
+ * FN is updated only when the original FN was derived from N parts
+ * ("Given Family" or "Family Given" convention). Custom FN values like
+ * "Maman", "Dupont, Jean", or prefix/suffix forms are preserved untouched.
  */
 export function applyDraft(contact: Contact, draft: ContactDraft): Contact {
+  // Capture original N parts BEFORE updating, so FN derivation can compare
+  // the original FN against the original N composition
+  const origN = { family: contact.fields.n.family, given: contact.fields.n.given };
+
   contact.fields.n.family = draft.family;
   contact.fields.n.given = draft.given;
-  // Do NOT overwrite FN — serialise already round-trips the parsed value
-  // stored in fields.fn. Deriving FN from N would destroy custom FN values
-  // like "Maman", "Dupont, Jean", prefix/suffix forms, and empty FN on
-  // org-only cards (RFC 6350 §6.2.1, invariant 4).
+
+  // Update FN if it was derived from N parts (not custom)
+  const derivedFn = deriveFnFromN(contact.fields.fn, origN, draft);
+  if (derivedFn !== null) {
+    contact.fields.fn = derivedFn;
+  }
+  // else: FN was custom — preserve it untouched
+
   contact.fields.tel = draft.tel.map(fromDraftField);
   contact.fields.email = draft.email.map(fromDraftField);
   contact.fields.nickname = draft.nickname;
@@ -271,6 +283,70 @@ export function applyDraft(contact: Contact, draft: ContactDraft): Contact {
   return contact;
 }
 
+/**
+ * Attempt to derive a new FN from N parts when the original FN was itself
+ * a plain composition of the old N parts. Returns the new FN, or null when
+ * the original FN is custom and must be preserved untouched.
+ *
+ * Two conventions are recognised (compared case-insensitively, trimmed):
+ *   "Given Family"  — e.g. N:Doe;John → FN:John Doe
+ *   "Family Given"  — e.g. N:Doe;John → FN:Doe John
+ *
+ * When the original FN matches one of these patterns, it is updated to match
+ * the new given/family parts using the same pattern. Otherwise the FN is
+ * considered custom ("Maman", "Dupont, Jean", prefix/suffix) and left alone.
+ */
+function deriveFnFromN(
+  currentFn: string,
+  oldN: { family: string; given: string },
+  draft: ContactDraft,
+): string | null {
+  const trimmed = (s: string) => s.trim();
+  const oldGiven = trimmed(oldN.given);
+  const oldFamily = trimmed(oldN.family);
+  const newGiven = trimmed(draft.given);
+  const newFamily = trimmed(draft.family);
+
+  // If both new parts are empty, leave FN alone
+  if (newGiven.length === 0 && newFamily.length === 0) return null;
+  // If original FN is empty, derive from new N parts
+  if (currentFn.trim().length === 0) {
+    return newGiven.length > 0 ? `${newGiven} ${newFamily}` : newFamily;
+  }
+
+  const fnTrimmed = currentFn.trim();
+
+  // Check "Given Family" convention: "John Doe" ← N:Doe;John
+  if (fnTrimmed.length === 0) return null;
+  if (
+    oldGiven.length > 0 &&
+    oldFamily.length > 0 &&
+    fnTrimmed.toLowerCase() === `${oldGiven} ${oldFamily}`.toLowerCase()
+  ) {
+    return `${newGiven} ${newFamily}`;
+  }
+
+  // Check "Family Given" convention: "Doe John" ← N:Doe;John
+  if (
+    oldGiven.length > 0 &&
+    oldFamily.length > 0 &&
+    fnTrimmed.toLowerCase() === `${oldFamily} ${oldGiven}`.toLowerCase()
+  ) {
+    return `${newFamily} ${newGiven}`;
+  }
+
+  // Check single-part FN matching either given or family
+  if (oldGiven.length > 0 && fnTrimmed.toLowerCase() === oldGiven.toLowerCase()) {
+    return newGiven.length > 0 ? newGiven : newFamily;
+  }
+  if (oldFamily.length > 0 && fnTrimmed.toLowerCase() === oldFamily.toLowerCase()) {
+    return newFamily.length > 0 ? newFamily : newGiven;
+  }
+
+  // FN is custom — preserve it
+  return null;
+}
+
 function fromDraftField(field: DraftField): ContactField {
   // Clone the original contact field and update value/type in place,
   // preserving all unknown params, groups, and the value type.
@@ -286,13 +362,16 @@ function fromDraftField(field: DraftField): ContactField {
 
   // Only update TYPE if the user explicitly changed it
   if (field.type.toLowerCase() !== origFirstType.toLowerCase()) {
+    // Remove BOTH casings of the type param before writing the new one
+    delete params.TYPE;
+    delete params.type;
+
     if (field.type.length > 0) {
-      params.TYPE = field.type.toUpperCase();
-    } else {
-      // User set type to "other" — remove TYPE param
-      delete params.TYPE;
-      delete params.type;
+      // Use lowercase 'type' for ical.js compatibility — uppercase 'TYPE'
+      // causes stringification crashes when a lowercase 'type' param coexists.
+      params.type = field.type;
     }
+    // else: user set type to "other" — TYPE params already removed above
   }
 
   return {

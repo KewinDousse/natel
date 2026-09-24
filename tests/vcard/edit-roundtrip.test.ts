@@ -275,3 +275,295 @@ describe("edit round-trip — ADR extraParts preservation (item 6)", () => {
     expect(contains(result, "123 Main St")).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests for item 1: property creation on cards that lack them
+// ---------------------------------------------------------------------------
+
+describe("edit round-trip — property creation (item 1)", () => {
+  const MINIMAL = `BEGIN:VCARD
+VERSION:3.0
+FN:Minimal Test
+N:Test;Minimal;;;
+UID:min-creation@example.com
+END:VCARD`;
+
+  it("creates NICKNAME on a card that lacks it", () => {
+    const result = editField(MINIMAL, (draft) => {
+      draft.nickname = "Nicky";
+    });
+    expect(contains(result, "NICKNAME:Nicky")).toBe(true);
+  });
+
+  it("creates TITLE on a card that lacks it", () => {
+    const result = editField(MINIMAL, (draft) => {
+      draft.title = "Engineer";
+    });
+    expect(contains(result, "TITLE:Engineer")).toBe(true);
+  });
+
+  it("creates URL on a card that lacks it", () => {
+    const result = editField(MINIMAL, (draft) => {
+      draft.url = "https://example.com";
+    });
+    expect(contains(result, "URL:https://example.com")).toBe(true);
+  });
+
+  it("creates NOTE on a card that lacks it", () => {
+    const result = editField(MINIMAL, (draft) => {
+      draft.note = "Some notes";
+    });
+    expect(contains(result, "NOTE:Some notes")).toBe(true);
+  });
+
+  it("creates ADR on a card that lacks it", () => {
+    const contact = parse(MINIMAL);
+    const draft = buildDraft(contact);
+    draft.adr = {
+      poBox: "",
+      extended: "",
+      street: "123 Main St",
+      locality: "Springfield",
+      region: "",
+      postalCode: "12345",
+      country: "US",
+      type: ["HOME"],
+      extraParts: [],
+    };
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    expect(contains(result, "ADR;TYPE=HOME:;;123 Main St;Springfield;;12345;US")).toBe(true);
+  });
+
+  it("creates BDAY on a card that lacks it", () => {
+    const contact = parse(MINIMAL);
+    const draft = buildDraft(contact);
+    draft.bday = { source: "", year: 1987, month: 3, day: 14 };
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    // Must have a BDAY line with the date (format may vary:
+    // BDAY;VALUE=DATE:19870314 or BDAY:1987-03-14)
+    const lines = result.replace(/\r\n?/g, "\n").split("\n");
+    const bdayLine = lines.find((l) => l.startsWith("BDAY") || l.startsWith("bday"));
+    expect(bdayLine).toBeDefined();
+    expect(bdayLine!.includes("1987")).toBe(true);
+    expect(bdayLine!.includes("03") || bdayLine!.includes("3")).toBe(true);
+    expect(bdayLine!.includes("14")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for item 2: type edit round-trip (no duplicate TYPE param)
+// ---------------------------------------------------------------------------
+
+describe("edit round-trip — type edit (item 2)", () => {
+  it("changes TEL type cell→work with exactly one TYPE param", () => {
+    const result = editField(VCARD_MULTI_TYPE, (draft) => {
+      if (draft.tel[0]) draft.tel[0].type = "work";
+    });
+    // The edited TEL should have exactly one TYPE param with the new value
+    const lines = result.replace(/\r\n?/g, "\n").split("\n");
+    const editedTel = lines.find((l) => l.includes("+1-555-111-1111"));
+    expect(editedTel).toBeDefined();
+    // Count TYPE occurrences in the line (ical.js stringify uppercases param names)
+    const typeCount = (editedTel!.match(/TYPE=/gi) || []).length;
+    expect(typeCount).toBe(1);
+    // The type should contain WORK
+    expect(editedTel!.toUpperCase()).toContain("WORK");
+  });
+
+  it("changes TEL type work→home with exactly one TYPE param", () => {
+    const result = editField(VCARD_MULTI_TYPE, (draft) => {
+      if (draft.tel[1]) draft.tel[1].type = "home";
+    });
+    const lines = result.replace(/\r\n?/g, "\n").split("\n");
+    const editedTel = lines.find((l) => l.includes("+1-555-222-2222"));
+    expect(editedTel).toBeDefined();
+    const typeCount = (editedTel!.match(/TYPE=/gi) || []).length;
+    expect(typeCount).toBe(1);
+    expect(editedTel!.toUpperCase()).toContain("HOME");
+  });
+
+  it("preserves other params when changing type", () => {
+    const result = editField(VCARD_GROUPS, (draft) => {
+      if (draft.tel[0]) draft.tel[0].type = "work";
+    });
+    // The group prefix (item3) must survive the type change
+    expect(contains(result, "item3.TEL;TYPE=WORK:+1-555-444-4444")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for item 5: BDAY datetime preservation (no VALUE param added)
+// ---------------------------------------------------------------------------
+
+describe("edit round-trip — BDAY datetime preservation (item 5)", () => {
+  it("preserves BDAY datetime untouched with no VALUE param", () => {
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:Bday DateTime Test
+N:Test;Bday;;;
+BDAY:1987-03-14T10:30:00Z
+UID:bday-datetime-test@example.com
+END:VCARD`;
+    const contact = parse(vcard);
+    const draft = buildDraft(contact);
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    // Must NOT have VALUE=text or VALUE=date added
+    expect(contains(result, "VALUE=")).toBe(false);
+    // Must have time info
+    expect(contains(result, "T10:30:00Z") || contains(result, "T103000Z")).toBe(true);
+  });
+
+  it("clears day of 1987-03-14 leaving year+month only", () => {
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:Bday Clear Day
+N:Test;Bday;;;
+BDAY:1987-03-14
+UID:bday-clear-day@example.com
+END:VCARD`;
+    const contact = parse(vcard);
+    const draft = buildDraft(contact);
+    draft.bday = draft.bday ? { ...draft.bday, day: null, source: "1987-03" } : null;
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    // Must contain month, year but NOT day 14
+    const lines = result.replace(/\r\n?/g, "\n").split("\n");
+    const bdayLine = lines.find((l) => l.startsWith("BDAY") || l.startsWith("bday"));
+    expect(bdayLine).toBeDefined();
+    // Should have 1987 and 03 but NOT 14
+    expect(bdayLine!.includes("1987")).toBe(true);
+    expect(bdayLine!.includes("03")).toBe(true);
+    // Should NOT contain the old value with day 14
+    expect(bdayLine!.includes("14")).toBe(false);
+    // Should NOT have the full original date
+    expect(bdayLine!.includes("1987-03-14")).toBe(false);
+  });
+
+  it("preserves BDAY untouched with no VALUE param added", () => {
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:Bday No Value
+N:Test;Bday;;;
+BDAY:1987-03-14T10:30:00Z
+UID:bday-novalue@example.com
+END:VCARD`;
+    const contact = parse(vcard);
+    const draft = buildDraft(contact);
+    applyDraft(contact, draft);
+    const result = serialise(contact);
+    // BDAY line should have no VALUE param
+    const lines = result.replace(/\r\n?/g, "\n").split("\n");
+    const bdayLine = lines.find((l) => l.startsWith("BDAY") || l.startsWith("bday"));
+    expect(bdayLine).toBeDefined();
+    expect(bdayLine!.includes("VALUE=")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for item 6: clearing visible value preserves sibling data
+// ---------------------------------------------------------------------------
+
+describe("edit round-trip — NICKNAME multi-value preservation on clear (item 6)", () => {
+  it("preserves remaining NICKNAME values when first is cleared", () => {
+    // NICKNAME:Jean,Petit — clearing "Jean" should keep "Petit"
+    const result = editField(VCARD_NICKNAME_MULTI, (draft) => {
+      draft.nickname = "";
+    });
+    // The remaining values should be preserved
+    expect(contains(result, "Petit")).toBe(true);
+    // NICKNAME property should still exist (with remaining values)
+    expect(
+      contains(result, "NICKNAME:Petit") ||
+        contains(result, "NICKNAME:Petit,") ||
+        contains(result, "NICKNAME:,Petit") ||
+        contains(result, "NICKNAME:;Petit"),
+    ).toBe(true);
+  });
+});
+
+describe("edit round-trip — ORG secondary component preservation on clear (item 6)", () => {
+  it("preserves ORG secondary component when org name is cleared", () => {
+    const result = editField(VCARD_ORG_UNIT, (draft) => {
+      draft.org = "";
+    });
+    // The secondary component (Unit) must survive even though org name is empty
+    expect(contains(result, "Unit")).toBe(true);
+    // The ORG property should still exist
+    expect(contains(result, "ORG:;Unit") || contains(result, "ORG:;Unit")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for item 7: FN follows derived N parts
+// ---------------------------------------------------------------------------
+
+describe("edit round-trip — FN follows derived N (item 7)", () => {
+  const DERIVED_GIVEN_FAMILY = `BEGIN:VCARD
+VERSION:3.0
+FN:John Doe
+N:Doe;John;;;
+UID:derived-fn-test@example.com
+END:VCARD`;
+
+  const DERIVED_FAMILY_GIVEN = `BEGIN:VCARD
+VERSION:3.0
+FN:Doe John
+N:Doe;John;;;
+UID:derived-fn-family-given@example.com
+END:VCARD`;
+
+  const CUSTOM_FN = `BEGIN:VCARD
+VERSION:3.0
+FN:Maman
+N:Doe;Jane;;;
+UID:custom-fn-test@example.com
+END:VCARD`;
+
+  it("updates FN when derived from N (Given Family convention)", () => {
+    const result = editField(DERIVED_GIVEN_FAMILY, (draft) => {
+      draft.given = "Bob";
+      draft.family = "Smith";
+    });
+    expect(contains(result, "FN:Bob Smith")).toBe(true);
+    expect(contains(result, "N:Smith;Bob;;;")).toBe(true);
+  });
+
+  it("updates FN when derived from N (Family Given convention)", () => {
+    const result = editField(DERIVED_FAMILY_GIVEN, (draft) => {
+      draft.given = "Bob";
+      draft.family = "Smith";
+    });
+    expect(contains(result, "FN:Smith Bob")).toBe(true);
+    expect(contains(result, "N:Smith;Bob;;;")).toBe(true);
+  });
+
+  it("preserves custom FN (Maman) when renaming", () => {
+    const result = editField(CUSTOM_FN, (draft) => {
+      draft.given = "Marie";
+    });
+    expect(contains(result, "FN:Maman")).toBe(true);
+    expect(contains(result, "N:Doe;Marie;;;")).toBe(true);
+  });
+
+  it("preserves custom FN with prefix form", () => {
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:Dupont, Jean
+N:Dupont;Jean;;;
+UID:custom-fn-prefix@example.com
+END:VCARD`;
+    const result = editField(vcard, (draft) => {
+      draft.given = "Pierre";
+    });
+    // FN should stay as the custom value (ical.js may escape the comma)
+    expect(contains(result, "dupont")).toBe(true);
+    expect(contains(result, "jean")).toBe(true);
+    // The FN must NOT become "Pierre Dupont" or "Dupont Pierre"
+    expect(contains(result, "FN:Pierre Dupont")).toBe(false);
+    expect(contains(result, "FN:Dupont Pierre")).toBe(false);
+    expect(contains(result, "N:Dupont;Pierre;;;")).toBe(true);
+  });
+});

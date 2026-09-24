@@ -11,4 +11,5 @@ export { loadFullBook, useContacts } from "./useContacts";
 export { useCreateContact } from "./useCreateContact";
 export { useDeleteContact } from "./useDeleteContact";
 export { useLogin } from "./useLogin";
+export { useRefetchCard } from "./useRefetchCard";
 export { useUpdateContact } from "./useUpdateContact";
