@@ -186,7 +186,6 @@ function updateFirstStringProperty(raw: RawComponent, name: string, value: strin
     } else {
       const newProp = new ICAL.Property(name);
       newProp.setValue(value);
-      // Insert before END:VCARD — find the last property position
       raw.addProperty(newProp);
     }
   } else if (prop) {

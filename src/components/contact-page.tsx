@@ -53,9 +53,9 @@ type ContactPageProps = {
 };
 
 /**
- * The page for one contact. While the book is loading it renders the mobile
- * top bar alone (no blank pane). Once loaded, an id outside the book gets
- * an honest not-found state.
+ * The page for one contact. While the book is loading it renders nothing —
+ * the same quiet blank the list pane shows. Once loaded, an id outside the
+ * book gets an honest not-found state.
  */
 export function ContactPage({ contacts, id, edit = false }: ContactPageProps) {
   if (contacts === undefined) return null;
@@ -347,17 +347,12 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     [draft.tel],
   );
   const [errors, setErrors] = useState<ValidationErrors>({});
-  const [conflict, setConflict] = useState<
-    { kind: "none" } | { kind: "conflict"; serverEtag: string }
-  >({
-    kind: "none",
-  });
+  const [conflict, setConflict] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
-  const articleRef = useRef<HTMLElement>(null);
 
   // Dirty detection
   const dirty = useMemo(() => dirtyDiff(contact, draft), [contact, draft]);
@@ -376,7 +371,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
   const exitEdit = useCallback(() => {
     dispatch({ type: "REBUILD", draft: buildDraft(contact) });
     setErrors({});
-    setConflict({ kind: "none" });
+    setConflict(false);
     router.navigate({
       to: "/contacts/$id",
       params: { id: routeId },
@@ -500,7 +495,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
 
     setSaveStatus("saving");
     setSaveError(null);
-    setConflict({ kind: "none" });
+    setConflict(false);
 
     // Clone fields AND raw to avoid mutating the cached contact on failure:
     // serialise() mutates `raw` in place, so a simple structuredClone of
@@ -518,7 +513,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     } catch (err) {
       setSaveStatus("idle");
       if (err instanceof DavError && err.code === "CONFLICT") {
-        setConflict({ kind: "conflict", serverEtag: "" });
+        setConflict(true);
       } else if (err instanceof DavError && err.code === "NETWORK") {
         setSaveError(t("err_save_network"));
       } else if (err instanceof DavError && err.code === "AUTH") {
@@ -537,7 +532,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
 
   // Conflict — overwrite: refetch for a fresh ETag first, then PUT
   const handleConflictOverwrite = useCallback(async () => {
-    setConflict({ kind: "none" });
+    setConflict(false);
     setSaveStatus("saving");
     setSaveError(null);
     try {
@@ -553,7 +548,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
     } catch (err) {
       setSaveStatus("idle");
       if (err instanceof DavError && err.code === "CONFLICT") {
-        setConflict({ kind: "conflict", serverEtag: "" });
+        setConflict(true);
       } else if (err instanceof DavError && err.code === "NETWORK") {
         setSaveError(t("err_save_network"));
       } else if (err instanceof DavError && err.code === "AUTH") {
@@ -594,7 +589,6 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
 
   return (
     <article
-      ref={articleRef}
       className="group/fiche"
       data-mode={edit ? "edit" : "view"}
       aria-labelledby="fiche-title"
@@ -1242,7 +1236,7 @@ function ContactFiche({ contact, edit }: { contact: Contact; edit: boolean }) {
       {/* Sticky bottom bar — edit only */}
       {edit && (
         <div className="sticky bottom-0 z-30 border-t bg-background px-4 py-3 shadow-float">
-          {conflict.kind === "conflict" && (
+          {conflict && (
             <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3">
               <p className="text-sm font-bold text-destructive">{t("conflict_title")}</p>
               <div className="mt-2 flex gap-2">

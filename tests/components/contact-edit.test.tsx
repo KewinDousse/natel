@@ -390,9 +390,6 @@ describe("edit mode — ignoreBlocker on intentional exit (review item 4)", () =
       expect(article.getAttribute("data-mode")).toBe("view");
     });
     // No second dialog should appear
-    const headings = screen.queryAllByRole("heading", { name: /Abandonner/ });
-    // The heading from the first dialog may still be in the DOM if cleanup
-    // is async — check that no dialog container is present
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
