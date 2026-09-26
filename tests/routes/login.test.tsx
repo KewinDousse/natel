@@ -179,6 +179,17 @@ describe("submit", () => {
     expect(mockDiscoverAddressBooks).toHaveBeenCalledWith(AUTH);
     expect(localStorage.length).toBe(0);
   });
+
+  it("reuses the books found at sign-in instead of discovering them again", async () => {
+    mockDiscoverAddressBooks.mockResolvedValue([]);
+    renderApp("/login");
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
+
+    await submitLogin();
+
+    expect(await screen.findByText("Aucun carnet d’adresses trouvé sur ce serveur.")).toBeTruthy();
+    expect(mockDiscoverAddressBooks).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
