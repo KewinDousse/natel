@@ -62,6 +62,7 @@
   "contact_not_found_body": "Ce contact n’est pas dans ce carnet.",
   "edit": "Modifier",
   "edit_label": "Modification",
+  "new_contact": "Nouveau contact",
   "cancel": "Annuler",
   "save": "Enregistrer",
   "saving": "Enregistrement…",
@@ -96,5 +97,7 @@
   "err_save_auth": "Session expirée — reconnectez-vous.",
   "err_save_unexpected": "Erreur inattendue — réessayez.",
   "label_family": "Nom",
-  "label_given": "Prénom"
+  "label_given": "Prénom",
+  "label_title": "Fonction",
+  "label_org": "Organisation"
 }

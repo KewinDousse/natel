@@ -656,6 +656,26 @@ export function parse(text: string, href = "", etag = ""): Contact {
 }
 
 /**
+ * A blank contact for the creation form: vCard 3.0 (ADR 008) with a fresh
+ * UID, not yet on the server (empty href and ETag).
+ */
+export function newContact(): Contact {
+  return parse(["BEGIN:VCARD", "VERSION:3.0", `UID:${randomUuid()}`, "END:VCARD", ""].join("\r\n"));
+}
+
+/**
+ * A random v4 UUID. getRandomValues, unlike randomUUID, also exists outside
+ * secure contexts, e.g. a Natel served over plain HTTP on a LAN.
+ */
+function randomUuid(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
  * Serialise a Contact back to vCard text.
  *
  * Applies the editable fields onto `contact.raw`, then serialises the full

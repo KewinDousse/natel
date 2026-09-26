@@ -1,15 +1,15 @@
 /**
  * AppHeader — brand band + bar (wordmark, book switcher, language switch,
- * logout, xl-only sync status) + search row, per DESIGN.md "Header".
+ * new contact, logout, xl-only sync status) + search row, per DESIGN.md "Header".
  *
  * `--header-h` (defined in src/index.css :root, 7.375rem on mobile) is the
  * mobile header height used by sticky group letters (`top-[var(--header-h)]`):
  * band 0.375rem + 56px bar + search row = 7.375rem. On lg+ the header is
  * static (`lg:static`) and the letters use `lg:top-2`, so the property is
- * only meaningful below lg. The mockup's "+" create button is deliberately
- * not rendered — creation is a later task.
+ * only meaningful below lg.
  */
 
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
@@ -132,6 +132,16 @@ export function AppHeader({
         <div className="order-2 ml-auto flex items-center gap-2 lg:order-3 lg:gap-3">
           {syncedAt > 0 && <SyncStatus at={syncedAt} />}
           <LanguageSwitch />
+          {books !== undefined && books.length > 0 && (
+            <Link
+              to="/contacts/new"
+              aria-label={t("new_contact")}
+              title={t("new_contact")}
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <PlusIcon />
+            </Link>
+          )}
           <LogoutButton />
         </div>
       </div>
@@ -163,6 +173,23 @@ function SyncStatus({ at }: { at: number }) {
       </span>
       <span className="tabular">{label}</span>
     </p>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      className="size-5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
   );
 }
 

@@ -51,6 +51,7 @@ Recipes below are the exact class sets from the references. Build them as React 
 - Search: `h-11 lg:h-10 rounded-full border border-input bg-background pl-10 pr-11 text-base lg:text-[0.9375rem]`, search icon left, `/` kbd hint on desktop when empty, clear button when not empty. `/` focuses it, `Esc` clears it.
 - Sync status (xl only): check icon in `text-success` + "Synchronisé il y a 2 min".
 - Language switch: `rounded-full bg-muted p-0.5`, buttons with `aria-pressed:bg-primary aria-pressed:text-primary-foreground`.
+- New contact: round ink "+" link (`size-10 rounded-full bg-primary text-primary-foreground`) after the language switch, shown once the server has an address book. Opens `/contacts/new`.
 - Sign out: ghost icon button (log-out icon) after the language switch, always present, even with no address book. Accessible name and tooltip "Se déconnecter". It navigates to `/logout`, so an unsaved edit gets the discard dialog first.
 
 ### Group (letter section)
@@ -103,6 +104,9 @@ Connection errors appear above the form in a `border-destructive/40 bg-destructi
 Clicking a contact opens its page **in view mode**. "Modifier" switches the *same page* to edit mode. There is no separate form screen, and **no text moves when switching**: the prototype measures identical positions (±0px) for the name and the address in both states, desktop and mobile. Keep it that way.
 
 Why view first: people mostly look up, call and copy. Numbers must stay `tel:` links, and a keyboard must not pop up on mobile just to read. Per-field autosave is ruled out: each save is a full vCard PUT with `If-Match`, so autosave multiplies conflicts and makes "cancel" impossible.
+
+### New contact
+`/contacts/new` is the same page on a blank vCard 3.0 card, in edit mode only: no view state to switch back to. The top-right label (mobile top bar, desktop "Modification" slot) reads "Nouveau contact", the avatar shows the initials as they are typed, and empty name/job/org fields show their label as placeholder. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page in view mode; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
 
 ### The trick: stacked cells with identical boxes
 Every editable value is a **cell** that stacks its view element and its field in the same grid area:

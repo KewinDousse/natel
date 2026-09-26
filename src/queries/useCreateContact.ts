@@ -2,9 +2,9 @@
  * useCreateContact — mutation hook that creates a new card.
  *
  * The hook serialises the Contact (vCard 3.0 per policy is the caller's job
- * when building the new Contact), PUTs it with If-None-Match: *, then
- * invalidates the contacts cache so the fresh card body is loaded on next
- * refetch.
+ * when building the new Contact), PUTs it with If-None-Match: *, then adds it
+ * to the book's cached contacts with its new href and ETag, so its page can
+ * open at once without a book refetch. Resolves to the created Contact.
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createCard } from "@/dav";
@@ -12,21 +12,22 @@ import type { DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 import { serialise } from "@/vcard";
 import { contactsKey } from "./keys";
+import type { LoadFullBookResult } from "./useContacts";
 
 export function useCreateContact(auth: DavAuth, bookHref: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (contact: Contact) => {
+    mutationFn: async (contact: Contact): Promise<Contact> => {
       const vcardText = serialise(contact);
-      return await createCard(auth, bookHref, vcardText);
+      const { href, etag } = await createCard(auth, bookHref, vcardText);
+      return { ...contact, href, etag };
     },
-    onSuccess: () => {
-      // Invalidate only the contacts query for this specific book, not all
-      // books of the auth.
-      void queryClient.invalidateQueries({
-        queryKey: contactsKey(auth, { href: bookHref }),
-      });
+    onSuccess: (created) => {
+      queryClient.setQueryData<LoadFullBookResult>(
+        contactsKey(auth, { href: bookHref }),
+        (old) => old && { ...old, contacts: [...old.contacts, created] },
+      );
     },
   });
 }

@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { ContactDetailPane } from "@/components/contact-detail";
 import { ContactList } from "@/components/contact-list";
+import { ToastProvider } from "@/components/toast";
 import { useI18n } from "@/i18n/react";
 import type { SortBy } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
@@ -53,30 +54,32 @@ function ContactsRoute() {
   const contacts = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data?.contacts;
 
   return (
-    <div className="lg:grid lg:h-dvh lg:grid-rows-[auto_1fr]">
-      <AppHeader
-        books={books}
-        selectedBook={selectedBook}
-        onSelectBook={selectBook}
-        query={query}
-        onQueryChange={setQuery}
-        syncedAt={contactsQuery.dataUpdatedAt}
-        hiddenOnMobile={hasContact}
-      />
-      <main className="lg:grid lg:min-h-0 lg:grid-cols-[minmax(26rem,34rem)_1fr]">
-        <div className={cn("relative lg:min-h-0 lg:border-r", hasContact && "max-lg:hidden")}>
-          <ContactList
-            contacts={contacts}
-            noBooks={books !== undefined && books.length === 0}
-            query={query}
-            sortBy={sortBy}
-            onSortBy={setSortBy}
-          />
-        </div>
-        <ContactDetailPane hasContact={hasContact}>
-          <Outlet />
-        </ContactDetailPane>
-      </main>
-    </div>
+    <ToastProvider>
+      <div className="lg:grid lg:h-dvh lg:grid-rows-[auto_1fr]">
+        <AppHeader
+          books={books}
+          selectedBook={selectedBook}
+          onSelectBook={selectBook}
+          query={query}
+          onQueryChange={setQuery}
+          syncedAt={contactsQuery.dataUpdatedAt}
+          hiddenOnMobile={hasContact}
+        />
+        <main className="lg:grid lg:min-h-0 lg:grid-cols-[minmax(26rem,34rem)_1fr]">
+          <div className={cn("relative lg:min-h-0 lg:border-r", hasContact && "max-lg:hidden")}>
+            <ContactList
+              contacts={contacts}
+              noBooks={books !== undefined && books.length === 0}
+              query={query}
+              sortBy={sortBy}
+              onSortBy={setSortBy}
+            />
+          </div>
+          <ContactDetailPane hasContact={hasContact}>
+            <Outlet />
+          </ContactDetailPane>
+        </main>
+      </div>
+    </ToastProvider>
   );
 }

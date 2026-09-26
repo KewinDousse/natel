@@ -358,16 +358,18 @@ describe("loadFullBook", () => {
 // ---------------------------------------------------------------------------
 
 describe("useCreateContact", () => {
-  it("serialises and creates a card, then invalidates contacts", async () => {
+  it("serialises and creates a card, then adds it to the cached book", async () => {
     mockSerialise.mockReturnValue("SERIALISED_VCARD");
     mockCreateCard.mockResolvedValue({
       href: "https://dav.example.com/dav/books/default/new.vcf",
       etag: '"new-e"',
     });
 
+    const existing = makeContact({ etag: '"e1"' });
     const contact = makeContact({ etag: "", href: "" });
     const client = createTestClient();
-    const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+    const key = ["contacts", MOCK_AUTH.username, MOCK_BOOK.href];
+    client.setQueryData(key, { contacts: [existing], skipped: [] });
     const { result } = renderHook(() => useCreateContact(MOCK_AUTH, MOCK_BOOK.href), {
       wrapper: wrapper(client),
     });
@@ -377,9 +379,13 @@ describe("useCreateContact", () => {
 
     expect(mockSerialise).toHaveBeenCalledWith(contact);
     expect(mockCreateCard).toHaveBeenCalledWith(MOCK_AUTH, MOCK_BOOK.href, "SERIALISED_VCARD");
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["contacts", MOCK_AUTH.username, MOCK_BOOK.href],
-    });
+    const created = {
+      ...contact,
+      href: "https://dav.example.com/dav/books/default/new.vcf",
+      etag: '"new-e"',
+    };
+    expect(result.current.data).toEqual(created);
+    expect(client.getQueryData<LoadFullBookResult>(key)?.contacts).toEqual([existing, created]);
   });
 });
 

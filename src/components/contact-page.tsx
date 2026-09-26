@@ -4,6 +4,7 @@
  *
  * Renders inside the detail pane's Outlet. The same route/page toggles
  * data-mode view⇄edit; `?edit` in the URL reflects and drives it.
+ * NewContactPage is the same page on a blank card, in edit mode only.
  */
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,13 +30,20 @@ import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { cn } from "@/lib/utils";
 import type { Contact, ContactField } from "@/model/contact";
-import { type DavAuth, DavError, useRefetchCard, useUpdateContact } from "@/queries";
-import { useAuth } from "@/store/session";
+import {
+  type DavAuth,
+  DavError,
+  useCreateContact,
+  useRefetchCard,
+  useUpdateContact,
+} from "@/queries";
+import { useAuth, useSelectedBook } from "@/store/session";
 import {
   addressOf,
   birthdayOf,
   groupsOf,
   jobTitleOf,
+  newContact,
   noteOf,
   orgOf,
   parse,
@@ -43,6 +51,7 @@ import {
   type VCardAddress,
 } from "@/vcard";
 import { EditableCell } from "./editable-cell";
+import { useToast } from "./toast";
 
 type ContactPageProps = {
   /** Contacts of the selected book; undefined while the book is loading. */
@@ -67,6 +76,20 @@ export function ContactPage({ contacts, id, edit = false }: ContactPageProps) {
   return <ContactFiche key={contactIdOf(contact)} auth={auth} contact={contact} edit={edit} />;
 }
 
+/** The creation form: a blank card saved into the selected book. */
+export function NewContactPage() {
+  const auth = useAuth();
+  const book = useSelectedBook();
+  if (auth === null || book === null) return null;
+  return <NewContactFiche auth={auth} bookHref={book.href} />;
+}
+
+function NewContactFiche({ auth, bookHref }: { auth: DavAuth; bookHref: string }) {
+  const createContact = useCreateContact(auth, bookHref);
+  const [contact] = useState(newContact);
+  return <ContactFiche auth={auth} contact={contact} edit onCreate={createContact.mutateAsync} />;
+}
+
 // ---------------------------------------------------------------------------
 // Mobile top bar
 // ---------------------------------------------------------------------------
@@ -74,9 +97,10 @@ export function ContactPage({ contacts, id, edit = false }: ContactPageProps) {
 /**
  * Mobile-only top bar. With `onEdit`, the right slot stacks the "Modifier" pill
  * (view) and the "Modification" label (edit) in one cell so neither reflows;
- * the fiche's data-mode picks which one shows.
+ * the fiche's data-mode picks which one shows. With `label`, it shows that
+ * text alone.
  */
-function MobileTopBar({ onEdit }: { onEdit?: () => void }) {
+function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: string }) {
   const { t } = useI18n();
   return (
     <div className="sticky top-0 z-20 flex h-14 items-center border-b bg-muted/95 px-2 backdrop-blur lg:hidden">
@@ -102,6 +126,9 @@ function MobileTopBar({ onEdit }: { onEdit?: () => void }) {
             {t("edit_label")}
           </span>
         </div>
+      )}
+      {label !== undefined && (
+        <span className="ml-auto mr-3 text-sm font-bold text-muted-foreground">{label}</span>
       )}
     </div>
   );
@@ -326,10 +353,23 @@ function countUnknownProperties(raw: Contact["raw"]): number {
 /**
  * Custom component that manages edit state for a single contact.
  * Extracted as a separate component so hooks are in a stable order.
+ * With `onCreate`, the contact is not on the server yet: saving creates it,
+ * and cancelling goes back to the list.
  */
-function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact; edit: boolean }) {
+function ContactFiche({
+  auth,
+  contact,
+  edit,
+  onCreate,
+}: {
+  auth: DavAuth;
+  contact: Contact;
+  edit: boolean;
+  onCreate?: (contact: Contact) => Promise<Contact>;
+}) {
   const { t, locale } = useI18n();
   const router = useRouter();
+  const isNew = onCreate !== undefined;
   const updateContact = useUpdateContact(auth);
   const refetchCard = useRefetchCard(auth);
   const queryClient = useQueryClient();
@@ -368,8 +408,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
   const [conflict, setConflict] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
-  // An object per toast, so showing the same text twice restarts the timer.
-  const [toast, setToast] = useState<{ text: string } | null>(null);
+  const showToast = useToast();
   const [showDiscard, setShowDiscard] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -396,21 +435,30 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     [],
   );
 
-  const exitEdit = useCallback(() => {
-    editSession.current++;
-    dispatch({ type: "REBUILD", draft: buildDraft(contact) });
-    setErrors({});
-    setConflict(false);
-    setSaveError(null);
-    setSaveStatus("idle");
-    router.navigate({
-      to: "/contacts/$id",
-      params: { id: routeId },
-      search: {},
-      replace: true,
-      ignoreBlocker: true,
-    });
-  }, [contact, router, routeId]);
+  // `savedId` is the contact to land on after a save; without it, a new
+  // contact has nothing to show and goes back to the list.
+  const exitEdit = useCallback(
+    (savedId?: string) => {
+      editSession.current++;
+      dispatch({ type: "REBUILD", draft: buildDraft(contact) });
+      setErrors({});
+      setConflict(false);
+      setSaveError(null);
+      setSaveStatus("idle");
+      if (isNew && savedId === undefined) {
+        router.navigate({ to: "/contacts", replace: true, ignoreBlocker: true });
+        return;
+      }
+      router.navigate({
+        to: "/contacts/$id",
+        params: { id: savedId ?? routeId },
+        search: {},
+        replace: true,
+        ignoreBlocker: true,
+      });
+    },
+    [contact, router, routeId, isNew],
+  );
 
   // Toggle edit mode with no-reflow safety net
   const handleToggleEdit = useCallback(() => {
@@ -527,23 +575,26 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     setErrors(validateDraft(draft));
   }, [draft]);
 
-  // Runs one PUT attempt and maps its outcome onto the bottom bar. Results
-  // that settle after edit mode has ended are dropped.
+  // Runs one PUT attempt and maps its outcome onto the bottom bar. `put`
+  // resolves to the id of the saved contact. Results that settle after edit
+  // mode has ended are dropped.
   const runSave = useCallback(
-    async (put: () => Promise<unknown>) => {
+    async (put: () => Promise<string>) => {
       const session = editSession.current;
       setSaveStatus("saving");
       setSaveError(null);
       setConflict(false);
       try {
-        await put();
+        const savedId = await put();
         if (session !== editSession.current) return;
-        setToast({ text: t("saved") });
-        exitEdit();
+        showToast(t("saved"));
+        exitEdit(savedId);
       } catch (err) {
         if (session !== editSession.current) return;
         setSaveStatus("idle");
-        if (err instanceof DavError && err.code === "CONFLICT") {
+        // A 412 on a create means the generated href is taken, not that
+        // someone edited the card: reload/overwrite would make no sense.
+        if (err instanceof DavError && err.code === "CONFLICT" && !isNew) {
           setConflict(true);
         } else if (err instanceof DavError && err.code === "NETWORK") {
           setSaveError(t("err_save_network"));
@@ -554,7 +605,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
         }
       }
     },
-    [t, exitEdit],
+    [t, exitEdit, isNew, showToast],
   );
 
   // Save — applies the draft to a detached copy: serialise() mutates `raw`
@@ -564,12 +615,14 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
     setErrors(validation);
     if (!isValid(validation)) return;
 
-    await runSave(() => {
+    await runSave(async () => {
       const detachedContact = parse(contact.raw.toString(), contact.href, contact.etag);
       applyDraft(detachedContact, draft);
-      return updateContact.mutateAsync(detachedContact);
+      if (onCreate !== undefined) return contactIdOf(await onCreate(detachedContact));
+      await updateContact.mutateAsync(detachedContact);
+      return routeId;
     });
-  }, [draft, contact, updateContact, runSave]);
+  }, [draft, contact, updateContact, runSave, onCreate, routeId]);
 
   // Conflict — reload by invalidating the contact query and exiting edit
   const handleConflictReload = useCallback(() => {
@@ -584,28 +637,21 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
       const freshContact = await refetchCard(contact.href);
       applyDraft(freshContact, draft, dirty);
       await updateContact.mutateAsync(freshContact);
+      return routeId;
     });
-  }, [draft, dirty, contact, refetchCard, updateContact, runSave]);
-
-  // Toast auto-dismiss
-  useEffect(() => {
-    if (toast !== null) {
-      const timer = setTimeout(() => setToast(null), 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
+  }, [draft, dirty, contact, refetchCard, updateContact, runSave, routeId]);
 
   // Copy handler
   const handleCopy = useCallback(
     async (value: string) => {
       try {
         await navigator.clipboard.writeText(value);
-        setToast({ text: t("copied") });
+        showToast(t("copied"));
       } catch {
         // silent
       }
     },
-    [t],
+    [t, showToast],
   );
 
   const unknownCount = countUnknownProperties(contact.raw);
@@ -620,15 +666,21 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
       data-mode={edit ? "edit" : "view"}
       aria-labelledby="fiche-title"
     >
-      <MobileTopBar onEdit={handleToggleEdit} />
+      {isNew ? (
+        <MobileTopBar label={t("new_contact")} />
+      ) : (
+        <MobileTopBar onEdit={handleToggleEdit} />
+      )}
       <div className="mx-auto w-full max-w-[44rem] px-5 pb-28 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
         <h1 id="fiche-title" className="sr-only">
-          {parts.display.length > 0 ? parts.display : org}
+          {isNew ? t("new_contact") : parts.display.length > 0 ? parts.display : org}
         </h1>
 
         {/* Top row: avatar + desktop edit button */}
         <div className="flex items-start justify-between gap-6">
-          {orgOnly ? (
+          {isNew ? (
+            <InitialsAvatar family={draft.family} given={draft.given} />
+          ) : orgOnly ? (
             <BuildingAvatar />
           ) : (
             <InitialsAvatar family={parts.family} given={parts.given} />
@@ -636,7 +688,7 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
           <div className="hidden lg:block">
             {edit ? (
               <span className="inline-flex h-10 items-center rounded-full px-4 text-sm font-bold text-muted-foreground">
-                {t("edit_label")}
+                {isNew ? t("new_contact") : t("edit_label")}
               </span>
             ) : (
               <button
@@ -661,12 +713,13 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                 <input
                   type="text"
                   value={draft.family}
+                  placeholder={t("label_family")}
                   onChange={(e) => dispatch({ type: "SET_FAMILY", value: e.target.value })}
                   onBlur={handleBlurValidate}
                   aria-invalid={errors.family !== undefined}
                   aria-describedby={errors.family ? "err-family" : undefined}
                   className={cn(
-                    "h-12 w-full rounded-md border bg-card px-3.5 font-display text-[2.25rem] font-bold leading-none tracking-[-0.005em] sm:h-14 sm:text-[2.75rem] lg:h-15 lg:text-person",
+                    "h-12 w-full rounded-md border bg-card px-3.5 font-display text-[2.25rem] font-bold leading-none tracking-[-0.005em] placeholder:text-leader sm:h-14 sm:text-[2.75rem] sm:placeholder:text-transparent lg:h-15 lg:text-person",
                     errors.family ? "border-destructive" : "border-input",
                   )}
                 />
@@ -690,12 +743,13 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                   <input
                     type="text"
                     value={draft.given}
+                    placeholder={t("label_given")}
                     onChange={(e) => dispatch({ type: "SET_GIVEN", value: e.target.value })}
                     onBlur={handleBlurValidate}
                     aria-invalid={errors.given !== undefined}
                     aria-describedby={errors.given ? "err-given" : undefined}
                     className={cn(
-                      "h-12 w-full rounded-md border bg-card px-3.5 font-display text-[2.25rem] font-bold leading-none tracking-[-0.005em] text-muted-foreground sm:h-14 sm:text-[2.75rem] lg:h-15 lg:text-person",
+                      "h-12 w-full rounded-md border bg-card px-3.5 font-display text-[2.25rem] font-bold leading-none tracking-[-0.005em] text-muted-foreground placeholder:text-leader sm:h-14 sm:text-[2.75rem] sm:placeholder:text-transparent lg:h-15 lg:text-person",
                       errors.given ? "border-destructive" : "border-input",
                     )}
                   />
@@ -723,8 +777,9 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                 <input
                   type="text"
                   value={draft.title}
+                  placeholder={t("label_title")}
                   onChange={(e) => dispatch({ type: "SET_TITLE", value: e.target.value })}
-                  className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base lg:text-[0.9375rem]"
+                  className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base placeholder:text-muted-foreground lg:text-[0.9375rem]"
                 />
               }
             />
@@ -735,8 +790,9 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
                 <input
                   type="text"
                   value={draft.org}
+                  placeholder={t("label_org")}
                   onChange={(e) => dispatch({ type: "SET_ORG", value: e.target.value })}
-                  className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base lg:text-[0.9375rem]"
+                  className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base placeholder:text-muted-foreground lg:text-[0.9375rem]"
                 />
               }
             />
@@ -1331,17 +1387,6 @@ function ContactFiche({ auth, contact, edit }: { auth: DavAuth; contact: Contact
               )}
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {toast !== null && (
-        <div
-          className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm font-bold text-background shadow-float"
-          role="status"
-          aria-live="polite"
-        >
-          {toast.text}
         </div>
       )}
 
