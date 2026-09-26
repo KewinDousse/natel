@@ -50,15 +50,22 @@ its checklist is ticked. Later phases are intentions, not commitments.
 ## Phase 2 — MVP v0.1 ✅ when: the author has uninstalled InfCloud
 
 - [ ] Login (Basic Auth, in-memory only), logout
-- [ ] Address book discovery and selection
-- [ ] Contact list with instant client-side search
-- [ ] Contact detail view
-- [ ] Edit: N/FN, NICKNAME, TEL, EMAIL, ADR, BDAY, ORG, TITLE, URL, NOTE
-- [ ] Unknown properties shown read-only ("other data") and preserved on save
+      — Sign-in works, but the form asks for a server URL and connects to it
+        directly instead of going through `/dav`. It must ask only for
+        username and password (ADR 014). No logout control in the UI yet.
+- [x] Address book discovery and selection
+- [x] Contact list with instant client-side search
+- [x] Contact detail view
+- [x] Edit: N/FN, NICKNAME, TEL, EMAIL, ADR, BDAY, ORG, TITLE, URL, NOTE
+- [x] Unknown properties preserved on save and counted in edit mode (not
+      displayed, see `docs/DESIGN.md`)
 - [ ] Create, delete
-- [ ] ETag conflict UI (show server version vs local, let user choose)
+      — Mutation hooks exist in `src/queries/`, not wired to the UI yet.
+- [x] ETag conflict UI: reload the server version or overwrite with my
+      changes (ADR 013)
 - [ ] Responsive layout, usable on a phone
-- [ ] i18n en + fr
+      — Implemented per `docs/DESIGN.md`, not yet validated on a real phone.
+- [x] i18n en + fr
 - [ ] Docker image published on tag, compose example in README
 - [ ] Tag `v0.1.0`
 

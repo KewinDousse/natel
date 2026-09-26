@@ -93,7 +93,9 @@ Touch targets are ≥ 40px (44–48px on mobile forms). Every interactive elemen
 ### Sign-in screen
 Desktop: `grid-cols-[5fr_6fr]`. Left: full-height `bg-brand` panel, directory excerpt (4 rows with leaders, white) at the top, tagline + giant wordmark (`font-display`, `clamp(8rem,13vw,13rem)`, `leading-[0.78]`) at the bottom. Right: FR/EN top-right, form centred, `max-w-[24rem]`. Mobile: red block on top (FR/EN, wordmark 6.5rem, tagline), form below. On the red panel, restyle the language switch by overriding CSS variables locally (see the reference file) rather than adding new colours.
 
-Connection errors appear above the form in a `border-destructive/40 bg-destructive/5` box with an alert icon, saying what failed and what to do. The CORS case is the most common one: "Impossible de joindre <host>. Vérifiez l'adresse, ou autorisez ce site dans les réglages CORS de votre serveur."
+The form has two fields, username and password. There is no server field: the CardDAV server is set by the operator (ADR 014).
+
+Connection errors appear above the form in a `border-destructive/40 bg-destructive/5` box with an alert icon, saying what failed and what to do. The two cases are wrong credentials and the CardDAV server not answering behind the proxy.
 
 ## Contact page: one skeleton, two states
 
@@ -161,6 +163,14 @@ Address: one row, the value column holds street / NPA + Localité (`grid-cols-[5
 ## Still not designed
 
 Empty address book (one Big Shoulders line at `text-display` size + one primary action), offline state, settings, dark mode (the `.dark` tokens are a **sketch**: don't ship a theme toggle until it's reviewed).
+
+## Drawn but without a vCard mapping
+
+These elements appear in the references, but which vCard property they read and write is not decided. Don't build them until it is recorded in `docs/DECISIONS.md`.
+
+- **Favourite** (top-right of the contact page): no standard vCard property.
+- **Groups** section: shown read-only from `CATEGORIES`. Editing waits for the `CATEGORIES` vs `KIND:group` decision planned for phase 3 (see `ROADMAP.md`).
+- **"Autre date"** pill: `ANNIVERSARY` is vCard 4.0 only, and cards are created as 3.0 (ADR 008).
 
 ## Motion
 - Search filters instantly, no list animation. A–Z jumps are instant.

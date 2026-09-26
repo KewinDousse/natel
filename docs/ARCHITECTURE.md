@@ -36,13 +36,14 @@ src/
                  The ONLY module that imports tsdav.
   vcard/         Parse/serialise vCard ↔ Contact model. Wraps ical.js.
                  The ONLY module that imports ical.js.
-  lib/           Pure helpers: contact-list grouping, sorting, search logic.
+  lib/           Pure helpers: contact-list grouping, sorting, search logic;
+                 edit drafts, dirty tracking and validation; display formatting.
   model/         Contact type, address book type. Plain data, no I/O.
   store/         Zustand: session (credentials, selected book). Memory only.
   queries/       TanStack Query hooks; the bridge between dav/ and routes/.
   i18n/          en.json, fr.json, setup
-tests/
-  vcard/         round-trip tests over fixtures/
+tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, components)
+  vcard/         includes the round-trip tests over fixtures/
 fixtures/
   public/        synthetic vCards, committed
   private/       real vCards, gitignored
@@ -63,9 +64,12 @@ type Contact = {
   etag: string;          // last known ETag
   uid: string;
   fields: EditableFields; // the subset the UI edits
-  raw: ICAL.Component;    // the full parsed component, kept as-is
+  raw: RawComponent;      // the full parsed component, kept as-is
 }
 ```
+
+`RawComponent` is a structural type declaring only the ical.js members
+`vcard/` uses, so `model/` never imports ical.js.
 
 On save, `serialise(contact)` applies `fields` back onto `raw` (updating only
 the properties it owns) and serialises `raw`. Properties the UI never touched
@@ -78,13 +82,16 @@ library allows it.
 1. Read: `GET`/`REPORT` returns body + ETag; both stored on the `Contact`.
 2. Write: `PUT` with `If-Match: <etag>`.
 3. `2xx` → store new ETag from response (or re-`PROPFIND` if server omits it).
-4. `412` → fetch current server version, show a conflict view: server version,
-   local version, "keep mine" / "take theirs". Never auto-merge in v0.x.
+4. `412` → show a conflict banner: "reload" takes the server version,
+   "overwrite with my version" refetches for a fresh ETag and applies only the
+   fields the user changed (ADR 013). Never auto-merge in v0.x.
 5. Delete: `DELETE` with `If-Match`, same conflict rule.
 
 ## Authentication
 
-Basic Auth. Credentials are held in the Zustand session store and attached to
+Basic Auth. The sign-in screen asks only for username and password; the
+CardDAV server is configuration (`BAIKAL_URL`), never user input (ADR 014).
+Credentials are held in the Zustand session store and attached to
 every request by `dav/`. Reload = logged out. This is a feature until a
 security-reviewed alternative exists (see ROADMAP phase 4, delegated auth).
 

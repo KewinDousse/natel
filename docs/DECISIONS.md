@@ -187,3 +187,22 @@ applies the whole draft onto the version it was built from.
 field the user also changed is still overwritten, which is what the button
 says. A TEL or EMAIL list the user changed is written as a whole, since rows
 are matched by position.
+
+## 014 — The server is set by the operator, the login asks only for credentials
+
+**Context.** Natel exists to put a same-origin proxy in front of one CardDAV
+server (002, 009). A login form that accepts any server URL would let anyone
+use a public Natel instance to reach any CardDAV server, and would need CORS
+on that server, which Baïkal does not send.
+
+**Decision.** The CardDAV server is configuration: `BAIKAL_URL` in production,
+`VITE_DAV_URL` in development. The sign-in screen asks only for username and
+password. Every CardDAV request goes to the same-origin `/dav` prefix; the
+app never talks to another origin and never stores a server URL.
+
+**Consequences.** One Natel instance serves one CardDAV server. Connection
+errors can no longer be CORS errors: they are wrong credentials or the
+upstream server being unreachable through the proxy. How discovery finds the
+principal behind `/dav` (well-known redirect or a known path) is settled when
+the login is reworked; a Baïkal-specific answer goes behind its own function,
+per invariant 6.
