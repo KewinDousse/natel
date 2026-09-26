@@ -196,15 +196,16 @@ async function renderEditView(id: string) {
     routeTree,
     history: createMemoryHistory({ initialEntries: [path] }),
   });
+  const queryClient = createQueryClient();
   render(
-    <QueryClientProvider client={createQueryClient()}>
+    <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <RouterProvider router={router} />
       </I18nProvider>
     </QueryClientProvider>,
   );
   const article = await screen.findByRole("article", {}, { timeout: 5000 });
-  return { router, article };
+  return { router, article, queryClient };
 }
 
 // ---------------------------------------------------------------------------
@@ -782,5 +783,34 @@ describe("edit mode — Écraser keeps changes made elsewhere", () => {
     expect(vcardText).toContain("N:Doe;Johnny;;;");
     expect(vcardText).toContain("TEL;TYPE=WORK:+1-555-999-9999");
     expect(vcardText).not.toContain("+1-555-222-2222");
+  });
+});
+
+describe("edit mode — logout with unsaved changes", () => {
+  it("asks first, and keeping the edit keeps the session", async () => {
+    const { router } = await renderEditView("editable");
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("John"), "x");
+
+    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    expect(await screen.findByRole("heading", { name: /Abandonner/ })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Continuer l’édition" }));
+    expect(useSessionStore.getState().auth).toEqual(AUTH);
+    expect(router.state.location.pathname).toBe("/contacts/editable");
+    expect(screen.getByDisplayValue("Johnx")).toBeTruthy();
+  });
+
+  it("signs out once the changes are discarded", async () => {
+    const { router, queryClient } = await renderEditView("editable");
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("John"), "x");
+
+    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    await user.click(await screen.findByRole("button", { name: "Abandonner" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(useSessionStore.getState().auth).toBeNull();
+    await waitFor(() => expect(queryClient.getQueryCache().getAll()).toHaveLength(0));
   });
 });

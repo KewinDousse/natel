@@ -51,6 +51,7 @@ Recipes below are the exact class sets from the references. Build them as React 
 - Search: `h-11 lg:h-10 rounded-full border border-input bg-background pl-10 pr-11 text-base lg:text-[0.9375rem]`, search icon left, `/` kbd hint on desktop when empty, clear button when not empty. `/` focuses it, `Esc` clears it.
 - Sync status (xl only): check icon in `text-success` + "Synchronisé il y a 2 min".
 - Language switch: `rounded-full bg-muted p-0.5`, buttons with `aria-pressed:bg-primary aria-pressed:text-primary-foreground`.
+- Sign out: ghost icon button (log-out icon) after the language switch, always present, even with no address book. Accessible name and tooltip "Se déconnecter". It navigates to `/logout`, so an unsaved edit gets the discard dialog first.
 
 ### Group (letter section)
 ```html

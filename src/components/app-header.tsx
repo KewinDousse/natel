@@ -1,6 +1,6 @@
 /**
  * AppHeader — brand band + bar (wordmark, book switcher, language switch,
- * xl-only sync status) + search row, per DESIGN.md "Header".
+ * logout, xl-only sync status) + search row, per DESIGN.md "Header".
  *
  * `--header-h` (defined in src/index.css :root, 7.375rem on mobile) is the
  * mobile header height used by sticky group letters (`top-[var(--header-h)]`):
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
 import { LanguageSwitch } from "./language-switch";
+import { LogoutButton } from "./logout-button";
 
 type AppHeaderProps = {
   books: DavAddressBook[] | undefined;
@@ -131,6 +132,7 @@ export function AppHeader({
         <div className="order-2 ml-auto flex items-center gap-2 lg:order-3 lg:gap-3">
           {syncedAt > 0 && <SyncStatus at={syncedAt} />}
           <LanguageSwitch />
+          <LogoutButton />
         </div>
       </div>
     </header>

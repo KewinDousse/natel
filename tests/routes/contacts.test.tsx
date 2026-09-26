@@ -550,3 +550,36 @@ describe("layout and sync status", () => {
     expect(await screen.findByText("Synchronisé à l’instant")).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Logout
+// ---------------------------------------------------------------------------
+
+describe("logout", () => {
+  it("clears the session and the query cache, then shows the sign-in screen", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A, BOOK_B]);
+    loadBook(bookAContacts());
+    const queryClient = createQueryClient();
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ["/contacts"] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText(/Benali/);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+
+    expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(useSessionStore.getState().auth).toBeNull();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+});
