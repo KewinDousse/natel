@@ -14,17 +14,9 @@ vi.mock("@/dav", () => {
   return { clearCachedDavSessions, __esModule: true };
 });
 
-import {
-  __testing as storeTesting,
-  useAuth,
-  useIsLoggedIn,
-  useSelectedBook,
-  useServerUrl,
-  useSessionStore,
-} from "@/store/session";
+import { useAuth, useIsLoggedIn, useSelectedBook, useSessionStore } from "@/store/session";
 
 const mockAuth: DavAuth = {
-  serverUrl: "https://dav.example.com",
   username: "alice",
   password: "secret",
 };
@@ -43,7 +35,7 @@ const { clearCachedDavSessions } = await import("@/dav");
 
 /** Reset store state between tests. */
 function resetStore(): void {
-  useSessionStore.setState({ auth: null, selectedBook: null, serverUrl: "" });
+  useSessionStore.setState({ auth: null, selectedBook: null });
   vi.clearAllMocks();
 }
 
@@ -64,31 +56,15 @@ describe("login", () => {
     expect(state.selectedBook).toBeNull();
   });
 
-  it("updates serverUrl in state", () => {
+  it("writes nothing to browser storage", () => {
     resetStore();
+    localStorage.clear();
+    sessionStorage.clear();
 
     useSessionStore.getState().login(mockAuth);
 
-    expect(useSessionStore.getState().serverUrl).toBe("https://dav.example.com");
-  });
-
-  it("persists serverUrl to localStorage", () => {
-    resetStore();
-
-    useSessionStore.getState().login(mockAuth);
-
-    expect(localStorage.getItem("natel:serverUrl")).toBe("https://dav.example.com");
-  });
-
-  it("does not persist password to localStorage", () => {
-    resetStore();
-
-    useSessionStore.getState().login(mockAuth);
-
-    // localStorage should only contain the serverUrl key.
-    expect(localStorage.length).toBe(1);
-    const stored = localStorage.getItem("natel:serverUrl");
-    expect(stored).toBe("https://dav.example.com");
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
   });
 });
 
@@ -116,15 +92,6 @@ describe("logout", () => {
     useSessionStore.getState().logout();
 
     expect(clearCachedDavSessions).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps serverUrl unchanged (pre-fills next login)", () => {
-    resetStore();
-    useSessionStore.getState().login(mockAuth);
-
-    useSessionStore.getState().logout();
-
-    expect(useSessionStore.getState().serverUrl).toBe("https://dav.example.com");
   });
 
   it("is safe to call when already logged out", () => {
@@ -224,78 +191,5 @@ describe("useSelectedBook", () => {
     const { result } = renderHook(() => useSelectedBook());
 
     expect(result.current).toEqual(mockBook);
-  });
-});
-
-describe("useServerUrl", () => {
-  it("returns empty string when nothing persisted", () => {
-    resetStore();
-
-    const { result } = renderHook(() => useServerUrl());
-
-    expect(result.current).toBe("");
-  });
-
-  it("returns the serverUrl from state", () => {
-    resetStore();
-    useSessionStore.setState({ serverUrl: "https://persisted.example.com" });
-
-    const { result } = renderHook(() => useServerUrl());
-
-    expect(result.current).toBe("https://persisted.example.com");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Server URL persistence helpers
-// ---------------------------------------------------------------------------
-
-describe("readPersistedServerUrl", () => {
-  it("returns persisted value from localStorage", () => {
-    localStorage.setItem("natel:serverUrl", "https://reload.example.com");
-
-    expect(storeTesting.readPersistedServerUrl()).toBe("https://reload.example.com");
-  });
-
-  it("returns empty string when no value in localStorage", () => {
-    localStorage.removeItem("natel:serverUrl");
-
-    expect(storeTesting.readPersistedServerUrl()).toBe("");
-  });
-
-  it("returns empty string on localStorage error", () => {
-    // Simulate a broken localStorage access by removing the key after
-    // spying on getItem. Vitest's jsdom doesn't throw, but we can test
-    // the catch path by forcing a getItem that throws.
-    // Approach: mock the global localStorage.getItem to throw.
-    const originalGetItem = Storage.prototype.getItem;
-    Storage.prototype.getItem = vi.fn(() => {
-      throw new Error("storage unavailable");
-    });
-
-    expect(storeTesting.readPersistedServerUrl()).toBe("");
-
-    Storage.prototype.getItem = originalGetItem;
-  });
-});
-
-describe("persistServerUrl", () => {
-  it("writes to localStorage", () => {
-    localStorage.removeItem("natel:serverUrl");
-
-    storeTesting.persistServerUrl("https://saved.example.com");
-
-    expect(localStorage.getItem("natel:serverUrl")).toBe("https://saved.example.com");
-  });
-
-  it("does not throw on localStorage error", () => {
-    const originalSetItem = Storage.prototype.setItem;
-    Storage.prototype.setItem = vi.fn(() => {
-      throw new Error("storage full");
-    });
-
-    expect(() => storeTesting.persistServerUrl("https://any.example.com")).not.toThrow();
-
-    Storage.prototype.setItem = originalSetItem;
   });
 });

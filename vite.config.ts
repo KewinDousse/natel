@@ -25,6 +25,14 @@ export default defineConfig({
             target: process.env.VITE_DAV_URL,
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/dav/, ""),
+            // Same as the Caddyfile's header_down: map redirects under /dav.
+            configure: (proxy) => {
+              proxy.on("proxyRes", (res) => {
+                const location = res.headers.location;
+                if (location)
+                  res.headers.location = location.replace(/^(https?:\/\/[^/]+)?\//, "/dav/");
+              });
+            },
           },
         }
       : undefined,

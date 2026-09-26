@@ -113,7 +113,6 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 const MOCK_AUTH: DavAuth = {
-  serverUrl: "https://dav.example.com",
   username: "alice",
   password: "secret",
 };
@@ -379,7 +378,7 @@ describe("useCreateContact", () => {
     expect(mockSerialise).toHaveBeenCalledWith(contact);
     expect(mockCreateCard).toHaveBeenCalledWith(MOCK_AUTH, MOCK_BOOK.href, "SERIALISED_VCARD");
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href],
+      queryKey: ["contacts", MOCK_AUTH.username, MOCK_BOOK.href],
     });
   });
 });
@@ -399,7 +398,7 @@ describe("useUpdateContact", () => {
     // Pre-populate the contacts cache.
     const oldContact = makeContact({ etag: '"e1"' });
     const client = createTestClient();
-    client.setQueryData(["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href], {
+    client.setQueryData(["contacts", MOCK_AUTH.username, MOCK_BOOK.href], {
       contacts: [oldContact],
       skipped: [],
     });
@@ -418,7 +417,6 @@ describe("useUpdateContact", () => {
     // The cache should have the new etag.
     const cached = client.getQueryData<LoadFullBookResult>([
       "contacts",
-      MOCK_AUTH.serverUrl,
       MOCK_AUTH.username,
       MOCK_BOOK.href,
     ])?.contacts;
@@ -444,7 +442,7 @@ describe("useUpdateContact", () => {
     // Pre-populate cache with a contact.
     const oldContact = makeContact({ etag: '"e1"' });
     const client = createTestClient();
-    client.setQueryData(["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href], {
+    client.setQueryData(["contacts", MOCK_AUTH.username, MOCK_BOOK.href], {
       contacts: [oldContact],
       skipped: [],
     });
@@ -465,7 +463,6 @@ describe("useUpdateContact", () => {
     // test against spreading the stale cached copy instead of the submitted one.
     const cached = client.getQueryData<LoadFullBookResult>([
       "contacts",
-      MOCK_AUTH.serverUrl,
       MOCK_AUTH.username,
       MOCK_BOOK.href,
     ])?.contacts;
@@ -508,7 +505,7 @@ describe("useDeleteContact", () => {
     });
 
     const client = createTestClient();
-    client.setQueryData(["contacts", MOCK_AUTH.serverUrl, MOCK_AUTH.username, MOCK_BOOK.href], {
+    client.setQueryData(["contacts", MOCK_AUTH.username, MOCK_BOOK.href], {
       contacts: [contact, otherContact],
       skipped: ["https://dav.example.com/broken.vcf"],
     });
@@ -524,19 +521,14 @@ describe("useDeleteContact", () => {
 
     const cached = client.getQueryData<LoadFullBookResult>([
       "contacts",
-      MOCK_AUTH.serverUrl,
       MOCK_AUTH.username,
       MOCK_BOOK.href,
     ])?.contacts;
     expect(cached).toHaveLength(1);
     expect(cached![0]?.href).toBe(otherContact.href);
     expect(
-      client.getQueryData<LoadFullBookResult>([
-        "contacts",
-        MOCK_AUTH.serverUrl,
-        MOCK_AUTH.username,
-        MOCK_BOOK.href,
-      ])?.skipped,
+      client.getQueryData<LoadFullBookResult>(["contacts", MOCK_AUTH.username, MOCK_BOOK.href])
+        ?.skipped,
     ).toEqual(["https://dav.example.com/broken.vcf"]);
   });
 

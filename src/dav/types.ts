@@ -4,10 +4,11 @@
  * Data-only — no I/O, no tsdav dependency.
  */
 
-/** Credentials for Basic auth with a CardDAV server. */
+/**
+ * Credentials for Basic auth with the CardDAV server. The server itself is
+ * operator configuration behind the /dav proxy (ADR 014).
+ */
 export interface DavAuth {
-  /** CardDAV server URL (e.g. https://contacts.example.com). */
-  serverUrl: string;
   /** Basic auth username. */
   username: string;
   /** Basic auth password. */

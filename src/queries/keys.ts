@@ -7,21 +7,19 @@
 import type { DavAuth } from "@/dav/types";
 
 /** Key for the address-books query, scoped to auth. */
-export function addressBooksKey(
-  auth: DavAuth | undefined,
-): readonly ["address-books", string, string] {
-  return ["address-books", auth?.serverUrl ?? "", auth?.username ?? ""];
+export function addressBooksKey(auth: DavAuth | undefined): readonly ["address-books", string] {
+  return ["address-books", auth?.username ?? ""];
 }
 
 /** Key for a contacts query, scoped to auth + book. */
 export function contactsKey(
   auth: DavAuth | undefined,
   book: { href: string } | undefined,
-): readonly ["contacts", string, string, string] {
-  return ["contacts", auth?.serverUrl ?? "", auth?.username ?? "", book?.href ?? ""];
+): readonly ["contacts", string, string] {
+  return ["contacts", auth?.username ?? "", book?.href ?? ""];
 }
 
 /** Key prefix for ALL contacts queries belonging to one auth (partial match). */
-export function contactsAuthPrefix(auth: DavAuth): readonly ["contacts", string, string] {
-  return ["contacts", auth.serverUrl, auth.username];
+export function contactsAuthPrefix(auth: DavAuth): readonly ["contacts", string] {
+  return ["contacts", auth.username];
 }

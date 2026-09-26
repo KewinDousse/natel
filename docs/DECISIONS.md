@@ -206,3 +206,33 @@ upstream server being unreachable through the proxy. How discovery finds the
 principal behind `/dav` (well-known redirect or a known path) is settled when
 the login is reworked; a Baïkal-specific answer goes behind its own function,
 per invariant 6.
+
+## 015 — Discovery and hrefs behind the /dav proxy
+
+**Context.** With the server behind `/dav` (014), three things break. tsdav's
+discovery reads `/.well-known/carddav` with `redirect: "manual"`, which a
+browser turns into an opaque response, and it resolves every href against the
+origin root. Servers answer with absolute paths in their own URL space
+(`/dav.php/principals/alice/`): resolved against the page, they land outside
+`/dav`; the proxy rewrites no bodies, so the same holds for hrefs sent in a
+REPORT body. And redirects (`Location: /dav.php/`, or an absolute URL on the
+server's origin) lead the browser out of `/dav` too.
+
+**Decision.** The proxy rewrites the `Location` of upstream responses under
+`/dav` (Caddy `header_down`, the same rule in Vite's dev proxy), and sends the
+upstream's own `Host`. `src/dav/internal.ts` does discovery itself (RFC 6764,
+RFC 6352 §7.1): PROPFIND `current-user-principal` on a context root, letting
+the browser follow a redirect, then `addressbook-home-set` on the principal,
+then the home's children. Every href read from a response goes through
+`fromServerHref` (server path → `/dav` + path), every href written into a body
+through `toServerPath` (the inverse). Context roots, in order:
+`/dav/.well-known/carddav` (any server with RFC 6764 redirects: Radicale,
+Nextcloud, Baïkal when its web server is set up for it), `/dav/` (a server
+that answers at its root), `/dav/dav.php/` via `baikalContextRoot()` (a Baïkal
+without the well-known redirect). A 401 stops the search: another root would
+not fix the password.
+
+**Consequences.** A server under any path works as long as it redirects its
+well-known URL. Without that redirect, only a root or `/dav.php/` server is
+found, at the cost of one or two extra PROPFINDs at sign-in. Caddy and Vite
+must keep the same `Location` rule.

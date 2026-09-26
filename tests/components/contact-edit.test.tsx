@@ -73,7 +73,6 @@ vi.mock("@/dav", async (importOriginal) => {
 // ---------------------------------------------------------------------------
 
 const AUTH: DavAuth = {
-  serverUrl: "https://dav.example.ch",
   username: "alice",
   password: "secret",
 };
@@ -184,7 +183,7 @@ beforeEach(async () => {
   setLanguage("fr-FR");
   shimMatchMedia();
   localStorage.clear();
-  useSessionStore.setState({ auth: null, selectedBook: null, serverUrl: "" });
+  useSessionStore.setState({ auth: null, selectedBook: null });
   vi.resetAllMocks();
   setupMocks();
 });

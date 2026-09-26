@@ -1,10 +1,10 @@
 /**
  * BookSwitcher — pill with the current address book's name + chevron; opens a
  * hand-built menu listing the books. The shadcn CLI's base-nova style emits
- * non-stack dependencies (same reason the login checkbox is hand-built), so
- * this is a plain menu-button pattern: Escape closes and restores focus to the
- * trigger, arrow keys move between items, the current book is marked with
- * aria-checked (menuitemradio), and clicking outside closes the menu.
+ * non-stack dependencies, so this is a plain menu-button pattern: Escape
+ * closes and restores focus to the trigger, arrow keys move between items,
+ * the current book is marked with aria-checked (menuitemradio), and clicking
+ * outside closes the menu.
  */
 
 import type { KeyboardEvent } from "react";

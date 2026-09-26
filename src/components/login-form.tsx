@@ -1,19 +1,19 @@
 /**
  * LoginForm — sign-in form with inline validation and error display.
  *
- * Composes the server/username/password fields, the "remember server" checkbox,
- * the submit button, the error alert box, and the password-visibility toggle.
- * Uses useLogin (src/queries/) for the credential check.
+ * Composes the username/password fields, the submit button, the error alert
+ * box, and the password-visibility toggle. The CardDAV server is operator
+ * configuration, never asked here (ADR 014). Uses useLogin (src/queries/) for
+ * the credential check.
  */
 
 import { useNavigate } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useI18n } from "@/i18n/react";
 import { type DavAuth, DavError, useLogin } from "@/queries";
-import { useServerUrl, useSessionStore } from "@/store/session";
+import { useSessionStore } from "@/store/session";
 
-type FieldName = "server" | "username" | "password";
+type FieldName = "username" | "password";
 type FieldErrors = Partial<Record<FieldName, string>>;
 
 type FormError = { title: string; body?: string };
@@ -22,13 +22,10 @@ export function LoginForm() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
-  const persistedServerUrl = useServerUrl();
   const loginMutation = useLogin();
 
-  const [serverUrl, setServerUrl] = useState(persistedServerUrl);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberServer, setRememberServer] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<FormError | null>(null);
@@ -41,25 +38,12 @@ export function LoginForm() {
     setErrors((prev) => ({ ...prev, [field]: message }));
   }
 
-  function validateServer(value: string): string | undefined {
-    const v = value.trim();
-    if (v.length === 0) return t("field_server_empty");
-    try {
-      const url = new URL(v);
-      if (url.protocol !== "http:" && url.protocol !== "https:") return t("field_server_invalid");
-    } catch {
-      return t("field_server_invalid");
-    }
-    return undefined;
-  }
-
   function validateRequired(value: string, emptyMessage: string): string | undefined {
     return value.trim().length === 0 ? emptyMessage : undefined;
   }
 
-  function validateAll(server: string): FieldErrors {
+  function validateAll(): FieldErrors {
     return {
-      server: validateServer(server),
       username: validateRequired(username, t("field_user_empty")),
       password: validateRequired(password, t("field_pass_empty")),
     };
@@ -70,25 +54,21 @@ export function LoginForm() {
     if (err instanceof DavError && err.code === "AUTH") {
       return { title: t("err_auth") };
     }
-    return {
-      title: t("err_connection_title", { host: hostOf(serverUrl) }),
-      body: t("err_connection_body"),
-    };
+    return { title: t("err_connection_title"), body: t("err_connection_body") };
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loginMutation.isPending) return;
-    const server = serverUrl.trim();
-    const nextErrors = validateAll(server);
+    const nextErrors = validateAll();
     setErrors(nextErrors);
     setFormError(null);
-    if (nextErrors.server || nextErrors.username || nextErrors.password) return;
+    if (nextErrors.username || nextErrors.password) return;
 
-    const auth: DavAuth = { serverUrl: server, username: username.trim(), password };
+    const auth: DavAuth = { username: username.trim(), password };
     try {
       await loginMutation.mutateAsync(auth);
-      login(auth, { rememberServer });
+      login(auth);
       await navigate({ to: "/contacts" });
     } catch (err) {
       setFormError(mapLoginError(err));
@@ -113,34 +93,6 @@ export function LoginForm() {
       )}
 
       <form className="mt-7 space-y-5" onSubmit={handleSubmit} noValidate>
-        <div className="space-y-1.5">
-          <label htmlFor="server" className="block text-sm font-bold">
-            {t("server")}
-          </label>
-          <input
-            id="server"
-            type="url"
-            inputMode="url"
-            autoComplete="url"
-            spellCheck={false}
-            value={serverUrl}
-            onChange={(e) => setServerUrl(e.target.value)}
-            onBlur={() => setFieldError("server", validateServer(serverUrl))}
-            aria-invalid={errors.server ? true : undefined}
-            aria-describedby={errors.server ? "server-error" : "server-hint"}
-            className="block h-12 w-full rounded-md border border-input bg-card px-3.5 text-base text-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-[invalid=true]:border-destructive lg:h-11 lg:text-[0.9375rem]"
-          />
-          {errors.server ? (
-            <p id="server-error" className="text-caption leading-snug text-destructive">
-              {errors.server}
-            </p>
-          ) : (
-            <p id="server-hint" className="text-caption leading-snug text-muted-foreground">
-              {t("server_hint")}
-            </p>
-          )}
-        </div>
-
         <div className="space-y-1.5">
           <label htmlFor="user" className="block text-sm font-bold">
             {t("user")}
@@ -203,18 +155,6 @@ export function LoginForm() {
           )}
         </div>
 
-        <label
-          htmlFor="remember-server"
-          className="flex items-start gap-3 py-1 text-sm leading-snug"
-        >
-          <Checkbox
-            id="remember-server"
-            checked={rememberServer}
-            onChange={(e) => setRememberServer(e.target.checked)}
-          />
-          <span>{t("remember")}</span>
-        </label>
-
         <button
           type="submit"
           disabled={submitting}
@@ -239,15 +179,6 @@ export function LoginForm() {
       </p>
     </>
   );
-}
-
-/** Extract the host from a server URL for the connection error message. */
-function hostOf(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
 }
 
 function AlertIcon(): ReactNode {

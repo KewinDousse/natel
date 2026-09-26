@@ -24,7 +24,13 @@
   # The app mirrors full server paths under /dav: e.g. a request to
   # /dav/dav.php/… reaches {$BAIKAL_URL}/dav.php/… (prefix stripped).
   handle_path /dav/* {
-    reverse_proxy {$BAIKAL_URL}
+    reverse_proxy {$BAIKAL_URL} {
+      # The upstream's own name, so a virtual host in front of it matches.
+      header_up Host {upstream_hostport}
+      # Redirects (e.g. /.well-known/carddav) point into the server's URL
+      # space; put them back under /dav so the browser can follow them.
+      header_down Location "^(https?://[^/]+)?/" "/dav/"
+    }
   }
 
   # ---------------------------------------------------------------

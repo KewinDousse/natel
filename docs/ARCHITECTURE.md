@@ -13,6 +13,10 @@ Browser ──HTTPS──▶ Caddy (single container)
 - The proxy forwards the `Authorization` header untouched and keeps no state.
   It exists only to make the CardDAV server same-origin (servers send no CORS
   headers) and to give users one URL to configure.
+- The proxy sends the upstream's own `Host` and maps redirect `Location`s
+  under `/dav`. It rewrites no bodies: `dav/` maps hrefs between the server's
+  URL space and `/dav` in both directions, and does discovery itself
+  (ADR 015).
 - `BAIKAL_URL` is the only required environment variable. The Caddyfile reads it
   directly (`{$BAIKAL_URL}`), no entrypoint templating.
 - Users are expected to put this behind their own reverse proxy (SWAG, Traefik,

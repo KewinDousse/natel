@@ -27,8 +27,7 @@ vi.mock("@/dav", async (importOriginal) => {
   return { ...actual, discoverAddressBooks: mockDiscoverAddressBooks };
 });
 
-const SERVER = "https://dav.example.ch";
-const AUTH = { serverUrl: SERVER, username: "alice", password: "secret" };
+const AUTH = { username: "alice", password: "secret" };
 
 function setLanguage(lang: string) {
   Object.defineProperty(window.navigator, "language", {
@@ -52,11 +51,10 @@ function renderApp(path: string) {
   return router;
 }
 
-/** Fill the three fields and submit the (French) form. */
+/** Fill both fields and submit the (French) form. */
 async function submitLogin(overrides: Partial<typeof AUTH> = {}) {
   const user = userEvent.setup();
-  const { serverUrl = SERVER, username = "alice", password = "secret" } = overrides;
-  await user.type(screen.getByLabelText("Adresse du serveur"), serverUrl);
+  const { username = "alice", password = "secret" } = overrides;
   await user.type(screen.getByLabelText("Nom d’utilisateur"), username);
   await user.type(screen.getByLabelText("Mot de passe"), password);
   await user.click(screen.getByRole("button", { name: "Se connecter" }));
@@ -66,7 +64,7 @@ async function submitLogin(overrides: Partial<typeof AUTH> = {}) {
 beforeEach(() => {
   setLanguage("fr-FR");
   localStorage.clear();
-  useSessionStore.setState({ auth: null, selectedBook: null, serverUrl: "" });
+  useSessionStore.setState({ auth: null, selectedBook: null });
   vi.clearAllMocks();
 });
 
@@ -79,21 +77,20 @@ describe("rendering", () => {
     renderApp("/login");
 
     expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
-    expect(screen.getByLabelText("Adresse du serveur")).toBeTruthy();
     expect(screen.getByLabelText("Nom d’utilisateur")).toBeTruthy();
     expect(screen.getByLabelText("Mot de passe")).toBeTruthy();
-    expect(screen.getByRole("checkbox", { name: /Mémoriser le serveur/ })).toBeTruthy();
     const frPills = screen.getAllByRole("button", { name: "FR" });
     expect(frPills[0]?.getAttribute("aria-pressed")).toBe("true");
     expect(document.title).toBe("Se connecter · Natel");
   });
 
-  it("prefills the server URL from the session store", async () => {
-    useSessionStore.setState({ serverUrl: "https://dav.pre.example.com" });
+  it("asks only for credentials, never for a server", async () => {
     renderApp("/login");
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
 
-    const input = await screen.findByLabelText<HTMLInputElement>("Adresse du serveur");
-    expect(input.value).toBe("https://dav.pre.example.com");
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(document.querySelector('input[type="url"]')).toBeNull();
   });
 
   it("switches to English and updates the pills and title", async () => {
@@ -119,25 +116,21 @@ describe("rendering", () => {
 // ---------------------------------------------------------------------------
 
 describe("validation", () => {
-  it("validates on blur and blocks an invalid submit", async () => {
+  it("validates on blur and blocks an empty submit", async () => {
     renderApp("/login");
     await screen.findByRole("heading", { name: "Ouvrir le carnet" });
 
     const user = userEvent.setup();
-    const server = screen.getByLabelText("Adresse du serveur");
+    const username = screen.getByLabelText("Nom d’utilisateur");
 
-    // Blur the empty server field → required error appears.
-    await user.click(server);
-    await user.type(screen.getByLabelText("Nom d’utilisateur"), "a");
-    expect(await screen.findByText("Veuillez saisir l’adresse du serveur.")).toBeTruthy();
-    expect(server.getAttribute("aria-invalid")).toBe("true");
+    // Blur the empty username field → required error appears.
+    await user.click(username);
+    await user.click(screen.getByLabelText("Mot de passe"));
+    expect(await screen.findByText("Veuillez saisir votre nom d’utilisateur.")).toBeTruthy();
+    expect(username.getAttribute("aria-invalid")).toBe("true");
 
-    // A well-formed but invalid submission is still blocked.
-    await user.type(server, "not a url");
     await user.click(screen.getByRole("button", { name: "Se connecter" }));
-    expect(
-      await screen.findByText("Adresse invalide. Exemple : https://dav.example.ch"),
-    ).toBeTruthy();
+    expect(await screen.findByText("Veuillez saisir votre mot de passe.")).toBeTruthy();
     expect(mockDiscoverAddressBooks).not.toHaveBeenCalled();
   });
 });
@@ -155,10 +148,8 @@ describe("submit", () => {
     await submitLogin();
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("Impossible de joindre dav.example.ch.");
-    expect(alert.textContent).toContain(
-      "Vérifiez l’adresse, ou autorisez ce site dans les réglages CORS de votre serveur.",
-    );
+    expect(alert.textContent).toContain("Impossible de joindre le serveur de contacts.");
+    expect(alert.textContent).not.toContain("CORS");
   });
 
   it("shows an invalid-credentials message on auth failure", async () => {
@@ -185,27 +176,8 @@ describe("submit", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/contacts");
     });
-    // Remember is checked by default → the server URL is persisted.
-    expect(localStorage.getItem("natel:serverUrl")).toBe(SERVER);
-  });
-
-  it("does not persist the server URL when remember is unchecked", async () => {
-    mockDiscoverAddressBooks.mockResolvedValue([]);
-    const router = renderApp("/login");
-    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
-
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Adresse du serveur"), SERVER);
-    await user.type(screen.getByLabelText("Nom d’utilisateur"), "alice");
-    await user.type(screen.getByLabelText("Mot de passe"), "secret");
-    await user.click(screen.getByRole("checkbox", { name: /Mémoriser le serveur/ }));
-    await user.click(screen.getByRole("button", { name: "Se connecter" }));
-
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/contacts");
-    });
-    // Remember unchecked → the URL is kept in memory only, never persisted.
-    expect(localStorage.getItem("natel:serverUrl")).toBeNull();
+    expect(mockDiscoverAddressBooks).toHaveBeenCalledWith(AUTH);
+    expect(localStorage.length).toBe(0);
   });
 });
 

@@ -11,8 +11,9 @@
  *   the exact wire shapes (props, depth, headers, body) sent to tsdav.
  */
 
-import type { DAVAddressBook, DAVResponse } from "tsdav";
+import type { DAVResponse } from "tsdav";
 import { createDAVClient } from "tsdav";
+import type { DavAuth } from "./types";
 import { DavError } from "./types";
 
 type DAVClient = Awaited<ReturnType<typeof createDAVClient>>;
@@ -92,11 +93,19 @@ function extractAddressData(response: DAVResponse): string | undefined {
   return undefined;
 }
 
-/** Extract displayname from a DAVAddressBook, returning href as fallback. */
-function extractDisplayName(book: DAVAddressBook, fallback: string): string {
-  const dn = book.displayName;
+/** Extract DAV:displayname, returning `fallback` when missing or empty. */
+function extractDisplayName(response: DAVResponse, fallback: string): string {
+  const prop = response.props?.displayname;
+  const dn = typeof prop === "object" && prop !== null ? prop._cdata : prop;
   if (typeof dn === "string" && dn.length > 0) return dn;
   return fallback;
+}
+
+/** Read the `href` child of a property such as current-user-principal. */
+function extractHrefProp(prop: unknown): string | undefined {
+  if (typeof prop !== "object" || prop === null) return undefined;
+  const href = (prop as Record<string, unknown>).href;
+  return typeof href === "string" && href.length > 0 ? href : undefined;
 }
 
 /**
@@ -204,12 +213,12 @@ async function wrap<T>(fn: () => Promise<T>, context: string): Promise<T> {
 // ---------------------------------------------------------------------------
 
 /**
- * Throw the right DavError for a non-ok write response.
+ * Throw the right DavError for a non-ok response.
  *
  * 412 → CONFLICT (the caller decides the conflict UX: it is the queries layer
- * that re-fetches the server version). Other statuses map like reads do.
+ * that re-fetches the server version). 401/403 → AUTH, 404 → NOT_FOUND.
  */
-function assertWriteOk(
+function assertOk(
   response: DAVResponse | undefined,
   context: string,
 ): asserts response is DAVResponse {
@@ -257,22 +266,8 @@ async function fetchFreshEtag(client: DAVClient, href: string): Promise<string> 
   );
   const match = findResponseByHref(responses, href, bookUrl);
 
-  // If the response is non-ok (e.g. 404 after deletion, 500 from server),
-  // throw a mapped DavError with the status included — mirroring the
-  // approach in listMembers for the book response.
-  if (match && !match.ok) {
-    const status = match.status ?? 0;
-    if (status === 404) {
-      throw new DavError(`CardDAV resource not found: refetching etag for ${href}`, "NOT_FOUND");
-    }
-    if (status === 401 || status === 403) {
-      throw new DavError(`CardDAV authentication failed: refetching etag for ${href}`, "AUTH");
-    }
-    throw new DavError(
-      `CardDAV unexpected error: refetching etag for ${href} — HTTP ${status}`,
-      "UNEXPECTED",
-    );
-  }
+  // A non-ok entry (e.g. 404 after a concurrent delete) maps like any response.
+  if (match) assertOk(match, `refetching etag for ${href}`);
 
   const etag = match ? extractEtag(match) : undefined;
   if (etag === undefined) {
@@ -282,6 +277,126 @@ async function fetchFreshEtag(client: DAVClient, href: string): Promise<string> 
     );
   }
   return etag;
+}
+
+// ---------------------------------------------------------------------------
+// Proxy URL space
+//
+// Every request goes to the same-origin proxy mounted at /dav, which mirrors
+// the CardDAV server's paths (ADR 009, 014): /dav/dav.php/… reaches the
+// server's /dav.php/…. The proxy rewrites neither request nor response
+// bodies, so hrefs crossing it must be translated both ways.
+// ---------------------------------------------------------------------------
+
+const PROXY_PREFIX = "/dav";
+
+/** Absolute URL of the proxy root, on the page's own origin. */
+function proxyRoot(): string {
+  return new URL(`${PROXY_PREFIX}/`, globalThis.location.href).href;
+}
+
+/**
+ * Map an href from a server response into proxy space.
+ *
+ * Servers answer with absolute paths in their own URL space (`/dav.php/…`),
+ * sometimes with their own origin in front; both get the /dav prefix. A
+ * relative href resolves against the request URL, which already carries it.
+ */
+function fromServerHref(href: string, requestUrl: string): string {
+  let path = href;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+    const url = new URL(href);
+    path = `${url.pathname}${url.search}`;
+  }
+  if (!path.startsWith("/")) return absolutizeHref(href, requestUrl);
+  return absolutizeHref(`${PROXY_PREFIX}${path}`, requestUrl);
+}
+
+/** Server-space path of a proxy URL, for hrefs sent inside a request body. */
+function toServerPath(href: string): string {
+  const url = new URL(href);
+  if (!url.pathname.startsWith(`${PROXY_PREFIX}/`)) {
+    throw new DavError(`CardDAV href outside the proxy: ${href}`, "UNEXPECTED");
+  }
+  return `${url.pathname.slice(PROXY_PREFIX.length)}${url.search}`;
+}
+
+// ---------------------------------------------------------------------------
+// Discovery (RFC 6764, RFC 6352 §7.1)
+//
+// tsdav's service discovery reads /.well-known/carddav with
+// `redirect: "manual"`, which browsers turn into an opaque response, and
+// resolves every href against the origin root, outside /dav. Discovery is
+// therefore done here: PROPFIND current-user-principal on a context root,
+// then addressbook-home-set on the principal. The well-known URL goes first:
+// the proxy maps its redirect under /dav and the browser follows it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Baïkal serves CardDAV under /dav.php/, and its well-known redirect only
+ * exists when the web server in front of it is set up for it. Tried last.
+ * Documented in docs/DECISIONS.md (ADR 015).
+ */
+function baikalContextRoot(): string {
+  return new URL("dav.php/", proxyRoot()).href;
+}
+
+/**
+ * Find the address book home of the authenticated user.
+ *
+ * A root that does not answer with a principal is skipped; an auth failure
+ * stops the search at once, since another root would not fix the password.
+ */
+async function discoverHomeUrl(client: DAVClient): Promise<string> {
+  let lastError: unknown;
+  const wellKnown = new URL(".well-known/carddav", proxyRoot()).href;
+  for (const root of [wellKnown, proxyRoot(), baikalContextRoot()]) {
+    try {
+      const principalUrl = await fetchHrefProp(
+        client,
+        root,
+        "d:current-user-principal",
+        "currentUserPrincipal",
+      );
+      return await fetchHrefProp(
+        client,
+        principalUrl,
+        "card:addressbook-home-set",
+        "addressbookHomeSet",
+      );
+    } catch (err) {
+      if (err instanceof DavError && err.code === "AUTH") throw err;
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
+/** PROPFIND a single href-valued property and map it into proxy space. */
+async function fetchHrefProp(
+  client: DAVClient,
+  url: string,
+  prop: string,
+  parsedName: string,
+): Promise<string> {
+  const context = `discovering ${prop} on ${url}`;
+  const responses = await wrap(
+    () => client.propfind({ url, props: { [prop]: {} }, depth: "0" }),
+    context,
+  );
+  const response = responses[0];
+  assertOk(response, context);
+  const href = extractHrefProp(response.props?.[parsedName]);
+  if (href === undefined) {
+    throw new DavError(`CardDAV unexpected error: ${context} — no href`, "UNEXPECTED");
+  }
+  return fromServerHref(href, url);
+}
+
+/** True when a PROPFIND response's resourcetype includes CARDDAV:addressbook. */
+function isAddressBook(response: DAVResponse): boolean {
+  const rt = response.props?.resourcetype;
+  return typeof rt === "object" && rt !== null && "addressbook" in rt;
 }
 
 // ---------------------------------------------------------------------------
@@ -314,18 +429,12 @@ export interface DavSession {
 // ---------------------------------------------------------------------------
 
 /**
- * Session cache keyed on (serverUrl, username) to avoid redundant tsdav
- * discovery across concurrent hook mounts. The password is deliberately
- * excluded from the key (and never persisted outside memory) — AGENTS.md
- * invariant 3.
+ * Session cache keyed on the username to avoid redundant discovery across
+ * concurrent hook mounts. The password is deliberately excluded from the key
+ * (and never persisted outside memory) — AGENTS.md invariant 3.
  * If a session creation fails, the cache entry is evicted so the next caller
  * retries rather than getting a stale rejected promise.
  */
-
-/** Build a session cache key from auth credentials (excludes password). */
-function sessionKey(auth: { serverUrl: string; username: string }): string {
-  return `${auth.serverUrl}|${auth.username}`;
-}
 const sessionCache = new Map<string, Promise<DavSession>>();
 
 /**
@@ -333,12 +442,8 @@ const sessionCache = new Map<string, Promise<DavSession>>();
  *
  * Credentials are held in the local client object and never stored externally.
  */
-export async function createDavSession(auth: {
-  serverUrl: string;
-  username: string;
-  password: string;
-}): Promise<DavSession> {
-  const key = sessionKey(auth);
+export async function createDavSession(auth: DavAuth): Promise<DavSession> {
+  const key = auth.username;
   const cached = sessionCache.get(key);
   if (cached) return cached;
   const promise = makeSession(auth).catch((err) => {
@@ -349,22 +454,20 @@ export async function createDavSession(auth: {
   return promise;
 }
 
-async function makeSession(auth: {
-  serverUrl: string;
-  username: string;
-  password: string;
-}): Promise<DavSession> {
-  const key = sessionKey(auth);
+async function makeSession(auth: DavAuth): Promise<DavSession> {
+  const key = auth.username;
+  // No defaultAccountType: tsdav's own discovery starts from the origin root
+  // and resolves server hrefs outside /dav, so discoverHomeUrl does it instead.
   const client = await wrap(
     () =>
       createDAVClient({
-        serverUrl: auth.serverUrl,
+        serverUrl: proxyRoot(),
         credentials: { username: auth.username, password: auth.password },
         authMethod: "Basic",
-        defaultAccountType: "carddav",
       }),
     "creating session",
   );
+  const homeUrl = await discoverHomeUrl(client);
 
   /**
    * Wrap an operation so that if it throws DavError with code AUTH, the
@@ -385,11 +488,22 @@ async function makeSession(auth: {
   return {
     async discoverAddressBooks() {
       return withAuthEviction(async () => {
-        const books = await wrap(() => client.fetchAddressBooks(), "discovering address books");
-        return books.map((b) => ({
-          href: b.url,
-          displayName: extractDisplayName(b, b.url),
-        }));
+        const responses = await wrap(
+          () =>
+            client.propfind({
+              url: homeUrl,
+              props: { "d:displayname": {}, "d:resourcetype": {} },
+              depth: "1",
+            }),
+          "discovering address books",
+        );
+        assertOk(responses[0], "discovering address books");
+        return responses
+          .filter((r) => r.ok && isAddressBook(r) && r.href)
+          .map((r) => {
+            const href = fromServerHref(r.href ?? "", homeUrl);
+            return { href, displayName: extractDisplayName(r, href) };
+          });
       });
     },
 
@@ -406,30 +520,14 @@ async function makeSession(auth: {
         );
 
         // Check that the book itself was found (first response is the collection).
-        const bookResponse = responses[0];
-        if (!bookResponse?.ok) {
-          const status = bookResponse?.status ?? 0;
-          if (status === 404) {
-            throw new DavError(`Address book not found: ${bookHref}`, "NOT_FOUND");
-          }
-          if (status === 401 || status === 403) {
-            throw new DavError(
-              `CardDAV authentication failed: listing contacts in ${bookHref}`,
-              "AUTH",
-            );
-          }
-          throw new DavError(
-            `CardDAV unexpected error: listing contacts in ${bookHref} — HTTP ${status}`,
-            "UNEXPECTED",
-          );
-        }
+        assertOk(responses[0], `listing contacts in ${bookHref}`);
 
         // Filter out the collection and non-ok responses.
         // Uses isMemberResponse (exported for testing).
         return responses
           .filter(isMemberResponse)
           .map((r) => ({
-            href: r.href ? absolutizeHref(r.href, bookHref) : "",
+            href: r.href ? fromServerHref(r.href, bookHref) : "",
             etag: extractEtag(r) ?? "",
           }))
           .filter((s) => {
@@ -459,9 +557,9 @@ async function makeSession(auth: {
               url: bookUrl,
               props: MULTIGET_PROPS,
               depth: "1",
-              // tsdav's fetchVCards sends pathname + search, not the absolute
-              // URL — same practice here for the objectUrls.
-              objectUrls: [pathnamePlusSearch(href)],
+              // Hrefs in the body reach the server untouched, so they must be
+              // in its URL space, not the proxy's.
+              objectUrls: [toServerPath(href)],
             }),
           `fetching card ${href}`,
         );
@@ -505,7 +603,7 @@ async function makeSession(auth: {
               url: bookUrl,
               props: MULTIGET_PROPS,
               depth: "1",
-              objectUrls: hrefs.map((h) => pathnamePlusSearch(h)),
+              objectUrls: hrefs.map(toServerPath),
             }),
           `fetching ${hrefs.length} cards`,
         );
@@ -555,7 +653,7 @@ async function makeSession(auth: {
           `updating card ${href}`,
         );
 
-        assertWriteOk(responses[0], `updating card ${href}`);
+        assertOk(responses[0], `updating card ${href}`);
         const newEtag = await fetchFreshEtag(client, href);
         return { href, etag: newEtag };
       });
@@ -579,7 +677,7 @@ async function makeSession(auth: {
           `creating card in ${bookHref}`,
         );
 
-        assertWriteOk(responses[0], `creating card ${href}`);
+        assertOk(responses[0], `creating card ${href}`);
         const newEtag = await fetchFreshEtag(client, href);
         return { href, etag: newEtag };
       });
@@ -612,7 +710,7 @@ async function makeSession(auth: {
           `deleting card ${href}`,
         );
 
-        assertWriteOk(responses[0], `deleting card ${href}`);
+        assertOk(responses[0], `deleting card ${href}`);
       });
     },
   };
@@ -634,14 +732,8 @@ function absolutizeHref(href: string, base: string): string {
   }
 }
 
-/** Path + query of a URL, as tsdav's fetchVCards uses for multiget objectUrls. */
-function pathnamePlusSearch(href: string): string {
-  const url = new URL(href);
-  return `${url.pathname}${url.search}`;
-}
-
 /**
- * Find the DAVResponse whose href resolves to the given absolute URL.
+ * Find the DAVResponse whose href maps to the given proxy URL.
  *
  * Handles servers returning relative vs absolute hrefs.
  */
@@ -653,7 +745,7 @@ function findResponseByHref(
   return responses.find((r) => {
     if (!r.href) return false;
     try {
-      return new URL(r.href, baseUrl).href === new URL(href).href;
+      return fromServerHref(r.href, baseUrl) === new URL(href).href;
     } catch {
       return false;
     }
@@ -717,6 +809,8 @@ export const __testing = {
   isMemberResponse,
   mapDavError,
   deriveBookUrl,
+  fromServerHref,
+  toServerPath,
   /** Clear the in-memory session cache (needed between tests with mocked tsdav). */
   clearSessionCache: clearCachedDavSessions,
 };

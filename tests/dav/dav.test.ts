@@ -37,7 +37,6 @@ import type { DavAuth } from "@/dav/types";
 const { createDavSession } = await import("@/dav/internal");
 
 const mockAuth: DavAuth = {
-  serverUrl: "https://dav.example.com",
   username: "alice",
   password: "secret",
 };

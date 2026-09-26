@@ -1,9 +1,8 @@
 /**
  * Zustand session store — credentials and UI state, in memory only.
  *
- * Invariant 3: credentials are never persisted to localStorage, sessionStorage,
- * cookies, or IndexedDB. Only `serverUrl` (without username/password) is stored
- * in localStorage so the field survives page reloads.
+ * Invariant 3: nothing here is ever written to localStorage, sessionStorage,
+ * cookies, or IndexedDB. A reload logs the user out.
  *
  * On logout the in-memory DAV session cache is also cleared via
  * `clearCachedDavSessions()`, exported from `@/dav`.
@@ -11,48 +10,6 @@
 import { create } from "zustand";
 import { clearCachedDavSessions } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
-
-/** localStorage key for the server URL. */
-const STORAGE_KEY_SERVER_URL = "natel:serverUrl";
-
-/**
- * Read the persisted server URL from localStorage.
- * Returns `""` if missing or unavailable (SSR, private browsing…).
- *
- * Exported via __testing for unit tests.
- */
-function readPersistedServerUrl(): string {
-  try {
-    return localStorage.getItem(STORAGE_KEY_SERVER_URL) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Write the server URL to localStorage (best-effort, silent on failure).
- * The URL alone is not a credential, so this is safe under invariant 3.
- */
-function persistServerUrl(url: string): void {
-  try {
-    localStorage.setItem(STORAGE_KEY_SERVER_URL, url);
-  } catch {
-    // Silently ignore — storage may be unavailable.
-  }
-}
-
-/**
- * Forget the persisted server URL (best-effort, silent on failure).
- * Called when the user signs in with "remember server" unchecked, so the
- * next visit really starts from a clean field.
- */
-function removePersistedServerUrl(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY_SERVER_URL);
-  } catch {
-    // Silently ignore — storage may be unavailable.
-  }
-}
 
 // ---------------------------------------------------------------------------
 // State
@@ -63,11 +20,6 @@ export interface SessionState {
   auth: DavAuth | null;
   /** Currently selected address book, or null when none selected. */
   selectedBook: DavAddressBook | null;
-  /**
-   * Server URL carried across page reloads (persisted in localStorage).
-   * The user can type it once; the field is pre-filled on next visit.
-   */
-  serverUrl: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,16 +27,9 @@ export interface SessionState {
 // ---------------------------------------------------------------------------
 
 export interface SessionActions {
-  /**
-   * Store credentials in memory. The server URL is persisted to localStorage
-   * unless `rememberServer` is false (the "remember server" checkbox on the
-   * login screen); the password is never written to disk.
-   */
-  login: (auth: DavAuth, options?: { rememberServer?: boolean }) => void;
-  /**
-   * Clear credentials, selected book, and the DAV in-memory session cache.
-   * The persisted server URL stays so the field is pre-filled on next login.
-   */
+  /** Store credentials in memory. */
+  login: (auth: DavAuth) => void;
+  /** Clear credentials, selected book, and the DAV in-memory session cache. */
   logout: () => void;
   /** Select or deselect the active address book. */
   selectBook: (book: DavAddressBook | null) => void;
@@ -99,16 +44,9 @@ export type SessionStore = SessionState & SessionActions;
 export const useSessionStore = create<SessionStore>((set) => ({
   auth: null,
   selectedBook: null,
-  serverUrl: readPersistedServerUrl(),
 
-  login: (auth: DavAuth, options?: { rememberServer?: boolean }) => {
-    const rememberServer = options?.rememberServer ?? true;
-    if (rememberServer) {
-      persistServerUrl(auth.serverUrl);
-    } else {
-      removePersistedServerUrl();
-    }
-    set({ auth, selectedBook: null, serverUrl: auth.serverUrl });
+  login: (auth: DavAuth) => {
+    set({ auth, selectedBook: null });
   },
 
   logout: () => {
@@ -139,19 +77,3 @@ export function useAuth(): DavAuth | null {
 export function useSelectedBook(): DavAddressBook | null {
   return useSessionStore((s) => s.selectedBook);
 }
-
-/** The last-known server URL (pre-filled for the login form). */
-export function useServerUrl(): string {
-  return useSessionStore((s) => s.serverUrl);
-}
-
-// ---------------------------------------------------------------------------
-// Test-only exports
-// ---------------------------------------------------------------------------
-
-/** Exported for unit testing only — not part of the public API. */
-export const __testing = {
-  STORAGE_KEY_SERVER_URL,
-  readPersistedServerUrl,
-  persistServerUrl,
-};

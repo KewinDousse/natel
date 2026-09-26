@@ -2,7 +2,7 @@
  * Tests for src/dav/internal.ts helpers in isolation.
  *
  * Tests pure functions (extractEtag, extractAddressData, mapDavError,
- * deriveBookUrl) with realistic tsdav response shapes. No mocks — these are
+ * deriveBookUrl, the proxy href mapping) with realistic tsdav response shapes. No mocks — these are
  * pure functions tested directly via the __testing export.
  */
 
@@ -11,7 +11,15 @@ import { describe, expect, it } from "vitest";
 import { __testing } from "@/dav/internal";
 import { DavError } from "@/dav/types";
 
-const { extractEtag, extractAddressData, isMemberResponse, mapDavError, deriveBookUrl } = __testing;
+const {
+  extractEtag,
+  extractAddressData,
+  isMemberResponse,
+  mapDavError,
+  deriveBookUrl,
+  fromServerHref,
+  toServerPath,
+} = __testing;
 
 /**
  * Create a minimal DAVResponse-like object for testing.
@@ -112,6 +120,51 @@ describe("extractAddressData", () => {
 
   it("returns undefined for object without _cdata", () => {
     expect(extractAddressData(resp({ addressData: { unrelated: "val" } }))).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Proxy href mapping (jsdom's origin is http://localhost:3000)
+// ---------------------------------------------------------------------------
+
+describe("fromServerHref", () => {
+  const BOOK = "http://localhost:3000/dav/dav.php/addressbooks/alice/default/";
+
+  it("puts the /dav prefix in front of an absolute server path", () => {
+    expect(fromServerHref("/dav.php/addressbooks/alice/default/1.vcf", BOOK)).toBe(`${BOOK}1.vcf`);
+  });
+
+  it("keeps only the path of a URL carrying the server's own origin", () => {
+    expect(
+      fromServerHref("https://dav.example.com/dav.php/addressbooks/alice/default/1.vcf", BOOK),
+    ).toBe(`${BOOK}1.vcf`);
+  });
+
+  it("resolves a relative href against the request URL", () => {
+    expect(fromServerHref("1.vcf", BOOK)).toBe(`${BOOK}1.vcf`);
+  });
+
+  it("prefixes a server path that itself starts with /dav", () => {
+    expect(fromServerHref("/dav/alice/", "http://localhost:3000/dav/")).toBe(
+      "http://localhost:3000/dav/dav/alice/",
+    );
+  });
+});
+
+describe("toServerPath", () => {
+  it("strips the /dav prefix and the origin", () => {
+    expect(toServerPath("http://localhost:3000/dav/dav.php/addressbooks/alice/1.vcf")).toBe(
+      "/dav.php/addressbooks/alice/1.vcf",
+    );
+  });
+
+  it("is the inverse of fromServerHref", () => {
+    const path = "/dav.php/addressbooks/alice/default/a%20b.vcf";
+    expect(toServerPath(fromServerHref(path, "http://localhost:3000/dav/"))).toBe(path);
+  });
+
+  it("throws UNEXPECTED for a URL outside the proxy", () => {
+    expect(() => toServerPath("http://localhost:3000/contacts/1")).toThrow(DavError);
   });
 });
 

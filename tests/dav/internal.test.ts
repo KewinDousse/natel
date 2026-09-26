@@ -35,22 +35,42 @@ type MockClient = {
   davRequest: ReturnType<typeof vi.fn>;
   propfind: ReturnType<typeof vi.fn>;
   addressBookMultiGet: ReturnType<typeof vi.fn>;
-  fetchAddressBooks: ReturnType<typeof vi.fn>;
   [key: string]: ReturnType<typeof vi.fn>;
 };
 
+/** Where the mocked server's discovery leads: principal, then home. */
+const PRINCIPAL_PATH = "/principals/alice/";
+const HOME_PATH = "/books/";
+
+/** Answer the discovery PROPFINDs session creation sends. */
+function discoveryResponse(props: Record<string, unknown>): DAVResponse[] | undefined {
+  if ("d:current-user-principal" in props) {
+    return [davResp({ href: "/", props: { currentUserPrincipal: { href: PRINCIPAL_PATH } } })];
+  }
+  if ("card:addressbook-home-set" in props) {
+    return [davResp({ href: PRINCIPAL_PATH, props: { addressbookHomeSet: { href: HOME_PATH } } })];
+  }
+  return undefined;
+}
+
+/**
+ * A tsdav client whose propfind answers discovery itself and forwards every
+ * other call to the `propfind` override, so tests only see their own calls.
+ */
 function mockClient(overrides: Partial<MockClient> = {}): MockClient {
+  const { propfind: operationPropfind = vi.fn(), ...rest } = overrides;
+  const forward = operationPropfind as (args: unknown) => unknown;
   return {
     davRequest: vi.fn(),
-    propfind: vi.fn(),
     addressBookMultiGet: vi.fn(),
-    fetchAddressBooks: vi.fn(),
-    ...overrides,
+    ...rest,
+    propfind: vi.fn(async (args: { props: Record<string, unknown> }) => {
+      return discoveryResponse(args.props) ?? forward(args);
+    }),
   };
 }
 
 const AUTH = {
-  serverUrl: "https://dav.example.com",
   username: "alice",
   password: "secret",
 };
@@ -63,7 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Clear the session cache so each test gets a fresh tsdav client from the
   // per-test mock setup. Without this, the cache would return the first test's
-  // session for all subsequent tests (same serverUrl + username key), breaking
+  // session for all subsequent tests (same username key), breaking
   // the mocked per-test client configuration.
   internalTesting.clearSessionCache();
 });
@@ -77,17 +97,161 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("createDavSession", () => {
-  it("passes serverUrl, credentials, authMethod, and defaultAccountType", async () => {
+  it("points tsdav at the same-origin proxy and leaves discovery to us", async () => {
     mockCreateDAVClient.mockResolvedValue(mockClient());
 
     await createDavSession(AUTH);
 
     expect(mockCreateDAVClient).toHaveBeenCalledWith({
-      serverUrl: "https://dav.example.com",
+      serverUrl: "http://localhost:3000/dav/",
       credentials: { username: "alice", password: "secret" },
       authMethod: "Basic",
-      defaultAccountType: "carddav",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Discovery behind the /dav proxy
+// ---------------------------------------------------------------------------
+
+describe("discovery", () => {
+  /** A client whose propfind is entirely scripted by the test. */
+  function scriptedClient(propfind: ReturnType<typeof vi.fn>): MockClient {
+    return { davRequest: vi.fn(), addressBookMultiGet: vi.fn(), propfind };
+  }
+
+  const BOOKS_RESPONSE = [
+    davResp({ href: "/dav.php/addressbooks/alice/", props: { resourcetype: { collection: "" } } }),
+    davResp({
+      href: "/dav.php/addressbooks/alice/default/",
+      props: { resourcetype: { collection: "", addressbook: "" }, displayname: "Contacts" },
+    }),
+    davResp({
+      href: "/dav.php/addressbooks/alice/work/",
+      props: { resourcetype: { collection: "", addressbook: "" } },
+    }),
+    davResp({
+      href: "/dav.php/addressbooks/alice/inbox/",
+      props: { resourcetype: { collection: "" } },
+    }),
+  ];
+
+  const NOT_FOUND = [davResp({ ok: false, status: 404, statusText: "Not Found" })];
+
+  it("starts at the well-known URL and maps every href into /dav", async () => {
+    const pfind = vi
+      .fn()
+      .mockResolvedValueOnce([
+        davResp({
+          href: "/",
+          props: { currentUserPrincipal: { href: "/dav.php/principals/alice/" } },
+        }),
+      ])
+      .mockResolvedValueOnce([
+        davResp({
+          href: "/dav.php/principals/alice/",
+          props: { addressbookHomeSet: { href: "/dav.php/addressbooks/alice/" } },
+        }),
+      ])
+      .mockResolvedValueOnce(BOOKS_RESPONSE);
+    mockCreateDAVClient.mockResolvedValue(scriptedClient(pfind));
+
+    const session = await createDavSession(AUTH);
+    const books = await session.discoverAddressBooks();
+
+    // The browser follows the well-known redirect, which the proxy maps under /dav.
+    expect(pfind.mock.calls.map(([args]) => [args.url, args.depth])).toEqual([
+      ["http://localhost:3000/dav/.well-known/carddav", "0"],
+      ["http://localhost:3000/dav/dav.php/principals/alice/", "0"],
+      ["http://localhost:3000/dav/dav.php/addressbooks/alice/", "1"],
+    ]);
+    expect(books).toEqual([
+      {
+        href: "http://localhost:3000/dav/dav.php/addressbooks/alice/default/",
+        displayName: "Contacts",
+      },
+      {
+        href: "http://localhost:3000/dav/dav.php/addressbooks/alice/work/",
+        displayName: "http://localhost:3000/dav/dav.php/addressbooks/alice/work/",
+      },
+    ]);
+  });
+
+  it("falls back to the server root without a well-known redirect", async () => {
+    const pfind = vi
+      .fn()
+      .mockResolvedValueOnce(NOT_FOUND)
+      .mockResolvedValueOnce([
+        davResp({ href: "/", props: { currentUserPrincipal: { href: "/alice/" } } }),
+      ])
+      .mockResolvedValueOnce([
+        davResp({ href: "/alice/", props: { addressbookHomeSet: { href: "/alice/" } } }),
+      ]);
+    mockCreateDAVClient.mockResolvedValue(scriptedClient(pfind));
+
+    await createDavSession(AUTH);
+
+    expect(pfind.mock.calls.map(([args]) => args.url)).toEqual([
+      "http://localhost:3000/dav/.well-known/carddav",
+      "http://localhost:3000/dav/",
+      "http://localhost:3000/dav/alice/",
+    ]);
+  });
+
+  it("falls back to Baïkal's /dav.php/ root last", async () => {
+    const pfind = vi
+      .fn()
+      .mockResolvedValueOnce(NOT_FOUND)
+      // Baïkal's web root is an HTML page: 200, no DAV properties.
+      .mockResolvedValueOnce([davResp({ href: "http://localhost:3000/dav/" })])
+      .mockResolvedValueOnce([
+        davResp({
+          href: "/dav.php/",
+          props: { currentUserPrincipal: { href: "/dav.php/principals/alice/" } },
+        }),
+      ])
+      .mockResolvedValueOnce([
+        davResp({
+          href: "/dav.php/principals/alice/",
+          props: { addressbookHomeSet: { href: "/dav.php/addressbooks/alice/" } },
+        }),
+      ])
+      .mockResolvedValueOnce(BOOKS_RESPONSE);
+    mockCreateDAVClient.mockResolvedValue(scriptedClient(pfind));
+
+    const session = await createDavSession(AUTH);
+    const books = await session.discoverAddressBooks();
+
+    expect(pfind.mock.calls.map(([args]) => args.url)).toEqual([
+      "http://localhost:3000/dav/.well-known/carddav",
+      "http://localhost:3000/dav/",
+      "http://localhost:3000/dav/dav.php/",
+      "http://localhost:3000/dav/dav.php/principals/alice/",
+      "http://localhost:3000/dav/dav.php/addressbooks/alice/",
+    ]);
+    expect(books).toHaveLength(2);
+  });
+
+  it("stops at the first root that rejects the credentials", async () => {
+    const pfind = vi
+      .fn()
+      .mockResolvedValue([davResp({ ok: false, status: 401, statusText: "Unauthorized" })]);
+    mockCreateDAVClient.mockResolvedValue(scriptedClient(pfind));
+
+    await expect(createDavSession(AUTH)).rejects.toMatchObject({ code: "AUTH" });
+    expect(pfind).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects with the last root's error when no root has a principal", async () => {
+    const pfind = vi
+      .fn()
+      .mockResolvedValueOnce(NOT_FOUND)
+      .mockResolvedValueOnce([davResp({ href: "http://localhost:3000/dav/" })])
+      .mockResolvedValueOnce(NOT_FOUND);
+    mockCreateDAVClient.mockResolvedValue(scriptedClient(pfind));
+
+    await expect(createDavSession(AUTH)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(pfind).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -131,7 +295,7 @@ describe("session cache", () => {
   it("evicts on operation AUTH error so the next call creates a fresh session", async () => {
     // Set up a client whose discoverAddressBooks fails with AUTH.
     const brokenClient = mockClient({
-      fetchAddressBooks: vi.fn().mockRejectedValue(new DavError("auth failed", "AUTH")),
+      propfind: vi.fn().mockRejectedValue(new DavError("auth failed", "AUTH")),
     });
     mockCreateDAVClient.mockReset();
     mockCreateDAVClient.mockResolvedValue(brokenClient);
@@ -161,21 +325,21 @@ describe("listMembers", () => {
   it("calls propfind with the member props literal and depth 1", async () => {
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "https://dav.example.com/dav/books/default/",
+        href: "https://dav.example.com/books/default/",
         props: { resourcetype: { collection: "", addressbook: "" } },
       }),
       davResp({
-        href: "https://dav.example.com/dav/books/default/1.vcf",
+        href: "https://dav.example.com/books/default/1.vcf",
         props: { getetag: '"e1"' },
       }),
     ]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ propfind: pfind }));
 
     const session = await createDavSession(AUTH);
-    await session.listMembers("https://dav.example.com/dav/books/default/");
+    await session.listMembers("http://localhost:3000/dav/books/default/");
 
     expect(pfind).toHaveBeenCalledWith({
-      url: "https://dav.example.com/dav/books/default/",
+      url: "http://localhost:3000/dav/books/default/",
       props: { "d:getetag": {}, "d:resourcetype": {} },
       depth: "1",
     });
@@ -184,50 +348,50 @@ describe("listMembers", () => {
   it("excludes the collection response from members", async () => {
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "https://dav.example.com/dav/books/default/",
+        href: "https://dav.example.com/books/default/",
         props: { resourcetype: { collection: "", addressbook: "" } },
       }),
       davResp({
-        href: "https://dav.example.com/dav/books/default/1.vcf",
+        href: "https://dav.example.com/books/default/1.vcf",
         props: { getetag: '"e1"' },
       }),
     ]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ propfind: pfind }));
 
     const session = await createDavSession(AUTH);
-    const members = await session.listMembers("https://dav.example.com/dav/books/default/");
+    const members = await session.listMembers("http://localhost:3000/dav/books/default/");
 
     expect(members).toHaveLength(1);
-    expect(members[0]?.href).toBe("https://dav.example.com/dav/books/default/1.vcf");
+    expect(members[0]?.href).toBe("http://localhost:3000/dav/books/default/1.vcf");
   });
 
   it("absolutises relative hrefs using bookHref", async () => {
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "https://dav.example.com/dav/books/default/",
+        href: "https://dav.example.com/books/default/",
         props: { resourcetype: { collection: "", addressbook: "" } },
       }),
-      davResp({ href: "/dav/books/default/1.vcf", props: { getetag: '"e1"' } }),
+      davResp({ href: "/books/default/1.vcf", props: { getetag: '"e1"' } }),
       davResp({ href: "2.vcf", props: { getetag: '"e2"' } }),
     ]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ propfind: pfind }));
 
     const session = await createDavSession(AUTH);
-    const members = await session.listMembers("https://dav.example.com/dav/books/default/");
+    const members = await session.listMembers("http://localhost:3000/dav/books/default/");
 
     expect(members).toHaveLength(2);
-    expect(members[0]?.href).toBe("https://dav.example.com/dav/books/default/1.vcf");
-    expect(members[1]?.href).toBe("https://dav.example.com/dav/books/default/2.vcf");
+    expect(members[0]?.href).toBe("http://localhost:3000/dav/books/default/1.vcf");
+    expect(members[1]?.href).toBe("http://localhost:3000/dav/books/default/2.vcf");
   });
 
   it("excludes non-ok responses from members", async () => {
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "https://dav.example.com/dav/books/default/",
+        href: "https://dav.example.com/books/default/",
         props: { resourcetype: { collection: "", addressbook: "" } },
       }),
       davResp({
-        href: "https://dav.example.com/dav/books/default/1.vcf",
+        href: "https://dav.example.com/books/default/1.vcf",
         props: { getetag: '"e1"' },
         ok: false,
         status: 404,
@@ -236,7 +400,7 @@ describe("listMembers", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ propfind: pfind }));
 
     const session = await createDavSession(AUTH);
-    const members = await session.listMembers("https://dav.example.com/dav/books/default/");
+    const members = await session.listMembers("http://localhost:3000/dav/books/default/");
 
     expect(members).toHaveLength(0);
   });
@@ -244,7 +408,7 @@ describe("listMembers", () => {
   it("throws NOT_FOUND when the book PROPFIND returns 404", async () => {
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "https://dav.example.com/dav/books/default/",
+        href: "https://dav.example.com/books/default/",
         props: { resourcetype: { collection: "", addressbook: "" } },
         ok: false,
         status: 404,
@@ -255,14 +419,14 @@ describe("listMembers", () => {
 
     const session = await createDavSession(AUTH);
     await expect(
-      session.listMembers("https://dav.example.com/dav/books/default/"),
+      session.listMembers("http://localhost:3000/dav/books/default/"),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("throws AUTH when the book PROPFIND returns 401", async () => {
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "https://dav.example.com/dav/books/default/",
+        href: "https://dav.example.com/books/default/",
         props: { resourcetype: { collection: "", addressbook: "" } },
         ok: false,
         status: 401,
@@ -273,14 +437,14 @@ describe("listMembers", () => {
 
     const session = await createDavSession(AUTH);
     await expect(
-      session.listMembers("https://dav.example.com/dav/books/default/"),
+      session.listMembers("http://localhost:3000/dav/books/default/"),
     ).rejects.toMatchObject({ code: "AUTH" });
   });
 
   it("throws UNEXPECTED when the book PROPFIND returns 500", async () => {
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "https://dav.example.com/dav/books/default/",
+        href: "https://dav.example.com/books/default/",
         props: { resourcetype: { collection: "", addressbook: "" } },
         ok: false,
         status: 500,
@@ -291,7 +455,7 @@ describe("listMembers", () => {
 
     const session = await createDavSession(AUTH);
     await expect(
-      session.listMembers("https://dav.example.com/dav/books/default/"),
+      session.listMembers("http://localhost:3000/dav/books/default/"),
     ).rejects.toMatchObject({ code: "UNEXPECTED" });
   });
 });
@@ -304,34 +468,34 @@ describe("fetchCard", () => {
   it("calls addressBookMultiGet with the multiget props literal and a path-only objectUrl", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/1.vcf",
+        href: "/books/default/1.vcf",
         props: { getetag: '"e1"', addressData: "BEGIN:VCARD\nEND:VCARD" },
       }),
     ]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
 
     const session = await createDavSession(AUTH);
-    await session.fetchCard("https://dav.example.com/dav/books/default/1.vcf");
+    await session.fetchCard("http://localhost:3000/dav/books/default/1.vcf");
 
     expect(multiget).toHaveBeenCalledWith({
-      url: "https://dav.example.com/dav/books/default/",
+      url: "http://localhost:3000/dav/books/default/",
       props: { "d:getetag": {}, "card:address-data": {} },
       depth: "1",
-      objectUrls: ["/dav/books/default/1.vcf"],
+      objectUrls: ["/books/default/1.vcf"],
     });
   });
 
   it("URL-matches the response by absolute href", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/1.vcf",
+        href: "/books/default/1.vcf",
         props: { getetag: '"e1"', addressData: "BEGIN:VCARD\nFN:Alice\nEND:VCARD" },
       }),
     ]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
 
     const session = await createDavSession(AUTH);
-    const result = await session.fetchCard("https://dav.example.com/dav/books/default/1.vcf");
+    const result = await session.fetchCard("http://localhost:3000/dav/books/default/1.vcf");
 
     expect(result.vcardText).toBe("BEGIN:VCARD\nFN:Alice\nEND:VCARD");
     expect(result.etag).toBe('"e1"');
@@ -340,7 +504,7 @@ describe("fetchCard", () => {
   it("finds the card when multiget returns relative + absolute hrefs", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/1.vcf",
+        href: "/books/default/1.vcf",
         props: { getetag: '"e1"', addressData: "BEGIN:VCARD\nFN:Alice\nEND:VCARD" },
       }),
       davResp({
@@ -351,7 +515,7 @@ describe("fetchCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
 
     const session = await createDavSession(AUTH);
-    const result = await session.fetchCard("https://dav.example.com/dav/books/default/1.vcf");
+    const result = await session.fetchCard("http://localhost:3000/dav/books/default/1.vcf");
 
     expect(result.vcardText).toBe("BEGIN:VCARD\nFN:Alice\nEND:VCARD");
   });
@@ -359,7 +523,7 @@ describe("fetchCard", () => {
   it("throws NOT_FOUND when no response href matches", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/2.vcf",
+        href: "/books/default/2.vcf",
         props: { getetag: '"e2"', addressData: "BEGIN:VCARD\nFN:Bob\nEND:VCARD" },
       }),
     ]);
@@ -367,7 +531,7 @@ describe("fetchCard", () => {
 
     const session = await createDavSession(AUTH);
     await expect(
-      session.fetchCard("https://dav.example.com/dav/books/default/1.vcf"),
+      session.fetchCard("http://localhost:3000/dav/books/default/1.vcf"),
     ).rejects.toThrow(/Card not found/);
   });
 });
@@ -380,11 +544,11 @@ describe("fetchCards", () => {
   it("calls addressBookMultiGet once with all objectUrls as path-only URLs", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/1.vcf",
+        href: "/books/default/1.vcf",
         props: { getetag: '"e1"', addressData: "VCARD1" },
       }),
       davResp({
-        href: "/dav/books/default/2.vcf",
+        href: "/books/default/2.vcf",
         props: { getetag: '"e2"', addressData: "VCARD2" },
       }),
     ]);
@@ -392,17 +556,17 @@ describe("fetchCards", () => {
 
     const session = await createDavSession(AUTH);
     const results = await session.fetchCards([
-      "https://dav.example.com/dav/books/default/1.vcf",
-      "https://dav.example.com/dav/books/default/2.vcf",
+      "http://localhost:3000/dav/books/default/1.vcf",
+      "http://localhost:3000/dav/books/default/2.vcf",
     ]);
 
     // Single multiget call with all hrefs as path-only URLs.
     expect(multiget).toHaveBeenCalledTimes(1);
     expect(multiget).toHaveBeenCalledWith({
-      url: "https://dav.example.com/dav/books/default/",
+      url: "http://localhost:3000/dav/books/default/",
       props: { "d:getetag": {}, "card:address-data": {} },
       depth: "1",
-      objectUrls: ["/dav/books/default/1.vcf", "/dav/books/default/2.vcf"],
+      objectUrls: ["/books/default/1.vcf", "/books/default/2.vcf"],
     });
     expect(results).toHaveLength(2);
   });
@@ -411,11 +575,11 @@ describe("fetchCards", () => {
     // Responses come back in reverse order.
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/2.vcf",
+        href: "/books/default/2.vcf",
         props: { getetag: '"e2"', addressData: "VCARD2" },
       }),
       davResp({
-        href: "/dav/books/default/1.vcf",
+        href: "/books/default/1.vcf",
         props: { getetag: '"e1"', addressData: "VCARD1" },
       }),
     ]);
@@ -423,24 +587,24 @@ describe("fetchCards", () => {
 
     const session = await createDavSession(AUTH);
     const results = await session.fetchCards([
-      "https://dav.example.com/dav/books/default/1.vcf",
-      "https://dav.example.com/dav/books/default/2.vcf",
+      "http://localhost:3000/dav/books/default/1.vcf",
+      "http://localhost:3000/dav/books/default/2.vcf",
     ]);
 
     expect(results).toHaveLength(2);
     // Results are returned in request order.
-    expect(results[0]?.href).toBe("https://dav.example.com/dav/books/default/1.vcf");
-    expect(results[1]?.href).toBe("https://dav.example.com/dav/books/default/2.vcf");
+    expect(results[0]?.href).toBe("http://localhost:3000/dav/books/default/1.vcf");
+    expect(results[1]?.href).toBe("http://localhost:3000/dav/books/default/2.vcf");
   });
 
   it("skips responses missing address-data", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/1.vcf",
+        href: "/books/default/1.vcf",
         props: { getetag: '"e1"' }, // no addressData
       }),
       davResp({
-        href: "/dav/books/default/2.vcf",
+        href: "/books/default/2.vcf",
         props: { getetag: '"e2"', addressData: "VCARD2" },
       }),
     ]);
@@ -448,22 +612,22 @@ describe("fetchCards", () => {
 
     const session = await createDavSession(AUTH);
     const results = await session.fetchCards([
-      "https://dav.example.com/dav/books/default/1.vcf",
-      "https://dav.example.com/dav/books/default/2.vcf",
+      "http://localhost:3000/dav/books/default/1.vcf",
+      "http://localhost:3000/dav/books/default/2.vcf",
     ]);
 
     expect(results).toHaveLength(1);
-    expect(results[0]?.href).toBe("https://dav.example.com/dav/books/default/2.vcf");
+    expect(results[0]?.href).toBe("http://localhost:3000/dav/books/default/2.vcf");
   });
 
   it("skips responses missing etag", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/1.vcf",
+        href: "/books/default/1.vcf",
         props: { getetag: '"e1"', addressData: "VCARD1" },
       }),
       davResp({
-        href: "/dav/books/default/2.vcf",
+        href: "/books/default/2.vcf",
         props: { addressData: "VCARD2" }, // no getetag
       }),
     ]);
@@ -471,12 +635,12 @@ describe("fetchCards", () => {
 
     const session = await createDavSession(AUTH);
     const results = await session.fetchCards([
-      "https://dav.example.com/dav/books/default/1.vcf",
-      "https://dav.example.com/dav/books/default/2.vcf",
+      "http://localhost:3000/dav/books/default/1.vcf",
+      "http://localhost:3000/dav/books/default/2.vcf",
     ]);
 
     expect(results).toHaveLength(1);
-    expect(results[0]?.href).toBe("https://dav.example.com/dav/books/default/1.vcf");
+    expect(results[0]?.href).toBe("http://localhost:3000/dav/books/default/1.vcf");
   });
 
   it("returns empty array when hrefs is empty (short-circuit)", async () => {
@@ -498,14 +662,14 @@ describe("fetchCards", () => {
 
 describe("updateCard", () => {
   const VCARD = "BEGIN:VCARD\nVERSION:3.0\nFN:Alice\nEND:VCARD\n";
-  const CARD_HREF = "https://dav.example.com/dav/books/default/1.vcf";
+  const CARD_HREF = "http://localhost:3000/dav/books/default/1.vcf";
 
   it("calls davRequest with PUT, If-Match etag, vcard body, and text/vcard content-type", async () => {
     const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
     const pfind = vi
       .fn()
       .mockResolvedValue([
-        davResp({ href: "/dav/books/default/1.vcf", props: { getetag: '"new-etag"' } }),
+        davResp({ href: "/books/default/1.vcf", props: { getetag: '"new-etag"' } }),
       ]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
 
@@ -529,7 +693,7 @@ describe("updateCard", () => {
     const pfind = vi
       .fn()
       .mockResolvedValue([
-        davResp({ href: "/dav/books/default/1.vcf", props: { getetag: '"new-etag"' } }),
+        davResp({ href: "/books/default/1.vcf", props: { getetag: '"new-etag"' } }),
       ]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
 
@@ -543,9 +707,7 @@ describe("updateCard", () => {
     const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
     const pfind = vi
       .fn()
-      .mockResolvedValue([
-        davResp({ href: "/dav/books/default/1.vcf", props: { getetag: '"e"' } }),
-      ]);
+      .mockResolvedValue([davResp({ href: "/books/default/1.vcf", props: { getetag: '"e"' } })]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
 
     const session = await createDavSession(AUTH);
@@ -658,7 +820,7 @@ describe("updateCard", () => {
     const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
     const pfind = vi
       .fn()
-      .mockResolvedValue([davResp({ href: "/dav/books/default/1.vcf", props: { getetag: "" } })]);
+      .mockResolvedValue([davResp({ href: "/books/default/1.vcf", props: { getetag: "" } })]);
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
 
     const session = await createDavSession(AUTH);
@@ -675,7 +837,7 @@ describe("updateCard", () => {
 
 describe("createCard", () => {
   const VCARD = "BEGIN:VCARD\nVERSION:3.0\nFN:Bob\nEND:VCARD\n";
-  const BOOK_HREF = "https://dav.example.com/dav/books/default/";
+  const BOOK_HREF = "http://localhost:3000/dav/books/default/";
 
   beforeEach(() => {
     vi.spyOn(crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000000");
@@ -685,7 +847,7 @@ describe("createCard", () => {
     const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 201 })]);
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
+        href: "/books/default/00000000-0000-4000-8000-000000000000.vcf",
         props: { getetag: '"e"' },
       }),
     ]);
@@ -695,7 +857,7 @@ describe("createCard", () => {
     await session.createCard(BOOK_HREF, VCARD);
 
     expect(davId).toHaveBeenCalledWith({
-      url: "https://dav.example.com/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
+      url: "http://localhost:3000/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
       init: {
         method: "PUT",
         headers: { "Content-Type": "text/vcard; charset=utf-8", "If-None-Match": "*" },
@@ -710,7 +872,7 @@ describe("createCard", () => {
     const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 201 })]);
     const pfind = vi.fn().mockResolvedValue([
       davResp({
-        href: "/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
+        href: "/books/default/00000000-0000-4000-8000-000000000000.vcf",
         props: { getetag: '"new-e"' },
       }),
     ]);
@@ -720,7 +882,7 @@ describe("createCard", () => {
     const result = await session.createCard(BOOK_HREF, VCARD);
 
     expect(result).toEqual({
-      href: "https://dav.example.com/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
+      href: "http://localhost:3000/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
       etag: '"new-e"',
     });
   });
@@ -790,7 +952,7 @@ describe("createCard", () => {
 // ---------------------------------------------------------------------------
 
 describe("deleteCard", () => {
-  const CARD_HREF = "https://dav.example.com/dav/books/default/1.vcf";
+  const CARD_HREF = "http://localhost:3000/dav/books/default/1.vcf";
 
   it("calls davRequest with DELETE and If-Match etag", async () => {
     const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 204 })]);
