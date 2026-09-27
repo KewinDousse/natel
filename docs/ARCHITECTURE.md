@@ -17,6 +17,9 @@ Browser ──HTTPS──▶ Caddy (single container)
   under `/dav`. It rewrites no bodies: `dav/` maps hrefs between the server's
   URL space and `/dav` in both directions, and does discovery itself
   (ADR 015).
+- It drops `WWW-Authenticate` from responses: that challenge makes the browser
+  open its own Basic auth prompt over the app, which reports a rejected login
+  itself.
 - `BAIKAL_URL` is the only required environment variable. The Caddyfile reads it
   directly (`{$BAIKAL_URL}`), no entrypoint templating.
 - Users are expected to put this behind their own reverse proxy (SWAG, Traefik,

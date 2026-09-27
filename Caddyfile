@@ -30,6 +30,10 @@
       # Redirects (e.g. /.well-known/carddav) point into the server's URL
       # space; put them back under /dav so the browser can follow them.
       header_down Location "^(https?://[^/]+)?/" "/dav/"
+      # A 401 carrying WWW-Authenticate makes the browser open its own login
+      # prompt over the app. The app sends credentials itself and reports a
+      # rejected login on its own, so the challenge is dropped.
+      header_down -WWW-Authenticate
     }
   }
 
