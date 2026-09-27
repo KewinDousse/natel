@@ -96,6 +96,7 @@
   "err_save_network": "Network error — could not save.",
   "err_save_auth": "Session expired — sign in again.",
   "err_save_unexpected": "Unexpected error — try again.",
+  "err_create_exists": "This contact already exists on the server, probably saved by an earlier attempt. Reload the list before trying again.",
   "label_family": "Last name",
   "label_given": "First name",
   "label_title": "Job title",

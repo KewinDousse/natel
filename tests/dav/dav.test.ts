@@ -231,7 +231,7 @@ describe("updateCard", () => {
 // ---------------------------------------------------------------------------
 
 describe("createCard", () => {
-  it("passes bookHref and vcardText to the session", async () => {
+  it("passes the card href and vcardText to the session", async () => {
     const createCardMock = vi
       .fn()
       .mockResolvedValue({ href: "/dav/books/default/x.vcf", etag: '"e"' });
@@ -239,9 +239,12 @@ describe("createCard", () => {
       mockSession({ createCard: createCardMock }),
     );
 
-    const result = await createCard(mockAuth, "/dav/books/default/", "BEGIN:VCARD\nEND:VCARD");
+    const result = await createCard(mockAuth, "/dav/books/default/x.vcf", "BEGIN:VCARD\nEND:VCARD");
 
-    expect(createCardMock).toHaveBeenCalledWith("/dav/books/default/", "BEGIN:VCARD\nEND:VCARD");
+    expect(createCardMock).toHaveBeenCalledWith(
+      "/dav/books/default/x.vcf",
+      "BEGIN:VCARD\nEND:VCARD",
+    );
     expect(result).toEqual({ href: "/dav/books/default/x.vcf", etag: '"e"' });
   });
 
@@ -252,7 +255,7 @@ describe("createCard", () => {
       }),
     );
 
-    await expect(createCard(mockAuth, "/dav/books/default/", "vcard")).rejects.toMatchObject({
+    await expect(createCard(mockAuth, "/dav/books/default/x.vcf", "vcard")).rejects.toMatchObject({
       code: "AUTH",
     });
   });

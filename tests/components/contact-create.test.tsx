@@ -24,11 +24,7 @@ const { mockDiscoverAddressBooks, mockListContacts, mockFetchCards, mockCreateCa
     mockFetchCards: vi.fn(async () => []),
     mockCreateCard:
       vi.fn<
-        (
-          auth: DavAuth,
-          bookHref: string,
-          vcardText: string,
-        ) => Promise<{ href: string; etag: string }>
+        (auth: DavAuth, href: string, vcardText: string) => Promise<{ href: string; etag: string }>
       >(),
   }),
 );
@@ -99,7 +95,7 @@ describe("new contact", () => {
   });
 
   it("creates a vCard 3.0 in the selected book and opens its page", async () => {
-    mockCreateCard.mockResolvedValue({ href: `${BOOK.href}created.vcf`, etag: '"e1"' });
+    mockCreateCard.mockImplementation(async (_auth, href) => ({ href, etag: '"e1"' }));
     const router = renderApp("/contacts/new");
     const user = userEvent.setup();
     const [family, given] = await nameInputs();
@@ -109,14 +105,14 @@ describe("new contact", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => expect(mockCreateCard).toHaveBeenCalledTimes(1));
-    const [auth, bookHref, vcard] = mockCreateCard.mock.calls[0] ?? [];
+    const [auth, href, vcard] = mockCreateCard.mock.calls[0] ?? [];
     expect(auth).toEqual(AUTH);
-    expect(bookHref).toBe(BOOK.href);
     expect(vcard).toContain("VERSION:3.0");
     expect(vcard).toContain("N:Favre;Aline;;;");
     expect(vcard).toContain("FN:Aline Favre");
     const uid = vcard?.match(/^UID:(.+)$/m)?.[1]?.trim();
     expect(uid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(href).toBe(`${BOOK.href}${uid}.vcf`);
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/${uid}`));
     const article = await screen.findByRole("article");
@@ -147,7 +143,7 @@ describe("new contact", () => {
     expect(mockCreateCard).not.toHaveBeenCalled();
   });
 
-  it("reports a 412 on create as an error, not as an edit conflict", async () => {
+  it("reports a 412 as an existing card, not as an edit conflict", async () => {
     mockCreateCard.mockRejectedValue(new DavError("exists", "CONFLICT"));
     const router = renderApp("/contacts/new");
     const user = userEvent.setup();
@@ -156,7 +152,7 @@ describe("new contact", () => {
     await user.type(family, "Favre");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
-    expect(await screen.findByText("Erreur inattendue — réessayez.")).toBeTruthy();
+    expect(await screen.findByText(/Ce contact existe déjà sur le serveur/)).toBeTruthy();
     expect(screen.queryByText("Ce contact a été modifié ailleurs.")).toBeNull();
     expect(router.state.location.pathname).toBe("/contacts/new");
   });

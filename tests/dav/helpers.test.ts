@@ -8,6 +8,7 @@
 
 import type { DAVResponse } from "tsdav";
 import { describe, expect, it } from "vitest";
+import { cardHref } from "@/dav";
 import { __testing } from "@/dav/internal";
 import { DavError } from "@/dav/types";
 
@@ -399,5 +400,23 @@ describe("isMemberResponse", () => {
   it("excludes a non-ok response", () => {
     const resp = { status: 404, statusText: "Not Found", ok: false } as unknown as DAVResponse;
     expect(isMemberResponse(resp)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cardHref
+// ---------------------------------------------------------------------------
+
+describe("cardHref", () => {
+  it("names the card after its UID in the book", () => {
+    expect(cardHref("http://localhost:3000/dav/books/a/", "0b1c-2d")).toBe(
+      "http://localhost:3000/dav/books/a/0b1c-2d.vcf",
+    );
+  });
+
+  it("percent-encodes a UID that is not URL-safe", () => {
+    expect(cardHref("http://localhost:3000/dav/books/a/", "urn:uuid:x/y z")).toBe(
+      "http://localhost:3000/dav/books/a/urn%3Auuid%3Ax%2Fy%20z.vcf",
+    );
   });
 });

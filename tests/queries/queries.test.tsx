@@ -48,7 +48,7 @@ const {
     vi.fn<
       (
         auth: DavAuth,
-        bookHref: string,
+        href: string,
         vcardText: string,
       ) => Promise<{
         href: string;
@@ -72,7 +72,9 @@ const {
   mockSerialise: vi.fn<(contact: Contact) => string>(),
 }));
 
-vi.mock("@/dav", () => ({
+vi.mock("@/dav", async () => ({
+  DavError: (await import("@/dav/types")).DavError,
+  cardHref: (bookHref: string, uid: string) => `${bookHref}${uid}.vcf`,
   discoverAddressBooks: mockDiscoverAddressBooks,
   listContacts: mockListContacts,
   fetchCard: mockFetchCard,
@@ -358,34 +360,48 @@ describe("loadFullBook", () => {
 // ---------------------------------------------------------------------------
 
 describe("useCreateContact", () => {
-  it("serialises and creates a card, then adds it to the cached book", async () => {
-    mockSerialise.mockReturnValue("SERIALISED_VCARD");
-    mockCreateCard.mockResolvedValue({
-      href: "https://dav.example.com/dav/books/default/new.vcf",
-      etag: '"new-e"',
+  const NEW_HREF = `${MOCK_BOOK.href}new-uid.vcf`;
+
+  function renderCreate(client: QueryClient) {
+    return renderHook(() => useCreateContact(MOCK_AUTH, MOCK_BOOK.href), {
+      wrapper: wrapper(client),
     });
+  }
+
+  it("creates the card at an href named after its UID, then adds it to the cached book", async () => {
+    mockSerialise.mockReturnValue("SERIALISED_VCARD");
+    mockCreateCard.mockResolvedValue({ href: NEW_HREF, etag: '"new-e"' });
 
     const existing = makeContact({ etag: '"e1"' });
-    const contact = makeContact({ etag: "", href: "" });
+    const contact = makeContact({ uid: "new-uid", etag: "", href: "" });
     const client = createTestClient();
     const key = ["contacts", MOCK_AUTH.username, MOCK_BOOK.href];
     client.setQueryData(key, { contacts: [existing], skipped: [] });
-    const { result } = renderHook(() => useCreateContact(MOCK_AUTH, MOCK_BOOK.href), {
-      wrapper: wrapper(client),
-    });
+    const { result } = renderCreate(client);
 
     result.current.mutate(contact);
     await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
 
     expect(mockSerialise).toHaveBeenCalledWith(contact);
-    expect(mockCreateCard).toHaveBeenCalledWith(MOCK_AUTH, MOCK_BOOK.href, "SERIALISED_VCARD");
-    const created = {
-      ...contact,
-      href: "https://dav.example.com/dav/books/default/new.vcf",
-      etag: '"new-e"',
-    };
+    expect(mockCreateCard).toHaveBeenCalledWith(MOCK_AUTH, NEW_HREF, "SERIALISED_VCARD");
+    const created = { ...contact, href: NEW_HREF, etag: '"new-e"' };
     expect(result.current.data).toEqual(created);
     expect(client.getQueryData<LoadFullBookResult>(key)?.contacts).toEqual([existing, created]);
+  });
+
+  it("surfaces a 412 as a conflict, without any further write", async () => {
+    mockSerialise.mockReturnValue("SERIALISED_VCARD");
+    mockCreateCard.mockRejectedValue(new DavError("exists", "CONFLICT"));
+
+    const contact = makeContact({ uid: "new-uid", etag: "", href: "" });
+    const { result } = renderCreate(createTestClient());
+
+    result.current.mutate(contact);
+    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+
+    expect(result.current.error).toMatchObject({ code: "CONFLICT" });
+    expect(mockFetchCard).not.toHaveBeenCalled();
+    expect(mockUpdateCard).not.toHaveBeenCalled();
   });
 });
 

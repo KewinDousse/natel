@@ -236,3 +236,22 @@ not fix the password.
 well-known URL. Without that redirect, only a root or `/dav.php/` server is
 found, at the cost of one or two extra PROPFINDs at sign-in. Caddy and Vite
 must keep the same `Location` rule.
+
+## 016 — New cards are named after their UID; a 412 on create is shown
+
+**Context.** A create is a PUT with `If-None-Match: *` followed by a PROPFIND
+for the ETag. If the PUT lands but the answer or the PROPFIND is lost, the
+user sees an error and saves again. With a random href per attempt, the retry
+made a second resource with the same UID, which servers reject with an
+unclear error (RFC 6352 `no-uid-conflict`), while the contact already
+existed.
+
+**Decision.** A new card's href is `<uid>.vcf` (`cardHref`), so a retry
+targets the same resource and gets a 412. That 412 is shown as is, with a
+message saying the contact already exists and the list should be reloaded.
+Recovering it automatically (reading the card and writing over it when it
+has our UID) was considered and rejected: invariant 5 stays without
+exception, every 412 reaches the user.
+
+**Consequences.** A retry after a lost answer never duplicates a contact and
+says what happened; the user reloads to see the card that was saved.

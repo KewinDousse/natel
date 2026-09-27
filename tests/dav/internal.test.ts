@@ -837,13 +837,10 @@ describe("updateCard", () => {
 
 describe("createCard", () => {
   const VCARD = "BEGIN:VCARD\nVERSION:3.0\nFN:Bob\nEND:VCARD\n";
-  const BOOK_HREF = "http://localhost:3000/dav/books/default/";
+  const CARD_HREF =
+    "http://localhost:3000/dav/books/default/00000000-0000-4000-8000-000000000000.vcf";
 
-  beforeEach(() => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000000");
-  });
-
-  it("PUTs a generated href with If-None-Match: * and the raw vcard body", async () => {
+  it("PUTs the given href with If-None-Match: * and the raw vcard body", async () => {
     const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 201 })]);
     const pfind = vi.fn().mockResolvedValue([
       davResp({
@@ -854,10 +851,10 @@ describe("createCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
 
     const session = await createDavSession(AUTH);
-    await session.createCard(BOOK_HREF, VCARD);
+    await session.createCard(CARD_HREF, VCARD);
 
     expect(davId).toHaveBeenCalledWith({
-      url: "http://localhost:3000/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
+      url: CARD_HREF,
       init: {
         method: "PUT",
         headers: { "Content-Type": "text/vcard; charset=utf-8", "If-None-Match": "*" },
@@ -879,10 +876,10 @@ describe("createCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
 
     const session = await createDavSession(AUTH);
-    const result = await session.createCard(BOOK_HREF, VCARD);
+    const result = await session.createCard(CARD_HREF, VCARD);
 
     expect(result).toEqual({
-      href: "http://localhost:3000/dav/books/default/00000000-0000-4000-8000-000000000000.vcf",
+      href: CARD_HREF,
       etag: '"new-e"',
     });
   });
@@ -894,7 +891,7 @@ describe("createCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
-    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({
+    await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
@@ -906,7 +903,7 @@ describe("createCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
-    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({ code: "AUTH" });
+    await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({ code: "AUTH" });
   });
 
   it("throws AUTH when PUT returns 403", async () => {
@@ -916,7 +913,7 @@ describe("createCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
-    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({ code: "AUTH" });
+    await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({ code: "AUTH" });
   });
 
   it("throws NOT_FOUND when PUT returns 404", async () => {
@@ -926,7 +923,7 @@ describe("createCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
-    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({
+    await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });
@@ -940,7 +937,7 @@ describe("createCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
-    await expect(session.createCard(BOOK_HREF, VCARD)).rejects.toMatchObject({
+    await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({
       code: "UNEXPECTED",
       message: expect.stringContaining("HTTP 500"),
     });

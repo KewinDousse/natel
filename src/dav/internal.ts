@@ -419,7 +419,7 @@ export interface DavSession {
     vcardText: string,
   ): Promise<{ href: string; etag: string }>;
   /** Create a card with a conditional PUT (If-None-Match: *); returns href + etag. */
-  createCard(bookHref: string, vcardText: string): Promise<{ href: string; etag: string }>;
+  createCard(href: string, vcardText: string): Promise<{ href: string; etag: string }>;
   /** Delete a card with a conditional DELETE (If-Match). */
   deleteCard(href: string, etag: string): Promise<void>;
 }
@@ -659,9 +659,8 @@ async function makeSession(auth: DavAuth): Promise<DavSession> {
       });
     },
 
-    async createCard(bookHref: string, vcardText: string) {
+    async createCard(href: string, vcardText: string) {
       return withAuthEviction(async () => {
-        const href = absolutizeHref(generateCardFilename(), bookHref);
         const responses = await wrap(
           () =>
             client.davRequest({
@@ -674,7 +673,7 @@ async function makeSession(auth: DavAuth): Promise<DavSession> {
               convertIncoming: false,
               parseOutgoing: false,
             }),
-          `creating card in ${bookHref}`,
+          `creating card ${href}`,
         );
 
         assertOk(responses[0], `creating card ${href}`);
@@ -724,7 +723,7 @@ async function makeSession(auth: DavAuth): Promise<DavSession> {
  * Resolve an href against a base, mapping malformed input to a DavError
  * instead of a raw TypeError from `new URL`.
  */
-function absolutizeHref(href: string, base: string): string {
+export function absolutizeHref(href: string, base: string): string {
   try {
     return new URL(href, base).href;
   } catch {
@@ -769,28 +768,6 @@ function deriveBookUrl(href: string): string {
   if (segments.length > 0) segments.pop(); // remove vCard filename
   url.pathname = segments.length > 0 ? `/${segments.join("/")}/` : "/";
   return url.toString();
-}
-
-/**
- * Generate a unique vCard filename for creation (RFC 6352 PUT to a new href).
- *
- * Prefers crypto.randomUUID (secure contexts, Node ≥ 19); non-secure
- * browsers expose getRandomValues but not randomUUID, so fall back to that.
- */
-function generateCardFilename(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return `${crypto.randomUUID()}.vcf`;
-  }
-  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-    return `${hex}.vcf`;
-  }
-  // Last resort: Math.random (non-cryptographic, but avoids a hard crash).
-  // In practice every modern browser and Node.js has crypto.getRandomValues.
-  const fallback = Math.random().toString(36).slice(2, 10);
-  return `${fallback}.vcf`;
 }
 
 /** Clear the in-memory session cache. Used on logout, and between tests. */

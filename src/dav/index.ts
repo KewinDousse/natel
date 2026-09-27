@@ -13,7 +13,7 @@
  * conflict UX — this module never auto-retries or auto-merges.
  */
 
-import { clearCachedDavSessions, createDavSession } from "./internal";
+import { absolutizeHref, clearCachedDavSessions, createDavSession } from "./internal";
 import type { DavAddressBook, DavAuth, DavContactDetail, DavContactSummary } from "./types";
 import { DavError } from "./types";
 
@@ -81,19 +81,26 @@ export async function updateCard(
 }
 
 /**
- * Create a new card with PUT and If-None-Match: *.
+ * The href a new card with this UID gets in a book: `<uid>.vcf`. Naming the
+ * resource after the UID makes a retried create land on the same href.
+ */
+export function cardHref(bookHref: string, uid: string): string {
+  return absolutizeHref(`${encodeURIComponent(uid)}.vcf`, bookHref);
+}
+
+/**
+ * Create a new card at `href` (see cardHref) with PUT and If-None-Match: *.
  *
- * Generates a server-unique href (UUID + .vcf). On HTTP 412 the resource
- * already exists (vanishingly rare with UUIDs).
- * Returns the new href and ETag.
+ * On HTTP 412 something already exists there — throws DavError with code
+ * CONFLICT. Returns the href and the new ETag.
  */
 export async function createCard(
   auth: DavAuth,
-  bookHref: string,
+  href: string,
   vcardText: string,
 ): Promise<DavContactSummary> {
   const session = await createDavSession(auth);
-  return await session.createCard(bookHref, vcardText);
+  return await session.createCard(href, vcardText);
 }
 
 /**

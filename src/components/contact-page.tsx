@@ -592,10 +592,12 @@ function ContactFiche({
       } catch (err) {
         if (session !== editSession.current) return;
         setSaveStatus("idle");
-        // A 412 on a create means the generated href is taken, not that
-        // someone edited the card: reload/overwrite would make no sense.
-        if (err instanceof DavError && err.code === "CONFLICT" && !isNew) {
-          setConflict(true);
+        // A 412 on a create means a card already has this UID's href, most
+        // likely an earlier attempt whose answer was lost: reload/overwrite
+        // would make no sense, the list should be reloaded instead.
+        if (err instanceof DavError && err.code === "CONFLICT") {
+          if (isNew) setSaveError(t("err_create_exists"));
+          else setConflict(true);
         } else if (err instanceof DavError && err.code === "NETWORK") {
           setSaveError(t("err_save_network"));
         } else if (err instanceof DavError && err.code === "AUTH") {
