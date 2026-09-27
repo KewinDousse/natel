@@ -49,10 +49,7 @@ its checklist is ticked. Later phases are intentions, not commitments.
 
 ## Phase 2 — MVP v0.1 ✅ when: the author has uninstalled InfCloud
 
-- [ ] Login (Basic Auth, in-memory only), logout
-      — Sign-in works, but the form asks for a server URL and connects to it
-        directly instead of going through `/dav`. It must ask only for
-        username and password (ADR 014). No logout control in the UI yet.
+- [x] Login (Basic Auth, in-memory only), logout
 - [x] Address book discovery and selection
 - [x] Contact list with instant client-side search
 - [x] Contact detail view
@@ -60,7 +57,8 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] Unknown properties preserved on save and counted in edit mode (not
       displayed, see `docs/DESIGN.md`)
 - [ ] Create, delete
-      — Mutation hooks exist in `src/queries/`, not wired to the UI yet.
+      — Create is wired (blank fiche at `/contacts/new`). Delete has its
+        mutation hook in `src/queries/`, not wired to the UI yet.
 - [x] ETag conflict UI: reload the server version or overwrite with my
       changes (ADR 013)
 - [ ] Responsive layout, usable on a phone
