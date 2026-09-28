@@ -33,6 +33,11 @@ Multi-stage Dockerfile:
 
 Target image size ~50 MB, RAM at rest under 20 MB.
 
+CI builds the image on every pull request and runs the e2e suite against it,
+so the Caddyfile is tested as users run it. A `v*` tag publishes it to
+`ghcr.io/kewindousse/natel` (`X.Y.Z`, `X.Y`, and `latest` for releases
+without a pre-release suffix).
+
 ## Source layout
 
 ```

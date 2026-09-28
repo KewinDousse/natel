@@ -8,3 +8,5 @@ dist/
 report.md
 DECISIONS.md
 fixtures/private/
+test-results/
+playwright-report/

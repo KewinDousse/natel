@@ -35,7 +35,7 @@ feels like it was made this decade. Contacts only.
 # docker-compose.yml
 services:
   contacts:
-    image: ghcr.io/KewinDousse/natel:latest
+    image: ghcr.io/kewindousse/natel:latest
     environment:
       BAIKAL_URL: https://dav.example.com           # your CardDAV server origin
     ports:

@@ -30,13 +30,19 @@ export default defineConfig({
       url: `${RADICALE_URL}/.well-known/carddav`,
       env: { RADICALE_PORT: String(RADICALE_PORT), E2E_USER: USER, E2E_PASSWORD: PASSWORD },
     },
-    {
-      // The production bundle behind Vite's preview server, whose /dav proxy
-      // mirrors the Caddyfile's.
-      command: `pnpm build && pnpm preview --host 127.0.0.1 --port ${new URL(APP_URL).port} --strictPort`,
-      url: APP_URL,
-      env: { VITE_DAV_URL: RADICALE_URL },
-      timeout: 120_000,
-    },
+    // With E2E_EXTERNAL_APP=1, something else already serves the app on
+    // APP_URL: CI runs the Docker image there, to exercise the Caddyfile.
+    ...(process.env.E2E_EXTERNAL_APP === "1"
+      ? []
+      : [
+          {
+            // The production bundle behind Vite's preview server, whose /dav
+            // proxy mirrors the Caddyfile's.
+            command: `pnpm build && pnpm preview --host 127.0.0.1 --port ${new URL(APP_URL).port} --strictPort`,
+            url: APP_URL,
+            env: { VITE_DAV_URL: RADICALE_URL },
+            timeout: 120_000,
+          },
+        ]),
   ],
 });
