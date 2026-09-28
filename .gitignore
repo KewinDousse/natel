@@ -29,3 +29,7 @@ fixtures/private/*
 
 # design handoff (visual references only, never committed)
 natel-design*/
+
+# e2e output
+test-results/
+playwright-report/

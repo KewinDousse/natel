@@ -34,7 +34,9 @@
       "!**/node_modules",
       "!**/.git",
       "!**/src/routeTree.gen.ts",
-      "!**/natel-design*"
+      "!**/natel-design*",
+      "!**/test-results",
+      "!**/playwright-report"
     ]
   },
   "overrides": [

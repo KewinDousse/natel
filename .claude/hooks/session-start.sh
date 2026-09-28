@@ -1,7 +1,7 @@
 #!/bin/bash
-# Prepares a Claude Code on the web session: dependencies for `pnpm check`,
-# and a git identity so commits are authored by the maintainer, with Claude
-# credited through the Co-Authored-By trailer.
+# Prepares a Claude Code on the web session: dependencies for `pnpm check`
+# and `pnpm e2e`, and a git identity so commits are authored by the
+# maintainer, with Claude credited through the Co-Authored-By trailer.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
@@ -15,3 +15,18 @@ git config user.email "me@kewindousse.ch"
 
 # stdout of a SessionStart hook lands in the session context; keep it quiet.
 pnpm install --frozen-lockfile >&2
+
+# e2e: Radicale in a venv outside the repo, and the sandbox's preinstalled
+# Chromium, since the browser build matching Playwright cannot be downloaded.
+venv="$HOME/.cache/natel-e2e"
+[ -x "$venv/bin/pip" ] || python3 -m venv "$venv" >&2
+# Offline-safe on a warm container: pip only runs when the pin changed.
+if ! grep -qx "radicale==$("$venv/bin/radicale" --version 2>/dev/null)" tests/e2e/requirements.txt; then
+  "$venv/bin/pip" install --quiet -r tests/e2e/requirements.txt >&2
+fi
+if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  echo "export RADICALE_BIN=$venv/bin/radicale" >> "$CLAUDE_ENV_FILE"
+  if [ -x /opt/pw-browsers/chromium ]; then
+    echo "export PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium" >> "$CLAUDE_ENV_FILE"
+  fi
+fi

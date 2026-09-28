@@ -1,0 +1,83 @@
+/**
+ * Direct CardDAV access for e2e tests: seeds and inspects the server behind
+ * the app's back, e.g. to change a card while the app is editing it.
+ */
+
+import { PASSWORD, RADICALE_URL, USER } from "./env";
+
+export const BOOK_PATH = `/${USER}/contacts/`;
+
+const AUTH = `Basic ${btoa(`${USER}:${PASSWORD}`)}`;
+
+async function dav(method: string, path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", AUTH);
+  return fetch(new URL(path, RADICALE_URL), { ...init, method, headers });
+}
+
+function expectStatus(res: Response, allowed: number[], what: string): void {
+  if (!allowed.includes(res.status)) {
+    throw new Error(`${what}: unexpected HTTP ${res.status}`);
+  }
+}
+
+/** Deletes the test address book if present and creates it empty. */
+export async function resetBook(): Promise<void> {
+  // The principal collection is created on the user's first request.
+  expectStatus(await dav("PROPFIND", `/${USER}/`, { headers: { Depth: "0" } }), [207], "principal");
+  expectStatus(await dav("DELETE", BOOK_PATH), [200, 204, 404], "delete book");
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<mkcol xmlns="DAV:" xmlns:CR="urn:ietf:params:xml:ns:carddav">
+  <set><prop>
+    <resourcetype><collection/><CR:addressbook/></resourcetype>
+    <displayname>Contacts</displayname>
+  </prop></set>
+</mkcol>`;
+  expectStatus(
+    await dav("MKCOL", BOOK_PATH, {
+      headers: { "Content-Type": "application/xml; charset=utf-8" },
+      body,
+    }),
+    [201],
+    "create book",
+  );
+}
+
+/** Writes a card at `<book>/<uid>.vcf`, creating or replacing it. */
+export async function putCard(uid: string, vcard: string): Promise<void> {
+  const res = await dav("PUT", `${BOOK_PATH}${uid}.vcf`, {
+    headers: { "Content-Type": "text/vcard; charset=utf-8" },
+    body: vcard,
+  });
+  expectStatus(res, [201, 204], `put ${uid}`);
+}
+
+/** Reads a card's body, or null when it does not exist. */
+export async function getCard(uid: string): Promise<string | null> {
+  const res = await dav("GET", `${BOOK_PATH}${uid}.vcf`);
+  if (res.status === 404) return null;
+  expectStatus(res, [200], `get ${uid}`);
+  return res.text();
+}
+
+/** Lists the bodies of every card in the book. */
+export async function listCards(): Promise<string[]> {
+  const res = await dav("PROPFIND", BOOK_PATH, { headers: { Depth: "1" } });
+  expectStatus(res, [207], "list book");
+  const xml = await res.text();
+  const hrefs = [...xml.matchAll(/<(?:\w+:)?href>([^<]+\.vcf)<\/(?:\w+:)?href>/g)].map(
+    (m) => m[1] ?? "",
+  );
+  const bodies: string[] = [];
+  for (const href of hrefs) {
+    const card = await dav("GET", href);
+    expectStatus(card, [200], `get ${href}`);
+    bodies.push(await card.text());
+  }
+  return bodies;
+}
+
+/** Builds a vCard 3.0 with CRLF line endings, as servers store them. */
+export function vcard(lines: string[]): string {
+  return `${["BEGIN:VCARD", "VERSION:3.0", ...lines, "END:VCARD"].join("\r\n")}\r\n`;
+}

@@ -255,3 +255,21 @@ exception, every 412 reaches the user.
 
 **Consequences.** A retry after a lost answer never duplicates a contact and
 says what happened; the user reloads to see the card that was saved.
+
+## 017 — e2e against Radicale run from pip, not Docker
+
+**Context.** The stack plans Playwright e2e against Radicale in Docker. The
+cloud sandboxes where agents work have no Docker daemon, but have Python and
+a preinstalled Chromium. CI has both.
+
+**Decision.** `pnpm e2e` starts Radicale from `pip` (`tests/e2e/radicale.sh`,
+version pinned in `tests/e2e/requirements.txt`) with fresh storage on each
+run, and serves the production bundle with `vite preview`, whose `/dav` proxy
+is the dev one. Every test empties the address book first. CI and the
+sandbox run the same commands; the sandbox points Playwright at its own
+Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
+
+**Consequences.** Contributors need Python 3 to run e2e locally. The
+Caddyfile is not exercised by e2e. Other
+servers of the compatibility matrix (Baïkal, Xandikos) can reuse the suite
+by starting a different server on the same port.

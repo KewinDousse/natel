@@ -51,6 +51,8 @@ src/
   i18n/          en.json, fr.json, setup
 tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, components)
   vcard/         includes the round-trip tests over fixtures/
+  e2e/           Playwright against the production build and a throwaway
+                 Radicale (`pnpm e2e`, ADR 017)
 fixtures/
   public/        synthetic vCards, committed
   private/       real vCards, gitignored
