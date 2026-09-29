@@ -24,8 +24,9 @@ feels like it was made this decade. Contacts only.
 2. **Tiny footprint.** A static SPA served by Caddy, which also proxies CardDAV
    requests to your server. No Node runtime, no database, no state. Target: under
    20 MB RAM at rest.
-3. **Baïkal-first, not Baïkal-only.** Baïkal is the tested, documented target.
-   Radicale, Xandikos and Nextcloud are expected to work and are in the CI matrix.
+3. **Baïkal-first, not Baïkal-only.** Baïkal is the documented target. CI runs
+   the end-to-end tests against Baïkal, Radicale and Xandikos; Nextcloud is
+   expected to work but isn't tested.
 4. **Zero-knowledge proxy.** Your credentials go from the browser to your CardDAV
    server through the proxy, unchanged. The proxy stores nothing.
 
@@ -43,6 +44,81 @@ services:
 ```
 
 Open `http://localhost:8080`, log in with your CardDAV credentials.
+
+Your browser sends those credentials with every request, so anywhere but on
+your own machine, serve Natel over HTTPS: behind a reverse proxy (below), or
+let its Caddy get a certificate itself.
+
+## Configuration
+
+| Variable | Default | |
+|---|---|---|
+| `BAIKAL_URL` | (required) | Origin of your CardDAV server, `scheme://host[:port]`, no path. Reached from inside the container: `http://baikal` works when Baïkal is a service of the same Compose file. |
+| `SITE_ADDRESS` | `http://:80` | What Caddy serves. Set it to your domain (`contacts.example.com`), publish ports 80 and 443 and keep `/data` in a volume, and Caddy fetches and renews the certificate itself. |
+
+### Finding your address books
+
+Natel looks for the server's address books under `/.well-known/carddav`, then
+at the root of `BAIKAL_URL`, then under `/dav.php/`. Baïkal at the root of its
+domain is found without any setup. Baïkal under a path
+(`https://example.com/baikal/html/`, with `BAIKAL_URL=https://example.com`)
+needs the `.well-known` redirect on that origin, for example with nginx:
+
+```nginx
+location = /.well-known/carddav {
+    return 301 /baikal/html/dav.php;
+}
+```
+
+### Behind a reverse proxy
+
+Natel listens on port 80 in the container; the proxy terminates HTTPS and
+forwards everything, `Authorization` header included.
+
+**Traefik**, with Docker labels. `websecure` and `letsencrypt` stand for the
+entrypoint and certificate resolver of your Traefik configuration, and the
+container must share a network with Traefik:
+
+```yaml
+services:
+  natel:
+    image: ghcr.io/kewindousse/natel:latest
+    environment:
+      BAIKAL_URL: https://dav.example.com
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.natel.rule=Host(`contacts.example.com`)
+      - traefik.http.routers.natel.entrypoints=websecure
+      - traefik.http.routers.natel.tls.certresolver=letsencrypt
+      - traefik.http.services.natel.loadbalancer.server.port=80
+```
+
+**SWAG**, in `/config/nginx/proxy-confs/natel.subdomain.conf`, with the
+container named `natel` on SWAG's network and `contacts` in SWAG's
+`SUBDOMAINS` (or a wildcard certificate):
+
+```nginx
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name contacts.*;
+    include /config/nginx/ssl.conf;
+    client_max_body_size 0;
+
+    location / {
+        include /config/nginx/proxy.conf;
+        include /config/nginx/resolver.conf;
+        set $upstream_app natel;
+        set $upstream_port 80;
+        set $upstream_proto http;
+        proxy_pass $upstream_proto://$upstream_app:$upstream_port;
+    }
+}
+```
+
+**Nginx Proxy Manager**: add a proxy host for your domain with scheme `http`,
+forward hostname `natel` (the container, on the same Docker network) and port
+`80`. In the SSL tab, request a certificate and turn on "Force SSL".
 
 ## Non-goals
 
@@ -62,3 +138,7 @@ pnpm install
 pnpm dev        # SPA on :5173, expects a CardDAV server at VITE_DAV_URL
 pnpm check      # typecheck + lint + tests — must be green before any PR
 ```
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the end-to-end tests and pull
+requests, [SECURITY.md](SECURITY.md) how to report a vulnerability, and
+[CHANGELOG.md](CHANGELOG.md) what changed between releases.

@@ -1,0 +1,36 @@
+name: Bug report
+description: Something doesn't work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Natel version
+      description: The image tag, or the commit if you build it yourself.
+    validations:
+      required: true
+  - type: input
+    id: server
+    attributes:
+      label: CardDAV server
+      description: Name and version, e.g. Baïkal 0.10.1.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: Any vCard or log I paste has no real personal data in it.
+          required: true
