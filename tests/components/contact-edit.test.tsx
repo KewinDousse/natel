@@ -553,6 +553,80 @@ describe("edit mode — save success", () => {
   });
 });
 
+describe("edit mode — background refetch", () => {
+  // The list query refetches in the background (window focus after its
+  // staleTime). The draft was built from the version loaded before: writes
+  // must still carry that version's ETag, so the server answers 412 instead
+  // of taking the draft over the other client's change.
+  async function refetchWithServerChange(queryClient: ReturnType<typeof createQueryClient>) {
+    mockFetchCards.mockImplementation(async (_auth, hrefs) =>
+      hrefs.map((href) => {
+        const uid = href.split("/").at(-1)?.replace(".vcf", "") ?? "";
+        const text = CARDS[uid] ?? "";
+        return {
+          href,
+          etag: '"e2"',
+          vcardText:
+            uid === "editable"
+              ? text
+                  .replace("+1-555-222-2222", "+1-555-999-9999")
+                  .replace("END:VCARD", "X-OTHER-CLIENT:added\r\nEND:VCARD")
+              : text,
+        };
+      }),
+    );
+    await act(async () => {
+      await queryClient.refetchQueries();
+    });
+  }
+
+  it("saves with the ETag the edit started from", async () => {
+    const { queryClient } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await refetchWithServerChange(queryClient);
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalled());
+    const [, , etag, text] = mockUpdateCard.mock.calls[0] ?? [];
+    expect(etag).toBe('"e"');
+    // The draft is applied to the version it was built from, not to the
+    // refetched one: nothing of the other client's version is taken over.
+    expect(text).not.toContain("X-OTHER-CLIENT");
+  });
+
+  it("takes the latest version as base when edit mode starts again", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+
+    const [editButton] = screen.getAllByRole("button", { name: /^Modifier/ });
+    if (editButton) await user.click(editButton);
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("edit"));
+    await user.type(screen.getByDisplayValue("Johnx"), "y");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(2));
+    expect(mockUpdateCard.mock.calls[1]?.[2]).toBe('"new-etag"');
+  });
+
+  it("deletes with the ETag the edit started from", async () => {
+    const { queryClient } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await refetchWithServerChange(queryClient);
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
+
+    await waitFor(() => expect(mockDeleteCard).toHaveBeenCalled());
+    expect(mockDeleteCard.mock.calls[0]?.[2]).toBe('"e"');
+  });
+});
+
 describe("edit mode — delete", () => {
   const EDITABLE_HREF = "https://dav.example.ch/dav/books/a/editable.vcf";
 

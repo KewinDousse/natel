@@ -87,7 +87,9 @@ test("edits a phone number and keeps unknown properties", async ({ page }) => {
   await startEditing(page);
   await primaryPhoneInput(page).fill("+41 79 000 00 00");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("button", { name: "Save" })).toBeHidden();
+  // The toast shows once the PUT has landed; the Save button is renamed
+  // "Saving…" as soon as it starts.
+  await expect(page.getByRole("status")).toHaveText("Saved");
 
   const saved = await getCard("ada");
   expect(saved).toContain("TEL;TYPE=CELL;X-SOURCE=phone:+41 79 000 00 00");
@@ -139,8 +141,8 @@ test("reloads the server version after a conflict", async ({ page }) => {
 test("overwrites only the fields the user changed after a conflict", async ({ page }) => {
   await saveOverConcurrentEdit(page);
   await page.getByRole("button", { name: "Overwrite with my version" }).click();
-  // The banner goes away as the PUT starts; edit mode ends once it has landed.
-  await expect(page.getByRole("button", { name: "Save" })).toBeHidden();
+  // The banner goes away as the PUT starts; the toast shows once it has landed.
+  await expect(page.getByRole("status")).toHaveText("Saved");
 
   const saved = await getCard("ada");
   // The user's phone number wins; the other client's organisation stays (ADR 013).
@@ -175,4 +177,37 @@ test("does not delete a contact changed on the server since it was opened", asyn
 
   await page.getByRole("button", { name: "Reload" }).click();
   await expect(page.getByRole("link", { name: "079 111 11 11" }).first()).toBeVisible();
+});
+
+test("a background refresh during editing does not write over another client's change", async ({
+  page,
+}) => {
+  // The list refetches on focus once older than its 5 min staleTime.
+  await page.clock.install();
+  await signIn(page);
+  await openAda(page);
+  await startEditing(page);
+
+  // Another client edits the card, then the user comes back to the tab.
+  await putCard(
+    "ada",
+    ADA.replace("ORG:Analytical Engines", "ORG:Difference Engines")
+      .replace("FN:Ada Lovelace", "FN:Ada King")
+      .replace("N:Lovelace;Ada;;;", "N:King;Ada;;;"),
+  );
+  await page.clock.fastForward("06:00");
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+  });
+  // The page title follows the cache: the refetched card has reached the page.
+  await expect(page.getByRole("heading", { level: 1, name: /King/ })).toBeAttached();
+
+  await primaryPhoneInput(page).fill("+41 79 222 22 22");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
+  const saved = await getCard("ada");
+  expect(saved).toContain("ORG:Difference Engines");
+  expect(saved).toContain("N:King;Ada;;;");
+  expect(saved).toContain("+41 79 318 44 27");
 });

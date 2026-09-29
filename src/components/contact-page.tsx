@@ -400,6 +400,11 @@ function ContactFiche({
   const routeId = contactIdOf(contact);
 
   // Edit state
+  // The version the draft was built from. A background refetch can replace
+  // `contact` while editing; writes still go against this version and its
+  // ETag, so a change made elsewhere meanwhile comes back as a 412 instead of
+  // being written over.
+  const [editBase, setEditBase] = useState(contact);
   const initialDraft = useMemo(() => buildDraft(contact), [contact]);
   const [draft, dispatch] = useReducer(draftReducer, initialDraft);
   const draftPrimary = useMemo(
@@ -422,13 +427,15 @@ function ContactFiche({
   const anchorRef = useRef<HTMLDivElement>(null);
 
   // Dirty detection
-  const dirty = useMemo(() => dirtyDiff(contact, draft), [contact, draft]);
+  const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
   const hasChanges = isDirty(dirty);
 
-  // Reset draft when contact changes (e.g. after reload from conflict)
+  // Draft and base are taken from the current version when edit mode starts,
+  // and deliberately not refreshed while editing.
   const prevEdit = useRef(edit);
   useEffect(() => {
     if (edit && !prevEdit.current) {
+      setEditBase(contact);
       dispatch({ type: "REBUILD", draft: buildDraft(contact) });
     }
     prevEdit.current = edit;
@@ -630,13 +637,13 @@ function ContactFiche({
     if (!isValid(validation)) return;
 
     await runSave(async () => {
-      const detachedContact = parse(contact.raw.toString(), contact.href, contact.etag);
+      const detachedContact = parse(editBase.raw.toString(), editBase.href, editBase.etag);
       applyDraft(detachedContact, draft);
       if (onCreate !== undefined) return contactIdOf(await onCreate(detachedContact));
       await updateContact.mutateAsync(detachedContact);
       return routeId;
     });
-  }, [draft, contact, updateContact, runSave, onCreate, routeId]);
+  }, [draft, editBase, updateContact, runSave, onCreate, routeId]);
 
   // Conflict — reload by invalidating the contact query and exiting edit
   const handleConflictReload = useCallback(() => {
@@ -648,15 +655,15 @@ function ContactFiche({
   // the user changed, then a conditional PUT. A second 412 surfaces the conflict again.
   const handleConflictOverwrite = useCallback(async () => {
     await runSave(async () => {
-      const freshContact = await refetchCard(contact.href);
+      const freshContact = await refetchCard(editBase.href);
       applyDraft(freshContact, draft, dirty);
       await updateContact.mutateAsync(freshContact);
       return routeId;
     });
-  }, [draft, dirty, contact, refetchCard, updateContact, runSave, routeId]);
+  }, [draft, dirty, editBase, refetchCard, updateContact, runSave, routeId]);
 
-  // Delete — a conditional DELETE with the last known ETag, so a card changed
-  // elsewhere since is never deleted unseen (412).
+  // Delete — a conditional DELETE with the ETag of the version being edited,
+  // so a card changed elsewhere since is never deleted unseen (412).
   const handleDelete = useCallback(async () => {
     const session = editSession.current;
     setShowDelete(false);
@@ -665,7 +672,7 @@ function ContactFiche({
     setConflict(false);
     setDeleteConflict(false);
     try {
-      await deleteContact.mutateAsync(contact);
+      await deleteContact.mutateAsync(editBase);
       if (session !== editSession.current) return;
       editSession.current++;
       showToast(t("deleted"));
@@ -676,7 +683,7 @@ function ContactFiche({
       if (err instanceof DavError && err.code === "CONFLICT") setDeleteConflict(true);
       else setSaveError(t(writeErrorKey(err, "delete")));
     }
-  }, [contact, deleteContact, router, showToast, t]);
+  }, [editBase, deleteContact, router, showToast, t]);
 
   // Copy handler
   const handleCopy = useCallback(
@@ -691,7 +698,8 @@ function ContactFiche({
     [t, showToast],
   );
 
-  const unknownCount = countUnknownProperties(contact.raw);
+  // Counts what a save will write back, so in edit mode the version edited.
+  const unknownCount = countUnknownProperties((edit ? editBase : contact).raw);
 
   // ---------------------------------------------------------------------------
   // Render
