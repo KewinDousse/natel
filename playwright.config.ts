@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { APP_URL, PASSWORD, RADICALE_PORT, RADICALE_URL, USER } from "./tests/e2e/env";
+import { APP_URL, DAV_PORT, DAV_URL, PASSWORD, SERVER, USER } from "./tests/e2e/env";
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -26,9 +26,13 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "tests/e2e/radicale.sh",
-      url: `${RADICALE_URL}/.well-known/carddav`,
-      env: { RADICALE_PORT: String(RADICALE_PORT), E2E_USER: USER, E2E_PASSWORD: PASSWORD },
+      command: SERVER.command,
+      url: `${DAV_URL}${SERVER.readyPath}`,
+      env: { DAV_PORT: String(DAV_PORT), E2E_USER: USER, E2E_PASSWORD: PASSWORD },
+      // Baïkal starts from a Docker image, which a first pull makes slow.
+      timeout: 120_000,
+      // Lets `docker run` stop and remove its container.
+      gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     },
     // With E2E_EXTERNAL_APP=1, something else already serves the app on
     // APP_URL: CI runs the Docker image there, to exercise the Caddyfile.
@@ -40,7 +44,7 @@ export default defineConfig({
             // proxy mirrors the Caddyfile's.
             command: `pnpm build && pnpm preview --host 127.0.0.1 --port ${new URL(APP_URL).port} --strictPort`,
             url: APP_URL,
-            env: { VITE_DAV_URL: RADICALE_URL },
+            env: { VITE_DAV_URL: DAV_URL },
             timeout: 120_000,
           },
         ]),

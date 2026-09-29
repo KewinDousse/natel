@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { getCard, listCards, putCard, resetBook, vcard } from "./dav";
-import { PASSWORD, USER } from "./env";
+import { PASSWORD, SERVER, USER } from "./env";
 
 // Not edited by the UI: must survive every save untouched. The grouped
 // pair is how Apple clients label a value.
@@ -65,6 +65,7 @@ test.beforeEach(async () => {
 });
 
 test("rejects a wrong password", async ({ page }) => {
+  test.skip(!SERVER.checksPassword, "the server leaves authentication to a proxy");
   await signIn(page, "wrong-password");
   await expect(page.getByText("Invalid username or password.")).toBeVisible();
 });

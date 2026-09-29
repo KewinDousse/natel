@@ -3,16 +3,16 @@
  * the app's back, e.g. to change a card while the app is editing it.
  */
 
-import { PASSWORD, RADICALE_URL, USER } from "./env";
+import { DAV_URL, PASSWORD, SERVER, USER } from "./env";
 
-export const BOOK_PATH = `/${USER}/contacts/`;
+export const BOOK_PATH = `${SERVER.home}contacts/`;
 
 const AUTH = `Basic ${btoa(`${USER}:${PASSWORD}`)}`;
 
 async function dav(method: string, path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set("Authorization", AUTH);
-  return fetch(new URL(path, RADICALE_URL), { ...init, method, headers });
+  return fetch(new URL(path, DAV_URL), { ...init, method, headers });
 }
 
 function expectStatus(res: Response, allowed: number[], what: string): void {
@@ -23,8 +23,8 @@ function expectStatus(res: Response, allowed: number[], what: string): void {
 
 /** Deletes the test address book if present and creates it empty. */
 export async function resetBook(): Promise<void> {
-  // The principal collection is created on the user's first request.
-  expectStatus(await dav("PROPFIND", `/${USER}/`, { headers: { Depth: "0" } }), [207], "principal");
+  // Radicale creates the home on the user's first request.
+  expectStatus(await dav("PROPFIND", SERVER.home, { headers: { Depth: "0" } }), [207], "home");
   expectStatus(await dav("DELETE", BOOK_PATH), [200, 204, 404], "delete book");
   const body = `<?xml version="1.0" encoding="utf-8"?>
 <mkcol xmlns="DAV:" xmlns:CR="urn:ietf:params:xml:ns:carddav">

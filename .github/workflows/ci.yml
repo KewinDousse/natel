@@ -30,8 +30,14 @@ jobs:
       - run: pnpm build
 
   e2e:
+    name: e2e (${{ matrix.server }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The compatibility matrix: the same suite against each CardDAV server.
+    strategy:
+      fail-fast: false
+      matrix:
+        server: [radicale, baikal, xandikos]
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -48,10 +54,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm e2e
+        env:
+          E2E_SERVER: ${{ matrix.server }}
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.server }}
           path: |
             playwright-report/
             test-results/

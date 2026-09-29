@@ -1,1 +1,2 @@
 radicale==3.8.1
+xandikos==0.4.7

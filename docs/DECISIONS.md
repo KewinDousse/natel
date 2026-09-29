@@ -273,3 +273,28 @@ Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
 Caddyfile is not exercised by e2e. Other
 servers of the compatibility matrix (Baïkal, Xandikos) can reuse the suite
 by starting a different server on the same port.
+
+## 018 — Compatibility matrix: Baïkal from Docker, Xandikos without authentication
+
+**Context.** The compatibility matrix runs the e2e suite against Radicale, Baïkal and
+Xandikos, with workarounds isolated and recorded (invariant 6). ADR 017 runs
+Radicale from pip; the other two servers don't fit that mould as they are.
+
+**Decision.**
+- The app needed no workaround: the suite passes unchanged on all three.
+- Baïkal is a PHP application with no pip or single-binary release, so
+  `tests/e2e/baikal.sh` runs a pinned community image of it,
+  `ckulka/baikal:0.10.1-nginx`. Its installer is skipped by writing its
+  config (with an unused admin password) and a SQLite database holding the
+  test user before it starts.
+- Xandikos leaves authentication to a proxy in front of it and takes any
+  credentials, so the wrong-password test is skipped on it: it would test
+  the server, not the app.
+- Xandikos commits every change with dulwich, which reads the user's git
+  config; `xandikos.sh` gives it an empty `HOME` so a signing setup there
+  can't fail its writes.
+- Nextcloud is left out: its image and first-run setup take minutes per job,
+  and it runs the same sabre/dav as Baïkal.
+
+**Consequences.** CI runs one e2e job per server. Running the Baïkal leg
+locally needs a Docker daemon; Radicale stays the default of `pnpm e2e`.

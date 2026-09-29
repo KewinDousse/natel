@@ -33,8 +33,9 @@ Multi-stage Dockerfile:
 
 Target image size ~50 MB, RAM at rest under 20 MB.
 
-CI builds the image on every pull request and runs the e2e suite against it,
-so the Caddyfile is tested as users run it. A `v*` tag publishes it to
+CI runs the e2e suite against Radicale, Baïkal and Xandikos, then builds the
+image and runs the suite against it and Radicale, so the Caddyfile is tested
+as users run it. A `v*` tag publishes it to
 `ghcr.io/kewindousse/natel` (`X.Y.Z`, `X.Y`, and `latest` for releases
 without a pre-release suffix).
 
@@ -57,7 +58,8 @@ src/
 tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, components)
   vcard/         includes the round-trip tests over fixtures/
   e2e/           Playwright against the production build and a throwaway
-                 Radicale (`pnpm e2e`, ADR 017)
+                 CardDAV server: Radicale by default (`pnpm e2e`, ADR 017),
+                 Baïkal (Docker) or Xandikos with `E2E_SERVER`
 fixtures/
   public/        synthetic vCards, committed
   private/       real vCards, gitignored
