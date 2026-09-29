@@ -53,10 +53,16 @@ always in scope; choosing between behaviours is a question.
    `docs/ARCHITECTURE.md`, `docs/DESIGN.md` for UI work, and follows
    `.opencode/prompts/reviewer.md`.
 5. Fix every blocking or major item, fix minor ones or say why not, then have
-   the new diff reviewed again: at most three rounds, and one for process
+   the new diff reviewed again: at most four rounds, and one for process
    documents such as this file, which are refined through use. A blocking
-   or major item the session disputes is a question to the maintainer. Post
-   each review and what was done about it as a comment on the pull request.
+   or major item the session disputes is a question to the maintainer.
+   After the first round, post one review comment on the pull request;
+   after each later round, edit that same comment rather than adding
+   another. On top, only what the maintainer needs to check, or a single
+   line saying nothing is needed from them; below, inside a collapsed
+   `<details>` block, each round's items and what was done about them, for
+   later sessions. A question goes in a new comment, as below, since an
+   edit notifies nobody; the review comment only points to it.
 6. Except for an ADR proposal, mark it ready and squash-merge it once CI is
    green and the last review has no blocking or major item, `src/vcard/` and
    `src/dav/` included. The squash title is one imperative English line
@@ -72,7 +78,7 @@ within the step, or, when it lies outside, ask the maintainer about it.
 ## Asking the maintainer
 
 Ask before adding a dependency, for a decision that belongs in an ADR, for a
-design not drawn in `docs/DESIGN.md`, when three review rounds do not
+design not drawn in `docs/DESIGN.md`, when four review rounds do not
 converge, and whenever in doubt. Asking means: post the question as a comment
 on the pull request (on the sub-issue when there is none yet) so a later
 session sees it, leave the pull request as a draft, do not merge, and move
