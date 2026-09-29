@@ -31,11 +31,22 @@ Multi-stage Dockerfile:
 1. `node:alpine` — `pnpm install --frozen-lockfile && pnpm build` → `dist/`
 2. `caddy:alpine` — copy `dist/` and `Caddyfile`
 
-Target image size ~50 MB, RAM at rest under 20 MB.
+Measured on 2026-09-29 (linux/amd64): a 24 MB download, 66 MB unpacked, of
+which the app is 1 MB; 12 MB of RAM at rest in a fresh container, about
+16 MB after a few hundred requests.
+
+Caddy sends a strict Content-Security-Policy (everything from the same
+origin, photos as `data:` or `blob:` URLs), keeps `/assets/*` for a year as
+immutable (a missing one is a 404, not `index.html`) and has the rest
+revalidated. `/dav` responses carry a `sandbox` policy, so a page the CardDAV
+server renders never runs as the app's origin. The image's `HEALTHCHECK` asks
+Caddy's admin API on `127.0.0.1:2019`, which answers whatever `SITE_ADDRESS`
+is.
 
 CI runs the e2e suite against Radicale, Baïkal and Xandikos, then builds the
-image and runs the suite against it and Radicale, so the Caddyfile is tested
-as users run it. A `v*` tag publishes it to
+image for linux/amd64 and linux/arm64 and runs the suite against the amd64
+one and Radicale, so the Caddyfile is tested as users run it. A `v*` tag
+publishes that same build to
 `ghcr.io/kewindousse/natel` (`X.Y.Z`, `X.Y`, and `latest` for releases
 without a pre-release suffix).
 

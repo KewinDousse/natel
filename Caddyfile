@@ -10,10 +10,12 @@
     Strict-Transport-Security "max-age=31536000; includeSubDomains"
     # Prevent MIME sniffing
     X-Content-Type-Options "nosniff"
-    # Basic XSS protection
-    X-XSS-Protection "1; mode=block"
     # Don't let the page be framed
     X-Frame-Options "DENY"
+    # Everything the app loads comes from this origin, the CardDAV server
+    # included (through /dav). Photos from vCards are shown as data: or
+    # blob: URLs.
+    Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
   }
 }
 
@@ -35,13 +37,31 @@
       # rejected login on its own, so the challenge is dropped.
       header_down -WWW-Authenticate
     }
+    # The app only fetches from here; a page the server renders (an error,
+    # sabre/dav's browser) must not run as the app's origin.
+    header Content-Security-Policy "sandbox; default-src 'none'; frame-ancestors 'none'"
+    header X-Content-Type-Options "nosniff"
   }
 
   # ---------------------------------------------------------------
   # Static SPA — serve the Vite build output (catch-all)
   # ---------------------------------------------------------------
+  # Vite names these files after their content: a name never changes
+  # content, so browsers keep them for good. A chunk from an older version
+  # is gone: a 404, not index.html served as a script.
+  handle /assets/* {
+    root * /usr/share/caddy
+    @exists file
+    header @exists Cache-Control "public, max-age=31536000, immutable"
+    file_server
+    import security_headers
+  }
+
+  # Everything else, index.html first, is revalidated, so a new version
+  # shows on the next load.
   handle {
     root * /usr/share/caddy
+    header Cache-Control "no-cache"
     try_files {path} /index.html
     file_server
     import security_headers
