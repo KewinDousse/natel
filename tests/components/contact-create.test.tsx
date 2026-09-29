@@ -92,6 +92,8 @@ describe("new contact", () => {
     expect(family.value).toBe("");
     expect(given.value).toBe("");
     expect(screen.getByRole("heading", { level: 1, name: "Nouveau contact" })).toBeTruthy();
+    // Nothing exists on the server yet, so there is nothing to delete.
+    expect(screen.queryByRole("button", { name: "Supprimer le contact" })).toBeNull();
   });
 
   it("creates a vCard 3.0 in the selected book and opens its page", async () => {

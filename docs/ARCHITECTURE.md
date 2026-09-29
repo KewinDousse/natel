@@ -99,7 +99,8 @@ library allows it.
 4. `412` → show a conflict banner: "reload" takes the server version,
    "overwrite with my version" refetches for a fresh ETag and applies only the
    fields the user changed (ADR 013). Never auto-merge in v0.x.
-5. Delete: `DELETE` with `If-Match`, same conflict rule.
+5. Delete: `DELETE` with `If-Match`. `412` → the same banner, with "reload"
+   only: there is nothing of the user's to write over the server version.
 
 ## Authentication
 

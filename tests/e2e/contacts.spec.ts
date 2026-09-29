@@ -139,11 +139,40 @@ test("reloads the server version after a conflict", async ({ page }) => {
 test("overwrites only the fields the user changed after a conflict", async ({ page }) => {
   await saveOverConcurrentEdit(page);
   await page.getByRole("button", { name: "Overwrite with my version" }).click();
-  await expect(page.getByText("This contact was modified elsewhere.")).toBeHidden();
+  // The banner goes away as the PUT starts; edit mode ends once it has landed.
+  await expect(page.getByRole("button", { name: "Save" })).toBeHidden();
 
   const saved = await getCard("ada");
   // The user's phone number wins; the other client's organisation stays (ADR 013).
   expect(saved).toContain("+41 79 222 22 22");
   expect(saved).toContain("ORG:Difference Engines");
   expectUnknownKept(saved);
+});
+
+test("deletes a contact after confirmation", async ({ page }) => {
+  await signIn(page);
+  await openAda(page);
+  await startEditing(page);
+  await page.getByRole("button", { name: "Delete contact" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+
+  await expect(page.getByText("This address book is empty.")).toBeVisible();
+  expect(await getCard("ada")).toBeNull();
+});
+
+test("does not delete a contact changed on the server since it was opened", async ({ page }) => {
+  await signIn(page);
+  await openAda(page);
+  await startEditing(page);
+
+  // Another client edits the card after this one loaded it.
+  await putCard("ada", ADA.replace("+41 79 318 44 27", "+41 79 111 11 11"));
+
+  await page.getByRole("button", { name: "Delete contact" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
+  expect(await getCard("ada")).toContain("+41 79 111 11 11");
+
+  await page.getByRole("button", { name: "Reload" }).click();
+  await expect(page.getByRole("link", { name: "079 111 11 11" }).first()).toBeVisible();
 });

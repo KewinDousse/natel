@@ -10,7 +10,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useRouter } from "@tanstack/react-router";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import {
@@ -34,6 +34,7 @@ import {
   type DavAuth,
   DavError,
   useCreateContact,
+  useDeleteContact,
   useRefetchCard,
   useUpdateContact,
 } from "@/queries";
@@ -371,6 +372,7 @@ function ContactFiche({
   const router = useRouter();
   const isNew = onCreate !== undefined;
   const updateContact = useUpdateContact(auth);
+  const deleteContact = useDeleteContact(auth);
   const refetchCard = useRefetchCard(auth);
   const queryClient = useQueryClient();
 
@@ -406,7 +408,14 @@ function ContactFiche({
   );
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [conflict, setConflict] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
+  // A 412 on delete: only reloading makes sense, there is no version to push.
+  const [deleteConflict, setDeleteConflict] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "deleting">("idle");
+  const busy = saveStatus !== "idle";
+  // Leaving edit mode drops an in-flight save's result, which is harmless;
+  // a delete's result is not: the card would vanish with the page left on it.
+  const deleting = saveStatus === "deleting";
   const [saveError, setSaveError] = useState<string | null>(null);
   const showToast = useToast();
   const [showDiscard, setShowDiscard] = useState(false);
@@ -443,6 +452,8 @@ function ContactFiche({
       dispatch({ type: "REBUILD", draft: buildDraft(contact) });
       setErrors({});
       setConflict(false);
+      setDeleteConflict(false);
+      setShowDelete(false);
       setSaveError(null);
       setSaveStatus("idle");
       if (isNew && savedId === undefined) {
@@ -546,6 +557,7 @@ function ContactFiche({
   const blockerActive = blocker?.status === "blocked";
   useEffect(() => {
     if (blockerActive) {
+      setShowDelete(false);
       setShowDiscard(true);
     }
   }, [blockerActive]);
@@ -555,12 +567,15 @@ function ContactFiche({
     if (blockerActive) blocker?.reset?.();
   }, [blockerActive, blocker]);
 
-  // Esc closes the discard dialog when it is open, otherwise it cancels editing.
+  // Esc closes the open confirmation (delete or discard), otherwise it cancels
+  // editing; not while a delete is in flight.
   useEffect(() => {
     if (!edit) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (showDiscard) {
+      if (e.key !== "Escape" || deleting) return;
+      if (showDelete) {
+        setShowDelete(false);
+      } else if (showDiscard) {
         closeDiscard();
       } else {
         handleCancel();
@@ -568,7 +583,7 @@ function ContactFiche({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [edit, showDiscard, closeDiscard, handleCancel]);
+  }, [edit, deleting, showDelete, showDiscard, closeDiscard, handleCancel]);
 
   // Validate on blur
   const handleBlurValidate = useCallback(() => {
@@ -584,6 +599,7 @@ function ContactFiche({
       setSaveStatus("saving");
       setSaveError(null);
       setConflict(false);
+      setDeleteConflict(false);
       try {
         const savedId = await put();
         if (session !== editSession.current) return;
@@ -598,12 +614,8 @@ function ContactFiche({
         if (err instanceof DavError && err.code === "CONFLICT") {
           if (isNew) setSaveError(t("err_create_exists"));
           else setConflict(true);
-        } else if (err instanceof DavError && err.code === "NETWORK") {
-          setSaveError(t("err_save_network"));
-        } else if (err instanceof DavError && err.code === "AUTH") {
-          setSaveError(t("err_save_auth"));
         } else {
-          setSaveError(t("err_save_unexpected"));
+          setSaveError(t(writeErrorKey(err, "save")));
         }
       }
     },
@@ -642,6 +654,29 @@ function ContactFiche({
       return routeId;
     });
   }, [draft, dirty, contact, refetchCard, updateContact, runSave, routeId]);
+
+  // Delete — a conditional DELETE with the last known ETag, so a card changed
+  // elsewhere since is never deleted unseen (412).
+  const handleDelete = useCallback(async () => {
+    const session = editSession.current;
+    setShowDelete(false);
+    setSaveStatus("deleting");
+    setSaveError(null);
+    setConflict(false);
+    setDeleteConflict(false);
+    try {
+      await deleteContact.mutateAsync(contact);
+      if (session !== editSession.current) return;
+      editSession.current++;
+      showToast(t("deleted"));
+      router.navigate({ to: "/contacts", replace: true, ignoreBlocker: true });
+    } catch (err) {
+      if (session !== editSession.current) return;
+      setSaveStatus("idle");
+      if (err instanceof DavError && err.code === "CONFLICT") setDeleteConflict(true);
+      else setSaveError(t(writeErrorKey(err, "delete")));
+    }
+  }, [contact, deleteContact, router, showToast, t]);
 
   // Copy handler
   const handleCopy = useCallback(
@@ -1329,6 +1364,17 @@ function ContactFiche({
                   : t("preserved_fields", { n: String(unknownCount) })}
               </p>
             )}
+            {!isNew && (
+              <button
+                type="button"
+                onClick={() => setShowDelete(true)}
+                disabled={busy}
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-destructive px-4 text-sm font-bold text-destructive-foreground hover:bg-destructive/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+              >
+                <TrashIcon />
+                {t("delete_contact")}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1358,8 +1404,30 @@ function ContactFiche({
             </div>
           )}
 
+          {deleteConflict && (
+            <div
+              role="alert"
+              className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
+            >
+              <p className="text-sm font-bold text-destructive">{t("conflict_title")}</p>
+              <p className="mt-1 text-sm text-destructive">{t("conflict_delete_hint")}</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleConflictReload}
+                  className="inline-flex h-9 items-center rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {t("conflict_reload")}
+                </button>
+              </div>
+            </div>
+          )}
+
           {saveError !== null && (
-            <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-2">
+            <div
+              role="alert"
+              className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-2"
+            >
               <p className="text-sm text-destructive">{saveError}</p>
             </div>
           )}
@@ -1369,14 +1437,15 @@ function ContactFiche({
             <button
               type="button"
               onClick={handleCancel}
-              className="inline-flex h-10 items-center rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              disabled={deleting}
+              className="inline-flex h-10 items-center rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
             >
               {t("cancel")}
             </button>
             <button
               type="button"
               onClick={handleSave}
-              disabled={saveStatus === "saving"}
+              disabled={busy}
               className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
             >
               {saveStatus === "saving" ? (
@@ -1392,10 +1461,24 @@ function ContactFiche({
         </div>
       )}
 
+      {showDelete && (
+        <ConfirmDialog
+          title={t("delete_title")}
+          continueLabel={t("cancel")}
+          confirmLabel={t("delete_confirm")}
+          confirmIcon={<TrashIcon />}
+          onContinue={() => setShowDelete(false)}
+          onConfirm={handleDelete}
+        />
+      )}
+
       {showDiscard && (
-        <DiscardDialog
+        <ConfirmDialog
+          title={t("discard_title")}
+          continueLabel={t("discard_continue")}
+          confirmLabel={t("discard_abandon")}
           onContinue={closeDiscard}
-          onAbandon={() => {
+          onConfirm={() => {
             setShowDiscard(false);
             if (blockerActive) {
               blocker?.proceed?.();
@@ -1409,25 +1492,42 @@ function ContactFiche({
   );
 }
 
+/** Message for a failed PUT or DELETE other than a 412, which each caller handles. */
+function writeErrorKey(err: unknown, write: "save" | "delete"): TranslationKey {
+  if (err instanceof DavError && err.code === "NETWORK") {
+    return write === "save" ? "err_save_network" : "err_delete_network";
+  }
+  if (err instanceof DavError && err.code === "AUTH") return "err_save_auth";
+  return "err_save_unexpected";
+}
+
 // ---------------------------------------------------------------------------
-// Discard dialog
+// Confirm dialog
 // ---------------------------------------------------------------------------
 
 /**
- * Modal asking whether to drop unsaved edits. Focus starts on the safe action
- * and Tab cycles between the two buttons; Esc is handled by the page, which
- * owns the window key listener.
+ * Modal confirming a destructive action (dropping edits, deleting the
+ * contact). Focus starts on the safe action and Tab cycles between the two
+ * buttons; Esc is handled by the page, which owns the window key listener.
  */
-function DiscardDialog({
+function ConfirmDialog({
+  title,
+  continueLabel,
+  confirmLabel,
+  confirmIcon,
   onContinue,
-  onAbandon,
+  onConfirm,
 }: {
+  title: string;
+  continueLabel: string;
+  confirmLabel: string;
+  confirmIcon?: ReactNode;
   onContinue: () => void;
-  onAbandon: () => void;
+  onConfirm: () => void;
 }) {
-  const { t } = useI18n();
+  const titleId = useId();
   const continueRef = useRef<HTMLButtonElement>(null);
-  const abandonRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const previous = document.activeElement;
@@ -1440,7 +1540,7 @@ function DiscardDialog({
   const trapTab = (e: ReactKeyboardEvent) => {
     if (e.key !== "Tab") return;
     const first = continueRef.current;
-    const last = abandonRef.current;
+    const last = confirmRef.current;
     if (e.shiftKey && document.activeElement === first) {
       e.preventDefault();
       last?.focus();
@@ -1458,15 +1558,15 @@ function DiscardDialog({
       onKeyDown={trapTab}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="discard-title"
+      aria-labelledby={titleId}
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
     >
       <div
         role="document"
         className="w-full max-w-md rounded-t-xl bg-background p-6 shadow-overlay sm:rounded-xl"
       >
-        <h2 id="discard-title" className="font-display text-2xl font-bold leading-tight">
-          {t("discard_title")}
+        <h2 id={titleId} className="font-display text-2xl font-bold leading-tight">
+          {title}
         </h2>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button
@@ -1475,15 +1575,16 @@ function DiscardDialog({
             onClick={onContinue}
             className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            {t("discard_continue")}
+            {continueLabel}
           </button>
           <button
-            ref={abandonRef}
+            ref={confirmRef}
             type="button"
-            onClick={onAbandon}
-            className="inline-flex h-10 items-center justify-center rounded-full bg-destructive px-4 text-sm font-bold text-destructive-foreground hover:bg-destructive/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={onConfirm}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-destructive px-4 text-sm font-bold text-destructive-foreground hover:bg-destructive/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            {t("discard_abandon")}
+            {confirmIcon}
+            {confirmLabel}
           </button>
         </div>
       </div>

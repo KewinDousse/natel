@@ -30,6 +30,7 @@ const {
   mockFetchCards,
   mockFetchCard,
   mockUpdateCard,
+  mockDeleteCard,
 } = vi.hoisted(() => ({
   mockDiscoverAddressBooks: vi.fn<(auth: DavAuth) => Promise<DavAddressBook[]>>(),
   mockListContacts:
@@ -54,6 +55,7 @@ const {
         vcardText: string,
       ) => Promise<{ href: string; etag: string }>
     >(),
+  mockDeleteCard: vi.fn<(auth: DavAuth, href: string, etag: string) => Promise<void>>(),
 }));
 
 vi.mock("@/dav", async (importOriginal) => {
@@ -65,6 +67,7 @@ vi.mock("@/dav", async (importOriginal) => {
     fetchCards: mockFetchCards,
     fetchCard: mockFetchCard,
     updateCard: mockUpdateCard,
+    deleteCard: mockDeleteCard,
   };
 });
 
@@ -174,6 +177,7 @@ function setupMocks() {
     return { href, etag: '"e"', vcardText };
   });
   mockUpdateCard.mockResolvedValue({ href: "editable", etag: '"new-etag"' });
+  mockDeleteCard.mockResolvedValue(undefined);
 }
 
 beforeEach(async () => {
@@ -546,6 +550,142 @@ describe("edit mode — save success", () => {
     await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
     expect(screen.getByRole("status").textContent).toBe("Enregistré");
     expect(screen.queryByText(/inattendue/)).toBeNull();
+  });
+});
+
+describe("edit mode — delete", () => {
+  const EDITABLE_HREF = "https://dav.example.ch/dav/books/a/editable.vcf";
+
+  it("asks for confirmation and sends a conditional DELETE", async () => {
+    const { router } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    const dialog = screen.getByRole("dialog", { name: "Supprimer ce contact\u00a0?" });
+    expect(mockDeleteCard).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Supprimer" }));
+
+    await waitFor(() => expect(mockDeleteCard).toHaveBeenCalledWith(AUTH, EDITABLE_HREF, '"e"'));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    expect(screen.getByRole("status").textContent).toBe("Contact supprimé");
+  });
+
+  it("does nothing when the confirmation is cancelled", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Annuler" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mockDeleteCard).not.toHaveBeenCalled();
+    expect(article.getAttribute("data-mode")).toBe("edit");
+  });
+
+  it("closes the confirmation on Esc and stays in edit mode", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(article.getAttribute("data-mode")).toBe("edit");
+  });
+
+  it("shows the conflict with only a reload on 412, and stays on the contact", async () => {
+    mockDeleteCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
+    const { router } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
+
+    await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Recharger" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /écraser/i })).toBeNull();
+    expect(router.state.location.pathname).toBe("/contacts/editable");
+  });
+
+  it("deletes with the loaded ETag even after edits, without the discard dialog", async () => {
+    const { router } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    expect(mockDeleteCard).toHaveBeenCalledWith(AUTH, EDITABLE_HREF, '"e"');
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps Annuler and Esc from leaving edit mode while the DELETE is in flight", async () => {
+    let finish: () => void = () => {};
+    mockDeleteCard.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { router } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
+    await waitFor(() => expect(mockDeleteCard).toHaveBeenCalled());
+
+    expect(screen.getByRole("button", { name: "Annuler" })).toHaveProperty("disabled", true);
+    await user.keyboard("{Escape}");
+    expect(router.state.location.pathname).toBe("/contacts/editable");
+
+    await act(async () => finish());
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    expect(screen.getByRole("status").textContent).toBe("Contact supprimé");
+  });
+
+  it("clears the delete conflict when saving instead, so only one banner shows", async () => {
+    mockDeleteCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
+    mockUpdateCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
+    await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
+    await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /écraser/i })).toBeTruthy());
+    expect(screen.getAllByText(/modifié ailleurs/)).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Recharger" })).toHaveLength(1);
+  });
+
+  it("leaves edit mode on Recharger after a delete conflict", async () => {
+    mockDeleteCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Recharger" }));
+
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+  });
+
+  it("shows a network error in the bottom bar", async () => {
+    mockDeleteCard.mockRejectedValueOnce(new DavError("Network error", "NETWORK"));
+    await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Erreur réseau — impossible de supprimer.")).toBeTruthy(),
+    );
   });
 });
 

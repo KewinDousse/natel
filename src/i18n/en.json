@@ -94,11 +94,17 @@
   "placeholder_bday_month": "MM",
   "placeholder_bday_year": "YYYY",
   "err_save_network": "Network error — could not save.",
+  "err_delete_network": "Network error — could not delete.",
   "err_save_auth": "Session expired — sign in again.",
   "err_save_unexpected": "Unexpected error — try again.",
   "err_create_exists": "This contact already exists on the server, probably saved by an earlier attempt. Reload the list before trying again.",
   "label_family": "Last name",
   "label_given": "First name",
   "label_title": "Job title",
-  "label_org": "Organisation"
+  "label_org": "Organisation",
+  "delete_contact": "Delete contact",
+  "delete_title": "Delete this contact?",
+  "delete_confirm": "Delete",
+  "deleted": "Contact deleted",
+  "conflict_delete_hint": "Reload it to see the changes before deleting it."
 }

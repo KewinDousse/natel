@@ -158,6 +158,7 @@ Address: one row, the value column holds street / NPA + Localité (`grid-cols-[5
 - **Field error**: `aria-invalid="true"` + message under the field (`text-destructive`, `aria-describedby`). Validate on blur and on save, not on each keystroke.
 - **ETag conflict (412)**: warning box in the bottom bar, "Ce contact a été modifié ailleurs.", actions Recharger (primary) / Écraser avec ma version (outline). Never overwrite silently.
 - **Discard dialog**: `font-display` 2rem title, `rounded-xl shadow-overlay`, bottom sheet on mobile, centred on desktop, actions "Continuer l'édition" / "Abandonner" (destructive).
+- **Delete**: "Supprimer le contact" (destructive, trash icon) is the last element below the content in edit mode, absent on a new contact. It opens a dialog built like the discard dialog: "Supprimer ce contact ?", actions "Annuler" / "Supprimer" (destructive, trash icon). A 412 shows the conflict box in the bottom bar with "Recharger" only: there is no version of the user's to push, and deleting a card changed elsewhere unseen is exactly what the ETag prevents.
 - Unknown vCard properties are never displayed or edited and must survive the round trip.
 
 ### Known small shifts (accepted)
