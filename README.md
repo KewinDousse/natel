@@ -3,8 +3,8 @@
 A modern, lightweight web UI to browse and edit your contacts on a CardDAV server.
 Built for [Baïkal](https://sabre.io/baikal/), works with any RFC 6352 server.
 
-> **Status:** pre-alpha. Browsing and editing contacts work; creating
-> and deleting don't yet. See [ROADMAP.md](ROADMAP.md).
+> **Status:** alpha. Browsing, creating, editing and deleting contacts
+> work. See [ROADMAP.md](ROADMAP.md).
 
 ## Why
 

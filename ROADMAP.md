@@ -56,15 +56,15 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] Edit: N/FN, NICKNAME, TEL, EMAIL, ADR, BDAY, ORG, TITLE, URL, NOTE
 - [x] Unknown properties preserved on save and counted in edit mode (not
       displayed, see `docs/DESIGN.md`)
-- [ ] Create, delete
-      — Create is wired (blank fiche at `/contacts/new`). Delete has its
-        mutation hook in `src/queries/`, not wired to the UI yet.
+- [x] Create, delete
 - [x] ETag conflict UI: reload the server version or overwrite with my
       changes (ADR 013)
 - [ ] Responsive layout, usable on a phone
       — Implemented per `docs/DESIGN.md`, not yet validated on a real phone.
 - [x] i18n en + fr
-- [ ] Docker image published on tag, compose example in README
+- [x] Docker image published on tag, compose example in README
+      — CI publishes the image it tested to `ghcr.io/kewindousse/natel` on
+        a `vX.Y.Z` tag; `v0.1.0` is the first.
 - [ ] Tag `v0.1.0`
 
 ## Phase 3 — v0.2, usable by others ✅ when: someone who isn't the author runs it daily
