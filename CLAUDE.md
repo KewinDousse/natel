@@ -39,9 +39,11 @@ always in scope; choosing between behaviours is a question.
 
 ## One step, one pull request
 
-1. Before each step, reset the session branch to the latest `origin/main`,
-   which keeps one step per branch. A force-push with lease is fine on that
-   branch once its previous pull request is merged or closed.
+1. Start each step on its own branch, `claude/<step>` (such as
+   `claude/b3-release-prep`), from the latest `origin/main`: a pull request
+   waiting on the maintainer then holds up nothing else. A step that already
+   has a branch continues on it. Force-push with lease only to bring a
+   branch onto `origin/main` or to redo commits nobody has commented on.
 2. Implement, with tests. `pnpm check` and `pnpm e2e` pass before pushing.
 3. Open the pull request as a draft that closes the sub-issue, unless part
    of the step is left for the maintainer or it only proposes an ADR.
@@ -79,12 +81,14 @@ its last message lists every open question.
 
 ## Commits
 
-Authored by the maintainer, with the `Co-Authored-By: Claude …` trailer.
+Authored by the maintainer, committed by Claude, with the
+`Co-Authored-By: Claude …` trailer.
 Imperative one-line messages, as `AGENTS.md` says.
 
 ## Claude Code on the web
 
-The session start hook sets the maintainer's git identity, installs the
-dependencies and Radicale, and exports `RADICALE_BIN` and
-`PLAYWRIGHT_CHROMIUM_EXECUTABLE` for the sandbox's Chromium, so `pnpm e2e`
-works as is (ADR 017). Elsewhere, set these up by hand.
+The session start hook sets the git identities (maintainer as author,
+Claude as committer), installs the dependencies and Radicale, and exports
+`RADICALE_BIN` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` for the sandbox's
+Chromium, so `pnpm e2e` works as is (ADR 017). Elsewhere, set these up by
+hand.

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Prepares a Claude Code on the web session: dependencies for `pnpm check`
 # and `pnpm e2e`, and a git identity so commits are authored by the
-# maintainer, with Claude credited through the Co-Authored-By trailer.
+# maintainer, with Claude as committer and in the Co-Authored-By trailer.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
@@ -10,8 +10,12 @@ fi
 
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}"
 
-git config user.name "Kewin Dousse"
-git config user.email "me@kewindousse.ch"
+# Author is the maintainer; the committer stays Claude, which the web
+# environment requires for its commits.
+git config author.name "Kewin Dousse"
+git config author.email "me@kewindousse.ch"
+git config user.name "Claude"
+git config user.email "noreply@anthropic.com"
 
 # stdout of a SessionStart hook lands in the session context; keep it quiet.
 pnpm install --frozen-lockfile >&2
