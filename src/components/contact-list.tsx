@@ -14,6 +14,7 @@ import {
   type ContactGroup,
   contactIdOf,
   type HighlightSegment,
+  isUnnamed,
   namePartsOf,
   OTHER_GROUP,
   orderedNameOf,
@@ -229,9 +230,12 @@ function ContactRow({
   const trailing = trailingValueOf(contact);
   const id = contactIdOf(contact);
   const orgOnly = display.length === 0;
+  const unnamed = isUnnamed(contact);
   const { t } = useI18n();
 
-  const nameValue = (
+  const nameValue = unnamed ? (
+    <span className="italic text-muted-foreground">{t("contact_unnamed")}</span>
+  ) : (
     <>
       <b className="font-bold">
         <Marked value={lead} query={query} />
@@ -259,8 +263,6 @@ function ContactRow({
         to="/contacts/$id"
         params={{ id }}
         data-contact-id={id}
-        // A card with no name, organisation, number or address would leave the link unnamed.
-        aria-label={orgOnly && !trailing ? t("contact_unnamed") : undefined}
         className="group relative flex min-h-[3.5rem] items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted data-[status=active]:bg-selection data-[status=active]:text-selection-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-[3.25rem] sm:py-0"
       >
         <span
@@ -274,7 +276,10 @@ function ContactRow({
           fallback={orgOnly ? <BuildingAvatar /> : <InitialsAvatar family={family} given={given} />}
         />
         <span className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
-          <span className="block min-w-0 truncate text-base sm:text-[0.9375rem]" title={display}>
+          <span
+            className="block min-w-0 truncate text-base sm:text-[0.9375rem]"
+            title={unnamed ? t("contact_unnamed") : display}
+          >
             {nameValue}
           </span>
           {trailing && <span className="leader hidden sm:block" aria-hidden="true" />}

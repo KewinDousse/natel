@@ -69,6 +69,14 @@ export function namePartsOf(contact: Contact): NameParts {
 }
 
 /**
+ * Whether a card has neither a name nor an organisation: the list and the
+ * contact page then show "Contact sans nom", muted and in italics.
+ */
+export function isUnnamed(contact: Contact): boolean {
+  return namePartsOf(contact).display.length === 0 && orgOf(contact).length === 0;
+}
+
+/**
  * Sort key for the current toggle: family or given name. Falls back to the
  * display name so cards without a structured name still sort by their FN.
  */

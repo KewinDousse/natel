@@ -11,6 +11,7 @@ import {
   contactIdOf,
   fold,
   groupLetterOf,
+  isUnnamed,
   matchesQuery,
   namePartsOf,
   orderedNameOf,
@@ -106,6 +107,15 @@ describe("namePartsOf", () => {
   it("falls back to FN when N is empty", () => {
     const parts = namePartsOf(makeContact({ family: "", given: "", fn: "Acme SA" }));
     expect(parts).toEqual({ family: "Acme SA", given: "", display: "Acme SA" });
+  });
+});
+
+describe("isUnnamed", () => {
+  it("holds for a card with neither a name nor an organisation", () => {
+    expect(isUnnamed(makeContact({ family: "", given: "", fn: "" }))).toBe(true);
+    expect(isUnnamed(makeContact({ family: "", given: "", fn: "", org: "Acme" }))).toBe(false);
+    expect(isUnnamed(makeContact({ family: "", given: "", fn: "Acme SA" }))).toBe(false);
+    expect(isUnnamed(makeContact({ family: "Favre", given: "" }))).toBe(false);
   });
 });
 

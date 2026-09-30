@@ -26,7 +26,13 @@ import {
   validateDraft,
 } from "@/lib/contact-edit";
 import { contactGroupNames } from "@/lib/contact-groups";
-import { contactById, contactIdOf, namePartsOf, primaryNumberOf } from "@/lib/contact-list";
+import {
+  contactById,
+  contactIdOf,
+  isUnnamed,
+  namePartsOf,
+  primaryNumberOf,
+} from "@/lib/contact-list";
 import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { decodeImage, PhotoError } from "@/lib/photo-prepare";
@@ -417,6 +423,7 @@ function ContactFiche({
   const orgOnly = parts.display.length === 0;
   const jobTitle = useMemo(() => jobTitleOf(contact), [contact]);
   const org = useMemo(() => orgOf(contact), [contact]);
+  const unnamed = !isNew && isUnnamed(contact);
   const primary = useMemo(() => primaryNumberOf(contact), [contact]);
   const firstEmail = contact.fields.email[0];
   const address = useMemo(() => addressOf(contact), [contact]);
@@ -896,7 +903,11 @@ function ContactFiche({
       )}
       <div className="mx-auto w-full max-w-[44rem] px-5 pb-28 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
         <h1 id="fiche-title" className="sr-only">
-          {isNew ? t("new_contact") : parts.display.length > 0 ? parts.display : org}
+          {isNew
+            ? t("new_contact")
+            : parts.display.length > 0
+              ? parts.display
+              : org || t("contact_unnamed")}
         </h1>
 
         {/* Top row: avatar + desktop edit button */}
@@ -944,7 +955,15 @@ function ContactFiche({
         <div className="-mx-3 mt-5 space-y-1" ref={anchorRef}>
           <EditableCell
             frameClassName={NAME_FRAME}
-            view={<span className="truncate">{parts.family}</span>}
+            view={
+              unnamed ? (
+                <span className="truncate italic text-muted-foreground">
+                  {t("contact_unnamed")}
+                </span>
+              ) : (
+                <span className="truncate">{parts.family}</span>
+              )
+            }
             edit={
               <div className="relative">
                 <input

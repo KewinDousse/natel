@@ -68,7 +68,7 @@ Recipes below are the exact class sets from the references. Build them as React 
 - Link: `group relative flex items-center gap-3 rounded-lg px-2 min-h-[3.5rem] py-1.5 sm:min-h-[3.25rem] sm:py-0 hover:bg-muted aria-[current=true]:bg-selection`.
 - Selection bar: `absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-brand opacity-0 group-aria-[current=true]:opacity-100`.
 - Content wrapper: `min-w-0 flex-1 sm:flex sm:items-center sm:gap-3`.
-  - Name: `block min-w-0 truncate text-base sm:text-[0.9375rem]` → the part the list is sorted by comes first, in bold: `<b class="font-bold">Family</b> Given` by last name, `<b class="font-bold">Given</b> Family` by first name. Full name, in the same order, in `title`.
+  - Name: `block min-w-0 truncate text-base sm:text-[0.9375rem]` → the part the list is sorted by comes first, in bold: `<b class="font-bold">Family</b> Given` by last name, `<b class="font-bold">Given</b> Family` by first name. Full name, in the same order, in `title`. A card with neither a name nor an organisation shows "Contact sans nom" / "Unnamed contact" instead, in `italic text-muted-foreground` (the muted grey keeps 4.5:1; transparency wouldn't), and so does the contact page, in the family-name line and its title.
   - Leader: `<span class="leader hidden sm:block" aria-hidden="true">`.
   - Trailing value: primary phone (`tabular`, ink on ≥ sm) or, if none, email/org (`text-sm text-muted-foreground`, truncated, `sm:max-w-[42%]`).
 - **Mobile (< 640px):** trailing value drops under the name, leader hidden. This is deliberate: single-line rows truncate names too much on phones.

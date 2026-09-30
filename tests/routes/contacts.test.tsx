@@ -9,7 +9,7 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
@@ -343,7 +343,7 @@ describe("list grouping and rail", () => {
     expect(rail?.querySelector("span")?.textContent).toBe("A");
   });
 
-  it("names a row whose card has no name, organisation, number or address", async () => {
+  it("shows a row whose card has neither a name nor an organisation as unnamed", async () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A, BOOK_B]);
     const nameless = makeContact("nameless", {
@@ -354,10 +354,20 @@ describe("list grouping and rail", () => {
     });
     loadBook([...bookAContacts(), nameless]);
     renderApp("/contacts");
-    expect(await screen.findByRole("link", { name: "Contact sans nom" })).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: /Benali Karim/ }).getAttribute("aria-label"),
-    ).toBeNull();
+    const row = await screen.findByRole("link", { name: "Contact sans nom" });
+    const label = within(row).getByText("Contact sans nom");
+    expect(label.className).toContain("italic");
+    expect(label.className).toContain("text-muted-foreground");
+    expect(screen.queryAllByText("Contact sans nom")).toHaveLength(1);
+
+    fireEvent.click(row);
+    const fiche = await screen.findByRole("article", { name: "Contact sans nom" });
+    // The family-name line, besides the sr-only title.
+    const line = within(fiche)
+      .getAllByText("Contact sans nom")
+      .find((node) => !node.classList.contains("sr-only"));
+    expect(line?.className).toContain("italic");
+    expect(line?.className).toContain("text-muted-foreground");
   });
 
   it("marks the selected row with aria-current and shows the detail pane", async () => {
