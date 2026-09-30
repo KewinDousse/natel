@@ -4,27 +4,47 @@
  * non-stack dependencies, so this is a plain menu-button pattern: Escape
  * closes and restores focus to the trigger, arrow keys move between items,
  * the current book is marked with aria-checked (menuitemradio), and clicking
- * outside closes the menu.
+ * outside closes the menu. Below a separator, the menu exports the selected
+ * book and imports a .vcf file into it (ADR 020).
  */
 
 import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
+import { bookName } from "@/lib/vcf-file";
 import type { DavAddressBook } from "@/queries";
 
 type BookSwitcherProps = {
   books: DavAddressBook[];
   selectedBook: DavAddressBook | null;
   onSelect: (book: DavAddressBook) => void;
+  /** False while the selected book shows no contact. */
+  canExport: boolean;
+  /** False while the selected book is loading: known cards couldn't be told apart. */
+  canImport: boolean;
+  onExport: () => void;
+  onImport: (file: File) => void;
 };
 
-export function BookSwitcher({ books, selectedBook, onSelect }: BookSwitcherProps) {
+// A disabled item stays focusable, as the ARIA menu pattern has it.
+const ITEMS = '[role="menuitemradio"], [role="menuitem"]';
+
+export function BookSwitcher({
+  books,
+  selectedBook,
+  onSelect,
+  canExport,
+  canImport,
+  onExport,
+  onImport,
+}: BookSwitcherProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const currentIndex = useMemo(() => {
     if (!selectedBook) return 0;
@@ -41,21 +61,20 @@ export function BookSwitcher({ books, selectedBook, onSelect }: BookSwitcherProp
   useEffect(() => {
     if (!open) return;
     setFocusedIndex(currentIndex);
-    const items = rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]');
+    const items = rootRef.current?.querySelectorAll<HTMLButtonElement>(ITEMS);
     items?.[currentIndex]?.focus();
   }, [open, currentIndex]);
 
   function menuItems(): HTMLButtonElement[] {
     if (!rootRef.current) return [];
-    return Array.from(
-      rootRef.current.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]'),
-    );
+    return Array.from(rootRef.current.querySelectorAll<HTMLButtonElement>(ITEMS));
   }
 
   function moveFocus(delta: number) {
     const items = menuItems();
     if (items.length === 0) return;
-    const next = (focusedIndex + delta + items.length) % items.length;
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = ((at === -1 ? focusedIndex : at) + delta + items.length) % items.length;
     setFocusedIndex(next);
     items[next]?.focus();
   }
@@ -158,9 +177,92 @@ export function BookSwitcher({ books, selectedBook, onSelect }: BookSwitcherProp
               </div>
             );
           })}
+          <hr className="my-1 border-t" />
+          <div role="none">
+            <button
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              aria-disabled={!canExport}
+              onClick={() => {
+                if (!canExport) return;
+                close();
+                onExport();
+              }}
+              className="flex h-10 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:text-muted-foreground aria-disabled:hover:bg-transparent"
+            >
+              <DownloadIcon />
+              <span className="truncate">
+                {t("menu_export", { name: selectedBook ? bookName(selectedBook) : "" })}
+              </span>
+            </button>
+          </div>
+          <div role="none">
+            <button
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              aria-disabled={!canImport}
+              onClick={() => {
+                if (!canImport) return;
+                // Opened inside the click, which browsers require of a file picker.
+                fileRef.current?.click();
+                close();
+              }}
+              className="flex h-10 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:text-muted-foreground aria-disabled:hover:bg-transparent"
+            >
+              <UploadIcon />
+              <span className="truncate">{t("menu_import")}</span>
+            </button>
+          </div>
         </div>
       )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".vcf,text/vcard,text/x-vcard"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onImport(file);
+        }}
+      />
     </div>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      className="size-4 shrink-0 text-muted-foreground"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3v12m-5-5 5 5 5-5M5 21h14" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg
+      className="size-4 shrink-0 text-muted-foreground"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 21V9m-5 5 5-5 5 5M5 3h14" />
+    </svg>
   );
 }
 

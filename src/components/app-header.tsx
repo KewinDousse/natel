@@ -23,6 +23,12 @@ type AppHeaderProps = {
   books: DavAddressBook[] | undefined;
   selectedBook: DavAddressBook | null;
   onSelectBook: (book: DavAddressBook) => void;
+  /** False while the selected book shows no contact. */
+  canExport: boolean;
+  /** False while the selected book is loading. */
+  canImport: boolean;
+  onExport: () => void;
+  onImport: (file: File) => void;
   query: string;
   onQueryChange: (query: string) => void;
   /** Contacts-query dataUpdatedAt (ms); 0 while nothing is loaded yet. */
@@ -40,6 +46,10 @@ export function AppHeader({
   books,
   selectedBook,
   onSelectBook,
+  canExport,
+  canImport,
+  onExport,
+  onImport,
   query,
   onQueryChange,
   syncedAt,
@@ -87,7 +97,15 @@ export function AppHeader({
         <div className="order-1 flex h-14 min-w-30 flex-1 basis-0 items-center gap-2 max-[22.5rem]:basis-full lg:h-auto lg:flex-none lg:basis-auto lg:shrink-0">
           <span className="shrink-0 font-display text-[2rem] font-bold leading-none">Natel</span>
           {books !== undefined && books.length > 0 && (
-            <BookSwitcher books={books} selectedBook={selectedBook} onSelect={onSelectBook} />
+            <BookSwitcher
+              books={books}
+              selectedBook={selectedBook}
+              onSelect={onSelectBook}
+              canExport={canExport}
+              canImport={canImport}
+              onExport={onExport}
+              onImport={onImport}
+            />
           )}
         </div>
 

@@ -618,7 +618,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
   const raw = new ICAL.Component(jCal);
   retypeTextBirthdays(raw);
 
-  const uid = String(raw.getFirstPropertyValue("uid") ?? "");
+  const uid = readUid(raw) ?? "";
 
   // --- FN ---
   const fnValue = raw.getFirstPropertyValue("fn");
@@ -673,6 +673,87 @@ function randomUuid(): string {
   bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * The cards of a .vcf file, each as its exact text from `BEGIN:VCARD` to its
+ * `END:VCARD`, line endings as in the file (ADR 020: the original text is
+ * what an import sends). A byte order mark and anything between cards are
+ * dropped. A card missing its `END:VCARD` ends where the next card begins,
+ * and is kept as it is for the parser to reject; only a vCard 2.1 `AGENT`
+ * nests a card inside another.
+ */
+export function splitCards(fileText: string): string[] {
+  const lines = fileText.replace(/^\uFEFF/, "").match(/[^\r\n]*(?:\r\n|\n|\r|$)/g) ?? [];
+  const cards: string[] = [];
+  let current: string[] = [];
+  let depth = 0;
+  let previous = "";
+  for (const line of lines) {
+    if (line.length === 0) continue;
+    const content = line.trimEnd().toUpperCase();
+    if (content === "BEGIN:VCARD") {
+      if (depth > 0 && !/^(?:[\w-]+\.)?AGENT[;:]/.test(previous)) {
+        cards.push(current.join(""));
+        current = [];
+        depth = 0;
+      }
+      depth += 1;
+    }
+    previous = content;
+    if (depth > 0) current.push(line);
+    if (content === "END:VCARD" && depth > 0) {
+      depth -= 1;
+      if (depth === 0) {
+        cards.push(current.join(""));
+        current = [];
+      }
+    }
+  }
+  if (current.length > 0) cards.push(current.join(""));
+  return cards;
+}
+
+/**
+ * What an import needs to know of a card: its UID as parse reads it (null
+ * when it has none), and a name to report it by. Throws when ical.js can't
+ * read it as a vCard.
+ */
+export function readImportCard(cardText: string): { uid: string | null; name: string } {
+  const jCal = ICAL.parse(cardText);
+  if (!Array.isArray(jCal) || jCal[0] !== "vcard") throw new Error("not a vCard");
+  const raw = new ICAL.Component(jCal as unknown[]);
+  const uid = readUid(raw);
+  const fn = String(raw.getFirstPropertyValue("fn") ?? "").trim();
+  const n = raw.getFirstProperty("n");
+  const parts = n ? nValueToStruct(n.getFirstValue()) : null;
+  const name = fn || [parts?.given, parts?.family].filter(Boolean).join(" ");
+  return { uid, name };
+}
+
+/**
+ * A card's UID as ical.js reads it (unescaped), null without one. Shared by
+ * parse and the import, so both sides of ADR 020's exact comparison match.
+ */
+function readUid(raw: RawComponent): string | null {
+  const prop = raw.getFirstProperty("uid");
+  return prop ? String(prop.getFirstValue() ?? "") : null;
+}
+
+/**
+ * A card text given a `UID:` line just before its `END:VCARD`, in the card's
+ * own line ending. Nothing else of the text changes.
+ */
+export function withUid(cardText: string, uid: string): string {
+  const eol = /\r\n|\n|\r/.exec(cardText)?.[0] ?? "\r\n";
+  const end = cardText.search(/END:VCARD[ \t]*(?:\r\n|\n|\r)?$/i);
+  if (end === -1) return cardText;
+  return `${cardText.slice(0, end)}UID:${uid}${eol}${cardText.slice(end)}`;
+}
+
+/** A fresh random UID, as newContact gives a new card. */
+export function newUid(): string {
+  return randomUuid();
 }
 
 /**
