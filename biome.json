@@ -35,6 +35,8 @@
       "!**/.git",
       "!**/src/routeTree.gen.ts",
       "!**/natel-design*",
+      "!docs/brand",
+      "!public/**/*.{svg,png,ico}",
       "!**/test-results",
       "!**/playwright-report"
     ]

@@ -173,6 +173,23 @@ Address: one row, the value column holds street / NPA + Localité (`grid-cols-[5
 - Groups: chips gain a × and an "Ajouter un groupe" input at the end of the line.
 - Validation messages and a newly added row push what's below them (user-triggered, expected).
 
+## Brand assets
+
+The mark, wordmark, favicon, app icons, manifest, social and README images
+live in `docs/brand/`, with their rules in `docs/brand/README.md`; the files
+the app serves are copied from there into `public/`. `docs/brand/alternatives/`
+holds earlier candidates, for reference only.
+
+- The mark: white tile, red band on the left edge, a red N centred and three
+  grey dots to its right. Pick the file by rendered size (≥ 48 px
+  `icon/natel-mark.svg`, smaller `icon/natel-mark-small.svg` or `favicon/`).
+  Never a white N on a red tile.
+- In the app, the header wordmark stays live text (`font-display`), not an
+  image.
+- `theme-color` is the brand red `#D8261D`, matching the band; the kit's
+  dark `theme-color` waits for dark mode. The app serves no `og:` tags: an
+  instance is private.
+
 ## Still not designed
 
 Empty address book (one Big Shoulders line at `text-display` size + one primary action), offline state, dark mode (the `.dark` tokens are a **sketch**: don't ship a theme toggle until it's reviewed).
