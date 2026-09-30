@@ -4,9 +4,9 @@
  * in src/lib/contact-list.ts; this file only composes and styles it.
  */
 
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import type { PointerEvent, ReactNode } from "react";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useI18n } from "@/i18n/react";
 import {
   ALPHABET,
@@ -23,6 +23,7 @@ import {
   trailingValueOf,
 } from "@/lib/contact-list";
 import { formatPhone } from "@/lib/format-phone";
+import { isDesktop, isDialogOpen, isInMenu, isTyping } from "@/lib/shortcuts";
 import type { Contact } from "@/model/contact";
 
 type ContactListProps = {
@@ -43,6 +44,7 @@ export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: Cont
   );
   const shown = groups.reduce((total, group) => total + group.contacts.length, 0);
   const searching = query.trim().length > 0;
+  useArrowNavigation(groups);
 
   if (noBooks) {
     return (
@@ -110,6 +112,55 @@ export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: Cont
       )}
     </ListShell>
   );
+}
+
+/**
+ * `↑` / `↓` open the previous / next contact in the list as shown, on desktop
+ * where both panes are visible. With none open, `↓` opens the first and `↑`
+ * the last. A focused row hands its focus on, so Tab and Enter carry on from
+ * the new one.
+ */
+function useArrowNavigation(groups: ContactGroup[]) {
+  const router = useRouter();
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.shiftKey) return;
+      if (isTyping(event.target) || isInMenu(event.target) || isDialogOpen() || !isDesktop())
+        return;
+      const ids = groups.flatMap((group) => group.contacts.map(contactIdOf));
+      if (ids.length === 0) return;
+      // The latest location, not the rendered one: a key pressed right after
+      // the last one must move on from where that one went.
+      const match = /^\/contacts\/([^/]+)$/.exec(router.latestLocation.pathname);
+      const at = match?.[1] ? ids.indexOf(decodeURIComponent(match[1])) : -1;
+      const next =
+        event.key === "ArrowDown"
+          ? at === -1
+            ? 0
+            : Math.min(at + 1, ids.length - 1)
+          : at === -1
+            ? ids.length - 1
+            : Math.max(at - 1, 0);
+      const target = ids[next];
+      if (target === undefined || next === at) return;
+      event.preventDefault();
+      const rowFocused = document.activeElement?.closest("#list") != null;
+      void router.navigate({ to: "/contacts/$id", params: { id: target } }).then(() => {
+        // A navigation the discard dialog held back settles only with a
+        // later one: act only if this row is still the open contact.
+        const row = document.querySelector<HTMLElement>(
+          `#list a[data-contact-id="${CSS.escape(target)}"][data-status="active"]`,
+        );
+        row?.scrollIntoView({ block: "nearest" });
+        if (rowFocused && !isDialogOpen()) row?.focus();
+      });
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [groups, router]);
 }
 
 function ListShell({ children }: { children: ReactNode }) {
@@ -205,6 +256,7 @@ function ContactRow({
       <Link
         to="/contacts/$id"
         params={{ id }}
+        data-contact-id={id}
         className="group relative flex min-h-[3.5rem] items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted data-[status=active]:bg-selection data-[status=active]:text-selection-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-[3.25rem] sm:py-0"
       >
         <span

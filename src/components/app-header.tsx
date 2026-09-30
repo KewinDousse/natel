@@ -12,6 +12,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
+import { isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
@@ -35,11 +36,6 @@ type AppHeaderProps = {
   hiddenOnMobile: boolean;
 };
 
-/** Desktop-only gate for the "/" shortcut (the kbd hint is lg-only too). */
-function isDesktop(): boolean {
-  return typeof window.matchMedia === "function" && window.matchMedia("(min-width: 64rem)").matches;
-}
-
 export function AppHeader({
   books,
   selectedBook,
@@ -58,14 +54,15 @@ export function AppHeader({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      const typing =
-        target !== null &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable);
-      if (event.key === "/" && !typing && isDesktop()) {
+      // Desktop only, like its kbd hint.
+      if (
+        event.key === "/" &&
+        isPlainKey(event) &&
+        !isTyping(event.target) &&
+        !isInMenu(event.target) &&
+        !isDialogOpen() &&
+        isDesktop()
+      ) {
         event.preventDefault();
         searchRef.current?.focus();
       }

@@ -203,6 +203,21 @@ These elements appear in the references, but which vCard property they read and 
 - **Groups** section: read from the book's group cards and the contact's `CATEGORIES` (ADR 022), each name once; group cards never show in the list. Editing is not built yet.
 - **"Autre date"** pill: `ANNIVERSARY` is vCard 4.0 only, and cards are created as 3.0 (ADR 008).
 
+## Keyboard shortcuts
+Single keys never fire while typing in a field, in a menu, behind a dialog, or with a modifier they don't expect (Shift and AltGr are left to the layout, since some need them for `/` or `?`).
+
+| Key | Where | Does |
+|---|---|---|
+| `/` | desktop | Focuses the search |
+| `↑` / `↓` | desktop | Opens the previous / next contact in the list as shown; with none open, `↓` the first and `↑` the last. A focused row hands its focus on. They don't scroll the page on desktop, except past the list's ends. |
+| `N` | everywhere | Opens a new contact, when there is an address book |
+| `E` | contact page | Enters edit mode |
+| `⌘` / `Ctrl` + `Entrée` | edit mode | Saves, from a field too (`⌘S` belongs to the browser) |
+| `Esc` | everywhere | Cancels the edit, closes the dialog, clears the search; closes the settings on desktop |
+| `?` | everywhere | Opens "Raccourcis clavier" |
+
+The "Raccourcis clavier" dialog is built like the import dialog once finished: the list as a `<dl>`, keys in the search's `kbd` style (`↑` and `↓` with their names for screen readers, `⌘` on Apple devices, `Ctrl` elsewhere), and one primary "Fermer", which takes the focus. `Esc` or a click outside closes it and gives the focus back. On phones it lists only the keys that work there.
+
 ## Motion
 - Search filters instantly, no list animation. A–Z jumps are instant.
 - Hover/press: colour only, 120ms. Panels, menus, sheets: 200ms fade + 8px slide from where the action came from, `ease-out` from the theme (`cubic-bezier(0.2,0.7,0.2,1)`); exits a third faster with `ease-in`.

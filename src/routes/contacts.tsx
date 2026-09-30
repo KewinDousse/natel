@@ -17,6 +17,7 @@ import { AppHeader } from "@/components/app-header";
 import { ContactDetailPane } from "@/components/contact-detail";
 import { ContactList } from "@/components/contact-list";
 import { ImportDialog, type ImportState } from "@/components/import-dialog";
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { ToastProvider, useToast } from "@/components/toast";
 import { useI18n } from "@/i18n/react";
 import type { SortBy } from "@/lib/contact-list";
@@ -192,6 +193,7 @@ function ContactsScreen() {
           </ContactDetailPane>
         </main>
       </div>
+      <KeyboardShortcuts canCreate={books !== undefined && books.length > 0} />
       {importState && (
         <ImportDialog
           bookName={selectedBook ? bookName(selectedBook) : ""}

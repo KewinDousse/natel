@@ -29,6 +29,7 @@ import { contactGroupNames } from "@/lib/contact-groups";
 import { contactById, contactIdOf, namePartsOf, primaryNumberOf } from "@/lib/contact-list";
 import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
+import { isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { bookName } from "@/lib/vcf-file";
 import type { Contact, ContactField } from "@/model/contact";
@@ -566,17 +567,9 @@ function ContactFiche({
   useEffect(() => {
     if (edit) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-      if (e.key === "e" || e.key === "E") {
-        if (
-          document.activeElement &&
-          (document.activeElement.tagName === "INPUT" ||
-            document.activeElement.tagName === "TEXTAREA" ||
-            document.activeElement.tagName === "SELECT")
-        )
-          return;
-        handleToggleEdit();
-      }
+      if (e.repeat || !isPlainKey(e) || isTyping(e.target) || isInMenu(e.target)) return;
+      if (isDialogOpen()) return;
+      if (e.key === "e" || e.key === "E") handleToggleEdit();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -686,6 +679,19 @@ function ContactFiche({
       return routeId;
     });
   }, [draft, editBase, updateContact, runSave, onCreate, routeId]);
+
+  // ⌘/Ctrl + Enter saves, from a field too (⌘S belongs to the browser).
+  useEffect(() => {
+    if (!edit) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      if (e.repeat || e.isComposing || busy || isDialogOpen()) return;
+      e.preventDefault();
+      void handleSave();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [edit, busy, handleSave]);
 
   // Conflict — reload by invalidating the contact query and exiting edit
   const handleConflictReload = useCallback(() => {
