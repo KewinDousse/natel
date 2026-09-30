@@ -503,3 +503,93 @@ itself is not drawn in DESIGN.md.
 never loses a contact. When an answer is lost, the contact may end up in
 both books, and the user is told. For a moment the same UID exists in two
 books; RFC 6352 only requires a UID to be unique within one address book.
+
+## 022 — Groups: read CATEGORIES and group cards, write group cards
+
+**Context.** vCard has two ways to put a contact in a group,
+and clients split between them.
+- `CATEGORIES` on the contact's own card: Nextcloud's Contacts app,
+  Thunderbird add-ons, and DAVx⁵ when set to "groups are per-contact
+  categories".
+- A separate group card, `KIND:group` with `MEMBER` lines in vCard 4.0,
+  `X-ADDRESSBOOKSERVER-KIND:group` with `X-ADDRESSBOOKSERVER-MEMBER` in
+  vCard 3.0, members given as `urn:uuid:<UID>`: Apple Contacts and iCloud,
+  and DAVx⁵ by default, which reads both forms whatever the version. For
+  Baïkal, DAVx⁵ recommends "groups are separate VCards (or the method used
+  by your other clients)" (davx5.com/tested-with/baikal). sabre/dav (Baïkal,
+  Nextcloud) serves 4.0 cards as 3.0 by default, turning `KIND`/`MEMBER`
+  into their `X-ADDRESSBOOKSERVER-` forms.
+Natel shows `CATEGORIES` read-only today (DESIGN.md), and the ROADMAP asks to
+read both and write one.
+
+**Decision.**
+- Natel writes group cards. The people who run Baïkal sync it with DAVx⁵ on
+  Android, where group cards are the default, and with Apple devices, which
+  only understand group cards. `CATEGORIES` stays readable for cards written
+  by other clients.
+- Reading, within one address book (groups belong to a book):
+  - A card with `KIND:group` or `X-ADDRESSBOOKSERVER-KIND:group` (any case)
+    is a group, not a contact, and is left out of the contact list. Its name
+    is its `FN`, else its `N`, else its UID.
+  - Its members are its `MEMBER` and `X-ADDRESSBOOKSERVER-MEMBER` values,
+    matched to the book's contacts by UID with or without `urn:uuid:`.
+    Members that match no contact are kept and ignored.
+  - Names are compared trimmed and case-sensitive, between group cards and
+    against `CATEGORIES` values. A contact's groups are the group cards
+    listing it plus its `CATEGORIES` values, each name once.
+  - Every group name of the book, empty group cards included, is offered as
+    a suggestion in "Ajouter un groupe".
+- What a save writes is a delta: the group names added and removed between
+  the version the edit started from and the draft.
+  - An added name gets a member line in one group card with that name, the
+    first by href, or a new group card if none has it: vCard 3.0 (ADR 008)
+    with `UID`, `FN`, `N:<name>;;;;`, `X-ADDRESSBOOKSERVER-KIND:group` and
+    one `X-ADDRESSBOOKSERVER-MEMBER`, at `<uid>.vcf` with
+    `If-None-Match: *` (ADR 016). An existing card gets the member property
+    it already uses, else the one of its version. The value is
+    `urn:uuid:<UID>`, without doubling a prefix the UID already has.
+  - A removed name takes the contact out wherever it is recorded, so the
+    chip doesn't come back: from every group card with that name listing
+    it, and from its own `CATEGORIES`. There, only that value goes; the
+    property is dropped once empty, and its other values, parameters and
+    group prefix stay. Nothing is ever added to `CATEGORIES`.
+  - A group card left with no member is kept: other clients show empty
+    groups, and deleting one is a separate action. Group cards are written
+    through `src/vcard/` like any card, so their unknown properties are kept
+    (invariant 4).
+- Order and failures:
+  - The contact's card is written first, and only when something on it
+    changed (a `CATEGORIES` removal counts). If it fails, no group card is
+    written, and the save fails as it does today.
+  - Once it is saved, the edit continues from the saved version and its new
+    ETag, so only the group changes still pending stay in the draft.
+  - Each group card is then written with `If-Match` on the ETag it was
+    loaded with, and the cached group card is updated with its new ETag and
+    members, as contacts are.
+  - A group card that fails leaves the contact's save in place. The bottom
+    bar names the groups not updated and why, and the user stays in edit
+    mode with those changes pending. For a 412 it offers, as for a contact
+    (ADR 013): "Recharger", which reloads the book, leaves edit mode and
+    drops the pending group changes; and "Écraser avec ma version", which
+    fetches that group card again, applies only this contact's delta to it
+    and writes it with its new ETag.
+  - "Écraser avec ma version" on the contact's own card applies the same
+    delta: `CATEGORIES` removals go onto the fresh card, and its other
+    `CATEGORIES` values stay as the server has them.
+- A contact without a UID gets one on the save that adds it to a group,
+  since a member line needs one; the save lands on the contact's new route.
+- Deleting a contact leaves its member lines in group cards: RFC 6350
+  doesn't require members to resolve, and a delete stays one conditional
+  `DELETE`, with no partial failure. Moving a contact (ADR 021) leaves its
+  memberships in the source book the same way.
+- The group filter in the list is not decided here: its design is drawn in
+  DESIGN.md before it is built.
+
+**Consequences.** Groups made in Natel show on iPhones, Macs and DAVx⁵
+phones in their default setup. Nextcloud's web app and DAVx⁵ in categories
+mode don't show them, though groups those clients made still show in Natel
+and can be left from it. That can decide whether Natel suits someone, so the
+README says it where people choose, in a "Compatibility" section next to the
+quick start, when groups ship. Saving a contact can write several cards, so a
+save can partly fail; the bottom bar then says what was not saved and how
+to finish it. Loading a book now sorts group cards from contacts.
