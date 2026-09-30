@@ -428,3 +428,78 @@ changed in the file since the book got them are not updated: the counts
 show them as already in the book, and updating them is left to the Phase 4
 merge. A card added elsewhere since the book was loaded shows up as failed
 rather than skipped; reloading and importing again settles it.
+
+## 021 — Moving a contact: copy, then delete; a refused delete undoes the copy
+
+**Context.** CardDAV has no move across address books that
+servers agree on, so a move is a create in the target book (`PUT` with
+`If-None-Match: *` at `<uid>.vcf`, ADR 016) followed by a conditional
+`DELETE` in the source. When the create lands and the delete doesn't, the
+contact is in both books, and what happens then has to be chosen. The action
+itself is not drawn in DESIGN.md.
+
+**Decision.**
+- What moves is the card as the server has it. The move fetches the card
+  again (text and ETag). If the ETag is not the one the edit started from,
+  or the card is gone (`NOT_FOUND`), it stops there with the conflict box,
+  as for a 412, and writes nothing; any other failure of that fetch shows
+  the error and writes nothing either. Otherwise that text is sent with
+  only its line endings restored to CRLF (the multistatus XML turns them
+  into LF), and the delete uses that ETag. A card without a UID gets one
+  `UID:` line before `END:VCARD`, whose value is the last segment of the
+  source href without `.vcf`: a retried move then targets the same href in
+  the target book. Unsaved changes are never part of a move: while the draft
+  differs from the version it started from, the action is disabled with a
+  hint to save or cancel first.
+- Each request's outcome is read from its `DavError` code. A definite answer
+  (`CONFLICT`, `NOT_FOUND`, `AUTH`) means the request did not take effect;
+  `NETWORK` and `UNEXPECTED` (any other status, including 5xx, or a lost
+  answer to the PUT or to the PROPFIND that follows it) mean it may have.
+  For a clear refusal that maps to `UNEXPECTED` (a 409, a 415), the cautious
+  message is accepted.
+  - The create gets a definite answer: nothing changed, the error is shown.
+    A `CONFLICT` means a card already sits at that href in the target, maybe
+    left by an earlier move; the message says so and the target book is
+    reloaded.
+  - The create may have landed: the delete is not sent. A message says the
+    contact may have been copied to the target book and was not removed from
+    the source, and both books are reloaded.
+  - The delete succeeds: the move is done. It lands on the contact's page in
+    the target book, which becomes the selected book, with a toast "Déplacé
+    vers « Travail »".
+  - The delete gets a definite answer: the source card changed, was deleted
+    elsewhere, or may not be deleted. The copy is deleted with the ETag its
+    create returned, then the delete's error is shown as it would be for a
+    plain delete: the conflict box with "Recharger" for `CONFLICT` and
+    `NOT_FOUND` (a delete made elsewhere wins, whatever code the server
+    uses), the usual handling for `AUTH`. The move didn't happen.
+  - The delete may have landed: nothing is undone, since undoing would lose
+    the contact if the delete did happen. A message says the contact was
+    copied to the target book and may still be in the source one, and both
+    books are reloaded.
+  - Undoing the copy succeeds or gets `NOT_FOUND`: undone. Anything else: a
+    message says the contact may be in both books, and both are reloaded.
+- After a failure the user stays on the source contact's page, in edit mode,
+  as after a failed delete: messages appear in the bottom bar like a save
+  error, and "Recharger" reloads the books and leaves edit mode as the
+  delete conflict does.
+- A 403 on either request goes through the app's handling of `AUTH`, as for
+  a save. A read-only book or a server that refuses a UID already present
+  under another href (RFC 6352 `no-uid-conflict`) is left to the
+  compatibility matrix (ADR 018).
+- Design, accepted by merging this ADR and then written into DESIGN.md:
+  - In edit mode, an outline button "Déplacer vers un autre carnet" sits
+    right above "Supprimer le contact", absent on a new contact and when the
+    account has a single book.
+  - It opens a dialog built like the delete dialog: title "Déplacer ce
+    contact ?", the other books as native radio buttons in a `fieldset`
+    (none selected at first), actions "Annuler" / "Déplacer" (primary,
+    disabled until a book is chosen).
+  - While the move runs, "Déplacer" shows a spinner and "Déplacement…", and
+    nothing in the dialog responds, so a second click can't start another
+    create.
+
+**Consequences.** A move never writes over a change made elsewhere and
+never loses a contact. When an answer is lost, the contact may end up in
+both books, and the user is told. For a moment the same UID exists in two
+books; RFC 6352 only requires a UID to be unique within one address book.
