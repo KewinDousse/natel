@@ -715,16 +715,16 @@ export function photoOf(contact: Contact): Photo | null {
 }
 
 /**
- * Whether "Changer la photo" can write this card. How a 4.0 data URI's comma
- * is written is still open on ADR 023, and 2.1 encodes photos its own
- * way, so only a 3.0 card, the kind Natel creates, takes a new photo for now.
+ * Whether "Changer la photo" can write this card: a 3.0 or 4.0 one (ADR 023).
+ * 2.1 encodes photos its own way, and a card without a version has none.
  */
 export function canReplacePhoto(contact: Contact): boolean {
-  return isVersion3(contact.raw);
+  return versionOf(contact.raw) !== null;
 }
 
-function isVersion3(raw: RawComponent): boolean {
-  return raw.getFirstPropertyValue("version") === "3.0";
+function versionOf(raw: RawComponent): "3.0" | "4.0" | null {
+  const version = raw.getFirstPropertyValue("version");
+  return version === "3.0" || version === "4.0" ? version : null;
 }
 
 /** The 3.0 `TYPE` for each format a new photo can have. */
@@ -737,20 +737,28 @@ const PHOTO_TYPES: Record<Extract<PhotoEdit, { kind: "replaced" }>["mediaType"],
 
 /**
  * Replaces every `PHOTO` with the new one, carrying only `ENCODING` and
- * `TYPE`, or removes them all (ADR 023). An unchanged photo is left alone.
+ * `TYPE` on a 3.0 card, or a data URI with no parameter on a 4.0 one, which
+ * ical.js writes with its comma escaped; or removes them all (ADR 023). An
+ * unchanged photo is left alone.
  */
 function updatePhotoProperty(raw: RawComponent, photo: PhotoEdit): void {
   if (photo.kind === "unchanged") return;
-  if (photo.kind === "replaced" && !isVersion3(raw)) {
-    throw new Error("A new photo is written on a vCard 3.0 card only (ADR 023)");
+  const version = versionOf(raw);
+  if (photo.kind === "replaced" && version === null) {
+    throw new Error("A new photo is written on a vCard 3.0 or 4.0 card only (ADR 023)");
   }
   raw.removeAllProperties("photo");
   if (photo.kind === "removed") return;
   const prop = new ICAL.Property("photo");
-  prop.resetType("binary");
-  prop.setParameter("encoding", "b");
-  prop.setParameter("type", PHOTO_TYPES[photo.mediaType]);
-  prop.setValue(photo.base64);
+  if (version === "4.0") {
+    prop.resetType("uri");
+    prop.setValue(`data:${photo.mediaType};base64,${photo.base64}`);
+  } else {
+    prop.resetType("binary");
+    prop.setParameter("encoding", "b");
+    prop.setParameter("type", PHOTO_TYPES[photo.mediaType]);
+    prop.setValue(photo.base64);
+  }
   raw.addProperty(prop);
 }
 
@@ -777,6 +785,28 @@ function retypeTextBirthdays(raw: RawComponent): void {
   }
 }
 
+/**
+ * ical.js decodes a vCard `uri` value's `\,` but leaves `\;` as is, so the
+ * data URI Radicale stores (`data:image/jpeg\;base64\,…`, RFC 6350 §3.4
+ * allows escaping the semicolon) would be written back as `\\;`, a media
+ * type other clients no longer read; Radicale then stores `\\\;`, and it
+ * grows on each save. Unescape it in `PHOTO` and `LOGO` data URIs of a 4.0
+ * card, however many backslashes precede it, since none belongs in a data
+ * URI's parameters: that also repairs a card an earlier save damaged. See
+ * DECISIONS.md 023.
+ */
+function unescapeDataUriSemicolons(raw: RawComponent): void {
+  // A 3.0 uri is copied as written, with no escape decoded or added.
+  if (versionOf(raw) !== "4.0") return;
+  for (const prop of [...raw.getAllProperties("photo"), ...raw.getAllProperties("logo")]) {
+    if ((prop.toJSON() as [string, unknown, string])[2] !== "uri") continue;
+    const value = prop.getFirstValue();
+    if (typeof value === "string" && value.startsWith("data:") && value.includes("\\;")) {
+      prop.setValue(value.replace(/\\+;/g, ";"));
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -791,6 +821,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
   const jCal = ICAL.parse(text);
   const raw = new ICAL.Component(jCal);
   retypeTextBirthdays(raw);
+  unescapeDataUriSemicolons(raw);
 
   const uid = readUid(raw) ?? "";
 

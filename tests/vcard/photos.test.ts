@@ -108,6 +108,50 @@ describe("writing photos", () => {
     expect(photoOf(parse(serialise(contact)))?.base64).toBe(bytes.jpeg);
   });
 
+  it("writes a 4.0 data URI read with or without its comma escaped as ical.js does", () => {
+    for (const value of [
+      `data:image/png;base64,${bytes.png}`,
+      `data:image/png;base64\\,${bytes.png}`,
+    ]) {
+      const contact = card(["VERSION:4.0", "FN:X", `item1.PHOTO:${value}`, `LOGO:${value}`]);
+      contact.fields.note = "edited";
+      const first = serialise(contact);
+      expect(photoLines(first)).toEqual([`item1.PHOTO:data:image/png;base64\\,${bytes.png}`]);
+      expect(unfold(first)).toContain(`LOGO:data:image/png;base64\\,${bytes.png}`);
+      const again = parse(first);
+      again.fields.note = "again";
+      expect(photoLines(serialise(again))).toEqual(photoLines(first));
+    }
+  });
+
+  it("writes a 4.0 data URI stored with its semicolon escaped as ical.js writes it", () => {
+    // As Radicale stores it.
+    const value = `data:image/png\\;base64\\,${bytes.png}`;
+    const contact = card(["VERSION:4.0", "FN:X", `item1.PHOTO:${value}`, `LOGO:${value}`]);
+    contact.fields.note = "edited";
+    const text = serialise(contact);
+    expect(photoLines(text)).toEqual([`item1.PHOTO:data:image/png;base64\\,${bytes.png}`]);
+    expect(unfold(text)).toContain(`LOGO:data:image/png;base64\\,${bytes.png}`);
+    expect(photoOf(parse(text))?.base64).toBe(bytes.png);
+  });
+
+  it("repairs a 4.0 data URI whose escaped semicolon an earlier save made grow", () => {
+    const contact = card([
+      "VERSION:4.0",
+      "FN:X",
+      `PHOTO:data:image/png\\\\\\;base64\\,${bytes.png}`,
+    ]);
+    contact.fields.note = "edited";
+    expect(photoLines(serialise(contact))).toEqual([`PHOTO:data:image/png;base64\\,${bytes.png}`]);
+  });
+
+  it("copies a 3.0 uri photo as written", () => {
+    const line = `PHOTO;VALUE=URI:data:image/png\\;base64,${bytes.png}`;
+    const contact = card(["VERSION:3.0", "FN:X", line]);
+    contact.fields.note = "edited";
+    expect(photoLines(serialise(contact))).toEqual([line]);
+  });
+
   it("leaves a 3.0 card's data URI as ical.js writes it", () => {
     const contact = card(["VERSION:3.0", "FN:X", `PHOTO:data:image/png;base64,${bytes.png}`]);
     expect(unfold(serialise(contact))).toContain(`PHOTO:data:image/png;base64,${bytes.png}`);
@@ -158,22 +202,51 @@ describe("changing and removing photos", () => {
     expect(unfold(text)).toContain(`LOGO;ENCODING=b;TYPE=PNG:${bytes.png}`);
   });
 
-  it("removes the photos of a 4.0 card, and refuses to write a new one there yet", () => {
+  it("removes the photos of a 4.0 card", () => {
     const removed = parse(fixture("photo-davx5-v4.vcf"));
     removed.fields.photo = { kind: "removed" };
     expect(photoLines(serialise(removed))).toEqual([]);
-
-    const v4 = parse(fixture("photo-davx5-v4.vcf"));
-    expect(canReplacePhoto(v4)).toBe(false);
-    v4.fields.photo = replaced;
-    expect(() => serialise(v4)).toThrow(/3\.0/);
   });
 
-  it("offers a new photo to no card but 3.0", () => {
+  it("replaces every PHOTO of a 4.0 card with a data URI whose comma ical.js escapes", () => {
+    const source = fixture("photo-davx5-v4.vcf").replace(
+      "END:VCARD",
+      "PHOTO;MEDIATYPE=image/jpeg:https://example.org/a.jpg\r\nEND:VCARD",
+    );
+    expect(photoLines(source)).toHaveLength(2);
+    const v4 = parse(source);
+    expect(canReplacePhoto(v4)).toBe(true);
+    v4.fields.photo = replaced;
+    const text = serialise(v4);
+    expect(photoLines(text)).toEqual([`PHOTO:data:image/png;base64\\,${bytes.png}`]);
+    expect(unfold(text)).toMatch(/^VERSION:4\.0$/m);
+    expect(photoOf(parse(text))).toEqual({ mediaType: "image/png", base64: bytes.png });
+  });
+
+  it("writes the media type of each format a new photo can have on a 4.0 card", () => {
+    for (const mediaType of ["image/jpeg", "image/gif", "image/webp"] as const) {
+      const contact = card(["VERSION:4.0", "FN:X"]);
+      contact.fields.photo = { kind: "replaced", mediaType, base64: bytes.jpeg };
+      const text = serialise(contact);
+      expect(photoLines(text)).toEqual([`PHOTO:data:${mediaType};base64\\,${bytes.jpeg}`]);
+      expect(photoOf(parse(text))).toEqual({ mediaType, base64: bytes.jpeg });
+    }
+  });
+
+  it("keeps a new 4.0 photo as written when the next save edits another field", () => {
+    const contact = card(["VERSION:4.0", "FN:X"]);
+    contact.fields.photo = replaced;
+    const first = serialise(contact);
+    const again = parse(first);
+    again.fields.note = "edited";
+    expect(photoLines(serialise(again))).toEqual(photoLines(first));
+  });
+
+  it("offers a new photo to no card but 3.0 and 4.0", () => {
     for (const other of [card(["VERSION:2.1", "FN:X"]), card(["FN:X"])]) {
       expect(canReplacePhoto(other)).toBe(false);
       other.fields.photo = replaced;
-      expect(() => serialise(other)).toThrow(/3\.0/);
+      expect(() => serialise(other)).toThrow(/3\.0 or 4\.0/);
     }
   });
 

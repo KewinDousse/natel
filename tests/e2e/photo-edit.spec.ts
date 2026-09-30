@@ -106,10 +106,19 @@ async function choosePhoto(page: Page, buffer: Buffer, name = "photo.jpg"): Prom
 
 /** The base64 of the card's PHOTO lines, unfolded. */
 function photoLines(card: string | null): string[] {
-  return (card ?? "")
-    .replace(/\r?\n[ \t]/g, "")
-    .split(/\r?\n/)
-    .filter((line) => /^PHOTO[;:]/i.test(line));
+  return (
+    (card ?? "")
+      .replace(/\r?\n[ \t]/g, "")
+      .split(/\r?\n/)
+      .filter((line) => /^(?:[\w-]+\.)?PHOTO[;:]/i.test(line))
+      // Servers and ical.js differ in a group's case.
+      .map((line) => line.replace(/^[\w-]+\./, (group) => group.toLowerCase()))
+  );
+}
+
+/** PHOTO lines unescaped, as clients read them, whatever the server escaped. */
+function decoded(lines: string[]): string[] {
+  return lines.map((line) => line.replace(/\\([\\,;])/g, "$1"));
 }
 
 async function savedPhoto(page: Page, uid: string): Promise<string[]> {
@@ -247,7 +256,7 @@ test("removes every photo", async ({ page }) => {
   expect(await savedPhoto(page, "ada")).toEqual([]);
 });
 
-test("offers only to remove the photo of a vCard 4.0 card", async ({ page }) => {
+test("writes a new photo into a vCard 4.0 card as a data URI", async ({ page }) => {
   // sabre/dav serves every card as vCard 3.0 unless asked for 4.0.
   test.skip(SERVER_NAME === "baikal", "Baïkal hands the card over as 3.0");
   await putCard(
@@ -258,6 +267,36 @@ test("offers only to remove the photo of a vCard 4.0 card", async ({ page }) => 
   );
   await signIn(page);
   await editContact(page, /Hopper/);
-  await expect(page.getByRole("button", { name: "Remove photo" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Change photo" })).toHaveCount(0);
+  await choosePhoto(page, jpegWithGps);
+  const dialog = page.getByRole("dialog", { name: "Crop photo" });
+  await dialog.getByRole("button", { name: "Use photo" }).click();
+  await expect(dialog).toBeHidden();
+
+  const stripped = stripMetadata(Uint8Array.from(jpegWithGps));
+  const expected = Buffer.from(stripped?.bytes ?? []).toString("base64");
+  const lines = await savedPhoto(page, "grace");
+  // Radicale also escapes the semicolon when it stores the card.
+  expect(decoded(lines)).toEqual([`PHOTO:data:image/jpeg;base64,${expected}`]);
+  expect(await getCard("grace")).toMatch(/^VERSION:4\.0\r?$/m);
+});
+
+test("keeps a vCard 4.0 photo as the server stored it when another field is saved", async ({
+  page,
+}) => {
+  test.skip(SERVER_NAME === "baikal", "Baïkal hands the card over as 3.0");
+  await putCard(
+    "grace",
+    SERVER_NAME === "radicale"
+      ? fixture("photo-davx5-v4.vcf").replace("base64,", "base64\\,")
+      : fixture("photo-davx5-v4.vcf"),
+  );
+  // Radicale escapes the semicolon too: `data:image/jpeg\;base64\,…`.
+  const stored = photoLines(await getCard("grace"));
+  await signIn(page);
+  await editContact(page, /Hopper/);
+  await page.getByPlaceholder("First name").fill("Amazing Grace");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect.poll(() => getCard("grace")).toContain("Amazing Grace");
+  // Xandikos keeps the comma as the fixture wrote it, and Natel escapes it.
+  expect(decoded(photoLines(await getCard("grace")))).toEqual(decoded(stored));
 });

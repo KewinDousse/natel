@@ -609,7 +609,9 @@ for byte. It types the 4.0
 data URI as `uri` but escapes it like text, so the comma comes out as
 `data:image/jpeg;base64\,…`, on untouched cards and new properties alike;
 ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
-(§6.2.4) leave the comma unescaped.
+(§6.2.4) leave the comma unescaped. Radicale keeps the escaped form (adding
+`\;`), but cuts the unescaped one at the comma: it stores
+`data:image/jpeg\;base64` and the image is lost.
 
 **Decision.**
 - Reading, by the value's shape whatever the card's version: an `ENCODING`
@@ -728,20 +730,21 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   - On a 3.0 card: `PHOTO;ENCODING=b;TYPE=JPEG:<base64>` (or `TYPE=PNG`,
     `GIF`, `WEBP`; RFC 2426, what Apple and ez-vcard write, and what ical.js
     writes for a binary value).
-  - On a 4.0 card: `PHOTO:data:image/jpeg;base64,<base64>` (or `image/png`,
-    `image/gif`, `image/webp`; RFC 6350).
-  - On a 4.0 card, `src/vcard/` writes data URIs in `PHOTO` and `LOGO`
-    without escaping the comma, whether new or read from the card, as a
-    named workaround for ical.js in the manner of ADR 012 (ical.js doesn't
-    escape them on a 3.0 card, which is left as it is). `serialise` then
-    writes the card line by line: `BEGIN`, each property stringified with
-    the card's own design set (`vcard`, not ical.js's default) and `noFold`,
-    then `END`. For those properties, the line is stringified with an empty
-    value, the value, unescaped in one pass (`/\\([\\,])/g`), is appended,
-    and the line is folded with ical.js's `foldline`. A test puts the escape across the 75-octet fold
-    with a group and a long parameter (`item1.PHOTO;X-…=…:data:…`). This
-    also rewrites `\,` in an untouched `PHOTO` or `LOGO` another client
-    stored that way: an accepted normalisation, as in ADR 012.
+  - On a 4.0 card: `PHOTO:data:image/jpeg;base64\,<base64>` (or `image/png`,
+    `image/gif`, `image/webp`), the data URI of RFC 6350 with the comma
+    escaped as ical.js writes it. That form survives every server tested,
+    Radicale included, and ez-vcard (DAVx⁵) and sabre/vobject read it; the
+    unescaped one loses the photo on Radicale. A data URI read from the
+    card, its comma escaped or not, is written back as ical.js writes it.
+    ical.js decodes `\,` but leaves `\;` as is, and would write the
+    semicolon Radicale escapes as `\\;`, a media type ez-vcard no longer
+    reads: `unescapeDataUriSemicolons` in `src/vcard/`, a named workaround in
+    the manner of ADR 012, decodes `\;` in the `PHOTO` and `LOGO` data URIs
+    of a 4.0 card right after parsing (RFC 6350 §3.4 allows escaping it),
+    whatever the number of backslashes before it, which also repairs a card
+    an earlier save made grow to `\\\;`. A
+    3.0 `uri` value, which ical.js neither decodes nor escapes, is copied as
+    written.
   - The card's version never changes for a photo.
 - Editing: the draft holds the photo as unchanged, replaced (a new image) or
   removed, and `serialise` touches `PHOTO` only for the last two, so a save
@@ -780,9 +783,9 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   DAVx⁵ on test devices (no real person) are maintainer work, and join
   `fixtures/public/` when provided. Round-trip tests check that a card keeps
   its photo byte for byte when another field is edited, except that a 4.0
-  data URI in `PHOTO` or `LOGO` read with `\,` is written with `,`; and that
-  an uncropped JPEG, PNG, GIF or WebP lands in the card with its image data
-  byte for byte and only the kept metadata.
+  data URI in `PHOTO` or `LOGO` read with `,` or `\;` is written with `\,`
+  and `;`; and that an uncropped JPEG, PNG, GIF or WebP lands in the card
+  with its image data byte for byte and only the kept metadata.
 
 **Consequences.** Photos set in Natel show on Android and Apple devices, as
 the user chose them: a large file makes a large card, which every client
