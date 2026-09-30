@@ -593,3 +593,206 @@ README says it where people choose, in a "Compatibility" section next to the
 quick start, when groups ship. Saving a contact can write several cards, so a
 save can partly fail; the bottom bar then says what was not saved and how
 to finish it. Loading a book now sorts group cards from contacts.
+
+## 023 — Photos: the chosen image is kept as it is, without the metadata that doesn't show
+
+**Context.** The contact page draws a photo and "Changer la
+photo" / "Retirer la photo" (DESIGN.md), but `PHOTO` is neither shown nor
+edited today; it is only preserved. The photo has to show on Android
+(DAVx⁵, ez-vcard) and Apple clients in vCard 3.0 and 4.0, and the crop
+needs either a library or a canvas. The maintainer's rule: Natel doesn't
+lose what the user sees of their photo and doesn't choose a compression
+level for them, so a large file makes a large card; metadata that doesn't
+change how the image shows, such as a GPS location, can go. ical.js 2.2.1
+reads a 3.0 `PHOTO` with an `ENCODING` as binary and round-trips it byte
+for byte. It types the 4.0
+data URI as `uri` but escapes it like text, so the comma comes out as
+`data:image/jpeg;base64\,…`, on untouched cards and new properties alike;
+ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
+(§6.2.4) leave the comma unescaped.
+
+**Decision.**
+- Reading, by the value's shape whatever the card's version: an `ENCODING`
+  of `b` or `base64` (any case) is base64, its type taken from `TYPE` when it
+  names an image type, else sniffed from the magic bytes; a value starting
+  with `data:image/` is a data URI, including a 3.0 `PHOTO:data:…` with no
+  `VALUE`, which ical.js hands over as a binary whose value is the data URI.
+  The first `PHOTO` whose value yields base64 bytes with an image type,
+  declared or sniffed, is shown, with `object-cover` in the page's
+  `rounded-xl` square and the list's `rounded-lg` one (DESIGN.md rule 7),
+  whatever its format; if none does, or the `<img>` fails to load, the
+  initials show. List avatars take `loading="lazy"` and `decoding="async"`,
+  since a photo can weigh several MB. A `PHOTO` pointing at a URL is not
+  fetched, since the app loads no remote image. Apple's `X-ABCROP-RECTANGLE` is kept but not
+  applied.
+- The file's format comes from its magic bytes, never from `File.type` or
+  the extension; the 3.0 `TYPE` and the 4.0 data URI's media type are
+  written from it.
+- Writing, when the frame ends as it opened (1×, centred: the centred
+  square every client shows of a non-square photo; the final crop rectangle
+  is compared by value, so a frame moved and brought back counts as
+  unchanged), the image is kept whole:
+  - A JPEG, PNG, GIF or WebP file keeps its image data byte for byte, at
+    its size and resolution, with no re-encoding. Only its metadata is
+    filtered, by copying the file's segments or chunks verbatim, in their
+    order, which is lossless. Each format has an allowlist of what changes
+    how the image shows; anything not on it is dropped, GPS location,
+    camera, dates, thumbnails, comments and XMP included:
+    - JPEG: SOI and every marker that isn't an `APPn` or `COM` (DQT, DHT,
+      SOFn, DRI, SOS and its data, RSTn, EOI); `APP0` `JFIF`, rewritten
+      with a 0 × 0 thumbnail (`JFXX` is dropped); every `APP2`
+      `ICC_PROFILE` chunk, in order; `APP14` `Adobe`. For an HDR photo
+      (Ultra HDR, or Apple's adaptive HDR), the gain map also changes how it
+      shows on an HDR screen, so `APP2` `MPF`, the `APP1` XMP packet that
+      declares the `hdrgm` namespace, and the images the MPF index points to
+      after EOI are kept, with the MPF offsets recomputed. Any other bytes
+      after EOI (a Motion Photo's video, for one) are dropped.
+    - PNG: `IHDR`, `PLTE`, `tRNS`, `IDAT`, `IEND`, `acTL`, `fcTL`, `fdAT`
+      (APNG frames), `iCCP`, `sRGB`, `gAMA`, `cHRM`, `cICP`, `mDCv`, `cLLi`,
+      `sBIT`.
+    - WebP: `VP8X`, `VP8 `, `VP8L`, `ALPH`, `ANIM`, `ANMF`, `ICCP`. In
+      `VP8X`, the I, E and X flags match the chunks kept, A and L stay as
+      they are; the RIFF size is recomputed and odd-sized chunks keep their
+      padding byte. A simple WebP (no `VP8X`) is copied unchanged.
+    - GIF: header, logical screen descriptor, colour tables, Graphic
+      Control Extensions (frame delay, disposal, transparency), image
+      descriptors and data, the loop block (`NETSCAPE2.0` or
+      `ANIMEXTS1.0`), trailer.
+    - The EXIF orientation, in all three formats that carry it, is written
+      back as a minimal EXIF block when it isn't 1: `Exif\0\0` (JPEG only),
+      a TIFF header in the source's byte order, then IFD0 with one entry
+      (0x0112, SHORT, count 1) and a next-IFD offset of 0. In a JPEG it
+      takes the original `APP1`'s place, after `APP0` `JFIF`; in a PNG it is
+      an `eXIf` chunk before the first `IDAT`; in a WebP an `EXIF` chunk,
+      with the E flag set. With orientation 1 or none, there is no block.
+    The filter is `src/lib/photo-metadata.ts`, with no dependency, tested in
+    `tests/lib/`: the image data comes out unchanged; the orientation still
+    applies, for a JPEG, a PNG `eXIf` and a WebP; a PNG with `tRNS` keeps
+    its transparency; an APNG and an animated GIF and WebP keep every
+    frame; an Ultra HDR JPEG keeps its gain map; and fixtures with GPS,
+    XMP, `COM` and `tEXt` come out without them.
+    Apple, Android through
+    DAVx⁵, Thunderbird and Nextcloud are expected to show all four (WebP
+    since iOS 14 and macOS 11); the maintainer's device check confirms
+    WebP on Apple and GIF and WebP through DAVx⁵. An animated GIF or WebP
+    stays animated where the client supports it; Android re-encodes what it
+    stores, so it doesn't.
+  - A rotated phone photo keeps its orientation tag rather than having the
+    rotation baked in, so it isn't re-encoded. Android's decoder may ignore
+    EXIF and show it sideways: the maintainer's device check settles it,
+    and if it does, rotated photos go through the canvas as below.
+  - Any other format the browser decodes (AVIF, BMP, TIFF…), which not
+    every client reads, goes through the canvas, as for a crop below.
+- Writing, when the frame is moved or zoomed, or for an uncommon format:
+  the square (or, uncropped, the whole image) is drawn on a canvas at the
+  source's resolution, never scaled, and encoded in the source's family: a
+  JPEG as JPEG at the highest quality the browser offers (1.0), anything
+  else as PNG, lossless. This is the closest to the source a browser can
+  write without a library, and it costs something: the result loses its
+  colour profile and all metadata, the rotation is baked in, an HDR photo
+  loses its gain map, a JPEG is often larger than its source,
+  a 16-bit or HDR source drops to 8 bits, a HEIC or AVIF becomes a much
+  larger PNG, and an animated GIF or WebP keeps only its first frame. The
+  canvas is `display-p3` where the browser supports it
+  (`getContext("2d", { colorSpace: "display-p3" })`), sRGB elsewhere, where
+  a Display-P3 photo loses the colours outside sRGB.
+- Considered: a lossless JPEG crop and rotation (jpegtran compiled to
+  WebAssembly), which keeps the colour profile and adds no JPEG loss, but crops only on
+  the 8 or 16 px block grid and adds a dependency of a few hundred KB, which
+  needs the maintainer's approval. Encoding a cropped JPEG as PNG instead:
+  lossless from there, but several times larger. Merging this ADR as
+  written picks the canvas path; either option is asked for in review
+  instead.
+- A canvas past what the browser can hold shows an error in the dialog, in
+  the `role="alert"` message, saying the image is too large to crop in this
+  browser, and to zoom in or choose a smaller image; the image is never
+  scaled down to fit. Browsers can fail silently there (iOS Safari caps a
+  canvas at 16,777,216 px, less than a 24 MP photo, and may hand back a
+  blank one), so every check runs: the area against that cap before
+  drawing, in every browser so the behaviour is the same and testable, at
+  the cost of refusing on desktop a crop it could handle; a `getContext` or
+  `toBlob` that returns `null`; and the encoded blob decoded back to the
+  expected size, with a few sampled pixels compared, within a JPEG
+  tolerance, to the same area drawn small from the source. A blank image
+  never replaces the user's photo, and the new photo shows on the contact
+  page in edit mode before it is saved. An uncropped JPEG, PNG, GIF or WebP never goes through the
+  canvas, so it is unaffected.
+- No size limit of Natel's own. A server that refuses the card for its size
+  (413, a new `DavError` code `TOO_LARGE` in `src/dav/`) shows an error
+  saying the server refused a card this large and
+  that its request size limit can be raised (a stock nginx in front of
+  Baïkal stops at 1 MB); the edit stays open. A proxy often closes the
+  connection on a large body instead, so a network failure on a card
+  larger than 1 MB shows the same hint.
+- Encoding in the card:
+  - On a 3.0 card: `PHOTO;ENCODING=b;TYPE=JPEG:<base64>` (or `TYPE=PNG`,
+    `GIF`, `WEBP`; RFC 2426, what Apple and ez-vcard write, and what ical.js
+    writes for a binary value).
+  - On a 4.0 card: `PHOTO:data:image/jpeg;base64,<base64>` (or `image/png`,
+    `image/gif`, `image/webp`; RFC 6350).
+  - On a 4.0 card, `src/vcard/` writes data URIs in `PHOTO` and `LOGO`
+    without escaping the comma, whether new or read from the card, as a
+    named workaround for ical.js in the manner of ADR 012 (ical.js doesn't
+    escape them on a 3.0 card, which is left as it is). `serialise` then
+    writes the card line by line: `BEGIN`, each property stringified with
+    the card's own design set (`vcard`, not ical.js's default) and `noFold`,
+    then `END`. For those properties, the line is stringified with an empty
+    value, the value, unescaped in one pass (`/\\([\\,])/g`), is appended,
+    and the line is folded with ical.js's `foldline`. A test puts the escape across the 75-octet fold
+    with a group and a long parameter (`item1.PHOTO;X-…=…:data:…`). This
+    also rewrites `\,` in an untouched `PHOTO` or `LOGO` another client
+    stored that way: an accepted normalisation, as in ADR 012.
+  - The card's version never changes for a photo.
+- Editing: the draft holds the photo as unchanged, replaced (a new image) or
+  removed, and `serialise` touches `PHOTO` only for the last two, so a save
+  that doesn't change the photo leaves every `PHOTO` as it was. "Changer la
+  photo" replaces every `PHOTO` with one new property that carries only
+  `ENCODING` and `TYPE` (3.0) or no parameter (4.0): none of the old
+  parameters, such as Apple's `X-ABCROP-RECTANGLE`, is carried over to the
+  new image. "Retirer la photo", shown only when a photo is displayed,
+  removes them all. `LOGO` is left alone. It is one field for ADR 013's
+  overwrite. A new contact can get a photo too.
+- Input: any image the browser decodes (`accept="image/*"`, which also makes
+  iOS hand over HEIC as JPEG). The EXIF orientation is applied for display
+  and for the canvas: `createImageBitmap(file, { imageOrientation:
+  "from-image" })`, retried without options where the engine rejects that
+  value, and a test checks the baked dimensions of an orientation-6 JPEG. An image that
+  doesn't decode shows an error in the dialog, in the `role="alert"`
+  message.
+- Crop on a canvas, with no library, in a dialog built like the discard
+  dialog. Merging this ADR accepts that design, which then goes into
+  DESIGN.md:
+  - Title "Recadrer la photo" / "Crop photo"; actions "Annuler" (outline)
+    and "Utiliser la photo" / "Use photo" (primary).
+  - A square frame, `rounded-xl` like the result, up to 20rem wide (the
+    dialog's width on phones), the image dimmed outside it. The image
+    fills the frame at first, centred.
+  - The frame is focusable and has the initial focus, a translated
+    `aria-label`, its instructions linked with `aria-describedby`, and the
+    focus ring. It takes the drag (`touch-action: none`), pinch and wheel
+    (a non-passive listener), and, while focused, the arrow keys to move and
+    `+` / `-` to zoom. A labelled range input "Zoom" goes from 1× (fills the
+    frame) to 4×.
+  - `Esc` closes the dialog only, never the edit mode behind it.
+- Fixtures: the implementation ships synthetic fixtures in the shapes real
+  clients write (Apple 3.0 with `X-ABCROP-RECTANGLE`, a DAVx⁵ 4.0 data URI,
+  a JPEG with EXIF orientation 6, a WebP). Photos made by Apple Contacts and
+  DAVx⁵ on test devices (no real person) are maintainer work, and join
+  `fixtures/public/` when provided. Round-trip tests check that a card keeps
+  its photo byte for byte when another field is edited, except that a 4.0
+  data URI in `PHOTO` or `LOGO` read with `\,` is written with `,`; and that
+  an uncropped JPEG, PNG, GIF or WebP lands in the card with its image data
+  byte for byte and only the kept metadata.
+
+**Consequences.** Photos set in Natel show on Android and Apple devices, as
+the user chose them: a large file makes a large card, which every client
+downloads on each sync and Natel loads with the book at sign-in, and which
+a server with a small request limit refuses. DAVx⁵ keeps only a scaled-down
+copy on the phone, and writes that copy back if the contact is later edited
+there. Only a crop or an uncommon format re-encodes the image (and a
+rotated photo, if the device check requires it). A photo
+set in Natel carries no GPS location, camera or date: nothing that doesn't
+show leaves the device. Apple photos show uncropped, filling their square,
+until `X-ABCROP-RECTANGLE` is applied. The maintainer checks on real devices that
+a 3 to 5 MB photo, a rotated phone photo (a 24 MP iPhone one included), a
+WebP and a GIF set in Natel show right through DAVx⁵ and on iOS.
