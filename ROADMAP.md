@@ -59,13 +59,13 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] Create, delete
 - [x] ETag conflict UI: reload the server version or overwrite with my
       changes (ADR 013)
-- [ ] Responsive layout, usable on a phone
-      — Implemented per `docs/DESIGN.md`, not yet validated on a real phone.
+- [x] Responsive layout, usable on a phone
+      — Checked on a real phone by the maintainer.
 - [x] i18n en + fr
 - [x] Docker image published on tag, compose example in README
       — CI publishes the image it tested to `ghcr.io/kewindousse/natel` on
         a `vX.Y.Z` tag; `v0.1.0` is the first.
-- [ ] Tag `v0.1.0`
+- [x] Tag `v0.1.0`
 
 ## Phase 3 — v0.2, usable by others ✅ when: someone who isn't the author runs it daily
 

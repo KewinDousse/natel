@@ -4,7 +4,9 @@ Notable changes to Natel. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [Unreleased]
+
+## [0.1.0] - 2026-09-30
 
 ### Added
 
@@ -22,4 +24,10 @@ Notable changes to Natel. The format follows
   or overwrite only the fields you changed) and on delete (reload before
   deleting).
 - English and French.
-- Docker image served by Caddy, which proxies CardDAV requests to your server.
+- Docker image for amd64 and arm64, served by Caddy with a healthcheck and a
+  content security policy; Caddy proxies CardDAV requests to your server.
+- Phone layout: the header stays on one row from 360px, and no screen
+  scrolls sideways.
+- The contact list shows the sorted part of the name first, and a finger
+  sliding along the A–Z index scrolls the list on phones.
+- Password managers recognise the sign-in form.
