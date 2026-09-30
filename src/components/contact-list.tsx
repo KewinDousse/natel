@@ -5,8 +5,8 @@
  */
 
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { useMemo } from "react";
+import type { PointerEvent, ReactNode } from "react";
+import { useMemo, useRef } from "react";
 import { useI18n } from "@/i18n/react";
 import {
   ALPHABET,
@@ -16,6 +16,8 @@ import {
   type HighlightSegment,
   namePartsOf,
   OTHER_GROUP,
+  orderedNameOf,
+  railTarget,
   type SortBy,
   splitByQuery,
   trailingValueOf,
@@ -98,7 +100,7 @@ export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: Cont
       ) : (
         <>
           {groups.map((group) => (
-            <GroupSection key={group.letter} group={group} query={query} />
+            <GroupSection key={group.letter} group={group} query={query} sortBy={sortBy} />
           ))}
           <AlphabetRail
             present={new Set(groups.filter((g) => g.letter !== OTHER_GROUP).map((g) => g.letter))}
@@ -112,11 +114,13 @@ export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: Cont
 
 function ListShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
+  // From lg the list scrolls itself; its right margin keeps the scrollbar
+  // clear of the rail, which sits outside it.
   return (
     <nav
       id="list"
       aria-label={t("list_label")}
-      className="pb-24 pl-2 pr-7 lg:h-full lg:overflow-y-auto lg:pb-10 lg:pr-8"
+      className="pb-24 pl-2 pr-7 lg:mr-8 lg:h-full lg:overflow-y-auto lg:pb-10 lg:pr-2"
     >
       {children}
     </nav>
@@ -132,7 +136,15 @@ function StateBox({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
-function GroupSection({ group, query }: { group: ContactGroup; query: string }) {
+function GroupSection({
+  group,
+  query,
+  sortBy,
+}: {
+  group: ContactGroup;
+  query: string;
+  sortBy: SortBy;
+}) {
   return (
     <section
       id={`g-${group.letter}`}
@@ -144,15 +156,24 @@ function GroupSection({ group, query }: { group: ContactGroup; query: string }) 
       {/* biome-ignore lint/a11y/noRedundantRoles: DESIGN.md mandates <ul role="list"> */}
       <ul role="list" className="min-w-0">
         {group.contacts.map((contact) => (
-          <ContactRow key={contact.href} contact={contact} query={query} />
+          <ContactRow key={contact.href} contact={contact} query={query} sortBy={sortBy} />
         ))}
       </ul>
     </section>
   );
 }
 
-function ContactRow({ contact, query }: { contact: Contact; query: string }) {
-  const { family, given, display } = namePartsOf(contact);
+function ContactRow({
+  contact,
+  query,
+  sortBy,
+}: {
+  contact: Contact;
+  query: string;
+  sortBy: SortBy;
+}) {
+  const { family, given } = namePartsOf(contact);
+  const { lead, rest, display } = orderedNameOf(contact, sortBy);
   const trailing = trailingValueOf(contact);
   const id = contactIdOf(contact);
   const orgOnly = display.length === 0;
@@ -160,13 +181,13 @@ function ContactRow({ contact, query }: { contact: Contact; query: string }) {
   const nameValue = (
     <>
       <b className="font-bold">
-        <Marked value={family} query={query} />
+        <Marked value={lead} query={query} />
       </b>
-      {given && (
+      {rest && (
         <>
           {" "}
           <span>
-            <Marked value={given} query={query} />
+            <Marked value={rest} query={query} />
           </span>
         </>
       )}
@@ -297,15 +318,44 @@ function MarkedSegments({ segments }: { segments: HighlightSegment[] }) {
 /**
  * A–Z rail — absent letters are aria-hidden and out of the tab order; anchors
  * jump without smooth scrolling. Hidden entirely while a search is active.
+ * On touch, a tap or a finger sliding along the rail scrolls to the letter
+ * under it, as native contact apps do; the anchors serve mouse and keyboard.
  */
 function AlphabetRail({ present, hidden }: { present: Set<string>; hidden: boolean }) {
   const { t } = useI18n();
+  const shown = useRef<string | null>(null);
+
+  function jumpTo(event: PointerEvent<HTMLElement>) {
+    const letters = event.currentTarget.querySelectorAll<HTMLElement>("[data-letter]");
+    const first = letters[0]?.getBoundingClientRect();
+    const last = letters[letters.length - 1]?.getBoundingClientRect();
+    if (!first || !last) return;
+    const step = (last.bottom - first.top) / letters.length;
+    const index = Math.min(
+      letters.length - 1,
+      Math.max(0, Math.floor((event.clientY - first.top) / step)),
+    );
+    const target = railTarget(ALPHABET.split(""), present, index);
+    if (!target || target === shown.current) return;
+    shown.current = target;
+    document.getElementById(`g-${target}`)?.scrollIntoView();
+  }
+
   return (
     <nav
       id="rail"
       hidden={hidden}
       aria-label={t("index_label")}
-      className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex flex-col items-center justify-center font-display text-[0.8125rem] font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
+      onPointerDown={(event) => {
+        if (event.pointerType === "mouse") return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        shown.current = null;
+        jumpTo(event);
+      }}
+      onPointerMove={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) jumpTo(event);
+      }}
+      className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex touch-none select-none flex-col [-webkit-touch-callout:none] items-center justify-center font-display text-[0.8125rem] font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
     >
       {ALPHABET.split("").map((letter) => {
         if (present.has(letter)) {
@@ -313,6 +363,7 @@ function AlphabetRail({ present, hidden }: { present: Set<string>; hidden: boole
             <a
               key={letter}
               href={`#g-${letter}`}
+              data-letter={letter}
               className="grid h-4 w-5 place-items-center rounded-sm text-foreground transition-colors hover:text-brand"
             >
               {letter}
@@ -323,6 +374,7 @@ function AlphabetRail({ present, hidden }: { present: Set<string>; hidden: boole
         return (
           <span
             key={letter}
+            data-letter={letter}
             aria-hidden="true"
             className="pointer-events-none grid h-4 w-5 place-items-center rounded-sm text-leader"
           >

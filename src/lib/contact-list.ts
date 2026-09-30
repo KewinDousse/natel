@@ -79,6 +79,41 @@ export function sortKeyOf(contact: Contact, sortBy: SortBy): string {
 }
 
 /**
+ * The group the A–Z rail scrolls to for the letter at `index`: that letter
+ * when the list has it, else the next present one, else the last one before
+ * it, so a finger on an absent letter still lands next to it.
+ */
+export function railTarget(
+  letters: readonly string[],
+  present: ReadonlySet<string>,
+  index: number,
+): string | undefined {
+  return (
+    letters.slice(index).find((letter) => present.has(letter)) ??
+    letters
+      .slice(0, index)
+      .reverse()
+      .find((letter) => present.has(letter))
+  );
+}
+
+/**
+ * A row's name in the order of the sort toggle: the part the list is sorted
+ * by leads (and is set bold), so "Favre Alain" by last name, "Alain Favre"
+ * by first name. A missing part leaves the other one to lead alone.
+ */
+export function orderedNameOf(
+  contact: Contact,
+  sortBy: SortBy,
+): { lead: string; rest: string; display: string } {
+  const { family, given } = namePartsOf(contact);
+  const [first, second] = sortBy === "family" ? [family, given] : [given, family];
+  const lead = first || second;
+  const rest = first ? second : "";
+  return { lead, rest, display: [lead, rest].filter((part) => part.length > 0).join(" ") };
+}
+
+/**
  * Trailing row value, per DESIGN.md priority: first TEL with TYPE=cell →
  * first TEL → first EMAIL → ORG (muted). Values are displayed as stored.
  */
@@ -120,8 +155,11 @@ export function primaryNumberOf(contact: Contact): ContactField | null {
  */
 export function searchTargetOf(contact: Contact): SearchTarget {
   const parts = namePartsOf(contact);
+  // Both orders, since the list shows "Given Family" when sorted by first name.
+  const reversed = parts.family && parts.given ? `${parts.given} ${parts.family}` : "";
   const textParts = [
     parts.display,
+    reversed,
     ...contact.fields.email.map((email) => email.value),
     orgOf(contact),
   ].filter((part) => part.length > 0);

@@ -66,7 +66,7 @@ Recipes below are the exact class sets from the references. Build them as React 
 - Link: `group relative flex items-center gap-3 rounded-lg px-2 min-h-[3.5rem] py-1.5 sm:min-h-[3.25rem] sm:py-0 hover:bg-muted aria-[current=true]:bg-selection`.
 - Selection bar: `absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-brand opacity-0 group-aria-[current=true]:opacity-100`.
 - Content wrapper: `min-w-0 flex-1 sm:flex sm:items-center sm:gap-3`.
-  - Name: `block min-w-0 truncate text-base sm:text-[0.9375rem]` → `<b class="font-bold">Family</b> Given`. Full name in `title`.
+  - Name: `block min-w-0 truncate text-base sm:text-[0.9375rem]` → the part the list is sorted by comes first, in bold: `<b class="font-bold">Family</b> Given` by last name, `<b class="font-bold">Given</b> Family` by first name. Full name, in the same order, in `title`.
   - Leader: `<span class="leader hidden sm:block" aria-hidden="true">`.
   - Trailing value: primary phone (`tabular`, ink on ≥ sm) or, if none, email/org (`text-sm text-muted-foreground`, truncated, `sm:max-w-[42%]`).
 - **Mobile (< 640px):** trailing value drops under the name, leader hidden. This is deliberate: single-line rows truncate names too much on phones.
@@ -75,6 +75,8 @@ Trailing value priority: first `TEL` with `TYPE=cell` → first `TEL` → first 
 
 ### A–Z rail
 Right edge. All 26 letters in `font-display text-[0.8125rem] font-bold`, present letters `text-foreground`, absent `text-leader` + `aria-hidden` + `tabindex=-1`. Anchors jump to `#g-X` without smooth scrolling. Hidden while a search query is active.
+- Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The rail takes `touch-none` so the page doesn't scroll meanwhile.
+- From `lg`, the list scrolls in its own pane and the rail sits outside it (`lg:mr-8` on the list), so the whole scrollbar stays clickable.
 
 ### List toolbar
 Count (`text-caption text-muted-foreground`, `aria-live="polite"`) on the left; sort toggle "Nom / Prénom" on the right (small pills, `aria-pressed`).

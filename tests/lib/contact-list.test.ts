@@ -13,6 +13,8 @@ import {
   groupLetterOf,
   matchesQuery,
   namePartsOf,
+  orderedNameOf,
+  railTarget,
   searchTargetOf,
   splitByQuery,
   trailingValueOf,
@@ -106,6 +108,71 @@ describe("namePartsOf", () => {
   });
 });
 
+describe("orderedNameOf", () => {
+  const contact = makeContact({ family: "Favre", given: "Alain" });
+
+  it("leads with the last name when sorted by last name", () => {
+    expect(orderedNameOf(contact, "family")).toEqual({
+      lead: "Favre",
+      rest: "Alain",
+      display: "Favre Alain",
+    });
+  });
+
+  it("leads with the first name when sorted by first name", () => {
+    expect(orderedNameOf(contact, "given")).toEqual({
+      lead: "Alain",
+      rest: "Favre",
+      display: "Alain Favre",
+    });
+  });
+
+  it("lets FN lead either way on a card without a structured name", () => {
+    const fnOnly = makeContact({ family: "", given: "", fn: "Acme SA" });
+    expect(orderedNameOf(fnOnly, "given").display).toBe("Acme SA");
+    expect(orderedNameOf(fnOnly, "family").display).toBe("Acme SA");
+  });
+
+  it("leaves an org-only card without a name", () => {
+    const orgOnly = makeContact({ family: "", given: "", fn: "", org: "Acme" });
+    expect(orderedNameOf(orgOnly, "given")).toEqual({ lead: "", rest: "", display: "" });
+  });
+
+  it("lets the other part lead when the sorted one is missing", () => {
+    const familyOnly = makeContact({ family: "Favre", given: "" });
+    expect(orderedNameOf(familyOnly, "given")).toEqual({
+      lead: "Favre",
+      rest: "",
+      display: "Favre",
+    });
+  });
+});
+
+describe("railTarget", () => {
+  const letters = ["A", "B", "C", "D"];
+  const present = new Set(["B", "D"]);
+
+  it("lands on the letter under the finger when the list has it", () => {
+    expect(railTarget(letters, present, 1)).toBe("B");
+  });
+
+  it("moves on to the next present letter", () => {
+    expect(railTarget(letters, present, 2)).toBe("D");
+  });
+
+  it("falls back to the last present letter before the end", () => {
+    expect(railTarget(letters, new Set(["A", "B"]), 3)).toBe("B");
+  });
+
+  it("skips an absent first letter", () => {
+    expect(railTarget(letters, present, 0)).toBe("B");
+  });
+
+  it("finds nothing in an empty list", () => {
+    expect(railTarget(letters, new Set(), 0)).toBeUndefined();
+  });
+});
+
 describe("trailingValueOf", () => {
   it("prefers the first TEL with TYPE=cell over other tels", () => {
     const contact = makeContact({
@@ -156,8 +223,8 @@ describe("searchTargetOf", () => {
         email: [{ value: "k.benali@tlp.ch" }],
       }),
     );
-    expect(target.folded).toBe("benali karim k.benali@tlp.ch tlp");
-    expect(target.digits).toBe("benalikarimkbenali@tlpchtlp0783301245");
+    expect(target.folded).toBe("benali karim karim benali k.benali@tlp.ch tlp");
+    expect(target.digits).toBe("benalikarimkarimbenalikbenali@tlpchtlp0783301245");
   });
 });
 
