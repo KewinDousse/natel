@@ -85,7 +85,7 @@ export function MoveDialog({
       aria-modal="true"
       aria-labelledby={titleId}
       aria-busy={running}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center dark:bg-black/60"
     >
       <div
         ref={panelRef}

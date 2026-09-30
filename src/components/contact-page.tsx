@@ -1744,7 +1744,7 @@ function ConfirmDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center dark:bg-black/60"
     >
       <div
         role="document"
@@ -1799,7 +1799,10 @@ function Section({
   addLabel?: string;
 }) {
   return (
-    <section id={sectionId} className="border-t-2 border-foreground pt-1.5">
+    <section
+      id={sectionId}
+      className="border-t-2 border-foreground pt-1.5 dark:border-foreground/60"
+    >
       <h2 className="flex h-11 items-center justify-between text-sm font-bold">
         <span>{title}</span>
         <span className="flex items-center gap-1">

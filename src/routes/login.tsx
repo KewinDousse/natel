@@ -29,16 +29,16 @@ const DIRECTORY_EXCERPT: Array<{ family: string; given: string; tel: string }> =
 
 /** Restyle the language select against the red panel (CSS variable overrides). */
 const RED_PANEL_LANGUAGE_VARS = {
-  "--foreground": "var(--brand-foreground)",
-  "--ring": "var(--brand-foreground)",
-  "--background": "var(--brand)",
-  "--card": "var(--brand)",
-  "--input": "var(--brand-foreground)",
+  "--foreground": "var(--brand-surface-foreground)",
+  "--ring": "var(--brand-surface-foreground)",
+  "--background": "var(--brand-surface)",
+  "--card": "var(--brand-surface)",
+  "--input": "var(--brand-surface-foreground)",
 } as CSSProperties;
 
 /** Dotted-leader colour on the red panel. */
 const RED_PANEL_LEADER_VARS = {
-  "--leader": "color-mix(in oklab, var(--brand-foreground) 45%, transparent)",
+  "--leader": "color-mix(in oklab, var(--brand-surface-foreground) 45%, transparent)",
 } as CSSProperties;
 
 function LoginRoute() {
@@ -47,7 +47,7 @@ function LoginRoute() {
   return (
     <div className="min-h-dvh pb-14 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pb-0">
       <aside
-        className="relative flex flex-col justify-between gap-6 overflow-hidden bg-brand px-5 pb-7 lg:gap-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-brand-foreground sm:px-8 lg:min-h-dvh lg:px-12 lg:py-12"
+        className="relative flex flex-col justify-between gap-6 overflow-hidden bg-brand-surface px-5 pb-7 lg:gap-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-brand-surface-foreground sm:px-8 lg:min-h-dvh lg:px-12 lg:py-12"
         style={RED_PANEL_LEADER_VARS}
       >
         <ul

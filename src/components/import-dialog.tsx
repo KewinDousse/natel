@@ -72,7 +72,7 @@ export function ImportDialog({
       onClick={(event) => {
         if (finished && event.target === event.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center dark:bg-black/60"
     >
       <div
         ref={panelRef}

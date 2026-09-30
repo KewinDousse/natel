@@ -187,13 +187,41 @@ holds earlier candidates, for reference only.
   Never a white N on a red tile.
 - In the app, the header wordmark stays live text (`font-display`), not an
   image.
-- `theme-color` is the brand red `#D8261D`, matching the band; the kit's
-  dark `theme-color` waits for dark mode. The app serves no `og:` tags: an
-  instance is private.
+- `theme-color` is the brand red `#D8261D`, matching the band, and
+  `#121316` (the dark background) in dark mode. The app serves no `og:`
+  tags: an instance is private.
+
+## Dark mode
+
+Natel follows the system setting (`prefers-color-scheme`); there is no
+theme choice in the app. The dark palette is the brand kit's: the tokens in
+`src/index.css` switch under `@media (prefers-color-scheme: dark)`, so
+nothing flashes before the first paint, and `color-scheme: light dark` lets
+native controls and scrollbars follow. Components never name a dark colour;
+the tokens carry it.
+
+- Very dark greys, never pure black: `background` #121316 (list, page),
+  `muted` #1B1C20, `card` #222328 (fields, a notch lighter than the surface
+  they sit on).
+- Ink and white swap: the primary pill turns light with dark text.
+- `brand` turns lighter (#F04A40) for letters and small marks. Large red
+  areas use `brand-surface` (`bg-brand-surface
+  text-brand-surface-foreground`), which turns darker (#A11F18) so the
+  sign-in panel doesn't glare; in light mode both are the same red.
+- The 2px section rules use `border-foreground dark:border-foreground/60`.
+- Shadows become a 1px light keyline (in the elevation tokens).
+- Photos are never dimmed or filtered.
+- `tests/lib/contrast.test.ts` checks the audited pairs (text at 4.5:1; the
+  A–Z letters, field borders and focus ring at 3:1) in both modes, from the
+  hex each token carries in its comment: keep those comments true, and add
+  a pair when a component puts text on a new surface.
+- Dialog overlays dim more in dark (`bg-black/40 dark:bg-black/60`).
+- The PWA manifest's `background_color` stays white: a manifest can't vary
+  by scheme, so an installed Natel shows a white splash in dark mode.
 
 ## Still not designed
 
-Empty address book (one Big Shoulders line at `text-display` size + one primary action), offline state, dark mode (the `.dark` tokens are a **sketch**: don't ship a theme toggle until it's reviewed).
+Empty address book (one Big Shoulders line at `text-display` size + one primary action), offline state, a theme choice overriding the system setting.
 
 ## Drawn but without a vCard mapping
 
@@ -235,7 +263,7 @@ The "Raccourcis clavier" dialog is built like the import dialog once finished: t
 - The language defaults to the first of `navigator.languages` Natel has, French when none; an explicit choice is stored in `localStorage` (`natel.preferences`, ADR 019). Languages are listed by their own names ("Français", "English").
 
 ## Accessibility checklist
-- Text contrast ≥ 4.5:1 and input borders ≥ 3:1 (already true for every token pair — see the identity page).
+- Text contrast ≥ 4.5:1 and input borders ≥ 3:1, in light and dark (checked by `tests/lib/contrast.test.ts`).
 - The `hidden` attribute always wins over display utilities (base layer rule): use it instead of toggling classes.
 - List = `<nav aria-label>` + `<ul role="list">`; the current contact has `aria-current="true"`.
 - The result count is announced (`aria-live="polite"`).
