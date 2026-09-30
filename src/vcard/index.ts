@@ -766,6 +766,40 @@ function updatePhotoProperty(raw: RawComponent, photo: PhotoEdit): void {
 // ical.js workarounds
 // ---------------------------------------------------------------------------
 
+type FromICAL = ((value: string, structuredEscape?: string | false) => unknown) & {
+  [DECODES_SEMICOLONS]?: true;
+};
+type ValueCodec = { fromICAL: FromICAL };
+
+const DECODES_SEMICOLONS = Symbol.for("natel.vcard.decodesSemicolons");
+
+/**
+ * ical.js decodes `\\`, `\,` and `\n` in a vCard text or 4.0 uri value, but
+ * `\;` only inside a structured one such as N. RFC 2426 requires escaping
+ * every semicolon in 3.0 text, RFC 6350 §3.4 allows it in 4.0, and Radicale
+ * does it: `NOTE:a\;b` read as `a\;b` would show the backslash and be written
+ * back as `a\\;b`, growing on each save. Decode it as the structured values
+ * do. See DECISIONS.md 024.
+ */
+function decodeEscapedSemicolons(): void {
+  const values = ICAL.design.vcard.value as Record<string, ValueCodec | undefined>;
+  for (const type of ["text", "uri"]) {
+    const codec = values[type];
+    if (!codec) throw new Error(`ical.js has no vCard ${type} value`);
+    // Evaluated again (hot reload, tests), the module finds it done.
+    if (codec.fromICAL[DECODES_SEMICOLONS]) continue;
+    const fromICAL = codec.fromICAL.bind(codec);
+    // ical.js passes `false` for a property value that isn't structured, `";"`
+    // for a structured one, and nothing for a parameter, where a backslash is
+    // a plain character (RFC 6868 escapes with `^`): only the first changes.
+    const decoding: FromICAL = (value, structuredEscape) =>
+      fromICAL(value, structuredEscape === false ? ";" : structuredEscape);
+    decoding[DECODES_SEMICOLONS] = true;
+    codec.fromICAL = decoding;
+  }
+}
+decodeEscapedSemicolons();
+
 /**
  * ical.js's vCard 3.0 `detectType` types every BDAY as date/date-time and
  * drops `VALUE=text`, so a free-text birthday ("circa 1987") throws when
@@ -786,14 +820,11 @@ function retypeTextBirthdays(raw: RawComponent): void {
 }
 
 /**
- * ical.js decodes a vCard `uri` value's `\,` but leaves `\;` as is, so the
- * data URI Radicale stores (`data:image/jpeg\;base64\,…`, RFC 6350 §3.4
- * allows escaping the semicolon) would be written back as `\\;`, a media
- * type other clients no longer read; Radicale then stores `\\\;`, and it
- * grows on each save. Unescape it in `PHOTO` and `LOGO` data URIs of a 4.0
- * card, however many backslashes precede it, since none belongs in a data
- * URI's parameters: that also repairs a card an earlier save damaged. See
- * DECISIONS.md 023.
+ * A 4.0 data URI can carry backslashes before its semicolon beyond the one
+ * escape `decodeEscapedSemicolons` reads: Radicale stores a `\\;` it receives
+ * as `\\\;`, a media type other clients no longer read. No backslash belongs
+ * in a data URI's parameters, so drop any left before a semicolon in `PHOTO`
+ * and `LOGO`, which repairs such a card. See DECISIONS.md 023.
  */
 function unescapeDataUriSemicolons(raw: RawComponent): void {
   // A 3.0 uri is copied as written, with no escape decoded or added.

@@ -739,15 +739,14 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
     Radicale included, and ez-vcard (DAVx⁵) and sabre/vobject read it; the
     unescaped one loses the photo on Radicale. A data URI read from the
     card, its comma escaped or not, is written back as ical.js writes it.
-    ical.js decodes `\,` but leaves `\;` as is, and would write the
-    semicolon Radicale escapes as `\\;`, a media type ez-vcard no longer
-    reads: `unescapeDataUriSemicolons` in `src/vcard/`, a named workaround in
-    the manner of ADR 012, decodes `\;` in the `PHOTO` and `LOGO` data URIs
-    of a 4.0 card right after parsing (RFC 6350 §3.4 allows escaping it),
-    whatever the number of backslashes before it, which also repairs a card
-    an earlier save made grow to `\\\;`. A
-    3.0 `uri` value, which ical.js neither decodes nor escapes, is copied as
-    written.
+    ADR 024 reads the `\;` Radicale adds as `;`. A card can also carry more
+    backslashes before it (Radicale stores a `\\;` it receives as `\\\;`), a
+    media type ez-vcard no longer reads: `unescapeDataUriSemicolons` in
+    `src/vcard/`, a named workaround in the manner of ADR 012, drops any
+    backslash left before a semicolon in the `PHOTO` and `LOGO` data URIs of
+    a 4.0 card right after parsing, since none belongs in a data URI's
+    parameters. A 3.0 `uri` value, which ical.js neither decodes nor
+    escapes, is copied as written.
   - The card's version never changes for a photo.
 - Editing: the draft holds the photo as unchanged, replaced (a new image) or
   removed, and `serialise` touches `PHOTO` only for the last two, so a save
@@ -802,3 +801,38 @@ show leaves the device. Apple photos show uncropped, filling their square,
 until `X-ABCROP-RECTANGLE` is applied. The maintainer checks on real devices that
 a 3 to 5 MB photo, a rotated phone photo (a 24 MP iPhone one included), a
 WebP and a GIF set in Natel show right through DAVx⁵ and on iOS.
+
+## 024 — The escaped semicolon in text values is read as a semicolon
+
+**Context.** RFC 2426 (vCard 3.0) requires escaping every semicolon in a text
+value as `\;`, and RFC 6350 §3.4 (4.0) allows it outside compound values:
+"an escaped SEMICOLON character is never a field separator". Radicale
+escapes them all, in any text or URI: a `NOTE:a;b` it receives is stored as
+`NOTE:a\;b`. ical.js 2.2.1 decodes `\\`, `\,` and `\n` in a vCard text value
+(and a 4.0 `uri`), but `\;` only inside a structured value such as `N` or
+`ADR`. Left as is, Natel shows `a\;b`, and the next save of any field
+writes `a\\;b`, which Radicale stores as `a\\\;b`: a backslash more on each
+save, seen by every client. Found while writing 4.0 photos; the
+maintainer approved the fix below.
+
+**Decision.** `decodeEscapedSemicolons` in `src/vcard/`, a named workaround in
+the manner of ADR 012, runs once when the module loads: it wraps the
+`fromICAL` of ical.js's vCard `text` and `uri` values (the 3.0 design shares
+the same `text`) so that a value that is not structured decodes `\;` as the
+structured ones do: ical.js tells such a property value apart by passing
+`false`, and only it changes. Structured values already decode it, and a
+parameter value, where a backslash is a plain character (RFC 6868 escapes
+with `^`), is left as ical.js reads it. The 4.0 `uri` is not shared with 3.0,
+whose `uri` ical.js copies as written; iCalendar's codecs are separate
+objects. The wrap is marked, so evaluating the module again doesn't stack
+it. An escaped backslash before a semicolon (`\\;`) still reads as a
+backslash and a semicolon. Writing is unchanged: ical.js writes
+`;` unescaped outside compound values, which RFC 6350 allows; in a 3.0 card
+RFC 2426 asks for `\;`, which ical.js has never written, and adding it would
+rewrite every untouched card that has one.
+
+**Consequences.** A text with a semicolon shows and saves as written, on every
+server. An untouched property read with `\;` is written back with `;`: an
+accepted normalisation, as in ADR 012, since both mean the same. A card that
+repeated saves filled with backslashes keeps them, except in a 4.0 data URI,
+which ADR 023 repairs. Tests are in `tests/vcard/semicolons.test.ts`.

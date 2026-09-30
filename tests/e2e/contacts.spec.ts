@@ -97,6 +97,23 @@ test("edits a phone number and keeps unknown properties", async ({ page }) => {
   expectUnknownKept(saved);
 });
 
+test("shows a semicolon the server escaped, and saves it without adding a backslash", async ({
+  page,
+}) => {
+  // A 3.0 card as Radicale stores it, every semicolon in text escaped (RFC 2426).
+  await putCard("ada", ADA.replace("END:VCARD", "NOTE:Lac 1\\; 2e étage\r\nEND:VCARD"));
+  await signIn(page);
+  await openAda(page);
+  await expect(page.getByText("Lac 1; 2e étage").filter({ visible: true })).toBeVisible();
+  await startEditing(page);
+  await primaryPhoneInput(page).fill("+41 79 000 00 00");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+
+  const note = (await getCard("ada"))?.split(/\r?\n/).find((line) => /^NOTE:/i.test(line));
+  expect(note?.replace(/\\([\\,;])/g, "$1")).toBe("NOTE:Lac 1; 2e étage");
+});
+
 test("creates a contact", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: "New contact" }).filter({ visible: true }).click();
