@@ -98,6 +98,7 @@ function makeContact(uid: string, overrides: Partial<Contact> = {}): Contact {
       title: "",
       url: "",
       note: "",
+      photo: { kind: "unchanged" },
     },
     raw: rawStub(),
   };
@@ -124,6 +125,7 @@ function bookAContacts(): Contact[] {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" },
       },
     }),
     makeContact("bernasconi", {
@@ -139,6 +141,7 @@ function bookAContacts(): Contact[] {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" },
       },
     }),
     makeContact("chen", {
@@ -154,6 +157,7 @@ function bookAContacts(): Contact[] {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" },
       },
     }),
     makeContact("evrat", {
@@ -169,6 +173,7 @@ function bookAContacts(): Contact[] {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" },
       },
     }),
     makeContact("numero", {
@@ -184,6 +189,7 @@ function bookAContacts(): Contact[] {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" },
       },
     }),
   ];

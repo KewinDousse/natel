@@ -157,6 +157,7 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
       title: "",
       url: "",
       note: "",
+      photo: { kind: "unchanged" },
     },
     raw: { toString: () => "vcard" } as unknown as Contact["raw"],
   };
@@ -390,6 +391,27 @@ describe("useCreateContact", () => {
     expect(client.getQueryData<LoadFullBookResult>(key)?.contacts).toEqual([existing, created]);
   });
 
+  it("caches a new contact's photo as unchanged once written", async () => {
+    mockSerialise.mockReturnValue("SERIALISED_VCARD");
+    mockCreateCard.mockResolvedValue({ href: NEW_HREF, etag: '"new-e"' });
+
+    const base = makeContact({ uid: "new-uid", etag: "", href: "" });
+    const contact = makeContact({
+      uid: "new-uid",
+      etag: "",
+      href: "",
+      fields: {
+        ...base.fields,
+        photo: { kind: "replaced", mediaType: "image/png", base64: "iVBO" },
+      },
+    });
+    const { result } = renderCreate(createTestClient());
+
+    result.current.mutate(contact);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+    expect(result.current.data?.fields.photo).toEqual({ kind: "unchanged" });
+  });
+
   it("surfaces a 412 as a conflict, without any further write", async () => {
     mockSerialise.mockReturnValue("SERIALISED_VCARD");
     mockCreateCard.mockRejectedValue(new DavError("exists", "CONFLICT"));
@@ -453,6 +475,29 @@ describe("useUpdateContact", () => {
       '"e1"',
       "SERIALISED_VCARD",
     );
+  });
+
+  it("caches a written photo as unchanged, so the next save leaves PHOTO alone", async () => {
+    mockSerialise.mockReturnValue("SERIALISED_VCARD");
+    mockUpdateCard.mockResolvedValue({
+      href: "https://dav.example.com/dav/books/default/1.vcf",
+      etag: '"new-etag"',
+    });
+    const oldContact = makeContact({ etag: '"e1"' });
+    const client = createTestClient();
+    const key = ["contacts", MOCK_AUTH.username, MOCK_BOOK.href];
+    client.setQueryData(key, { contacts: [oldContact], skipped: [] });
+    const { result } = renderHook(() => useUpdateContact(MOCK_AUTH), { wrapper: wrapper(client) });
+
+    result.current.mutate({
+      ...oldContact,
+      fields: { ...oldContact.fields, photo: { kind: "removed" } },
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+
+    const cached = client.getQueryData<LoadFullBookResult>(key)?.contacts[0];
+    expect(cached?.fields.photo).toEqual({ kind: "unchanged" });
+    expect(cached?.etag).toBe('"new-etag"');
   });
 
   it("patches the cache with the submitted contact fields (not the stale cached ones)", async () => {

@@ -57,6 +57,7 @@ function makeContact(overrides: ContactOverrides = {}): Contact {
       title: "",
       url: "",
       note: "",
+      photo: { kind: "unchanged" },
     },
     raw: {
       getFirstPropertyValue: (name: string) => (name === "org" ? (org ?? "") : ""),

@@ -236,6 +236,7 @@ describe("validateDraft", () => {
       title: "",
       url: "",
       note: "",
+      photo: { kind: "unchanged" as const },
     };
     const errors = validateDraft(draft);
     expect(errors.family).toBe("field_required");
@@ -256,6 +257,7 @@ describe("validateDraft", () => {
       title: "",
       url: "",
       note: "",
+      photo: { kind: "unchanged" as const },
     };
     const errors = validateDraft(draft);
     expect(errors.email_0).toBe("field_email_invalid");
@@ -276,6 +278,7 @@ describe("validateDraft", () => {
       title: "",
       url: "",
       note: "",
+      photo: { kind: "unchanged" as const },
     };
     const errors = validateDraft(draft);
     expect(errors.email_0).toBeUndefined();
@@ -294,6 +297,7 @@ describe("validateDraft", () => {
       title: "",
       url: "not-a-url",
       note: "",
+      photo: { kind: "unchanged" as const },
     };
     const errors = validateDraft(draft);
     expect(errors.url).toBe("field_url_invalid");
@@ -312,6 +316,7 @@ describe("validateDraft", () => {
       title: "",
       url: "https://example.com",
       note: "",
+      photo: { kind: "unchanged" as const },
     };
     const errors = validateDraft(draft);
     expect(errors.url).toBeUndefined();
@@ -331,6 +336,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_month).toBe("field_bday_month");
@@ -349,6 +355,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_month).toBe("field_bday_month");
@@ -367,6 +374,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_month).toBe("field_bday_month");
@@ -385,6 +393,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_year).toBe("field_bday_year");
@@ -403,6 +412,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_month).toBe("field_bday_month");
@@ -421,6 +431,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_month).toBeUndefined();
@@ -439,6 +450,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_month).toBeUndefined();
@@ -457,6 +469,7 @@ describe("validateDraft", () => {
         title: "",
         url: "",
         note: "",
+        photo: { kind: "unchanged" as const },
       };
       const errors = validateDraft(draft);
       expect(errors.bday_month).toBeUndefined();
@@ -513,6 +526,28 @@ END:VCARD`;
     expect(fresh.fields.fn).toBe("Johnny Doe");
     expect(fresh.fields.tel[0]?.value).toBe("+41 79 111 11 11");
     expect(fresh.fields.note).toBe("their note");
+  });
+
+  it("counts a replaced or removed photo as a change, and applies it onto the fresh copy", () => {
+    const original = parse(MINE);
+    const draft = buildDraft(original);
+    expect(dirtyDiff(original, draft).photo).toBe(false);
+    draft.photo = { kind: "removed" };
+    const dirty = dirtyDiff(original, draft);
+    expect(dirty.photo).toBe(true);
+    expect(isDirty(dirty)).toBe(true);
+    expect(applyDraft(parse(THEIRS), draft, dirty).fields.photo).toEqual({ kind: "removed" });
+    const png = { kind: "replaced", mediaType: "image/png", base64: "iVBO" } as const;
+    original.fields.photo = png;
+    draft.photo = { ...png, base64: "iVBOR" };
+    expect(dirtyDiff(original, draft).photo).toBe(true);
+    draft.photo = png;
+    expect(dirtyDiff(original, draft).photo).toBe(false);
+    original.fields.photo = { kind: "unchanged" };
+    const untouched = buildDraft(original);
+    expect(
+      applyDraft(parse(THEIRS), untouched, dirtyDiff(original, untouched)).fields.photo,
+    ).toEqual({ kind: "unchanged" });
   });
 
   it("applies every field when no dirty filter is given", () => {

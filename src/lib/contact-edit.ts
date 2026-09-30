@@ -5,7 +5,13 @@
  * All functions are pure and fully unit-testable. No React, no I/O.
  */
 
-import type { Contact, ContactField, VCardAddressField, VCardBirthdayField } from "@/model/contact";
+import type {
+  Contact,
+  ContactField,
+  PhotoEdit,
+  VCardAddressField,
+  VCardBirthdayField,
+} from "@/model/contact";
 
 // ---------------------------------------------------------------------------
 // Draft type — the shape the UI works with during editing
@@ -25,6 +31,7 @@ export type ContactDraft = {
   title: string;
   url: string;
   note: string;
+  photo: PhotoEdit;
 };
 
 /**
@@ -79,6 +86,7 @@ export function buildDraft(contact: Contact): ContactDraft {
     title: contact.fields.title,
     url: contact.fields.url,
     note: contact.fields.note,
+    photo: contact.fields.photo,
   };
 }
 
@@ -132,6 +140,7 @@ export type DirtyFields = {
   title: boolean;
   url: boolean;
   note: boolean;
+  photo: boolean;
 };
 
 /** Compare a draft against the original contact's fields. */
@@ -149,6 +158,7 @@ export function dirtyDiff(contact: Contact, draft: ContactDraft): DirtyFields {
     title: draft.title !== f.title,
     url: draft.url !== f.url,
     note: draft.note !== f.note,
+    photo: photosDiffer(f.photo, draft.photo),
   };
 }
 
@@ -165,6 +175,15 @@ function fieldsDiffer(originals: ContactField[], drafts: DraftField[]): boolean 
         : "";
     return orig.value !== draft.value || origType.toLowerCase() !== draft.type;
   });
+}
+
+function photosDiffer(orig: PhotoEdit, draft: PhotoEdit): boolean {
+  if (orig.kind !== draft.kind) return true;
+  return (
+    orig.kind === "replaced" &&
+    draft.kind === "replaced" &&
+    (orig.mediaType !== draft.mediaType || orig.base64 !== draft.base64)
+  );
 }
 
 function addressesDiffer(orig: VCardAddressField | null, draft: VCardAddressField | null): boolean {
@@ -325,6 +344,7 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
   if (take("title")) f.title = draft.title;
   if (take("url")) f.url = draft.url;
   if (take("note")) f.note = draft.note;
+  if (take("photo")) f.photo = draft.photo;
   return contact;
 }
 

@@ -20,6 +20,7 @@ const REASON_KEYS: Record<ImportFailureReason, TranslationKey> = {
   conflict: "import_reason_conflict",
   refused: "import_reason_refused",
   network: "import_reason_network",
+  too_large: "import_reason_too_large",
 };
 
 export function ImportDialog({

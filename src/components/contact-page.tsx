@@ -1683,6 +1683,7 @@ function writeErrorKey(err: unknown, write: "save" | "delete" | "move"): Transla
     return NETWORK_ERROR_KEYS[write];
   }
   if (err instanceof DavError && err.code === "AUTH") return "err_save_auth";
+  if (err instanceof DavError && err.code === "TOO_LARGE") return "err_save_too_large";
   return write === "move" ? "err_move_unexpected" : "err_save_unexpected";
 }
 

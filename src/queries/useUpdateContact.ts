@@ -26,15 +26,19 @@ export function useUpdateContact(auth: DavAuth) {
       // Patch the cached Contact with the SUBMITTED contact and the new ETag
       // instead of invalidating. Spreading `contact` (not the cached copy)
       // keeps the submitted fields — serialise() mutates the shared `raw`, so
-      // the cached copy on its own would hold stale fields here.
+      // the cached copy on its own would hold stale fields here. The card
+      // now holds the photo as written, so the next save leaves it alone.
+      const saved: Contact = {
+        ...contact,
+        etag: result.etag,
+        fields: { ...contact.fields, photo: { kind: "unchanged" } },
+      };
       queryClient.setQueriesData<LoadFullBookResult>(
         { queryKey: contactsAuthPrefix(auth) },
         (old) =>
           old && {
             ...old,
-            contacts: old.contacts.map((c) =>
-              c.href === contact.href ? { ...contact, etag: result.etag } : c,
-            ),
+            contacts: old.contacts.map((c) => (c.href === contact.href ? saved : c)),
           },
       );
     },

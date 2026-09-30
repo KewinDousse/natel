@@ -249,6 +249,52 @@ function assertOk(
   );
 }
 
+/** A body past which a proxy's default request limit is likely (a stock nginx stops at 1 MB). */
+const LARGE_BODY_BYTES = 1024 * 1024;
+
+/**
+ * PUT a card. A proxy often answers a body over its limit by closing the
+ * connection rather than with a 413, so a network failure on a large card
+ * reads as TOO_LARGE (ADR 023).
+ */
+async function putCard(
+  client: DAVClient,
+  href: string,
+  vcardText: string,
+  condition: Record<string, string>,
+  context: string,
+): Promise<void> {
+  try {
+    const responses = await wrap(
+      () =>
+        client.davRequest({
+          url: href,
+          init: {
+            method: "PUT",
+            headers: { "Content-Type": "text/vcard; charset=utf-8", ...condition },
+            body: vcardText,
+          },
+          convertIncoming: false,
+          parseOutgoing: false,
+        }),
+      context,
+    );
+    if (responses[0]?.status === 413) {
+      throw new DavError(`CardDAV card too large: ${context}`, "TOO_LARGE", responses[0]);
+    }
+    assertOk(responses[0], context);
+  } catch (err) {
+    if (
+      err instanceof DavError &&
+      err.code === "NETWORK" &&
+      new TextEncoder().encode(vcardText).length > LARGE_BODY_BYTES
+    ) {
+      throw new DavError(`CardDAV card too large: ${context} — connection lost`, "TOO_LARGE", err);
+    }
+    throw err;
+  }
+}
+
 /**
  * Re-read a card's ETag after a successful write (server may not include it
  * in the PUT/DELETE response, and tsdav never surfaces response headers).
@@ -640,22 +686,7 @@ async function makeSession(auth: DavAuth): Promise<DavSession> {
             "UNEXPECTED",
           );
         }
-        const responses = await wrap(
-          () =>
-            client.davRequest({
-              url: href,
-              init: {
-                method: "PUT",
-                headers: { "Content-Type": "text/vcard; charset=utf-8", "If-Match": etag },
-                body: vcardText,
-              },
-              convertIncoming: false,
-              parseOutgoing: false,
-            }),
-          `updating card ${href}`,
-        );
-
-        assertOk(responses[0], `updating card ${href}`);
+        await putCard(client, href, vcardText, { "If-Match": etag }, `updating card ${href}`);
         const newEtag = await fetchFreshEtag(client, href);
         return { href, etag: newEtag };
       });
@@ -663,22 +694,7 @@ async function makeSession(auth: DavAuth): Promise<DavSession> {
 
     async createCard(href: string, vcardText: string) {
       return withAuthEviction(async () => {
-        const responses = await wrap(
-          () =>
-            client.davRequest({
-              url: href,
-              init: {
-                method: "PUT",
-                headers: { "Content-Type": "text/vcard; charset=utf-8", "If-None-Match": "*" },
-                body: vcardText,
-              },
-              convertIncoming: false,
-              parseOutgoing: false,
-            }),
-          `creating card ${href}`,
-        );
-
-        assertOk(responses[0], `creating card ${href}`);
+        await putCard(client, href, vcardText, { "If-None-Match": "*" }, `creating card ${href}`);
         const newEtag = await fetchFreshEtag(client, href);
         return { href, etag: newEtag };
       });

@@ -64,7 +64,21 @@ export type EditableFields = {
   title: string;
   url: string;
   note: string;
+  photo: PhotoEdit;
 };
+
+/**
+ * The photo as edited (ADR 023). Only a replaced or removed photo touches
+ * `PHOTO` on save; an unchanged one leaves every `PHOTO` as it was.
+ */
+export type PhotoEdit =
+  | { kind: "unchanged" }
+  | {
+      kind: "replaced";
+      mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      base64: string;
+    }
+  | { kind: "removed" };
 
 /** A single ADR property as stored in EditableFields. */
 export type VCardAddressField = {

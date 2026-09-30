@@ -505,6 +505,18 @@ describe("edit mode — save error", () => {
 
     await waitFor(() => expect(screen.getByText(/Erreur réseau/)).toBeTruthy());
   });
+
+  it("says a card refused for its size can pass once the server's limit is raised", async () => {
+    mockUpdateCard.mockRejectedValueOnce(new DavError("Too large", "TOO_LARGE"));
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(screen.getByText(/refusé un contact aussi lourd/)).toBeTruthy());
+    expect(article.getAttribute("data-mode")).toBe("edit");
+  });
 });
 
 describe("edit mode — conflict", () => {

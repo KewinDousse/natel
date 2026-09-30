@@ -23,7 +23,13 @@ export function useCreateContact(auth: DavAuth, bookHref: string) {
     mutationFn: async (contact: Contact): Promise<Contact> => {
       const vcardText = serialise(contact);
       const { href, etag } = await createCard(auth, cardHref(bookHref, contact.uid), vcardText);
-      return { ...contact, href, etag };
+      // The card now holds the photo as written, so the next save leaves it alone.
+      return {
+        ...contact,
+        href,
+        etag,
+        fields: { ...contact.fields, photo: { kind: "unchanged" } },
+      };
     },
     onSuccess: (created) => {
       queryClient.setQueryData<LoadFullBookResult>(

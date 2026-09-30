@@ -746,6 +746,47 @@ describe("updateCard", () => {
     });
   });
 
+  it("throws TOO_LARGE when PUT returns 413, on an update or a creation", async () => {
+    const davId = vi
+      .fn()
+      .mockResolvedValue([davResp({ ok: false, status: 413, statusText: "Payload Too Large" })]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
+      code: "TOO_LARGE",
+    });
+    await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({
+      code: "TOO_LARGE",
+    });
+  });
+
+  it("leaves a 413 on a DELETE, not a PUT, as unexpected", async () => {
+    const davId = vi
+      .fn()
+      .mockResolvedValue([davResp({ ok: false, status: 413, statusText: "Payload Too Large" })]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    await expect(session.deleteCard(CARD_HREF, '"old"')).rejects.toMatchObject({
+      code: "UNEXPECTED",
+    });
+  });
+
+  it("reads a lost connection as TOO_LARGE only for a card over 1 MB", async () => {
+    const davId = vi.fn().mockRejectedValue(new TypeError("Load failed"));
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
+
+    const session = await createDavSession(AUTH);
+    const large = VCARD.replace("END:VCARD", `NOTE:${"é".repeat(600_000)}\r\nEND:VCARD`);
+    await expect(session.updateCard(CARD_HREF, '"old"', large)).rejects.toMatchObject({
+      code: "TOO_LARGE",
+    });
+    await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
+      code: "NETWORK",
+    });
+  });
+
   it("throws AUTH when PUT returns 401", async () => {
     const davId = vi
       .fn()

@@ -41,22 +41,28 @@ export interface DavContactDetail {
   vcardText: string;
 }
 
+export type DavErrorCode =
+  | "AUTH"
+  | "NOT_FOUND"
+  | "NETWORK"
+  | "UNEXPECTED"
+  | "CONFLICT"
+  | "TOO_LARGE";
+
 /** Typed error for CardDAV operations. */
 export class DavError extends Error {
   /**
    * Machine-readable error code for programmatic handling.
    *
    * - CONFLICT: HTTP 412 Precondition Failed (resource changed on server).
+   * - TOO_LARGE: HTTP 413 on a PUT, or a network failure while sending a
+   *   card over 1 MB, which a proxy often gives instead (ADR 023).
    * - UNEXPECTED: data integrity violation (e.g. missing/empty ETag for a
    *   conditional write) or any unrecognised server error.
    */
-  public readonly code: "AUTH" | "NOT_FOUND" | "NETWORK" | "UNEXPECTED" | "CONFLICT";
+  public readonly code: DavErrorCode;
 
-  constructor(
-    message: string,
-    code: "AUTH" | "NOT_FOUND" | "NETWORK" | "UNEXPECTED" | "CONFLICT",
-    cause?: unknown,
-  ) {
+  constructor(message: string, code: DavErrorCode, cause?: unknown) {
     super(message, { cause });
     this.name = "DavError";
     this.code = code;

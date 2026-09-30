@@ -9,7 +9,13 @@ import { type DavAuth, DavError } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 import { newUid, parse, readImportCard, splitCards, withUid } from "@/vcard";
 
-export type ImportFailureReason = "unreadable" | "duplicate" | "conflict" | "refused" | "network";
+export type ImportFailureReason =
+  | "unreadable"
+  | "duplicate"
+  | "conflict"
+  | "refused"
+  | "network"
+  | "too_large";
 
 /** A failed card, named by its FN or N, else by its place in the file (1-based). */
 export type ImportFailure = { name: string; position: number; reason: ImportFailureReason };
@@ -100,5 +106,6 @@ function parseCreated(text: string, href: string, etag: string): Contact | null 
 function failureReason(err: unknown): ImportFailureReason {
   if (err instanceof DavError && err.code === "CONFLICT") return "conflict";
   if (err instanceof DavError && err.code === "NETWORK") return "network";
+  if (err instanceof DavError && err.code === "TOO_LARGE") return "too_large";
   return "refused";
 }

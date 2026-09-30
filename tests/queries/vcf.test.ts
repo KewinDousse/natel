@@ -82,6 +82,7 @@ describe("importVcf", () => {
       if (href.endsWith("c412.vcf")) throw new DavError("412", "CONFLICT");
       if (href.endsWith("cnet.vcf")) throw new DavError("net", "NETWORK");
       if (href.endsWith("c403.vcf")) throw new DavError("403", "UNEXPECTED");
+      if (href.endsWith("c413.vcf")) throw new DavError("413", "TOO_LARGE");
       return { href, etag: '"1"' };
     });
     const file = ["BEGIN:VCARD\r\nFN:cut short\r\n"].join("");
@@ -91,7 +92,8 @@ describe("importVcf", () => {
         card(["UID:c403", "FN:Refused"]) +
         card(["UID:ok", "FN:Fine"]) +
         card(["UID:ok", "FN:Again"]) +
-        file,
+        file +
+        card(["UID:c413", "FN:Heavy"]),
     );
     expect(await done).toEqual({
       imported: 1,
@@ -102,6 +104,7 @@ describe("importVcf", () => {
         { name: "Refused", position: 3, reason: "refused" },
         { name: "Again", position: 5, reason: "duplicate" },
         { name: "", position: 6, reason: "unreadable" },
+        { name: "Heavy", position: 7, reason: "too_large" },
       ],
     });
   });

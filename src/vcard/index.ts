@@ -14,6 +14,7 @@ import type {
   Contact,
   ContactField,
   EditableFields,
+  PhotoEdit,
   RawComponent,
   RawProperty,
 } from "../model/contact";
@@ -713,6 +714,46 @@ export function photoOf(contact: Contact): Photo | null {
   return null;
 }
 
+/**
+ * Whether "Changer la photo" can write this card. How a 4.0 data URI's comma
+ * is written is still open on ADR 023, and 2.1 encodes photos its own
+ * way, so only a 3.0 card, the kind Natel creates, takes a new photo for now.
+ */
+export function canReplacePhoto(contact: Contact): boolean {
+  return isVersion3(contact.raw);
+}
+
+function isVersion3(raw: RawComponent): boolean {
+  return raw.getFirstPropertyValue("version") === "3.0";
+}
+
+/** The 3.0 `TYPE` for each format a new photo can have. */
+const PHOTO_TYPES: Record<Extract<PhotoEdit, { kind: "replaced" }>["mediaType"], string> = {
+  "image/jpeg": "JPEG",
+  "image/png": "PNG",
+  "image/gif": "GIF",
+  "image/webp": "WEBP",
+};
+
+/**
+ * Replaces every `PHOTO` with the new one, carrying only `ENCODING` and
+ * `TYPE`, or removes them all (ADR 023). An unchanged photo is left alone.
+ */
+function updatePhotoProperty(raw: RawComponent, photo: PhotoEdit): void {
+  if (photo.kind === "unchanged") return;
+  if (photo.kind === "replaced" && !isVersion3(raw)) {
+    throw new Error("A new photo is written on a vCard 3.0 card only (ADR 023)");
+  }
+  raw.removeAllProperties("photo");
+  if (photo.kind === "removed") return;
+  const prop = new ICAL.Property("photo");
+  prop.resetType("binary");
+  prop.setParameter("encoding", "b");
+  prop.setParameter("type", PHOTO_TYPES[photo.mediaType]);
+  prop.setValue(photo.base64);
+  raw.addProperty(prop);
+}
+
 // ---------------------------------------------------------------------------
 // ical.js workarounds
 // ---------------------------------------------------------------------------
@@ -783,6 +824,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
     title: readTitle(raw),
     url: String(raw.getFirstPropertyValue("url") ?? ""),
     note: readNote(raw),
+    photo: { kind: "unchanged" },
   };
 
   return { href, etag, uid, fields, raw };
@@ -953,6 +995,9 @@ export function serialise(contact: Contact): string {
 
   // --- Update NOTE (first property only) ---
   updateFirstStringProperty(raw, "note", fields.note);
+
+  // --- Update PHOTO, only when replaced or removed ---
+  updatePhotoProperty(raw, fields.photo);
 
   return raw.toString();
 }
