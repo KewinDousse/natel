@@ -520,6 +520,20 @@ describe("fetchCard", () => {
     expect(result.vcardText).toBe("BEGIN:VCARD\nFN:Alice\nEND:VCARD");
   });
 
+  it("throws NOT_FOUND when the response lists the card as 404", async () => {
+    const multiget = vi
+      .fn()
+      .mockResolvedValue([
+        davResp({ href: "/books/default/1.vcf", status: 404, statusText: "Not Found", ok: false }),
+      ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    await expect(
+      session.fetchCard("http://localhost:3000/dav/books/default/1.vcf"),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   it("throws NOT_FOUND when no response href matches", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({

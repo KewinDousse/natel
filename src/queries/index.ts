@@ -7,6 +7,7 @@
 export type { DavAddressBook, DavAuth } from "@/dav/types";
 export { DavError } from "@/dav/types";
 export { createQueryClient } from "./client";
+export { type MoveOutcome, moveContact } from "./moveContact";
 export { useAddressBooks } from "./useAddressBooks";
 export { type LoadFullBookResult, loadFullBook, useContacts } from "./useContacts";
 export { useCreateContact } from "./useCreateContact";

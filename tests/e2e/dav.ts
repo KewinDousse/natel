@@ -61,9 +61,14 @@ export async function putCard(uid: string, vcard: string): Promise<void> {
   expectStatus(res, [201, 204], `put ${uid}`);
 }
 
+/** Deletes a card, as another client would. */
+export async function deleteCard(uid: string, book = BOOK_PATH): Promise<void> {
+  expectStatus(await dav("DELETE", `${book}${uid}.vcf`), [200, 204], `delete ${uid}`);
+}
+
 /** Reads a card's body, or null when it does not exist. */
-export async function getCard(uid: string): Promise<string | null> {
-  const res = await dav("GET", `${BOOK_PATH}${uid}.vcf`);
+export async function getCard(uid: string, book = BOOK_PATH): Promise<string | null> {
+  const res = await dav("GET", `${book}${uid}.vcf`);
   if (res.status === 404) return null;
   expectStatus(res, [200], `get ${uid}`);
   return res.text();

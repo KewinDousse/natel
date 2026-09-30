@@ -78,6 +78,18 @@ describe("withUid", () => {
     );
   });
 
+  it("escapes a UID's commas, semicolons and backslashes", () => {
+    expect(withUid("BEGIN:VCARD\r\nEND:VCARD\r\n", "a,b;c\\d")).toBe(
+      "BEGIN:VCARD\r\nUID:a\\,b\\;c\\\\d\r\nEND:VCARD\r\n",
+    );
+  });
+
+  it("escapes line breaks, so a UID can't add a property", () => {
+    expect(withUid("BEGIN:VCARD\r\nEND:VCARD\r\n", "a\r\nX:1")).toBe(
+      "BEGIN:VCARD\r\nUID:a\\nX:1\r\nEND:VCARD\r\n",
+    );
+  });
+
   it("keeps bare CR line endings", () => {
     expect(withUid("BEGIN:VCARD\rFN:A\rEND:VCARD\r", "u")).toBe(
       "BEGIN:VCARD\rFN:A\rUID:u\rEND:VCARD\r",

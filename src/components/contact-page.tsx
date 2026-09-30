@@ -29,16 +29,22 @@ import { contactById, contactIdOf, namePartsOf, primaryNumberOf } from "@/lib/co
 import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { cn } from "@/lib/utils";
+import { bookName } from "@/lib/vcf-file";
 import type { Contact, ContactField } from "@/model/contact";
 import {
+  type DavAddressBook,
   type DavAuth,
   DavError,
+  type LoadFullBookResult,
+  moveContact,
+  useAddressBooks,
   useCreateContact,
   useDeleteContact,
   useRefetchCard,
   useUpdateContact,
 } from "@/queries";
-import { useAuth, useSelectedBook } from "@/store/session";
+import { contactsKey } from "@/queries/keys";
+import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
   addressOf,
   birthdayOf,
@@ -52,6 +58,7 @@ import {
   type VCardAddress,
 } from "@/vcard";
 import { EditableCell } from "./editable-cell";
+import { MoveDialog } from "./move-dialog";
 import { useToast } from "./toast";
 
 type ContactPageProps = {
@@ -413,18 +420,29 @@ function ContactFiche({
   );
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [conflict, setConflict] = useState(false);
-  // A 412 on delete: only reloading makes sense, there is no version to push.
-  const [deleteConflict, setDeleteConflict] = useState(false);
+  // A 412 on delete or move: only reloading makes sense, there is no version
+  // to push. The value picks the hint.
+  const [deleteConflict, setDeleteConflict] = useState<"delete" | "move" | null>(null);
   const [showDelete, setShowDelete] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "deleting">("idle");
+  const [showMove, setShowMove] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "deleting" | "moving">("idle");
   const busy = saveStatus !== "idle";
   // Leaving edit mode drops an in-flight save's result, which is harmless;
-  // a delete's result is not: the card would vanish with the page left on it.
-  const deleting = saveStatus === "deleting";
+  // a delete's or a move's result is not: the card would vanish with the
+  // page left on it.
+  const deleting = saveStatus === "deleting" || saveStatus === "moving";
+  const selectedBook = useSelectedBook();
+  const selectBook = useSessionStore((state) => state.selectBook);
+  const booksQuery = useAddressBooks(auth);
+  const otherBooks = useMemo(
+    () => (booksQuery.data ?? []).filter((book) => book.href !== selectedBook?.href),
+    [booksQuery.data, selectedBook],
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const showToast = useToast();
   const [showDiscard, setShowDiscard] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const moveHintId = useId();
 
   // Dirty detection
   const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
@@ -459,8 +477,9 @@ function ContactFiche({
       dispatch({ type: "REBUILD", draft: buildDraft(contact) });
       setErrors({});
       setConflict(false);
-      setDeleteConflict(false);
+      setDeleteConflict(null);
       setShowDelete(false);
+      setShowMove(false);
       setSaveError(null);
       setSaveStatus("idle");
       if (isNew && savedId === undefined) {
@@ -565,6 +584,7 @@ function ContactFiche({
   useEffect(() => {
     if (blockerActive) {
       setShowDelete(false);
+      setShowMove(false);
       setShowDiscard(true);
     }
   }, [blockerActive]);
@@ -582,6 +602,8 @@ function ContactFiche({
       if (e.key !== "Escape" || deleting) return;
       if (showDelete) {
         setShowDelete(false);
+      } else if (showMove) {
+        setShowMove(false);
       } else if (showDiscard) {
         closeDiscard();
       } else {
@@ -590,7 +612,7 @@ function ContactFiche({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [edit, deleting, showDelete, showDiscard, closeDiscard, handleCancel]);
+  }, [edit, deleting, showDelete, showMove, showDiscard, closeDiscard, handleCancel]);
 
   // Validate on blur
   const handleBlurValidate = useCallback(() => {
@@ -606,7 +628,7 @@ function ContactFiche({
       setSaveStatus("saving");
       setSaveError(null);
       setConflict(false);
-      setDeleteConflict(false);
+      setDeleteConflict(null);
       try {
         const savedId = await put();
         if (session !== editSession.current) return;
@@ -670,7 +692,7 @@ function ContactFiche({
     setSaveStatus("deleting");
     setSaveError(null);
     setConflict(false);
-    setDeleteConflict(false);
+    setDeleteConflict(null);
     try {
       await deleteContact.mutateAsync(editBase);
       if (session !== editSession.current) return;
@@ -680,10 +702,93 @@ function ContactFiche({
     } catch (err) {
       if (session !== editSession.current) return;
       setSaveStatus("idle");
-      if (err instanceof DavError && err.code === "CONFLICT") setDeleteConflict(true);
+      if (err instanceof DavError && err.code === "CONFLICT") setDeleteConflict("delete");
       else setSaveError(t(writeErrorKey(err, "delete")));
     }
   }, [editBase, deleteContact, router, showToast, t]);
+
+  // Move (ADR 021) — the card as the server has it goes to the other book,
+  // then leaves this one. After a failure the page stays in edit mode, with
+  // the message in the bottom bar.
+  const handleMove = useCallback(
+    async (target: DavAddressBook) => {
+      if (!selectedBook) return;
+      const session = editSession.current;
+      setSaveStatus("moving");
+      setSaveError(null);
+      setConflict(false);
+      setDeleteConflict(null);
+      const sourceKey = contactsKey(auth, selectedBook);
+      const targetKey = contactsKey(auth, target);
+      const reload = (...keys: (typeof sourceKey)[]) => {
+        for (const key of keys) void queryClient.invalidateQueries({ queryKey: key });
+      };
+      const outcome = await moveContact(auth, editBase, target.href);
+      if (session !== editSession.current) return;
+      setShowMove(false);
+
+      if (outcome.kind === "moved") {
+        editSession.current++;
+        // The page may stay mounted on the moved card (same UID), so it has
+        // to leave this move's state behind.
+        setSaveStatus("idle");
+        setSaveError(null);
+        setConflict(false);
+        setDeleteConflict(null);
+        setShowDelete(false);
+        const moved = parse(outcome.text, outcome.href, outcome.etag);
+        queryClient.setQueryData<LoadFullBookResult>(
+          sourceKey,
+          (old) =>
+            old && { ...old, contacts: old.contacts.filter((c) => c.href !== editBase.href) },
+        );
+        queryClient.setQueryData<LoadFullBookResult>(
+          targetKey,
+          (old) => old && { ...old, contacts: [...old.contacts, moved] },
+        );
+        selectBook(target);
+        showToast(t("moved_to", { name: bookName(target) }));
+        router.navigate({
+          to: "/contacts/$id",
+          params: { id: contactIdOf(moved) },
+          replace: true,
+          ignoreBlocker: true,
+        });
+        return;
+      }
+
+      setSaveStatus("idle");
+      switch (outcome.kind) {
+        case "stale":
+          setDeleteConflict("move");
+          break;
+        case "failed":
+          setSaveError(t(writeErrorKey(outcome.error, "move")));
+          break;
+        case "exists":
+          setSaveError(t("err_move_exists"));
+          reload(targetKey);
+          break;
+        case "create_uncertain":
+          setSaveError(t("err_move_create_uncertain"));
+          reload(sourceKey, targetKey);
+          break;
+        case "delete_refused":
+          if (outcome.error.code === "AUTH") setSaveError(t("err_save_auth"));
+          else setDeleteConflict("move");
+          break;
+        case "in_both":
+          setSaveError(t("err_move_in_both"));
+          reload(sourceKey, targetKey);
+          break;
+        case "delete_uncertain":
+          setSaveError(t("err_move_delete_uncertain"));
+          reload(sourceKey, targetKey);
+          break;
+      }
+    },
+    [auth, editBase, selectedBook, selectBook, queryClient, router, showToast, t],
+  );
 
   // Copy handler
   const handleCopy = useCallback(
@@ -1372,6 +1477,25 @@ function ContactFiche({
                   : t("preserved_fields", { n: String(unknownCount) })}
               </p>
             )}
+            {!isNew && otherBooks.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowMove(true)}
+                  disabled={busy || hasChanges}
+                  aria-describedby={hasChanges ? moveHintId : undefined}
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                >
+                  <MoveIcon />
+                  {t("move_contact")}
+                </button>
+                {hasChanges && (
+                  <p id={moveHintId} className="mt-1.5 text-caption text-muted-foreground">
+                    {t("move_disabled_hint")}
+                  </p>
+                )}
+              </div>
+            )}
             {!isNew && (
               <button
                 type="button"
@@ -1418,7 +1542,9 @@ function ContactFiche({
               className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
             >
               <p className="text-sm font-bold text-destructive">{t("conflict_title")}</p>
-              <p className="mt-1 text-sm text-destructive">{t("conflict_delete_hint")}</p>
+              <p className="mt-1 text-sm text-destructive">
+                {t(deleteConflict === "move" ? "conflict_move_hint" : "conflict_delete_hint")}
+              </p>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
@@ -1480,6 +1606,16 @@ function ContactFiche({
         />
       )}
 
+      {showMove && (
+        <MoveDialog
+          books={otherBooks}
+          running={saveStatus === "moving"}
+          spinner={<SpinnerIcon />}
+          onCancel={() => setShowMove(false)}
+          onMove={handleMove}
+        />
+      )}
+
       {showDiscard && (
         <ConfirmDialog
           title={t("discard_title")}
@@ -1501,12 +1637,18 @@ function ContactFiche({
 }
 
 /** Message for a failed PUT or DELETE other than a 412, which each caller handles. */
-function writeErrorKey(err: unknown, write: "save" | "delete"): TranslationKey {
+const NETWORK_ERROR_KEYS: Record<"save" | "delete" | "move", TranslationKey> = {
+  save: "err_save_network",
+  delete: "err_delete_network",
+  move: "err_move_network",
+};
+
+function writeErrorKey(err: unknown, write: "save" | "delete" | "move"): TranslationKey {
   if (err instanceof DavError && err.code === "NETWORK") {
-    return write === "save" ? "err_save_network" : "err_delete_network";
+    return NETWORK_ERROR_KEYS[write];
   }
   if (err instanceof DavError && err.code === "AUTH") return "err_save_auth";
-  return "err_save_unexpected";
+  return write === "move" ? "err_move_unexpected" : "err_save_unexpected";
 }
 
 // ---------------------------------------------------------------------------
@@ -1984,6 +2126,23 @@ function CopyIcon() {
     >
       <rect x="9" y="9" width="13" height="13" rx="2" />
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function MoveIcon() {
+  return (
+    <svg
+      className="size-4 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
   );
 }

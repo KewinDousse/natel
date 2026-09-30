@@ -129,5 +129,19 @@
   "import_failed_generic": "Échec de l’import. Réessayez dans un instant.",
   "import_close": "Fermer",
   "export_incomplete": "Échec de l’export\u00a0: des cartes n’ont pas pu être récupérées ({n}). Rien n’a été enregistré.",
-  "export_failed": "Échec de l’export. Réessayez dans un instant."
+  "export_failed": "Échec de l’export. Réessayez dans un instant.",
+  "move_contact": "Déplacer vers un autre carnet",
+  "move_disabled_hint": "Enregistrez ou annulez vos modifications d’abord.",
+  "move_title": "Déplacer ce contact\u00a0?",
+  "move_to": "Carnet",
+  "move_confirm": "Déplacer",
+  "moving": "Déplacement…",
+  "moved_to": "Déplacé vers «\u00a0{name}\u00a0»",
+  "conflict_move_hint": "Rechargez-le pour voir les modifications avant de le déplacer.",
+  "err_move_network": "Erreur réseau\u00a0: rien n’a été déplacé.",
+  "err_move_unexpected": "Le serveur a refusé le déplacement\u00a0: rien n’a été déplacé.",
+  "err_move_exists": "Une carte avec l’UID de ce contact est déjà dans le carnet de destination, peut-être d’un déplacement précédent. Rien n’a été déplacé.",
+  "err_move_create_uncertain": "Le contact a peut-être été copié dans le carnet de destination, et n’a pas été retiré de celui-ci. Les deux carnets ont été rechargés.",
+  "err_move_delete_uncertain": "Le contact a été copié dans le carnet de destination et est peut-être encore dans celui-ci. Les deux carnets ont été rechargés.",
+  "err_move_in_both": "Le contact est peut-être maintenant dans les deux carnets. Les deux carnets ont été rechargés."
 }

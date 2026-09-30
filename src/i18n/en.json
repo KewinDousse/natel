@@ -129,5 +129,19 @@
   "import_failed_generic": "Import failed. Try again in a moment.",
   "import_close": "Close",
   "export_incomplete": "Export failed: some cards couldn’t be fetched ({n}). Nothing was saved.",
-  "export_failed": "Export failed. Try again in a moment."
+  "export_failed": "Export failed. Try again in a moment.",
+  "move_contact": "Move to another address book",
+  "move_disabled_hint": "Save or cancel your changes first.",
+  "move_title": "Move this contact?",
+  "move_to": "Address book",
+  "move_confirm": "Move",
+  "moving": "Moving…",
+  "moved_to": "Moved to “{name}”",
+  "conflict_move_hint": "Reload it to see the changes before moving it.",
+  "err_move_network": "Network error: nothing was moved.",
+  "err_move_unexpected": "The server refused the move: nothing was moved.",
+  "err_move_exists": "A card with this contact’s UID is already in the target address book, maybe from an earlier move. Nothing was moved.",
+  "err_move_create_uncertain": "The contact may have been copied to the target address book, and was not removed from this one. Both books were reloaded.",
+  "err_move_delete_uncertain": "The contact was copied to the target address book and may still be in this one. Both books were reloaded.",
+  "err_move_in_both": "The contact may now be in both address books. Both books were reloaded."
 }

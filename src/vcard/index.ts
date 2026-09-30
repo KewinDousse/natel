@@ -742,13 +742,18 @@ function readUid(raw: RawComponent): string | null {
 
 /**
  * A card text given a `UID:` line just before its `END:VCARD`, in the card's
- * own line ending. Nothing else of the text changes.
+ * own line ending, the value escaped as vCard text. Nothing else of the text
+ * changes.
  */
 export function withUid(cardText: string, uid: string): string {
   const eol = /\r\n|\n|\r/.exec(cardText)?.[0] ?? "\r\n";
   const end = cardText.search(/END:VCARD[ \t]*(?:\r\n|\n|\r)?$/i);
   if (end === -1) return cardText;
-  return `${cardText.slice(0, end)}UID:${uid}${eol}${cardText.slice(end)}`;
+  const value = uid
+    .replace(/[\\,;]/g, (char) => `\\${char}`)
+    .replace(/\r?\n/g, "\\n")
+    .replace(/\r/g, "");
+  return `${cardText.slice(0, end)}UID:${value}${eol}${cardText.slice(end)}`;
 }
 
 /** A fresh random UID, as newContact gives a new card. */

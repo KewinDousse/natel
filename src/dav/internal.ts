@@ -567,9 +567,11 @@ async function makeSession(auth: DavAuth): Promise<DavSession> {
         // Match on normalized (absolute) URLs to handle href format differences
         // between PROPFIND (server-relative) and multiget responses.
         const match = findResponseByHref(responses, href, bookUrl);
-        if (!match) {
+        // A card deleted meanwhile is left out, or listed as 404 or 410.
+        if (!match || match.status === 404 || match.status === 410) {
           throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
         }
+        assertOk(match, `fetching card ${href}`);
 
         const vcardText = extractAddressData(match);
         if (vcardText === undefined) {
