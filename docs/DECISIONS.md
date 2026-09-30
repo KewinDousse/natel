@@ -644,11 +644,14 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
       SOFn, DRI, SOS and its data, RSTn, EOI); `APP0` `JFIF`, rewritten
       with a 0 × 0 thumbnail (`JFXX` is dropped); every `APP2`
       `ICC_PROFILE` chunk, in order; `APP14` `Adobe`. For an HDR photo
-      (Ultra HDR, or Apple's adaptive HDR), the gain map also changes how it
+      (Ultra HDR, or Apple's adaptive HDR: a JPEG with the `hdrgm` XMP
+      packet or the ISO 21496-1 segment), the gain map also changes how it
       shows on an HDR screen, so `APP2` `MPF`, the `APP1` XMP packet that
-      declares the `hdrgm` namespace, and the images the MPF index points to
-      after EOI are kept, with the MPF offsets recomputed. Any other bytes
-      after EOI (a Motion Photo's video, for one) are dropped.
+      declares the `hdrgm` namespace, the `APP2` ISO 21496-1 gain map
+      metadata (`urn:iso:std:iso:ts:21496:-1`, as Apple's adaptive HDR writes
+      it), and the images the MPF index points to after EOI are kept, with
+      the MPF offsets recomputed. Any other bytes after EOI (a Motion
+      Photo's video, for one) are dropped.
     - PNG: `IHDR`, `PLTE`, `tRNS`, `IDAT`, `IEND`, `acTL`, `fcTL`, `fdAT`
       (APNG frames), `iCCP`, `sRGB`, `gAMA`, `cHRM`, `cICP`, `mDCv`, `cLLi`,
       `sBIT`.
@@ -671,8 +674,8 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
     `tests/lib/`: the image data comes out unchanged; the orientation still
     applies, for a JPEG, a PNG `eXIf` and a WebP; a PNG with `tRNS` keeps
     its transparency; an APNG and an animated GIF and WebP keep every
-    frame; an Ultra HDR JPEG keeps its gain map; and fixtures with GPS,
-    XMP, `COM` and `tEXt` come out without them.
+    frame; an Ultra HDR JPEG and an ISO 21496-1 one keep their gain map;
+    and fixtures with GPS, XMP, `COM` and `tEXt` come out without them.
     Apple, Android through
     DAVx⁵, Thunderbird and Nextcloud are expected to show all four (WebP
     since iOS 14 and macOS 11); the maintainer's device check confirms
