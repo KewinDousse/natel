@@ -298,3 +298,65 @@ Radicale from pip; the other two servers don't fit that mould as they are.
 
 **Consequences.** CI runs one e2e job per server. Running the Baïkal leg
 locally needs a Docker daemon; Radicale stays the default of `pnpm e2e`.
+
+## 019 — Display preferences: browser defaults, overrides in localStorage
+
+**Context.** The FR/EN switch sits in the app header. More
+languages are planned, and on phones the header has no room for it: the switch
+truncates the address book's name in the meantime. Users will also want to
+choose other display settings, such as how dates are shown. Locale state
+lives in memory only today (`src/i18n/react.tsx`, DESIGN.md), so a choice is
+lost on reload, which is also a logout (ADR 007).
+
+**Decision.**
+- Every display preference defaults to what the browser says. For the
+  language: the first entry of `navigator.languages` (else
+  `navigator.language`) whose primary subtag (`fr-CH` → `fr`) is in
+  `locales`, French when none is.
+- A preference the user sets explicitly is stored in `localStorage` under
+  one key, `natel.preferences`, as a JSON object: `{ "locale": "en" }`. Only
+  explicit choices are stored; "browser language" removes the field, and the
+  key once the object is empty. Unknown fields and values are kept when
+  writing; a value this version doesn't support (`"locale": "de"`) counts as
+  absent when reading, so the browser default applies. Content that doesn't
+  parse as a JSON object counts as `{}` and is overwritten on the next write.
+- Storage is best effort: a change applies in memory first, then the write
+  is attempted in a `try`/`catch`. When storage is unavailable or throws
+  (private browsing, quota), at startup or later, nothing is shown and
+  preferences live in memory for the tab.
+- A tab reads the preferences when it loads; other open tabs apply a change
+  on their next load.
+- `localStorage` holds nothing sensitive, now or for any later preference:
+  any script running on the origin can read it, and so can anyone with
+  access to the browser profile, and it outlives the session. Only display
+  choices go there; never credentials or anything derived from them, the
+  server's address, a username, contact data, or search terms. Invariant 3
+  is unchanged.
+- The settings page is `/contacts/settings`, a child of the `/contacts`
+  layout like `/contacts/new`: it has the same auth guard, and the header,
+  the search and the list stay as they are.
+  - Desktop: it fills the detail pane, in the detail content's `44rem`
+    column. Mobile: its own screen, with the contact page's 56px top bar
+    (back "Contacts" left, "Paramètres" / "Settings" right).
+  - Content: a `font-display` title, then one labelled `<select>` per
+    preference, in the form-field recipe. The language select lists
+    `locales` by their own names ("Français", "English"), plus "Langue du
+    navigateur" / "Browser language". A change applies at once; there is no
+    save button.
+  - Back, or `Esc` on desktop, returns to `/contacts`.
+  - It opens from a ghost icon button (gear, "Paramètres" / "Settings") in
+    the header, where the FR/EN switch is, on phones and on desktop. Opening
+    it during an edit goes through the discard dialog, as Sign out does.
+- The sign-in screen, where there is no header, keeps a compact language
+  select in place of the FR/EN switch, writing the same preference. This
+  changes DESIGN.md's "Sign-in screen", which merging this ADR accepts.
+
+**Consequences.** The header gets back the room for the address book's name
+on phones. Adding a language is a translation file plus its entry in
+`locales`, which the selects list. When this is built, DESIGN.md gets the
+settings page and the sign-in select, and its passages about the FR/EN
+switch are updated: "Copy and i18n" (memory only, `navigator.language`), the
+header recipes (the language switch; New contact and Sign out placed after
+it), the mobile header row, and "settings" under "Still not designed". The
+choice is remembered per browser, not per CardDAV account, which suits one
+Natel per server (ADR 014).
