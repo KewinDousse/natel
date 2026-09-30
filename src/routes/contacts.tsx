@@ -33,6 +33,7 @@ import {
 } from "@/queries";
 import { contactsKey } from "@/queries/keys";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
+import { isGroupCard } from "@/vcard";
 
 export const Route = createFileRoute("/contacts")({
   beforeLoad: () => {
@@ -86,7 +87,8 @@ function ContactsScreen() {
   }, [books, selectedBook, selectBook]);
 
   const contactsQuery = useContacts(auth ?? undefined, selectedBook ?? undefined);
-  const contacts = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data?.contacts;
+  const book = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data;
+  const contacts = book?.contacts;
 
   async function exportBook() {
     if (!auth || !selectedBook) return;
@@ -118,7 +120,9 @@ function ContactsScreen() {
       setImportState({ phase: "error", message: t("import_unreadable_file") });
       return;
     }
-    const loaded = queryClient.getQueryData<LoadFullBookResult>(key)?.contacts ?? [];
+    const cached = queryClient.getQueryData<LoadFullBookResult>(key);
+    // Group cards are cards of the book too: importing one it has skips it.
+    const loaded = [...(cached?.contacts ?? []), ...(cached?.groups ?? [])];
     const bookKey = key.join("\n");
     const created = imported.current.get(bookKey) ?? new Set<string>();
     imported.current.set(bookKey, created);
@@ -135,7 +139,11 @@ function ContactsScreen() {
             else
               queryClient.setQueryData<LoadFullBookResult>(
                 key,
-                (old) => old && { ...old, contacts: [...old.contacts, contact] },
+                (old) =>
+                  old &&
+                  (isGroupCard(contact)
+                    ? { ...old, groups: [...old.groups, contact] }
+                    : { ...old, contacts: [...old.contacts, contact] }),
               );
           },
         },
@@ -158,7 +166,9 @@ function ContactsScreen() {
           books={books}
           selectedBook={selectedBook}
           onSelectBook={selectBook}
-          canExport={!exporting && contacts !== undefined && contacts.length > 0}
+          canExport={
+            !exporting && contacts !== undefined && contacts.length + (book?.groups.length ?? 0) > 0
+          }
           canImport={contacts !== undefined}
           onExport={exportBook}
           onImport={importFile}

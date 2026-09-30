@@ -812,7 +812,11 @@ describe("contact page without a session", () => {
     useSessionStore.setState({ auth: null });
     const { container } = render(
       <I18nProvider>
-        <ContactPage contacts={[parse(CARD_MINIMAL, "minimal.vcf", '"e"')]} id="minimal" />
+        <ContactPage
+          contacts={[parse(CARD_MINIMAL, "minimal.vcf", '"e"')]}
+          groupCards={[]}
+          id="minimal"
+        />
       </I18nProvider>,
     );
     expect(container.innerHTML).toBe("");

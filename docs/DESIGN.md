@@ -200,7 +200,7 @@ Empty address book (one Big Shoulders line at `text-display` size + one primary 
 These elements appear in the references, but which vCard property they read and write is not decided. Don't build them until it is recorded in `docs/DECISIONS.md`.
 
 - **Favourite** (top-right of the contact page): no standard vCard property.
-- **Groups** section: shown read-only from `CATEGORIES`. Editing waits for the `CATEGORIES` vs `KIND:group` decision planned for phase 3 (see `ROADMAP.md`).
+- **Groups** section: read from the book's group cards and the contact's `CATEGORIES` (ADR 022), each name once; group cards never show in the list. Editing is not built yet.
 - **"Autre date"** pill: `ANNIVERSARY` is vCard 4.0 only, and cards are created as 3.0 (ADR 008).
 
 ## Motion

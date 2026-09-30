@@ -25,6 +25,13 @@ function ContactDetailRoute() {
   const auth = useAuth();
   const book = useSelectedBook();
   const contactsQuery = useContacts(auth ?? undefined, book ?? undefined);
-  const contacts = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data?.contacts;
-  return <ContactPage contacts={contacts} id={id} edit={edit === true} />;
+  const data = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data;
+  return (
+    <ContactPage
+      contacts={data?.contacts}
+      groupCards={data?.groups ?? []}
+      id={id}
+      edit={edit === true}
+    />
+  );
 }

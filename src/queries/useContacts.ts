@@ -12,17 +12,19 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchCards, listContacts } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
-import { parse } from "@/vcard";
+import { isGroupCard, parse } from "@/vcard";
 import { contactsKey } from "./keys";
 
 /**
  * Result of loading a full address book.
  *
  * `contacts` — successfully parsed Contact objects.
+ * `groups`   — group cards (ADR 022), kept out of the contacts.
  * `skipped`  — hrefs that were listed but could not be fetched or parsed.
  */
 export type LoadFullBookResult = {
   contacts: Contact[];
+  groups: Contact[];
   skipped: string[];
 };
 
@@ -44,10 +46,11 @@ export async function loadFullBook(auth: DavAuth, bookHref: string): Promise<Loa
   const skipped: string[] = allHrefs.filter((h) => !fetchedHrefs.has(h));
 
   const contacts: Contact[] = [];
+  const groups: Contact[] = [];
   for (const detail of details) {
     try {
       const contact = parse(detail.vcardText, detail.href, detail.etag);
-      contacts.push(contact);
+      (isGroupCard(contact) ? groups : contacts).push(contact);
     } catch (err) {
       console.warn(
         `[queries] Skipping unparseable card ${detail.href}: ${err instanceof Error ? err.message : String(err)}`,
@@ -56,7 +59,7 @@ export async function loadFullBook(auth: DavAuth, bookHref: string): Promise<Loa
     }
   }
 
-  return { contacts, skipped };
+  return { contacts, groups, skipped };
 }
 
 export function useContacts(
@@ -66,10 +69,11 @@ export function useContacts(
   return useQuery<LoadFullBookResult>({
     queryKey: contactsKey(auth, book),
     queryFn: () => {
-      if (auth === undefined || book === undefined) return { contacts: [], skipped: [] };
+      if (auth === undefined || book === undefined)
+        return { contacts: [], groups: [], skipped: [] };
       return loadFullBook(auth, book.href);
     },
     enabled: auth !== undefined && book !== undefined,
-    placeholderData: { contacts: [], skipped: [] },
+    placeholderData: { contacts: [], groups: [], skipped: [] },
   });
 }

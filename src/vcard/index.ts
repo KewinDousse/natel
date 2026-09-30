@@ -574,10 +574,50 @@ export function groupsOf(contact: Contact): string[] {
   const groups: string[] = [];
   for (const prop of contact.raw.getAllProperties("categories")) {
     for (const value of prop.getValues()) {
-      if (typeof value === "string" && value.length > 0) groups.push(value);
+      const name = typeof value === "string" ? value.trim() : "";
+      if (name.length > 0) groups.push(name);
     }
   }
   return groups;
+}
+
+/**
+ * True for a group card (ADR 022): `KIND:group` (vCard 4.0) or
+ * `X-ADDRESSBOOKSERVER-KIND:group` (Apple's 3.0 form), in any case.
+ */
+export function isGroupCard(contact: Contact): boolean {
+  return ["kind", "x-addressbookserver-kind"].some((name) =>
+    contact.raw.getAllProperties(name).some(
+      (prop) =>
+        String(prop.getFirstValue() ?? "")
+          .trim()
+          .toLowerCase() === "group",
+    ),
+  );
+}
+
+/**
+ * A group card's name (its FN, else its N, else its UID, trimmed) and the
+ * UIDs of its members, from `MEMBER` and `X-ADDRESSBOOKSERVER-MEMBER`, with
+ * or without `urn:uuid:`.
+ */
+export function groupCardOf(contact: Contact): { name: string; members: string[] } {
+  const fn = contact.fields.fn.trim();
+  const { n: parts } = contact.fields;
+  const n = [parts.prefix, parts.given, parts.additional, parts.family, parts.suffix]
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .join(" ");
+  const name = fn || n || contact.uid.trim();
+  const members: string[] = [];
+  for (const prop of [
+    ...contact.raw.getAllProperties("member"),
+    ...contact.raw.getAllProperties("x-addressbookserver-member"),
+  ]) {
+    const value = String(prop.getFirstValue() ?? "").trim();
+    if (value.length > 0) members.push(value.replace(/^urn:uuid:/i, ""));
+  }
+  return { name, members };
 }
 
 // ---------------------------------------------------------------------------

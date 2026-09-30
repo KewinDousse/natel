@@ -25,6 +25,7 @@ import {
   type ValidationErrors,
   validateDraft,
 } from "@/lib/contact-edit";
+import { contactGroupNames } from "@/lib/contact-groups";
 import { contactById, contactIdOf, namePartsOf, primaryNumberOf } from "@/lib/contact-list";
 import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
@@ -48,7 +49,6 @@ import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
   addressOf,
   birthdayOf,
-  groupsOf,
   jobTitleOf,
   newContact,
   noteOf,
@@ -64,6 +64,8 @@ import { useToast } from "./toast";
 type ContactPageProps = {
   /** Contacts of the selected book; undefined while the book is loading. */
   contacts: Contact[] | undefined;
+  /** Group cards of the selected book (ADR 022). */
+  groupCards: Contact[];
   /** The /contacts/$id route parameter. */
   id: string;
   /** True when ?edit is in the URL. */
@@ -75,13 +77,21 @@ type ContactPageProps = {
  * the same quiet blank the list pane shows. Once loaded, an id outside the
  * book gets an honest not-found state.
  */
-export function ContactPage({ contacts, id, edit = false }: ContactPageProps) {
+export function ContactPage({ contacts, groupCards, id, edit = false }: ContactPageProps) {
   const auth = useAuth();
   if (contacts === undefined || auth === null) return null;
   const contact = contactById(contacts, id);
   if (contact === undefined) return <NotFoundView />;
   // Keyed by contact so draft, errors and in-flight saves never carry over.
-  return <ContactFiche key={contactIdOf(contact)} auth={auth} contact={contact} edit={edit} />;
+  return (
+    <ContactFiche
+      key={contactIdOf(contact)}
+      auth={auth}
+      contact={contact}
+      groupCards={groupCards}
+      edit={edit}
+    />
+  );
 }
 
 /** The creation form: a blank card saved into the selected book. */
@@ -95,7 +105,15 @@ export function NewContactPage() {
 function NewContactFiche({ auth, bookHref }: { auth: DavAuth; bookHref: string }) {
   const createContact = useCreateContact(auth, bookHref);
   const [contact] = useState(newContact);
-  return <ContactFiche auth={auth} contact={contact} edit onCreate={createContact.mutateAsync} />;
+  return (
+    <ContactFiche
+      auth={auth}
+      contact={contact}
+      groupCards={[]}
+      edit
+      onCreate={createContact.mutateAsync}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -367,11 +385,13 @@ function countUnknownProperties(raw: Contact["raw"]): number {
 function ContactFiche({
   auth,
   contact,
+  groupCards,
   edit,
   onCreate,
 }: {
   auth: DavAuth;
   contact: Contact;
+  groupCards: Contact[];
   edit: boolean;
   onCreate?: (contact: Contact) => Promise<Contact>;
 }) {
@@ -401,7 +421,7 @@ function ContactFiche({
   );
   const birthday = useMemo(() => birthdayOf(contact), [contact]);
   const note = useMemo(() => noteOf(contact), [contact]);
-  const groups = useMemo(() => groupsOf(contact), [contact]);
+  const groups = useMemo(() => contactGroupNames(contact, groupCards), [contact, groupCards]);
 
   // Route id for navigation
   const routeId = contactIdOf(contact);

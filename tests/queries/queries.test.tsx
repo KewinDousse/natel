@@ -86,6 +86,7 @@ vi.mock("@/dav", async () => ({
 
 vi.mock("@/vcard", () => ({
   parse: mockParse,
+  isGroupCard: () => false,
   serialise: mockSerialise,
 }));
 
@@ -212,12 +213,12 @@ describe("useContacts", () => {
     const { result: noAuth } = renderHook(() => useContacts(undefined, MOCK_BOOK), {
       wrapper: wrapper(client),
     });
-    expect(noAuth.current.data).toEqual({ contacts: [], skipped: [] });
+    expect(noAuth.current.data).toEqual({ contacts: [], groups: [], skipped: [] });
 
     const { result: noBook } = renderHook(() => useContacts(MOCK_AUTH, undefined), {
       wrapper: wrapper(client),
     });
-    expect(noBook.current.data).toEqual({ contacts: [], skipped: [] });
+    expect(noBook.current.data).toEqual({ contacts: [], groups: [], skipped: [] });
   });
 
   it("loads the full book (list + batched fetch + parse)", async () => {
