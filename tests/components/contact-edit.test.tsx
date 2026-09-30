@@ -134,6 +134,10 @@ function setLanguage(lang: string) {
     get: () => lang,
     configurable: true,
   });
+  Object.defineProperty(window.navigator, "languages", {
+    get: () => [lang],
+    configurable: true,
+  });
 }
 
 function shimMatchMedia() {

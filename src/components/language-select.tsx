@@ -1,0 +1,39 @@
+/**
+ * LanguageSelect — the language preference (ADR 019): the browser's language,
+ * or one of `locales` by its own name. A change applies at once and is
+ * stored as an explicit choice; "browser language" removes it.
+ */
+
+import { LOCALES, useI18n } from "@/i18n/react";
+import { type Locale, localeNames } from "@/i18n/setup";
+import { cn } from "@/lib/utils";
+
+const BROWSER = "browser";
+
+export function LanguageSelect({ id, className }: { id: string; className?: string }) {
+  const { choice, setChoice, t } = useI18n();
+  return (
+    <select
+      id={id}
+      value={choice ?? BROWSER}
+      onChange={(event) => {
+        const value = event.target.value;
+        setChoice(value === BROWSER ? null : (value as Locale));
+      }}
+      className={cn(
+        "block rounded-md border border-input bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        className,
+      )}
+    >
+      {/* Explicit colours: some platforms draw the list on the system background. */}
+      <option value={BROWSER} className="bg-background text-foreground">
+        {t("lang_browser")}
+      </option>
+      {LOCALES.map((locale) => (
+        <option key={locale} value={locale} lang={locale} className="bg-background text-foreground">
+          {localeNames[locale]}
+        </option>
+      ))}
+    </select>
+  );
+}

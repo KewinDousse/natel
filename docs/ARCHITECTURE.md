@@ -65,7 +65,7 @@ src/
   model/         Contact type, address book type. Plain data, no I/O.
   store/         Zustand: session (credentials, selected book). Memory only.
   queries/       TanStack Query hooks; the bridge between dav/ and routes/.
-  i18n/          en.json, fr.json, setup
+  i18n/          en.json, fr.json, setup, stored display preferences (ADR 019)
 tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, components)
   vcard/         includes the round-trip tests over fixtures/
   e2e/           Playwright against the production build and a throwaway

@@ -72,14 +72,6 @@
   --header-h: 7.375rem;
 }
 
-/* Below this width the header's actions wrap under the wordmark (see
-   app-header.tsx), adding a 2.5625rem row. */
-@media (width < 22.5rem) {
-  :root {
-    --header-h: 9.9375rem;
-  }
-}
-
 /* Esquisse dark — non finalisée, sert à vérifier l'extensibilité */
 .dark {
   --background: oklch(0.191 0.006 271.1); /* #131417 */

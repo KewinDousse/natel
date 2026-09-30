@@ -1,11 +1,10 @@
 /**
- * AppHeader — brand band + bar (wordmark, book switcher, language switch,
- * new contact, logout, xl-only sync status) + search row, per DESIGN.md "Header".
+ * AppHeader — brand band + bar (wordmark, book switcher, settings, new
+ * contact, logout, xl-only sync status) + search row, per DESIGN.md "Header".
  *
  * `--header-h` (defined in src/index.css :root) is the mobile header height
  * used by sticky group letters (`top-[var(--header-h)]`): band 0.375rem +
- * 56px bar + search row = 7.375rem, and more below 360px, where the actions
- * wrap to a second row (index.css holds both values). On lg+ the header is
+ * 56px bar + search row = 7.375rem, at every phone width. On lg+ the header is
  * static (`lg:static`) and the letters use `lg:top-2`, so the property is
  * only meaningful below lg.
  */
@@ -16,7 +15,6 @@ import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
-import { LanguageSwitch } from "./language-switch";
 import { LogoutButton } from "./logout-button";
 
 type AppHeaderProps = {
@@ -92,9 +90,8 @@ export function AppHeader({
       <div className="h-1.5 bg-brand" aria-hidden="true" />
       <div className="flex flex-wrap items-center gap-x-3 border-b px-4 lg:h-16 lg:flex-nowrap lg:gap-x-5 lg:px-6">
         {/* Zero basis: the book name truncates instead of pushing the actions
-            onto a second row. Below 360px they always wrap, at the width
-            --header-h assumes (index.css), rather than squeeze the switcher. */}
-        <div className="order-1 flex h-14 min-w-30 flex-1 basis-0 items-center gap-2 max-[22.5rem]:basis-full lg:h-auto lg:flex-none lg:basis-auto lg:shrink-0">
+            onto a second row. */}
+        <div className="order-1 flex h-14 min-w-30 flex-1 basis-0 items-center gap-2 lg:h-auto lg:flex-none lg:basis-auto lg:shrink-0">
           <span className="shrink-0 font-display text-[2rem] font-bold leading-none">Natel</span>
           {books !== undefined && books.length > 0 && (
             <BookSwitcher
@@ -153,7 +150,15 @@ export function AppHeader({
 
         <div className="order-2 ml-auto flex shrink-0 items-center gap-2 lg:order-3 lg:gap-3">
           {syncedAt > 0 && <SyncStatus at={syncedAt} />}
-          <LanguageSwitch />
+          {/* A link, so an unsaved edit gets the discard dialog first. */}
+          <Link
+            to="/contacts/settings"
+            aria-label={t("settings")}
+            title={t("settings")}
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <GearIcon />
+          </Link>
           {books !== undefined && books.length > 0 && (
             <Link
               to="/contacts/new"
@@ -263,6 +268,24 @@ function CheckIcon() {
       aria-hidden="true"
     >
       <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg
+      className="size-5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }

@@ -101,7 +101,7 @@ function NewContactFiche({ auth, bookHref }: { auth: DavAuth; bookHref: string }
  * the fiche's data-mode picks which one shows. With `label`, it shows that
  * text alone.
  */
-function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: string }) {
+export function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: string }) {
   const { t } = useI18n();
   return (
     <div className="sticky top-0 z-20 flex h-14 items-center border-b bg-muted/95 px-2 backdrop-blur lg:hidden">

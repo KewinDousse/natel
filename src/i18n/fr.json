@@ -107,6 +107,8 @@
   "delete_confirm": "Supprimer",
   "deleted": "Contact supprimé",
   "conflict_delete_hint": "Rechargez-le pour voir les modifications avant de le supprimer.",
+  "lang_browser": "Langue du navigateur",
+  "settings": "Paramètres",
   "menu_export": "Exporter «\u00a0{name}\u00a0»",
   "menu_import": "Importer un fichier .vcf…",
   "import_title": "Importer dans «\u00a0{name}\u00a0»",

@@ -36,7 +36,7 @@ URL, no remote images — ever.
 
 **Desktop (`lg`, ≥ 1024px):** full-height grid. Header 6px `bg-brand` band + 64px bar. Below: list pane `minmax(26rem,34rem)` (own scroll, `border-r`) + detail pane `1fr` on `bg-muted` (own scroll). Detail content max width `44rem`.
 
-**Mobile (< 1024px):** page scroll. Sticky header = band + 56px row (wordmark, address-book switcher, FR/EN, round "+" button) + search row. No detail pane: opening a contact is a separate route. Below 360px the actions wrap onto a second row under the wordmark and switcher rather than squeezing the switcher further.
+**Mobile (< 1024px):** page scroll. Sticky header = band + 56px row (wordmark, address-book switcher, settings, round "+" button, sign out) + search row, on one row down to 320px. No detail pane: opening a contact is a separate route.
 
 Sticky offsets: use `--header-h` (exposed on the header) with `top-[var(--header-h)]`; do not hardcode pixel offsets.
 
@@ -47,14 +47,14 @@ Recipes below are the exact class sets from the references. Build them as React 
 ### Header
 - Band: `h-1.5 bg-brand`.
 - Wordmark: `font-display text-[2rem] font-bold leading-none` — plain text "Natel", ink colour in the app header (red only on the sign-in panel and the identity page).
-- Address-book switcher: `rounded-full px-2.5 h-8 text-sm font-bold text-muted-foreground hover:bg-muted` + chevron. On phones it takes the room the actions leave and truncates the book name, which the menu shows in full; the menu spans the header's width, 1rem from each edge. This holds until the language switch leaves the header.
+- Address-book switcher: `rounded-full px-2.5 h-8 text-sm font-bold text-muted-foreground hover:bg-muted` + chevron. On phones it takes the room the actions leave and truncates the book name, which the menu shows in full; the menu spans the header's width, 1rem from each edge.
 - Book menu, below the books and a separator (ADR 020): "Exporter « Contacts »" (download icon) saves the selected book as `<name>.vcf`, disabled (`aria-disabled`, muted, still focusable) while the book shows no contact; "Importer un fichier .vcf…" (upload icon) opens the file picker (`.vcf`, `text/vcard`). An export that fails says so in a toast.
 - Import dialog: built like the discard dialog, titled "Importer dans « Contacts »". While cards are sent it shows "12 / 40" (`tabular`, `aria-live="polite"`) and can't be dismissed; then the counts (imported, already in the book, failed, the last in `text-destructive` when not zero), the failed cards by name (or "Carte 3") with their reason in `text-muted-foreground`, and a primary "Fermer", which takes the focus. `Esc` closes it once finished. The list behind shows each contact as it is created; closing leaves the user on the list, nothing selected.
 - Search: `h-11 lg:h-10 rounded-full border border-input bg-background pl-10 pr-11 text-base lg:text-[0.9375rem]`, search icon left, `/` kbd hint on desktop when empty, clear button when not empty. `/` focuses it, `Esc` clears it.
 - Sync status (xl only): check icon in `text-success` + "Synchronisé il y a 2 min".
-- Language switch: `rounded-full bg-muted p-0.5`, buttons with `aria-pressed:bg-primary aria-pressed:text-primary-foreground`.
-- New contact: round ink "+" link (`size-10 rounded-full bg-primary text-primary-foreground`) after the language switch, shown once the server has an address book. Opens `/contacts/new`.
-- Sign out: ghost icon button (log-out icon) after the language switch, always present, even with no address book. Accessible name and tooltip "Se déconnecter". It navigates to `/logout`, so an unsaved edit gets the discard dialog first.
+- Settings: ghost icon link (gear, `size-10 rounded-full text-muted-foreground hover:bg-muted`), accessible name and tooltip "Paramètres", on phones and desktop. Opens `/contacts/settings`; being a link, an unsaved edit gets the discard dialog first.
+- New contact: round ink "+" link (`size-10 rounded-full bg-primary text-primary-foreground`) after the settings link, shown once the server has an address book. Opens `/contacts/new`.
+- Sign out: ghost icon button (log-out icon) last, always present, even with no address book. Accessible name and tooltip "Se déconnecter". It navigates to `/logout`, so an unsaved edit gets the discard dialog first.
 
 ### Group (letter section)
 ```html
@@ -97,7 +97,7 @@ Touch targets are ≥ 40px (44–48px on mobile forms). Every interactive elemen
 `h-12 lg:h-11 rounded-md border border-input bg-card px-3.5 text-base lg:text-[0.9375rem]`. Labels above, `text-sm font-bold`. Hint below in `text-caption text-muted-foreground`, linked with `aria-describedby`. Invalid: `aria-invalid="true"` → `border-destructive`. Mobile inputs stay at 16px (prevents iOS zoom).
 
 ### Sign-in screen
-Desktop: `grid-cols-[5fr_6fr]`. Left: full-height `bg-brand` panel, directory excerpt (4 rows with leaders, white) at the top, tagline + giant wordmark (`font-display`, `clamp(8rem,13vw,13rem)`, `leading-[0.78]`) at the bottom. Right: FR/EN top-right, form centred, `max-w-[24rem]`. Mobile: red block on top (FR/EN, wordmark 6.5rem, tagline), form below. On the red panel, restyle the language switch by overriding CSS variables locally (see the reference file) rather than adding new colours.
+Desktop: `grid-cols-[5fr_6fr]`. Left: full-height `bg-brand` panel, directory excerpt (4 rows with leaders, white) at the top, tagline + giant wordmark (`font-display`, `clamp(8rem,13vw,13rem)`, `leading-[0.78]`) at the bottom. Right: a compact language select top-right ("Langue" label, `h-9 px-2.5 text-sm` select), form centred, `max-w-[24rem]`. Mobile: red block on top (language select, wordmark 6.5rem, tagline), form below. On the red panel, restyle the select by overriding CSS variables locally (see the reference file) rather than adding new colours. The select writes the same preference as the settings page (ADR 019).
 
 The form has two fields, username and password. There is no server field: the CardDAV server is set by the operator (ADR 014).
 
@@ -108,6 +108,9 @@ Connection errors appear above the form in a `border-destructive/40 bg-destructi
 Clicking a contact opens its page **in view mode**. "Modifier" switches the *same page* to edit mode. There is no separate form screen, and **no text moves when switching**: the prototype measures identical positions (±0px) for the name and the address in both states, desktop and mobile. Keep it that way.
 
 Why view first: people mostly look up, call and copy. Numbers must stay `tel:` links, and a keyboard must not pop up on mobile just to read. Per-field autosave is ruled out: each save is a full vCard PUT with `If-Match`, so autosave multiplies conflicts and makes "cancel" impossible.
+
+### Settings
+`/contacts/settings` (ADR 019), a child of the contacts layout like the new contact. Desktop: in the detail pane, in the contact page's `max-w-[44rem]` column. Mobile: its own screen, with the contact page's top bar (back "Contacts" left, "Paramètres" right). A `font-display` title at the contact name's size, then one labelled `<select>` per preference in the form-field recipe (`max-w-sm`). The language select lists "Langue du navigateur" then each language by its own name. A change applies at once; there is no save button. Back, or `Esc` on desktop, returns to `/contacts`.
 
 ### New contact
 `/contacts/new` is the same page on a blank vCard 3.0 card, in edit mode only: no view state to switch back to. The top-right label (mobile top bar, desktop "Modification" slot) reads "Nouveau contact", the avatar shows the initials as they are typed, and empty name/job/org fields show their label as placeholder. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page in view mode; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
@@ -172,7 +175,7 @@ Address: one row, the value column holds street / NPA + Localité (`grid-cols-[5
 
 ## Still not designed
 
-Empty address book (one Big Shoulders line at `text-display` size + one primary action), offline state, settings, dark mode (the `.dark` tokens are a **sketch**: don't ship a theme toggle until it's reviewed).
+Empty address book (one Big Shoulders line at `text-display` size + one primary action), offline state, dark mode (the `.dark` tokens are a **sketch**: don't ship a theme toggle until it's reviewed).
 
 ## Drawn but without a vCard mapping
 
@@ -196,7 +199,7 @@ These elements appear in the references, but which vCard property they read and 
 - The mobile phone type is labelled **"Natel"** in French, "Mobile" in English.
 - Swiss numbers are displayed in local format (`079 318 44 27`), foreign numbers in international format. Store numbers as they are in the vCard; formatting is display only (libphonenumber-js is fine — propose before adding).
 - Search is accent-insensitive (NFD + strip marks, plus ł→l, ø→o, đ→d), matches name, org, email and phone digits, and highlights matches with `<mark>`.
-- Locale state lives in memory only (`src/i18n/react.tsx`), defaulting from `navigator.language` with a French fallback; nothing is persisted.
+- The language defaults to the first of `navigator.languages` Natel has, French when none; an explicit choice is stored in `localStorage` (`natel.preferences`, ADR 019). Languages are listed by their own names ("Français", "English").
 
 ## Accessibility checklist
 - Text contrast ≥ 4.5:1 and input borders ≥ 3:1 (already true for every token pair — see the identity page).

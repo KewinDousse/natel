@@ -5,6 +5,9 @@ export const locales = { en, fr } as const;
 
 export type Locale = keyof typeof locales;
 
+/** Each locale by its own name, as a language select lists it. */
+export const localeNames: Record<Locale, string> = { fr: "Français", en: "English" };
+
 /** All translation keys; the en and fr dictionaries must stay in sync. */
 export type TranslationKey = keyof typeof locales.fr;
 

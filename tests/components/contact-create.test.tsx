@@ -45,6 +45,7 @@ const BOOK: DavAddressBook = { href: "http://localhost:3000/dav/books/a/", displ
 
 function setLanguage(lang: string) {
   Object.defineProperty(window.navigator, "language", { get: () => lang, configurable: true });
+  Object.defineProperty(window.navigator, "languages", { get: () => [lang], configurable: true });
 }
 
 function renderApp(path: string) {

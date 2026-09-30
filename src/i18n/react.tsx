@@ -1,36 +1,47 @@
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+import { browserLocale } from "@/lib/browser-locale";
+import { storeChoice, storedChoice } from "./preferences";
 import { type Locale, type TranslationKey, translate } from "./setup";
 
-/** Locale used when the browser language matches neither fr nor en. */
+/** Locale used when no browser language is supported. */
 const FALLBACK_LOCALE: Locale = "fr";
 
-/** Initial locale from the browser language, French when unrecognized. */
-function initialLocale(): Locale {
-  const lang = typeof navigator === "undefined" ? "" : navigator.language;
-  if (lang.toLowerCase().startsWith("fr")) return "fr";
-  if (lang.toLowerCase().startsWith("en")) return "en";
-  return FALLBACK_LOCALE;
+/** In the order a language select lists them. */
+export const LOCALES = ["fr", "en"] as const satisfies readonly Locale[];
+
+/** The locale the browser asks for (ADR 019). */
+function localeFromBrowser(): Locale {
+  if (typeof navigator === "undefined") return FALLBACK_LOCALE;
+  const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return browserLocale(languages, LOCALES, FALLBACK_LOCALE);
 }
 
 export interface I18nContextValue {
   locale: Locale;
-  setLocale: (locale: Locale) => void;
+  /** The user's explicit choice, or null when the browser language applies. */
+  choice: Locale | null;
+  /** Set an explicit language, or go back to the browser's with null. */
+  setChoice: (choice: Locale | null) => void;
   t: (key: TranslationKey, vars?: Record<string, string>) => string;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
-/** In-memory locale state (no persistence) with a t() helper. */
+/** Locale state: the stored choice, else the browser language. */
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
-  const value = useMemo<I18nContextValue>(
-    () => ({
+  const [choice, setChoiceState] = useState<Locale | null>(() => storedChoice("locale", LOCALES));
+  const value = useMemo<I18nContextValue>(() => {
+    const locale = choice ?? localeFromBrowser();
+    return {
       locale,
-      setLocale,
+      choice,
+      setChoice: (next) => {
+        setChoiceState(next);
+        storeChoice("locale", next);
+      },
       t: (key, vars) => translate(locale, key, vars),
-    }),
-    [locale],
-  );
+    };
+  }, [choice]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

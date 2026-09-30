@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
-import { LanguageSwitch } from "@/components/language-switch";
+import { LanguageSelect } from "@/components/language-select";
 import { LoginForm } from "@/components/login-form";
 import { useI18n } from "@/i18n/react";
 import { useSessionStore } from "@/store/session";
@@ -27,15 +27,13 @@ const DIRECTORY_EXCERPT: Array<{ family: string; given: string; tel: string }> =
   { family: "Rochat", given: "Chloé", tel: "079 877 40 12" },
 ];
 
-/** Restyle the language switch against the red panel (CSS variable overrides). */
-const RED_PANEL_SWITCH_VARS = {
-  "--muted": "color-mix(in oklab, var(--brand-foreground) 18%, transparent)",
-  "--muted-foreground": "var(--brand-foreground)",
+/** Restyle the language select against the red panel (CSS variable overrides). */
+const RED_PANEL_LANGUAGE_VARS = {
   "--foreground": "var(--brand-foreground)",
-  "--primary": "var(--brand-foreground)",
-  "--primary-foreground": "var(--brand)",
   "--ring": "var(--brand-foreground)",
   "--background": "var(--brand)",
+  "--card": "var(--brand)",
+  "--input": "var(--brand-foreground)",
 } as CSSProperties;
 
 /** Dotted-leader colour on the red panel. */
@@ -67,9 +65,9 @@ function LoginRoute() {
           ))}
         </ul>
 
-        {/* Mobile language switch, restyled against the red panel */}
-        <div className="flex justify-end lg:hidden" style={RED_PANEL_SWITCH_VARS}>
-          <LanguageSwitch />
+        {/* Mobile language select, restyled against the red panel */}
+        <div className="flex justify-end lg:hidden" style={RED_PANEL_LANGUAGE_VARS}>
+          <LoginLanguage id="lang-mobile" />
         </div>
 
         <div className="flex flex-col-reverse lg:flex-col">
@@ -84,7 +82,7 @@ function LoginRoute() {
 
       <main className="flex flex-col px-5 sm:px-8 lg:min-h-dvh lg:px-12">
         <div className="hidden justify-end py-8 lg:flex">
-          <LanguageSwitch />
+          <LoginLanguage id="lang-desktop" />
         </div>
         <div className="h-8 lg:hidden" />
         <div className="flex flex-1 items-start justify-center lg:items-center lg:pb-24">
@@ -98,6 +96,19 @@ function LoginRoute() {
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+/** Compact language select: the sign-in screen has no header to reach settings from. */
+function LoginLanguage({ id }: { id: string }) {
+  const { t } = useI18n();
+  return (
+    <div className="flex items-center gap-2">
+      <label htmlFor={id} className="text-sm font-bold">
+        {t("lang_label")}
+      </label>
+      <LanguageSelect id={id} className="h-9 px-2.5 text-sm" />
     </div>
   );
 }

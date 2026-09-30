@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as ContactsIdRouteImport } from './routes/contacts/$id'
 import { Route as ContactsNewRouteImport } from './routes/contacts/new'
+import { Route as ContactsSettingsRouteImport } from './routes/contacts/settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const ContactsNewRoute = ContactsNewRouteImport.update({
   path: '/new',
   getParentRoute: () => ContactsRoute,
 } as any)
+const ContactsSettingsRoute = ContactsSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => ContactsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
   '/contacts/$id': typeof ContactsIdRoute
   '/contacts/new': typeof ContactsNewRoute
+  '/contacts/settings': typeof ContactsSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
   '/contacts/$id': typeof ContactsIdRoute
   '/contacts/new': typeof ContactsNewRoute
+  '/contacts/settings': typeof ContactsSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,14 +79,27 @@ export interface FileRoutesById {
   '/logout': typeof LogoutRoute
   '/contacts/$id': typeof ContactsIdRoute
   '/contacts/new': typeof ContactsNewRoute
+  '/contacts/settings': typeof ContactsSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/contacts' | '/login' | '/logout' | '/contacts/$id' | '/contacts/new'
+    | '/'
+    | '/contacts'
+    | '/login'
+    | '/logout'
+    | '/contacts/$id'
+    | '/contacts/new'
+    | '/contacts/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/contacts' | '/login' | '/logout' | '/contacts/$id' | '/contacts/new'
+    | '/'
+    | '/contacts'
+    | '/login'
+    | '/logout'
+    | '/contacts/$id'
+    | '/contacts/new'
+    | '/contacts/settings'
   id:
     | '__root__'
     | '/'
@@ -87,6 +108,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/contacts/$id'
     | '/contacts/new'
+    | '/contacts/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -140,17 +162,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactsNewRouteImport
       parentRoute: typeof ContactsRoute
     }
+    '/contacts/settings': {
+      id: '/contacts/settings'
+      path: '/settings'
+      fullPath: '/contacts/settings'
+      preLoaderRoute: typeof ContactsSettingsRouteImport
+      parentRoute: typeof ContactsRoute
+    }
   }
 }
 
 interface ContactsRouteChildren {
   ContactsIdRoute: typeof ContactsIdRoute
   ContactsNewRoute: typeof ContactsNewRoute
+  ContactsSettingsRoute: typeof ContactsSettingsRoute
 }
 
 const ContactsRouteChildren: ContactsRouteChildren = {
   ContactsIdRoute: ContactsIdRoute,
   ContactsNewRoute: ContactsNewRoute,
+  ContactsSettingsRoute: ContactsSettingsRoute,
 }
 
 const ContactsRouteWithChildren = ContactsRoute._addFileChildren(

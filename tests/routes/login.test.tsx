@@ -34,6 +34,10 @@ function setLanguage(lang: string) {
     get: () => lang,
     configurable: true,
   });
+  Object.defineProperty(window.navigator, "languages", {
+    get: () => [lang],
+    configurable: true,
+  });
 }
 
 function renderApp(path: string) {
@@ -79,8 +83,9 @@ describe("rendering", () => {
     expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
     expect(screen.getByLabelText("Nom d’utilisateur")).toBeTruthy();
     expect(screen.getByLabelText("Mot de passe")).toBeTruthy();
-    const frPills = screen.getAllByRole("button", { name: "FR" });
-    expect(frPills[0]?.getAttribute("aria-pressed")).toBe("true");
+    for (const select of screen.getAllByRole("combobox", { name: "Langue" })) {
+      expect((select as HTMLSelectElement).value).toBe("browser");
+    }
     expect(document.title).toBe("Se connecter · Natel");
   });
 
@@ -93,21 +98,25 @@ describe("rendering", () => {
     expect(document.querySelector('input[type="url"]')).toBeNull();
   });
 
-  it("switches to English and updates the pills and title", async () => {
+  it("switches to English, stores the choice and updates the title", async () => {
     renderApp("/login");
     await screen.findByRole("heading", { name: "Ouvrir le carnet" });
 
     const user = userEvent.setup();
-    await user.click(screen.getAllByRole("button", { name: "EN" })[0]!);
+    await user.selectOptions(screen.getAllByRole("combobox", { name: "Langue" })[0]!, "en");
 
     expect(await screen.findByRole("heading", { name: "Open your address book" })).toBeTruthy();
-    for (const button of screen.getAllByRole("button", { name: "FR" })) {
-      expect(button.getAttribute("aria-pressed")).toBe("false");
+    for (const select of screen.getAllByRole("combobox", { name: "Language" })) {
+      expect((select as HTMLSelectElement).value).toBe("en");
     }
-    for (const button of screen.getAllByRole("button", { name: "EN" })) {
-      expect(button.getAttribute("aria-pressed")).toBe("true");
-    }
+    expect(localStorage.getItem("natel.preferences")).toBe('{"locale":"en"}');
     expect(document.title).toBe("Sign in · Natel");
+  });
+
+  it("starts in the stored language", async () => {
+    localStorage.setItem("natel.preferences", '{"locale":"en"}');
+    renderApp("/login");
+    expect(await screen.findByRole("heading", { name: "Open your address book" })).toBeTruthy();
   });
 });
 
@@ -178,6 +187,25 @@ describe("submit", () => {
     });
     expect(mockDiscoverAddressBooks).toHaveBeenCalledWith(AUTH);
     expect(localStorage.length).toBe(0);
+  });
+
+  it("stores only the language choice, never the credentials", async () => {
+    mockDiscoverAddressBooks.mockResolvedValue([]);
+    renderApp("/login");
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getAllByRole("combobox", { name: "Langue" })[0]!, "fr");
+    await submitLogin();
+    await waitFor(() => {
+      expect(useSessionStore.getState().auth).toEqual(AUTH);
+    });
+
+    expect(Object.keys(localStorage)).toEqual(["natel.preferences"]);
+    expect(JSON.parse(localStorage.getItem("natel.preferences") ?? "")).toEqual({ locale: "fr" });
+    for (const value of Object.values(localStorage)) {
+      expect(value).not.toContain(AUTH.username);
+      expect(value).not.toContain(AUTH.password);
+    }
   });
 
   it("reuses the books found at sign-in instead of discovering them again", async () => {
