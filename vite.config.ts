@@ -1,7 +1,14 @@
+import { readFileSync } from "node:fs";
 import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+
+// The app's Content-Security-Policy, read from the Caddyfile so the e2e suite
+// runs the production bundle under the policy users get.
+const caddyfile = readFileSync(`${import.meta.dirname}/Caddyfile`, "utf8");
+const csp = /\(security_headers\)[\s\S]*?Content-Security-Policy "([^"]+)"/.exec(caddyfile)?.[1];
+if (!csp) throw new Error("No Content-Security-Policy in the Caddyfile's security_headers");
 
 export default defineConfig({
   plugins: [
@@ -38,5 +45,8 @@ export default defineConfig({
           },
         }
       : undefined,
+  },
+  preview: {
+    headers: { "Content-Security-Policy": csp },
   },
 });

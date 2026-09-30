@@ -44,7 +44,11 @@ always in scope; choosing between behaviours is a question.
    waiting on the maintainer then holds up nothing else. A step that already
    has a branch continues on it. Force-push with lease only to bring a
    branch onto `origin/main` or to redo commits nobody has commented on.
-2. Implement, with tests. `pnpm check` and `pnpm e2e` pass before pushing.
+2. Implement, with tests. `pnpm check` and `pnpm e2e`, against Radicale and
+   against Xandikos (`E2E_SERVER=xandikos`), pass before pushing. Actions
+   minutes are counted, and a draft pull request runs no CI, so the session
+   is the CI until the step is ready: push when there is something to show
+   or to keep, not after every commit.
 3. Open the pull request as a draft that closes the sub-issue, unless part
    of the step is left for the maintainer or it only proposes an ADR.
 4. Have the diff against `origin/main` reviewed by a subagent that has none
@@ -63,9 +67,11 @@ always in scope; choosing between behaviours is a question.
    `<details>` block, each round's items and what was done about them, for
    later sessions. A question goes in a new comment, as below, since an
    edit notifies nobody; the review comment only points to it.
-6. Except for an ADR proposal, mark it ready and squash-merge it once CI is
-   green and the last review has no blocking or major item, `src/vcard/` and
-   `src/dav/` included. The squash title is one imperative English line
+6. Except for an ADR proposal, mark it ready and squash-merge it once the
+   last review has no blocking or major item, `src/vcard/` and `src/dav/`
+   included, and CI is green. Marking it ready starts CI, the only place
+   Baïkal runs; a change to Markdown or `docs/` alone runs none, and merges
+   on the review alone. The squash title is one imperative English line
    describing the whole change, plus `(#N)`, with only the trailers as body:
    the history of `main` is in English, pull request titles are in French.
 7. Report in a few lines: what changed, the review rounds, and whether
@@ -94,7 +100,8 @@ Imperative one-line messages, as `AGENTS.md` says.
 ## Claude Code on the web
 
 The session start hook sets the git identities (maintainer as author,
-Claude as committer), installs the dependencies and Radicale, and exports
-`RADICALE_BIN` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` for the sandbox's
-Chromium, so `pnpm e2e` works as is (ADR 017). Elsewhere, set these up by
+Claude as committer), installs the dependencies, Radicale and Xandikos, and
+exports `RADICALE_BIN`, `XANDIKOS_BIN` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE`
+for the sandbox's Chromium, so `pnpm e2e` works as is against both (ADR
+017). Baïkal needs Docker, which the sandbox lacks. Elsewhere, set these up by
 hand.
