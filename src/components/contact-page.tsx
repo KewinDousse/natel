@@ -60,6 +60,7 @@ import {
 } from "@/vcard";
 import { EditableCell } from "./editable-cell";
 import { MoveDialog } from "./move-dialog";
+import { PhotoAvatar } from "./photo-avatar";
 import { useToast } from "./toast";
 
 type ContactPageProps = {
@@ -856,10 +857,18 @@ function ContactFiche({
         <div className="flex items-start justify-between gap-6">
           {isNew ? (
             <InitialsAvatar family={draft.family} given={draft.given} />
-          ) : orgOnly ? (
-            <BuildingAvatar />
           ) : (
-            <InitialsAvatar family={parts.family} given={parts.given} />
+            <PhotoAvatar
+              contact={contact}
+              className="size-24 rounded-xl sm:size-28"
+              fallback={
+                orgOnly ? (
+                  <BuildingAvatar />
+                ) : (
+                  <InitialsAvatar family={parts.family} given={parts.given} />
+                )
+              }
+            />
           )}
           <div className="hidden lg:block">
             {edit ? (

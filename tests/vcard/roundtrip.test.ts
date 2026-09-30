@@ -51,6 +51,8 @@ function normalise(s: string): string {
       return `${group}${name.toLowerCase()}`;
     },
   );
+  // ical.js escapes the comma of a 4.0 data URI (ADR 023); readers unescape it.
+  result = result.replace(/^((?:[a-z0-9-]+\.)?(?:photo|logo)[;:][^\n]*?data:[^,\n]*?)\\,/gm, "$1,");
   // Remove ;VALUE=... params (ical.js inconsistently adds/removes them)
   result = result.replace(/;VALUE=[A-Z-]+/gi, "");
   // Normalise multi-valued params: expand TYPE=HOME,INTERNET → TYPE=HOME;TYPE=INTERNET

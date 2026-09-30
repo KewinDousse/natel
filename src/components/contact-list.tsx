@@ -25,6 +25,7 @@ import {
 import { formatPhone } from "@/lib/format-phone";
 import { isDesktop, isDialogOpen, isInMenu, isTyping } from "@/lib/shortcuts";
 import type { Contact } from "@/model/contact";
+import { PhotoAvatar } from "./photo-avatar";
 
 type ContactListProps = {
   /** Contacts of the selected book; undefined while the book is loading. */
@@ -263,7 +264,12 @@ function ContactRow({
           aria-hidden="true"
           className="absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-brand opacity-0 transition-opacity group-data-[status=active]:opacity-100"
         />
-        {orgOnly ? <BuildingAvatar /> : <InitialsAvatar family={family} given={given} />}
+        <PhotoAvatar
+          contact={contact}
+          lazy
+          className="size-10 rounded-lg"
+          fallback={orgOnly ? <BuildingAvatar /> : <InitialsAvatar family={family} given={given} />}
+        />
         <span className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
           <span className="block min-w-0 truncate text-base sm:text-[0.9375rem]" title={display}>
             {nameValue}
