@@ -92,13 +92,19 @@ export function LoginForm() {
         </div>
       )}
 
-      <form className="mt-7 space-y-5" onSubmit={handleSubmit} noValidate>
+      {/*
+        method and names let password managers recognise a sign-in form; the
+        submit handler prevents the browser's own post (post rather than get,
+        so a form sent before the handler runs never puts the password in a URL).
+      */}
+      <form method="post" className="mt-7 space-y-5" onSubmit={handleSubmit} noValidate>
         <div className="space-y-1.5">
           <label htmlFor="user" className="block text-sm font-bold">
             {t("user")}
           </label>
           <input
             id="user"
+            name="username"
             type="text"
             autoComplete="username"
             autoCapitalize="none"
@@ -126,6 +132,7 @@ export function LoginForm() {
           <div className="relative">
             <input
               id="pass"
+              name="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               value={password}
