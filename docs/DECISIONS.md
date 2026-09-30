@@ -360,3 +360,71 @@ header recipes (the language switch; New contact and Sign out placed after
 it), the mobile header row, and "settings" under "Still not designed". The
 choice is remembered per browser, not per CardDAV account, which suits one
 Natel per server (ADR 014).
+
+## 020 — Import skips a card whose UID is already in the book
+
+**Context.** Natel exports the selected address book as one `.vcf`
+file and imports one into it, each card created with `If-None-Match: *` at
+`<uid>.vcf` (ADR 016). A file often holds cards the book already has: an
+export imported back, or a second run after an import cut short. What
+happens to such a card has to be chosen, and the menu that holds the two
+actions is not drawn in DESIGN.md.
+
+**Decision.**
+- Import, card by card, into the selected book:
+  - `src/vcard/` splits the file (read as UTF-8) into card texts. Each is
+    parsed only to read its UID and check it can be read; the original text
+    is what gets sent, never a re-serialised card. Unknown properties and
+    the vCard version stay as they are (ADR 005; ADR 008 covers only the
+    cards Natel creates), and a version the server refuses fails there.
+  - A card without a UID gets a random one, added as one `UID:` line before
+    `END:VCARD`.
+  - A card whose UID a card of the book already has (as loaded, compared
+    exactly) is skipped: neither written over nor copied. Each import
+    updates the loaded book, so importing the same file twice changes
+    nothing the second time.
+  - Cards are created one after the other, and a failure doesn't stop the
+    rest; nothing is undone. The import ends with three counts, imported,
+    already in the book and failed, and names each failed card with its
+    reason. Failed covers: a card the parser can't read, a UID repeated
+    earlier in the same file, a 412 (a card already sits at `<uid>.vcf`,
+    added elsewhere: this is how that 412 reaches the user, with a hint to
+    reload), a server refusal (such as RFC 6352 `no-uid-conflict`) and a
+    network error.
+  - A file with no card is an error ("Ce fichier ne contient aucun
+    contact."), not three zeros.
+- Export fetches the selected book again and writes each card's text as the
+  server returned it, cards the app can't parse included, one after the
+  other. If a listed card can't be fetched, the export fails and says so
+  rather than write an incomplete file. The file is built in the browser
+  and named after the book's display name, else the last segment of its
+  href, with characters not allowed in file names replaced by `_`. Export
+  is disabled while the book shows no contact.
+- Design, accepted by merging this ADR and then written into DESIGN.md:
+  - The two actions sit at the end of the address-book menu, below a
+    separator, as `menuitem`s: "Exporter « Contacts »" / "Export “Contacts”"
+    and "Importer un fichier .vcf…" / "Import a .vcf file…", which opens
+    the file picker (`.vcf`, `text/vcard`). « » take non-breaking spaces.
+  - The import runs in a dialog built like the discard dialog, titled
+    "Importer dans « Contacts »" / "Import into “Contacts”". It can't be
+    dismissed while cards are being sent (stopping halfway gains nothing,
+    since a rerun is safe). Progress ("12 / 40") and then the counts are
+    `tabular`, in an `aria-live="polite"` region, followed by the failed
+    cards and a Close button.
+  - Behind the dialog, the list shows each contact as it is created. Close
+    leaves the user on that list, with nothing selected: the imported
+    contacts sit in their A–Z places like any other.
+
+Rejected:
+- Writing over the existing card: a write over a version the user has not
+  seen, which invariant 5 exists to prevent.
+- Importing it as a copy with a new UID: importing an export back doubles
+  the book.
+- Asking for each card: that is the duplicate detection and merge planned
+  for Phase 4 (ROADMAP.md).
+
+**Consequences.** An import can be rerun safely after a failure. Cards that
+changed in the file since the book got them are not updated: the counts
+show them as already in the book, and updating them is left to the Phase 4
+merge. A card added elsewhere since the book was loaded shows up as failed
+rather than skipped; reloading and importing again settles it.
