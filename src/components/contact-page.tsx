@@ -1061,6 +1061,7 @@ function ContactFiche({
                   key={field.id}
                   type={
                     <TypeSelect
+                      aria-label={t("label_tel_type")}
                       value={draft.tel[i]?.type ?? ""}
                       onChange={(v) => dispatch({ type: "SET_TEL_TYPE", index: i, value: v })}
                     />
@@ -1084,6 +1085,7 @@ function ContactFiche({
                           type="tel"
                           inputMode="tel"
                           autoComplete="tel"
+                          aria-label={`${t("label_tel")} (${t(typeLabelKey(draft.tel[i]?.type ?? ""))})`}
                           value={draft.tel[i]?.value ?? ""}
                           onChange={(e) =>
                             dispatch({ type: "SET_TEL", index: i, value: e.target.value })
@@ -1153,6 +1155,7 @@ function ContactFiche({
                   key={field.id}
                   type={
                     <TypeSelect
+                      aria-label={t("label_email_type")}
                       value={draft.email[i]?.type ?? ""}
                       onChange={(v) => dispatch({ type: "SET_EMAIL_TYPE", index: i, value: v })}
                     />
@@ -1174,6 +1177,7 @@ function ContactFiche({
                             type="email"
                             inputMode="email"
                             autoComplete="email"
+                            aria-label={`${t("label_email")} (${t(typeLabelKey(draft.email[i]?.type ?? ""))})`}
                             value={draft.email[i]?.value ?? ""}
                             onChange={(e) =>
                               dispatch({ type: "SET_EMAIL", index: i, value: e.target.value })
@@ -1219,6 +1223,7 @@ function ContactFiche({
                   address !== null ? (
                     edit && draft.adr ? (
                       <TypeSelect
+                        aria-label={t("label_adr_type")}
                         value={(draft.adr.type[0] ?? "").toLowerCase()}
                         onChange={(v) => dispatch({ type: "SET_ADR_TYPE", value: v })}
                       />
@@ -1387,6 +1392,7 @@ function ContactFiche({
                             type="url"
                             inputMode="url"
                             autoComplete="url"
+                            aria-label={t("label_url")}
                             value={draft.url}
                             onChange={(e) => dispatch({ type: "SET_URL", value: e.target.value })}
                             onBlur={handleBlurValidate}
@@ -1446,6 +1452,7 @@ function ContactFiche({
                       edit={
                         <input
                           type="text"
+                          aria-label={t("s_nickname")}
                           value={draft.nickname}
                           onChange={(e) =>
                             dispatch({ type: "SET_NICKNAME", value: e.target.value })
@@ -1484,6 +1491,7 @@ function ContactFiche({
                 view={<span>{note}</span>}
                 edit={
                   <textarea
+                    aria-label={t("s_note")}
                     value={draft.note}
                     onChange={(e) => dispatch({ type: "SET_NOTE", value: e.target.value })}
                     className="h-auto min-h-[6rem] w-full rounded-md border border-input bg-card px-3.5 py-2.5 text-base leading-relaxed lg:text-[0.9375rem] resize-y"
@@ -1918,10 +1926,24 @@ const TYPE_OPTIONS: { value: string; labelKey: TranslationKey }[] = [
   { value: "", labelKey: "t_other" },
 ];
 
-function TypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** The option label of a type, which also tells same-named rows apart. */
+function typeLabelKey(type: string): TranslationKey {
+  return TYPE_OPTIONS.find((opt) => opt.value === type)?.labelKey ?? "t_other";
+}
+
+function TypeSelect({
+  value,
+  onChange,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  "aria-label": string;
+}) {
   const { t } = useI18n();
   return (
     <select
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm font-bold text-muted-foreground sm:h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -1981,10 +2003,12 @@ function EditAddressValue({
   adr: NonNullable<ContactDraft["adr"]>;
   dispatch: React.Dispatch<DraftAction>;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-1">
       <input
         type="text"
+        aria-label={t("label_street")}
         value={adr.street}
         onChange={(e) => dispatch({ type: "SET_ADR_STREET", value: e.target.value })}
         className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base lg:text-[0.9375rem]"
@@ -1993,12 +2017,14 @@ function EditAddressValue({
         <input
           type="text"
           inputMode="numeric"
+          aria-label={t("label_postal_code")}
           value={adr.postalCode}
           onChange={(e) => dispatch({ type: "SET_ADR_POSTAL_CODE", value: e.target.value })}
           className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base lg:text-[0.9375rem]"
         />
         <input
           type="text"
+          aria-label={t("label_locality")}
           value={adr.locality}
           onChange={(e) => dispatch({ type: "SET_ADR_LOCALITY", value: e.target.value })}
           className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base lg:text-[0.9375rem]"
@@ -2006,6 +2032,7 @@ function EditAddressValue({
       </div>
       <input
         type="text"
+        aria-label={t("label_country")}
         value={adr.country}
         onChange={(e) => dispatch({ type: "SET_ADR_COUNTRY", value: e.target.value })}
         className="h-11 w-full rounded-md border border-input bg-card px-3.5 text-base text-muted-foreground lg:text-[0.9375rem]"

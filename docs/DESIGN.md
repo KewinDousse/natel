@@ -264,6 +264,7 @@ The "Raccourcis clavier" dialog is built like the import dialog once finished: t
 
 ## Accessibility checklist
 - Text contrast ≥ 4.5:1 and input borders ≥ 3:1, in light and dark (checked by `tests/lib/contrast.test.ts`).
+- Every screen and dialog passes axe (WCAG 2.1 A and AA, plus best practices) in light and dark, on desktop and phone (`tests/e2e/a11y.spec.ts`); the states it can't reach against a test server, no address book and an import in progress or failing, are not checked. The "Natel" wordmark of the empty detail pane is a logotype, which WCAG 1.4.3 exempts from contrast: it carries `data-logotype` and the check skips it.
 - The `hidden` attribute always wins over display utilities (base layer rule): use it instead of toggling classes.
 - List = `<nav aria-label>` + `<ul role="list">`; the current contact has `aria-current="true"`.
 - The result count is announced (`aria-live="polite"`).

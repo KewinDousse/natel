@@ -43,6 +43,8 @@ test("goes back to the list with Esc on desktop", async ({ page, isMobile }) => 
   await signIn(page);
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/contacts\/settings$/);
+  // The URL changes before the page is drawn and listens for Esc.
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/contacts$/);
 });

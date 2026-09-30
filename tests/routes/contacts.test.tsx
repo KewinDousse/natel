@@ -343,6 +343,23 @@ describe("list grouping and rail", () => {
     expect(rail?.querySelector("span")?.textContent).toBe("A");
   });
 
+  it("names a row whose card has no name, organisation, number or address", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A, BOOK_B]);
+    const nameless = makeContact("nameless", {
+      fields: {
+        fn: "",
+        n: { family: "", given: "", additional: "", prefix: "", suffix: "" },
+      } as Contact["fields"],
+    });
+    loadBook([...bookAContacts(), nameless]);
+    renderApp("/contacts");
+    expect(await screen.findByRole("link", { name: "Contact sans nom" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Benali Karim/ }).getAttribute("aria-label"),
+    ).toBeNull();
+  });
+
   it("marks the selected row with aria-current and shows the detail pane", async () => {
     await renderLoggedIn();
     const user = userEvent.setup();

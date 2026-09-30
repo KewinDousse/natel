@@ -38,7 +38,11 @@ function EmptyDetail() {
   const { t } = useI18n();
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center lg:min-h-full">
-      <p className="font-display text-5xl font-bold leading-none text-leader" aria-hidden="true">
+      <p
+        className="font-display text-5xl font-bold leading-none text-leader"
+        aria-hidden="true"
+        data-logotype
+      >
         Natel
       </p>
       <p className="text-sm text-muted-foreground">{t("select_contact")}</p>
