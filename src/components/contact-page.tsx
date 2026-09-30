@@ -29,10 +29,11 @@ import { contactGroupNames } from "@/lib/contact-groups";
 import { contactById, contactIdOf, namePartsOf, primaryNumberOf } from "@/lib/contact-list";
 import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
+import { decodeImage, PhotoError } from "@/lib/photo-prepare";
 import { isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { bookName } from "@/lib/vcf-file";
-import type { Contact, ContactField } from "@/model/contact";
+import type { Contact, ContactField, PhotoEdit } from "@/model/contact";
 import {
   type DavAddressBook,
   type DavAuth,
@@ -50,17 +51,20 @@ import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
   addressOf,
   birthdayOf,
+  canReplacePhoto,
   jobTitleOf,
   newContact,
   noteOf,
   orgOf,
   parse,
+  photoOf,
   typeValuesOf,
   type VCardAddress,
 } from "@/vcard";
 import { EditableCell } from "./editable-cell";
 import { MoveDialog } from "./move-dialog";
 import { PhotoAvatar } from "./photo-avatar";
+import { type ChosenPhoto, PhotoCropDialog } from "./photo-crop-dialog";
 import { useToast } from "./toast";
 
 type ContactPageProps = {
@@ -230,7 +234,8 @@ type DraftAction =
   | { type: "SET_ORG"; value: string }
   | { type: "SET_TITLE"; value: string }
   | { type: "SET_URL"; value: string }
-  | { type: "SET_NOTE"; value: string };
+  | { type: "SET_NOTE"; value: string }
+  | { type: "SET_PHOTO"; value: PhotoEdit };
 
 function draftReducer(state: ContactDraft, action: DraftAction): ContactDraft {
   switch (action.type) {
@@ -332,6 +337,8 @@ function draftReducer(state: ContactDraft, action: DraftAction): ContactDraft {
       return { ...state, url: action.value };
     case "SET_NOTE":
       return { ...state, note: action.value };
+    case "SET_PHOTO":
+      return { ...state, photo: action.value };
   }
 }
 
@@ -463,6 +470,9 @@ function ContactFiche({
   const [saveError, setSaveError] = useState<string | null>(null);
   const showToast = useToast();
   const [showDiscard, setShowDiscard] = useState(false);
+  const [chosenPhoto, setChosenPhoto] = useState<ChosenPhoto | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const changePhotoRef = useRef<HTMLButtonElement>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const moveHintId = useId();
 
@@ -491,6 +501,33 @@ function ContactFiche({
     [],
   );
 
+  // The decoded image and its object URL go with the dialog.
+  useEffect(() => {
+    if (chosenPhoto === null || !("bitmap" in chosenPhoto)) return;
+    return () => {
+      chosenPhoto.bitmap.close();
+      URL.revokeObjectURL(chosenPhoto.url);
+    };
+  }, [chosenPhoto]);
+
+  // A large image decodes slowly: a result that lands after edit mode ended is dropped.
+  const handlePhotoFile = useCallback(async (file: File) => {
+    const session = editSession.current;
+    let chosen: ChosenPhoto;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bitmap = await decodeImage(file);
+      if (session !== editSession.current) {
+        bitmap.close();
+        return;
+      }
+      chosen = { bytes, bitmap, url: URL.createObjectURL(file) };
+    } catch (err) {
+      chosen = { error: err instanceof PhotoError ? err : new PhotoError("UNDECODABLE", err) };
+    }
+    if (session === editSession.current) setChosenPhoto(chosen);
+  }, []);
+
   // `savedId` is the contact to land on after a save; without it, a new
   // contact has nothing to show and goes back to the list.
   const exitEdit = useCallback(
@@ -502,6 +539,7 @@ function ContactFiche({
       setDeleteConflict(null);
       setShowDelete(false);
       setShowMove(false);
+      setChosenPhoto(null);
       setSaveError(null);
       setSaveStatus("idle");
       if (isNew && savedId === undefined) {
@@ -599,6 +637,7 @@ function ContactFiche({
     if (blockerActive) {
       setShowDelete(false);
       setShowMove(false);
+      setChosenPhoto(null);
       setShowDiscard(true);
     }
   }, [blockerActive]);
@@ -608,13 +647,15 @@ function ContactFiche({
     if (blockerActive) blocker?.reset?.();
   }, [blockerActive, blocker]);
 
-  // Esc closes the open confirmation (delete or discard), otherwise it cancels
-  // editing; not while a delete is in flight.
+  // Esc closes the open dialog (photo, delete, move or discard), otherwise it
+  // cancels editing; not while a delete is in flight.
   useEffect(() => {
     if (!edit) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || deleting) return;
-      if (showDelete) {
+      if (chosenPhoto !== null) {
+        setChosenPhoto(null);
+      } else if (showDelete) {
         setShowDelete(false);
       } else if (showMove) {
         setShowMove(false);
@@ -626,7 +667,7 @@ function ContactFiche({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [edit, deleting, showDelete, showMove, showDiscard, closeDiscard, handleCancel]);
+  }, [edit, deleting, chosenPhoto, showDelete, showMove, showDiscard, closeDiscard, handleCancel]);
 
   // Validate on blur
   const handleBlurValidate = useCallback(() => {
@@ -830,6 +871,11 @@ function ContactFiche({
     [t, showToast],
   );
 
+  const canChangePhoto = canReplacePhoto(editBase);
+  const showsPhoto =
+    draft.photo.kind === "replaced" ||
+    (draft.photo.kind === "unchanged" && photoOf(editBase) !== null);
+
   // Counts what a save will write back, so in edit mode the version edited.
   const unknownCount = countUnknownProperties((edit ? editBase : contact).raw);
 
@@ -856,10 +902,16 @@ function ContactFiche({
         {/* Top row: avatar + desktop edit button */}
         <div className="flex items-start justify-between gap-6">
           {isNew ? (
-            <InitialsAvatar family={draft.family} given={draft.given} />
+            <PhotoAvatar
+              contact={contact}
+              edited={draft.photo}
+              className="size-24 rounded-xl sm:size-28"
+              fallback={<InitialsAvatar family={draft.family} given={draft.given} />}
+            />
           ) : (
             <PhotoAvatar
               contact={contact}
+              edited={edit ? draft.photo : undefined}
               className="size-24 rounded-xl sm:size-28"
               fallback={
                 orgOnly ? (
@@ -1011,6 +1063,45 @@ function ContactFiche({
                 </div>
               }
             />
+          </div>
+        )}
+
+        {/* Action row (edit only): the photo */}
+        {edit && (canChangePhoto || showsPhoto) && (
+          <div className="mt-5 flex flex-wrap gap-2">
+            {canChangePhoto && (
+              <>
+                <button
+                  ref={changePhotoRef}
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className={OUTLINE_PILL}
+                >
+                  {t("photo_change")}
+                </button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    // Choosing the same file again should reopen the dialog.
+                    event.target.value = "";
+                    if (file) void handlePhotoFile(file);
+                  }}
+                />
+              </>
+            )}
+            {showsPhoto && (
+              <button
+                type="button"
+                onClick={() => dispatch({ type: "SET_PHOTO", value: { kind: "removed" } })}
+                className={OUTLINE_PILL}
+              >
+                {t("photo_remove")}
+              </button>
+            )}
           </div>
         )}
 
@@ -1636,6 +1727,18 @@ function ContactFiche({
             </button>
           </div>
         </div>
+      )}
+
+      {chosenPhoto && (
+        <PhotoCropDialog
+          chosen={chosenPhoto}
+          returnFocusTo={changePhotoRef}
+          onCancel={() => setChosenPhoto(null)}
+          onUse={(photo) => {
+            dispatch({ type: "SET_PHOTO", value: { kind: "replaced", ...photo } });
+            setChosenPhoto(null);
+          }}
+        />
       )}
 
       {showDelete && (

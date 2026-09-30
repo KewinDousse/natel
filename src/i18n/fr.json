@@ -169,5 +169,15 @@
   "err_move_exists": "Une carte avec l’UID de ce contact est déjà dans le carnet de destination, peut-être d’un déplacement précédent. Rien n’a été déplacé.",
   "err_move_create_uncertain": "Le contact a peut-être été copié dans le carnet de destination, et n’a pas été retiré de celui-ci. Les deux carnets ont été rechargés.",
   "err_move_delete_uncertain": "Le contact a été copié dans le carnet de destination et est peut-être encore dans celui-ci. Les deux carnets ont été rechargés.",
-  "err_move_in_both": "Le contact est peut-être maintenant dans les deux carnets. Les deux carnets ont été rechargés."
+  "err_move_in_both": "Le contact est peut-être maintenant dans les deux carnets. Les deux carnets ont été rechargés.",
+  "photo_change": "Changer la photo",
+  "photo_remove": "Retirer la photo",
+  "photo_crop_title": "Recadrer la photo",
+  "photo_use": "Utiliser la photo",
+  "photo_zoom": "Zoom",
+  "photo_frame": "Cadre de la photo",
+  "photo_frame_hint": "Glissez pour déplacer la photo, pincez ou faites défiler pour zoomer. Le cadre sélectionné, les flèches la déplacent et + et − zooment.",
+  "photo_err_undecodable": "Cette image ne peut pas être lue. Choisissez-en une autre.",
+  "photo_err_too_large_to_crop": "Cette image est trop grande pour être recadrée dans ce navigateur. Zoomez, ou choisissez une image plus petite.",
+  "photo_err_encode": "Ce navigateur n’a pas pu préparer la photo. Réessayez, ou choisissez une autre image."
 }

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { createBook, EXTRA_BOOK_PATH, putCard, resetBook, vcard } from "./dav";
@@ -40,6 +42,15 @@ async function openBookMenu(page: Page): Promise<void> {
   await page.getByRole("button", { name: /Address book/ }).click();
   await expect(page.getByRole("menu")).toBeVisible();
 }
+
+const JPEG = Buffer.from(
+  (
+    JSON.parse(
+      readFileSync(resolve(import.meta.dirname, "../vcard/photo-bytes.json"), "utf8"),
+    ) as Record<string, string>
+  ).jpeg ?? "",
+  "base64",
+);
 
 const ADA = vcard([
   "UID:ada",
@@ -142,6 +153,26 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Save" }).click();
       await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
       await expectNoViolations(page, "conflict");
+    });
+
+    test("photo crop dialog", async ({ page }) => {
+      await page.goto("/");
+      await signIn(page);
+      await page.getByRole("link", { name: /Lovelace/ }).click();
+      await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
+      for (const [name, buffer] of [
+        ["photo.jpg", JPEG],
+        ["notes.jpg", Buffer.from("not an image")],
+      ] as const) {
+        const chooser = page.waitForEvent("filechooser");
+        await page.getByRole("button", { name: "Change photo" }).click();
+        await (await chooser).setFiles({ name, mimeType: "image/jpeg", buffer });
+        const dialog = page.getByRole("dialog", { name: "Crop photo" });
+        await expect(dialog).toBeVisible();
+        await expectNoViolations(page, `photo dialog, ${name}`);
+        await dialog.getByRole("button", { name: "Cancel" }).click();
+        await expect(dialog).toBeHidden();
+      }
     });
 
     test("new contact", async ({ page }) => {

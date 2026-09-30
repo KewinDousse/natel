@@ -169,5 +169,15 @@
   "err_move_exists": "A card with this contact’s UID is already in the target address book, maybe from an earlier move. Nothing was moved.",
   "err_move_create_uncertain": "The contact may have been copied to the target address book, and was not removed from this one. Both books were reloaded.",
   "err_move_delete_uncertain": "The contact was copied to the target address book and may still be in this one. Both books were reloaded.",
-  "err_move_in_both": "The contact may now be in both address books. Both books were reloaded."
+  "err_move_in_both": "The contact may now be in both address books. Both books were reloaded.",
+  "photo_change": "Change photo",
+  "photo_remove": "Remove photo",
+  "photo_crop_title": "Crop photo",
+  "photo_use": "Use photo",
+  "photo_zoom": "Zoom",
+  "photo_frame": "Photo frame",
+  "photo_frame_hint": "Drag to move the photo, pinch or scroll to zoom. With the frame focused, the arrow keys move it and + and − zoom.",
+  "photo_err_undecodable": "This image can’t be read. Choose another one.",
+  "photo_err_too_large_to_crop": "This image is too large to crop in this browser. Zoom in, or choose a smaller image.",
+  "photo_err_encode": "This browser couldn’t prepare the photo. Try again, or choose another image."
 }
