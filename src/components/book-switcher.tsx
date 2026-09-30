@@ -98,8 +98,10 @@ export function BookSwitcher({ books, selectedBook, onSelect }: BookSwitcherProp
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open, close]);
 
+  // On phones the menu spans the sticky header, not the trigger: a long book
+  // name would otherwise push it off the screen.
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="min-w-10 sm:relative">
       <button
         ref={triggerRef}
         type="button"
@@ -114,7 +116,7 @@ export function BookSwitcher({ books, selectedBook, onSelect }: BookSwitcherProp
             setOpen(true);
           }
         }}
-        className="inline-flex h-8 min-w-0 items-center gap-1 rounded-full px-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <span className="truncate">{selectedBook?.displayName ?? ""}</span>
         <ChevronDownIcon
@@ -128,7 +130,7 @@ export function BookSwitcher({ books, selectedBook, onSelect }: BookSwitcherProp
           role="menu"
           aria-label={t("book_label")}
           onKeyDown={onMenuKeyDown}
-          className="absolute left-0 top-[calc(100%+0.375rem)] z-30 min-w-[13rem] rounded-lg bg-popover py-1 shadow-float"
+          className="absolute inset-x-4 top-[calc(0.375rem+3.5rem)] z-30 rounded-lg bg-popover py-1 shadow-float sm:inset-x-auto sm:left-0 sm:top-[calc(100%+0.375rem)] sm:min-w-[13rem]"
         >
           {books.map((book, index) => {
             const checked = book.href === selectedBook?.href;

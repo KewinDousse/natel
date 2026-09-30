@@ -2,9 +2,10 @@
  * AppHeader — brand band + bar (wordmark, book switcher, language switch,
  * new contact, logout, xl-only sync status) + search row, per DESIGN.md "Header".
  *
- * `--header-h` (defined in src/index.css :root, 7.375rem on mobile) is the
- * mobile header height used by sticky group letters (`top-[var(--header-h)]`):
- * band 0.375rem + 56px bar + search row = 7.375rem. On lg+ the header is
+ * `--header-h` (defined in src/index.css :root) is the mobile header height
+ * used by sticky group letters (`top-[var(--header-h)]`): band 0.375rem +
+ * 56px bar + search row = 7.375rem, and more below 360px, where the actions
+ * wrap to a second row (index.css holds both values). On lg+ the header is
  * static (`lg:static`) and the letters use `lg:top-2`, so the property is
  * only meaningful below lg.
  */
@@ -80,8 +81,11 @@ export function AppHeader({
     >
       <div className="h-1.5 bg-brand" aria-hidden="true" />
       <div className="flex flex-wrap items-center gap-x-3 border-b px-4 lg:h-16 lg:flex-nowrap lg:gap-x-5 lg:px-6">
-        <div className="order-1 flex h-14 min-w-0 items-center gap-2 lg:h-auto lg:shrink-0">
-          <span className="font-display text-[2rem] font-bold leading-none">Natel</span>
+        {/* Zero basis: the book name truncates instead of pushing the actions
+            onto a second row. Below 360px they always wrap, at the width
+            --header-h assumes (index.css), rather than squeeze the switcher. */}
+        <div className="order-1 flex h-14 min-w-30 flex-1 basis-0 items-center gap-2 max-[22.5rem]:basis-full lg:h-auto lg:flex-none lg:basis-auto lg:shrink-0">
+          <span className="shrink-0 font-display text-[2rem] font-bold leading-none">Natel</span>
           {books !== undefined && books.length > 0 && (
             <BookSwitcher books={books} selectedBook={selectedBook} onSelect={onSelectBook} />
           )}
@@ -129,7 +133,7 @@ export function AppHeader({
           </div>
         </search>
 
-        <div className="order-2 ml-auto flex items-center gap-2 lg:order-3 lg:gap-3">
+        <div className="order-2 ml-auto flex shrink-0 items-center gap-2 lg:order-3 lg:gap-3">
           {syncedAt > 0 && <SyncStatus at={syncedAt} />}
           <LanguageSwitch />
           {books !== undefined && books.length > 0 && (

@@ -36,7 +36,7 @@ URL, no remote images — ever.
 
 **Desktop (`lg`, ≥ 1024px):** full-height grid. Header 6px `bg-brand` band + 64px bar. Below: list pane `minmax(26rem,34rem)` (own scroll, `border-r`) + detail pane `1fr` on `bg-muted` (own scroll). Detail content max width `44rem`.
 
-**Mobile (< 1024px):** page scroll. Sticky header = band + 56px row (wordmark, address-book switcher, FR/EN, round "+" button) + search row. No detail pane: opening a contact is a separate route.
+**Mobile (< 1024px):** page scroll. Sticky header = band + 56px row (wordmark, address-book switcher, FR/EN, round "+" button) + search row. No detail pane: opening a contact is a separate route. Below 360px the actions wrap onto a second row under the wordmark and switcher rather than squeezing the switcher further.
 
 Sticky offsets: use `--header-h` (exposed on the header) with `top-[var(--header-h)]`; do not hardcode pixel offsets.
 
@@ -47,7 +47,7 @@ Recipes below are the exact class sets from the references. Build them as React 
 ### Header
 - Band: `h-1.5 bg-brand`.
 - Wordmark: `font-display text-[2rem] font-bold leading-none` — plain text "Natel", ink colour in the app header (red only on the sign-in panel and the identity page).
-- Address-book switcher: `rounded-full px-2.5 h-8 text-sm font-bold text-muted-foreground hover:bg-muted` + chevron.
+- Address-book switcher: `rounded-full px-2.5 h-8 text-sm font-bold text-muted-foreground hover:bg-muted` + chevron. On phones it takes the room the actions leave and truncates the book name, which the menu shows in full; the menu spans the header's width, 1rem from each edge. This holds until the language switch leaves the header.
 - Search: `h-11 lg:h-10 rounded-full border border-input bg-background pl-10 pr-11 text-base lg:text-[0.9375rem]`, search icon left, `/` kbd hint on desktop when empty, clear button when not empty. `/` focuses it, `Esc` clears it.
 - Sync status (xl only): check icon in `text-success` + "Synchronisé il y a 2 min".
 - Language switch: `rounded-full bg-muted p-0.5`, buttons with `aria-pressed:bg-primary aria-pressed:text-primary-foreground`.
@@ -187,7 +187,7 @@ These elements appear in the references, but which vCard property they read and 
 
 ## Copy and i18n
 - FR and EN from day one; FR is ~30% longer. No fixed-width buttons. Every icon-only button has a translated `aria-label`.
-- Only list-row names and trailing values truncate (full name in `title`, and in full in the detail pane). UI labels wrap.
+- Only list-row names and trailing values truncate (full name in `title`, and in full in the detail pane), plus the header's book name on phones (see Header). UI labels wrap.
 - French typography: `’` apostrophe, « » with non-breaking spaces, "Aucun résultat" for zero.
 - The mobile phone type is labelled **"Natel"** in French, "Mobile" in English.
 - Swiss numbers are displayed in local format (`079 318 44 27`), foreign numbers in international format. Store numbers as they are in the vCard; formatting is display only (libphonenumber-js is fine — propose before adding).

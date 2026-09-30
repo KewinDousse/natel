@@ -21,26 +21,35 @@ function expectStatus(res: Response, allowed: number[], what: string): void {
   }
 }
 
-/** Deletes the test address book if present and creates it empty. */
-export async function resetBook(): Promise<void> {
-  // Radicale creates the home on the user's first request.
-  expectStatus(await dav("PROPFIND", SERVER.home, { headers: { Depth: "0" } }), [207], "home");
-  expectStatus(await dav("DELETE", BOOK_PATH), [200, 204, 404], "delete book");
+/** A second book some tests add; every reset removes it again. */
+export const EXTRA_BOOK_PATH = `${SERVER.home}extra/`;
+
+/** Creates an empty address book at `path`. */
+export async function createBook(path: string, displayName: string): Promise<void> {
   const body = `<?xml version="1.0" encoding="utf-8"?>
 <mkcol xmlns="DAV:" xmlns:CR="urn:ietf:params:xml:ns:carddav">
   <set><prop>
     <resourcetype><collection/><CR:addressbook/></resourcetype>
-    <displayname>Contacts</displayname>
+    <displayname>${displayName}</displayname>
   </prop></set>
 </mkcol>`;
   expectStatus(
-    await dav("MKCOL", BOOK_PATH, {
+    await dav("MKCOL", path, {
       headers: { "Content-Type": "application/xml; charset=utf-8" },
       body,
     }),
     [201],
-    "create book",
+    `create book ${path}`,
   );
+}
+
+/** Deletes the test address books if present and creates the main one empty. */
+export async function resetBook(): Promise<void> {
+  // Radicale creates the home on the user's first request.
+  expectStatus(await dav("PROPFIND", SERVER.home, { headers: { Depth: "0" } }), [207], "home");
+  expectStatus(await dav("DELETE", EXTRA_BOOK_PATH), [200, 204, 404], "delete extra book");
+  expectStatus(await dav("DELETE", BOOK_PATH), [200, 204, 404], "delete book");
+  await createBook(BOOK_PATH, "Contacts");
 }
 
 /** Writes a card at `<book>/<uid>.vcf`, creating or replacing it. */
