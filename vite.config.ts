@@ -10,6 +10,9 @@ const caddyfile = readFileSync(`${import.meta.dirname}/Caddyfile`, "utf8");
 const csp = /\(security_headers\)[\s\S]*?Content-Security-Policy "([^"]+)"/.exec(caddyfile)?.[1];
 if (!csp) throw new Error("No Content-Security-Policy in the Caddyfile's security_headers");
 
+/** What the /dav proxy relays: the methods the app sends, as in the Caddyfile. */
+const DAV_METHODS = ["PROPFIND", "REPORT", "PUT", "DELETE"];
+
 export default defineConfig({
   plugins: [
     TanStackRouterVite({ target: "react", autoCodeSplitting: true }),
@@ -32,6 +35,13 @@ export default defineConfig({
             target: process.env.VITE_DAV_URL,
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/dav/, ""),
+            // Same as the Caddyfile: only the methods the app sends.
+            bypass: (req, res) => {
+              if (res && !DAV_METHODS.includes(req.method ?? "")) {
+                res.writeHead(405, { Allow: DAV_METHODS.join(", ") }).end();
+                return req.url;
+              }
+            },
             // Same as the Caddyfile's header_down: map redirects under /dav
             // and drop the challenge that opens the browser's login prompt.
             configure: (proxy) => {

@@ -26,6 +26,12 @@
   # The app mirrors full server paths under /dav: e.g. a request to
   # /dav/dav.php/… reaches {$BAIKAL_URL}/dav.php/… (prefix stripped).
   handle_path /dav/* {
+    # Only the methods the app sends. Every path of the server is reachable
+    # from here, so any other, a GET or a POST, would reach whatever else it
+    # runs, such as Baïkal's admin and its installer. Vite's proxy does the same.
+    @unused not method PROPFIND REPORT PUT DELETE
+    header @unused Allow "PROPFIND, REPORT, PUT, DELETE"
+    respond @unused 405
     reverse_proxy {$BAIKAL_URL} {
       # The upstream's own name, so a virtual host in front of it matches.
       header_up Host {upstream_hostport}

@@ -20,6 +20,10 @@ Browser ──HTTPS──▶ Caddy (single container)
 - It drops `WWW-Authenticate` from responses: that challenge makes the browser
   open its own Basic auth prompt over the app, which reports a rejected login
   itself.
+- It relays only `PROPFIND`, `REPORT`, `PUT` and `DELETE`, the methods the app
+  sends; anything else gets a 405, in Vite's proxy too. Every path of the
+  server is reachable under `/dav`, so this keeps a `GET` or a `POST` from
+  reaching whatever else runs there, such as Baïkal's admin and installer.
 - `BAIKAL_URL` is the only required environment variable. The Caddyfile reads it
   directly (`{$BAIKAL_URL}`), no entrypoint templating.
 - Users are expected to put this behind their own reverse proxy (SWAG, Traefik,
