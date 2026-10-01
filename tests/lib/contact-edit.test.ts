@@ -11,6 +11,8 @@ import {
   dirtyDiff,
   isDirty,
   isValid,
+  nextId,
+  rebaseDraft,
   replaceFirstType,
   validateDraft,
 } from "../../src/lib/contact-edit";
@@ -556,5 +558,36 @@ END:VCARD`;
     const fresh = applyDraft(parse(THEIRS), draft);
     expect(fresh.fields.tel[0]?.value).toBe("+41 79 000 00 00");
     expect(fresh.fields.note).toBe("old note");
+  });
+});
+
+describe("rebaseDraft", () => {
+  const savedText = `BEGIN:VCARD
+VERSION:3.0
+FN:John Doe
+N:Doe;John;;;
+TEL;TYPE=CELL:+41 79 000 00 00
+NOTE:from the server
+UID:minimal@example.com
+END:VCARD`;
+
+  it("follows the saved card when nothing changed during the save", () => {
+    const sent = buildDraft(makeContact());
+    const saved = parse(savedText, "/test.vcf", "new");
+    expect(rebaseDraft(sent, sent, saved)).toEqual(buildDraft(saved));
+  });
+
+  it("keeps what was typed during the save, and gives new fields unused ids", () => {
+    const sent = { ...buildDraft(makeContact()), note: "sent" };
+    const extra = { id: nextId(), value: "+41 79 111 11 11", type: "", _orig: { value: "" } };
+    const extra2 = { id: nextId(), value: "+41 79 222 22 22", type: "", _orig: { value: "" } };
+    const current = { ...sent, title: "typed meanwhile", tel: [extra, extra2] };
+    const saved = parse(savedText, "/test.vcf", "new");
+
+    const rebased = rebaseDraft(sent, current, saved);
+    expect(rebased.note).toBe("from the server");
+    expect(rebased.title).toBe("typed meanwhile");
+    expect(rebased.tel).toBe(current.tel);
+    expect([extra.id, extra2.id]).not.toContain(nextId());
   });
 });

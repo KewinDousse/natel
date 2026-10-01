@@ -49,6 +49,19 @@ Your browser sends those credentials with every request, so anywhere but on
 your own machine, serve Natel over HTTPS: behind a reverse proxy (below), or
 let its Caddy get a certificate itself.
 
+## Compatibility
+
+Natel reads and writes plain vCards, so any CardDAV client sees the same
+contacts. Groups are the exception, because clients store them in two ways:
+
+- **Groups made in Natel** are separate group cards, the form Apple
+  Contacts, iCloud and DAVx⁵ (in its default setup) use. They show on
+  iPhones, Macs and those Android phones.
+- **Nextcloud's web app, and DAVx⁵ set to "groups are per-contact
+  categories"**, store groups as `CATEGORIES` on each contact instead, and
+  don't show groups made in Natel. Their groups do show in Natel, and a
+  contact can be taken out of them there.
+
 ## Configuration
 
 | Variable | Default | |

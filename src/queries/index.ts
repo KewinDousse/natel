@@ -7,6 +7,15 @@
 export type { DavAddressBook, DavAuth } from "@/dav/types";
 export { DavError } from "@/dav/types";
 export { createQueryClient } from "./client";
+export {
+  createGroupCard,
+  type GroupDelta,
+  type GroupFailure,
+  groupDelta,
+  hasGroupChanges,
+  overwriteGroupChange,
+  writeGroupChanges,
+} from "./groupChanges";
 export { type MoveOutcome, moveContact } from "./moveContact";
 export { useAddressBooks } from "./useAddressBooks";
 export { type LoadFullBookResult, loadFullBook, useContacts } from "./useContacts";

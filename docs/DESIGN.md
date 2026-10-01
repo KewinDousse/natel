@@ -172,7 +172,7 @@ Address: one row, the value column holds street / NPA + Localité (`grid-cols-[5
 
 ### Known small shifts (accepted)
 - Birthday: "14 mars" (view) becomes Jour / Mois / Année fields.
-- Groups: chips gain a × and an "Ajouter un groupe" input at the end of the line.
+- Groups: chips gain a × ("Retirer de « Famille »") and an "Ajouter un groupe" input at the end of the line (`h-8 rounded-full`), suggesting the book's other group names through a `datalist`; Enter or leaving the input adds the name. Groups are read from the book's group cards and the contact's `CATEGORIES`, and written as group cards (ADR 022); group cards never show in the list. Not offered on a new contact, whose groups are set once it exists. When a group card isn't written, the bottom bar says "Le contact est enregistré, mais ces groupes n'ont pas été mis à jour :", each name with its reason, and for one changed elsewhere offers "Recharger" and "Écraser avec ma version".
 - Validation messages and a newly added row push what's below them (user-triggered, expected).
 
 ## Brand assets
@@ -229,7 +229,6 @@ Empty address book (one Big Shoulders line at `text-display` size + one primary 
 These elements appear in the references, but which vCard property they read and write is not decided. Don't build them until it is recorded in `docs/DECISIONS.md`.
 
 - **Favourite** (top-right of the contact page): no standard vCard property.
-- **Groups** section: read from the book's group cards and the contact's `CATEGORIES` (ADR 022), each name once; group cards never show in the list. Editing is not built yet.
 - **"Autre date"** pill: `ANNIVERSARY` is vCard 4.0 only, and cards are created as 3.0 (ADR 008).
 
 ## Keyboard shortcuts

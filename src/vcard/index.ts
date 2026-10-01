@@ -893,6 +893,110 @@ export function parse(text: string, href = "", etag = ""): Contact {
 }
 
 /**
+ * Takes `name` out of the contact's CATEGORIES (ADR 022): only that value
+ * goes, a property left empty is dropped, and the other values, parameters
+ * and group prefix stay. Mutates `raw`; true when something changed.
+ */
+export function removeCategory(contact: Contact, name: string): boolean {
+  let changed = false;
+  for (const prop of contact.raw.getAllProperties("categories")) {
+    const values = prop.getValues();
+    const kept = values.filter((value) => String(value).trim() !== name);
+    if (kept.length === values.length) continue;
+    changed = true;
+    if (kept.length === 0) contact.raw.removeProperty(prop);
+    else prop.setValues(kept);
+  }
+  return changed;
+}
+
+/** The member value for a UID: `urn:uuid:<UID>`, never doubling the prefix. */
+function memberValue(uid: string): string {
+  return /^urn:uuid:/i.test(uid) ? uid : `urn:uuid:${uid}`;
+}
+
+/** The member property a group card uses, else the one of its version. */
+function memberPropertyOf(card: Contact): string {
+  if (card.raw.getAllProperties("x-addressbookserver-member").length > 0) {
+    return "x-addressbookserver-member";
+  }
+  if (card.raw.getAllProperties("member").length > 0) return "member";
+  return String(card.raw.getFirstPropertyValue("version") ?? "") === "4.0"
+    ? "member"
+    : "x-addressbookserver-member";
+}
+
+/** Adds the UID to a group card's members, unless it is there. Mutates `raw`. */
+export function addMember(card: Contact, uid: string): boolean {
+  const bare = uid.trim().replace(/^urn:uuid:/i, "");
+  if (groupCardOf(card).members.includes(bare)) return false;
+  const prop = new ICAL.Property(memberPropertyOf(card));
+  prop.setValue(memberValue(uid.trim()));
+  card.raw.addProperty(prop);
+  return true;
+}
+
+/** Removes every member line naming the UID from a group card. Mutates `raw`. */
+export function removeMember(card: Contact, uid: string): boolean {
+  const bare = uid.trim().replace(/^urn:uuid:/i, "");
+  let changed = false;
+  for (const name of ["member", "x-addressbookserver-member"]) {
+    for (const prop of card.raw.getAllProperties(name)) {
+      const value = String(prop.getFirstValue() ?? "")
+        .trim()
+        .replace(/^urn:uuid:/i, "");
+      if (value === bare) {
+        card.raw.removeProperty(prop);
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+
+/**
+ * A new group card (ADR 022): vCard 3.0 with a fresh UID, `FN`, `N`,
+ * `X-ADDRESSBOOKSERVER-KIND:group` and one member.
+ */
+export function newGroupCard(name: string, memberUid: string): Contact {
+  const card = parse(
+    ["BEGIN:VCARD", "VERSION:3.0", `UID:${randomUuid()}`, "END:VCARD", ""].join("\r\n"),
+  );
+  const fn = new ICAL.Property("fn");
+  fn.setValue(name);
+  card.raw.addProperty(fn);
+  const n = new ICAL.Property("n");
+  n.setValue([name, "", "", "", ""]);
+  card.raw.addProperty(n);
+  const kind = new ICAL.Property("x-addressbookserver-kind");
+  kind.setValue("group");
+  card.raw.addProperty(kind);
+  addMember(card, memberUid);
+  return parse(card.raw.toString());
+}
+
+/** A card's text as ical.js writes its component, fields untouched. */
+export function serialiseRaw(contact: Contact): string {
+  return contact.raw.toString();
+}
+
+/** Gives a contact without a UID a fresh one (ADR 022). Mutates `raw`. */
+export function ensureUid(contact: Contact): Contact {
+  if (contact.uid.trim().length > 0) return contact;
+  const uid = randomUuid();
+  // A blank UID line gets the value: a card has at most one UID.
+  const existing = contact.raw.getFirstProperty("uid");
+  if (existing) {
+    existing.setValue(uid);
+  } else {
+    const prop = new ICAL.Property("uid");
+    prop.setValue(uid);
+    contact.raw.addProperty(prop);
+  }
+  return { ...contact, uid };
+}
+
+/**
  * A blank contact for the creation form: vCard 3.0 (ADR 008) with a fresh
  * UID, not yet on the server (empty href and ETag).
  */

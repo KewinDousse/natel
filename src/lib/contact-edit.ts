@@ -71,6 +71,31 @@ function resetCounter(): void {
   _counter = 0;
 }
 
+/**
+ * The draft to keep editing on `saved`, the card a save just wrote from
+ * `sent`: each part the user left alone during the save takes the card's
+ * value, so a later save doesn't write back what an overwrite (ADR 013) took
+ * from the server; a part changed during the save stays as typed.
+ */
+export function rebaseDraft(
+  sent: ContactDraft,
+  current: ContactDraft,
+  saved: Contact,
+): ContactDraft {
+  const rebased = buildDraft(saved);
+  if (current === sent) return rebased;
+  for (const key of Object.keys(current) as (keyof ContactDraft)[]) {
+    if (current[key] !== sent[key]) Object.assign(rebased, { [key]: current[key] });
+  }
+  // Fields kept from `current` hold ids from before the rebuild: new ones
+  // must not reuse them.
+  for (const field of [...rebased.tel, ...rebased.email]) {
+    const n = Number(field.id.slice(2));
+    if (Number.isFinite(n) && n > _counter) _counter = n;
+  }
+  return rebased;
+}
+
 /** Build a draft from a contact's fields. Each field gets a stable id. */
 export function buildDraft(contact: Contact): ContactDraft {
   resetCounter();

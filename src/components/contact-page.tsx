@@ -21,11 +21,12 @@ import {
   isDirty,
   isValid,
   nextId,
+  rebaseDraft,
   replaceFirstType,
   type ValidationErrors,
   validateDraft,
 } from "@/lib/contact-edit";
-import { contactGroupNames } from "@/lib/contact-groups";
+import { bookGroupNames, contactGroupNames } from "@/lib/contact-groups";
 import {
   contactById,
   contactIdOf,
@@ -41,16 +42,22 @@ import { cn } from "@/lib/utils";
 import { bookName } from "@/lib/vcf-file";
 import type { Contact, ContactField, PhotoEdit } from "@/model/contact";
 import {
+  createGroupCard,
   type DavAddressBook,
   type DavAuth,
   DavError,
+  type GroupFailure,
+  groupDelta,
+  hasGroupChanges,
   type LoadFullBookResult,
   moveContact,
+  overwriteGroupChange,
   useAddressBooks,
   useCreateContact,
   useDeleteContact,
   useRefetchCard,
   useUpdateContact,
+  writeGroupChanges,
 } from "@/queries";
 import { contactsKey } from "@/queries/keys";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
@@ -58,12 +65,15 @@ import {
   addressOf,
   birthdayOf,
   canReplacePhoto,
+  ensureUid,
+  groupsOf,
   jobTitleOf,
   newContact,
   noteOf,
   orgOf,
   parse,
   photoOf,
+  removeCategory,
   typeValuesOf,
   type VCardAddress,
 } from "@/vcard";
@@ -91,17 +101,31 @@ type ContactPageProps = {
  */
 export function ContactPage({ contacts, groupCards, id, edit = false }: ContactPageProps) {
   const auth = useAuth();
+  // The contact shown last, and the id a save is moving it to. A UID given on
+  // save changes the contact's id; the route and the cached card change in
+  // different ticks, and in between the page keeps the card by its href.
+  const shown = useRef<{ href: string; id: string; nextId?: string } | null>(null);
   if (contacts === undefined || auth === null) return null;
-  const contact = contactById(contacts, id);
+  let contact = contactById(contacts, id);
+  const last = shown.current;
+  if (contact === undefined && last && (id === last.id || id === last.nextId)) {
+    contact = contacts.find((card) => card.href === last.href);
+  }
   if (contact === undefined) return <NotFoundView />;
+  if (contactIdOf(contact) === id) shown.current = { href: contact.href, id };
+  const href = contact.href;
   // Keyed by contact so draft, errors and in-flight saves never carry over.
   return (
     <ContactFiche
-      key={contactIdOf(contact)}
+      key={href}
       auth={auth}
       contact={contact}
       groupCards={groupCards}
+      groupSuggestions={bookGroupNames(contacts, groupCards)}
       edit={edit}
+      onIdChange={(nextId) => {
+        shown.current = { href, id: shown.current?.id ?? id, nextId };
+      }}
     />
   );
 }
@@ -122,6 +146,7 @@ function NewContactFiche({ auth, bookHref }: { auth: DavAuth; bookHref: string }
       auth={auth}
       contact={contact}
       groupCards={[]}
+      groupSuggestions={[]}
       edit
       onCreate={createContact.mutateAsync}
     />
@@ -401,14 +426,20 @@ function ContactFiche({
   auth,
   contact,
   groupCards,
+  groupSuggestions,
   edit,
   onCreate,
+  onIdChange,
 }: {
   auth: DavAuth;
   contact: Contact;
   groupCards: Contact[];
+  /** Every group name of the book, for "Ajouter un groupe". */
+  groupSuggestions: string[];
   edit: boolean;
   onCreate?: (contact: Contact) => Promise<Contact>;
+  /** Called before a save moves the contact to another id. */
+  onIdChange?: (id: string) => void;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -450,6 +481,11 @@ function ContactFiche({
   const [editBase, setEditBase] = useState(contact);
   const initialDraft = useMemo(() => buildDraft(contact), [contact]);
   const [draft, dispatch] = useReducer(draftReducer, initialDraft);
+  // The draft as it is now, for a save that ends after it changed.
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  });
   const draftPrimary = useMemo(
     () => draft.tel.find((f) => f.type === "cell") ?? draft.tel[0],
     [draft.tel],
@@ -484,8 +520,18 @@ function ContactFiche({
   const moveHintId = useId();
 
   // Dirty detection
+  // Group names are edited beside the draft: the base is the names at the
+  // start of the edit, the draft the names shown; a save writes the delta.
+  const [editGroups, setEditGroups] = useState(groups);
+  const [draftGroups, setDraftGroups] = useState(groups);
+  const [groupFailures, setGroupFailures] = useState<GroupFailure[]>([]);
+  // Group cards whose create failed, by name, until written or dropped: a
+  // retry writes the same card again, so a create that did land isn't doubled.
+  const groupRetries = useRef(new Map<string, Contact>());
+  const delta = useMemo(() => groupDelta(editGroups, draftGroups), [editGroups, draftGroups]);
+
   const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
-  const hasChanges = isDirty(dirty);
+  const hasChanges = isDirty(dirty) || hasGroupChanges(delta);
 
   // Draft and base are taken from the current version when edit mode starts,
   // and deliberately not refreshed while editing.
@@ -494,9 +540,13 @@ function ContactFiche({
     if (edit && !prevEdit.current) {
       setEditBase(contact);
       dispatch({ type: "REBUILD", draft: buildDraft(contact) });
+      setEditGroups(groups);
+      setDraftGroups(groups);
+      setGroupFailures([]);
+      groupRetries.current = new Map();
     }
     prevEdit.current = edit;
-  }, [edit, contact]);
+  }, [edit, contact, groups]);
 
   // Exit edit mode
   // Bumped whenever edit mode ends, so a save that settles afterwards is ignored.
@@ -541,6 +591,8 @@ function ContactFiche({
     (savedId?: string) => {
       editSession.current++;
       dispatch({ type: "REBUILD", draft: buildDraft(contact) });
+      setDraftGroups(groups);
+      setGroupFailures([]);
       setErrors({});
       setConflict(false);
       setDeleteConflict(null);
@@ -561,7 +613,7 @@ function ContactFiche({
         ignoreBlocker: true,
       });
     },
-    [contact, router, routeId, isNew],
+    [contact, groups, router, routeId, isNew],
   );
 
   // Toggle edit mode with no-reflow safety net
@@ -681,21 +733,93 @@ function ContactFiche({
     setErrors(validateDraft(draft));
   }, [draft]);
 
-  // Runs one PUT attempt and maps its outcome onto the bottom bar. `put`
-  // resolves to the id of the saved contact. Results that settle after edit
-  // mode has ended are dropped.
+  // Puts the group cards written (ADR 022) into the book's cached groups.
+  const cacheGroupCards = useCallback(
+    (written: Contact[]) => {
+      if (written.length === 0 || !selectedBook) return;
+      queryClient.setQueryData<LoadFullBookResult>(contactsKey(auth, selectedBook), (old) => {
+        if (!old) return old;
+        const byHref = new Map(old.groups.map((card) => [card.href, card]));
+        for (const card of written) byHref.set(card.href, card);
+        return { ...old, groups: [...byHref.values()] };
+      });
+    },
+    [auth, selectedBook, queryClient],
+  );
+
+  // After the contact's card: its group changes, then the end of the save.
+  // Group changes that fail leave the save in place and stay pending, in
+  // edit mode, with the bottom bar saying which and why.
+  const finishSave = useCallback(
+    async (
+      saved: Contact,
+      savedId: string,
+      session: number,
+      pending: typeof delta,
+      sent: ContactDraft,
+    ) => {
+      // Staying in edit mode on the saved card: the draft follows it, keeping
+      // only what was typed during the save.
+      const keepEditing = () => {
+        setEditBase(saved);
+        dispatch({ type: "REBUILD", draft: rebaseDraft(sent, draftRef.current, saved) });
+      };
+      if (hasGroupChanges(pending) && !selectedBook) {
+        keepEditing();
+        setSaveError(t("err_save_unexpected"));
+        setSaveStatus("idle");
+        return;
+      }
+      if (hasGroupChanges(pending) && selectedBook) {
+        const retries = groupRetries.current;
+        const { written, failures } = await writeGroupChanges(
+          auth,
+          selectedBook.href,
+          saved.uid,
+          pending,
+          groupCards,
+          retries,
+        );
+        // What the server took belongs in the cache even once the edit is gone.
+        cacheGroupCards(written);
+        if (session !== editSession.current) return;
+        for (const name of pending.added) retries.delete(name);
+        for (const f of failures) if (f.newCard) retries.set(f.name, f.newCard);
+        const failedAdded = failures.filter((f) => f.kind === "add").map((f) => f.name);
+        const failedRemoved = failures.filter((f) => f.kind === "remove").map((f) => f.name);
+        setEditGroups((base) => [
+          ...base.filter((name) => !pending.removed.includes(name) || failedRemoved.includes(name)),
+          ...pending.added.filter((name) => !failedAdded.includes(name)),
+        ]);
+        if (failures.length > 0) {
+          keepEditing();
+          setGroupFailures(failures);
+          setSaveStatus("idle");
+          return;
+        }
+      }
+      showToast(t("saved"));
+      exitEdit(savedId);
+    },
+    [auth, selectedBook, groupCards, cacheGroupCards, showToast, t, exitEdit],
+  );
+
+  // Runs one save attempt and maps its outcome onto the bottom bar. `put`
+  // writes the contact's card and resolves to the saved version, or to null
+  // when nothing on it changed. Results that settle after edit mode has
+  // ended are dropped.
   const runSave = useCallback(
-    async (put: () => Promise<string>) => {
+    async (sent: ContactDraft, put: () => Promise<Contact | null>) => {
       const session = editSession.current;
+      const pending = delta;
       setSaveStatus("saving");
       setSaveError(null);
       setConflict(false);
       setDeleteConflict(null);
+      setGroupFailures([]);
+      let saved: Contact;
       try {
-        const savedId = await put();
-        if (session !== editSession.current) return;
-        showToast(t("saved"));
-        exitEdit(savedId);
+        saved = (await put()) ?? editBase;
       } catch (err) {
         if (session !== editSession.current) return;
         setSaveStatus("idle");
@@ -708,34 +832,92 @@ function ContactFiche({
         } else {
           setSaveError(t(writeErrorKey(err, "save")));
         }
+        return;
       }
+      if (session !== editSession.current) return;
+      const savedId = contactIdOf(saved);
+      // A UID given for a first group changes the contact's route: the page
+      // (keyed by href) follows it while the group cards are written.
+      if (!isNew && savedId !== routeId) {
+        onIdChange?.(savedId);
+        router.navigate({
+          to: "/contacts/$id",
+          params: { id: savedId },
+          search: { edit: true },
+          replace: true,
+          ignoreBlocker: true,
+        });
+      }
+      await finishSave(saved, savedId, session, pending, sent);
     },
-    [t, exitEdit, isNew, showToast],
+    [t, isNew, delta, editBase, finishSave, router, routeId, onIdChange],
+  );
+
+  // What the contact's own card needs for the group changes: CATEGORIES
+  // values removed, and a UID when it gets its first member line.
+  const applyGroupChanges = useCallback(
+    (card: Contact): Contact => {
+      for (const name of delta.removed) removeCategory(card, name);
+      return delta.added.length > 0 ? ensureUid(card) : card;
+    },
+    [delta],
   );
 
   // Save — applies the draft to a detached copy: serialise() mutates `raw`
-  // in place, so re-parsing keeps the cached contact intact on failure.
+  // in place, so re-parsing keeps the cached contact intact on failure. The
+  // card is written only when something on it changed.
   const handleSave = useCallback(async () => {
     const validation = validateDraft(draft);
     setErrors(validation);
     if (!isValid(validation)) return;
 
-    await runSave(async () => {
-      const detachedContact = parse(editBase.raw.toString(), editBase.href, editBase.etag);
-      applyDraft(detachedContact, draft);
-      if (onCreate !== undefined) return contactIdOf(await onCreate(detachedContact));
-      await updateContact.mutateAsync(detachedContact);
-      return routeId;
+    await runSave(draft, async () => {
+      const categories = groupsOf(editBase);
+      const cardChanges =
+        isNew ||
+        isDirty(dirty) ||
+        delta.removed.some((name) => categories.includes(name)) ||
+        (delta.added.length > 0 && editBase.uid.trim() === "");
+      if (!cardChanges) return null;
+      const detached = applyGroupChanges(
+        applyDraft(parse(editBase.raw.toString(), editBase.href, editBase.etag), draft),
+      );
+      if (onCreate !== undefined) return await onCreate(detached);
+      const { etag } = await updateContact.mutateAsync(detached);
+      // The card now holds the photo, as the cache does: a later save leaves it.
+      return { ...detached, etag, fields: { ...detached.fields, photo: { kind: "unchanged" } } };
     });
-  }, [draft, editBase, updateContact, runSave, onCreate, routeId]);
+  }, [draft, dirty, delta, editBase, isNew, applyGroupChanges, updateContact, runSave, onCreate]);
 
   // ⌘/Ctrl + Enter saves, from a field too (⌘S belongs to the browser).
+  const saveRef = useRef(handleSave);
+  const canSaveRef = useRef(false);
+  const deferredSave = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    saveRef.current = handleSave;
+    canSaveRef.current = edit && !busy;
+  });
+  useEffect(() => () => clearTimeout(deferredSave.current), []);
   useEffect(() => {
     if (!edit) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
       if (e.repeat || e.isComposing || busy || isDialogOpen()) return;
       e.preventDefault();
+      // A field that commits on blur, such as "Ajouter un groupe", commits its
+      // value first; the save then runs once the draft holds it.
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement &&
+        active.dataset.commitOnBlur !== undefined &&
+        active.value.trim() !== ""
+      ) {
+        active.blur();
+        deferredSave.current = setTimeout(() => {
+          if (canSaveRef.current && !isDialogOpen()) void saveRef.current();
+        }, 0);
+        return;
+      }
       void handleSave();
     };
     window.addEventListener("keydown", handler);
@@ -749,15 +931,92 @@ function ContactFiche({
   }, [queryClient, exitEdit]);
 
   // Conflict — overwrite: refetch for a fresh ETag first, apply only the fields
-  // the user changed, then a conditional PUT. A second 412 surfaces the conflict again.
+  // the user changed and the group changes, then a conditional PUT. A second
+  // 412 surfaces the conflict again.
   const handleConflictOverwrite = useCallback(async () => {
-    await runSave(async () => {
-      const freshContact = await refetchCard(editBase.href);
-      applyDraft(freshContact, draft, dirty);
-      await updateContact.mutateAsync(freshContact);
-      return routeId;
+    await runSave(draft, async () => {
+      const freshContact = applyGroupChanges(
+        applyDraft(await refetchCard(editBase.href), draft, dirty),
+      );
+      const { etag } = await updateContact.mutateAsync(freshContact);
+      return {
+        ...freshContact,
+        etag,
+        fields: { ...freshContact.fields, photo: { kind: "unchanged" } },
+      };
     });
-  }, [draft, dirty, editBase, refetchCard, updateContact, runSave, routeId]);
+  }, [draft, dirty, editBase, refetchCard, applyGroupChanges, updateContact, runSave]);
+
+  // A group card changed elsewhere (ADR 022, as ADR 013): fetch each failed
+  // one again and apply only this contact's change to it; a group card that
+  // couldn't be created is tried again.
+  const handleGroupOverwrite = useCallback(async () => {
+    const session = editSession.current;
+    setSaveStatus("saving");
+    const written: Contact[] = [];
+    const remaining: GroupFailure[] = [];
+    // Only what the draft still asks for: a chip taken back since is dropped.
+    const wanted = groupFailures.filter((f) =>
+      (f.kind === "add" ? delta.added : delta.removed).includes(f.name),
+    );
+    for (const failure of wanted) {
+      try {
+        if (failure.newCard) {
+          // The same card again: a 412 means an earlier try landed, and that
+          // card then only needs this contact as member.
+          try {
+            written.push(await createGroupCard(auth, failure.newCard));
+          } catch (err) {
+            if (!(err instanceof DavError && err.code === "CONFLICT")) throw err;
+            written.push(
+              await overwriteGroupChange(auth, failure.cardHref, editBase.uid, failure.kind),
+            );
+          }
+          groupRetries.current.delete(failure.name);
+        } else {
+          written.push(
+            await overwriteGroupChange(auth, failure.cardHref, editBase.uid, failure.kind),
+          );
+        }
+      } catch (error) {
+        remaining.push({ ...failure, error });
+      }
+    }
+    cacheGroupCards(written);
+    if (session !== editSession.current) return;
+    const done = wanted.filter(
+      (f) => !remaining.some((r) => r.name === f.name && r.kind === f.kind),
+    );
+    const base = [
+      ...editGroups.filter((name) => !done.some((f) => f.kind === "remove" && f.name === name)),
+      ...done.filter((f) => f.kind === "add").map((f) => f.name),
+    ];
+    setEditGroups(base);
+    setGroupFailures(remaining);
+    setSaveStatus("idle");
+    // Changes made since the failure are still the user's to save.
+    if (
+      remaining.length === 0 &&
+      !isDirty(dirty) &&
+      !hasGroupChanges(groupDelta(base, draftGroups))
+    ) {
+      showToast(t("saved"));
+      exitEdit(routeId);
+    }
+  }, [
+    auth,
+    groupFailures,
+    delta,
+    editGroups,
+    draftGroups,
+    dirty,
+    editBase,
+    cacheGroupCards,
+    showToast,
+    t,
+    exitEdit,
+    routeId,
+  ]);
 
   // Delete — a conditional DELETE with the ETag of the version being edited,
   // so a card changed elsewhere since is never deleted unseen (412).
@@ -1464,22 +1723,32 @@ function ContactFiche({
             </Section>
           )}
 
-          {/* Groups — read-only in edit */}
-          {groups.length > 0 && (
+          {/* Groups */}
+          {edit && !isNew ? (
             <Section title={t("s_groups")}>
-              <div className="px-3.5 py-1.5">
-                <ul className="flex min-h-8 flex-wrap items-center gap-2">
-                  {groups.map((group) => (
-                    <li
-                      key={group}
-                      className="inline-flex h-8 items-center rounded-full bg-background px-3 text-sm font-bold"
-                    >
-                      {group}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <GroupsEditor
+                names={draftGroups}
+                suggestions={groupSuggestions}
+                onChange={setDraftGroups}
+              />
             </Section>
+          ) : (
+            groups.length > 0 && (
+              <Section title={t("s_groups")}>
+                <div className="px-3.5 py-1.5">
+                  <ul className="flex min-h-8 flex-wrap items-center gap-2">
+                    {groups.map((group) => (
+                      <li
+                        key={group}
+                        className="inline-flex h-8 items-center rounded-full bg-background px-3 text-sm font-bold"
+                      >
+                        {group}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Section>
+            )
           )}
 
           {/* URL section */}
@@ -1710,6 +1979,49 @@ function ContactFiche({
             </div>
           )}
 
+          {groupFailures.length > 0 && (
+            <div
+              role="alert"
+              className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
+            >
+              <p className="text-sm font-bold text-destructive">{t("groups_not_saved")}</p>
+              <ul className="mt-1 text-sm text-destructive">
+                {groupFailures
+                  .filter(
+                    (f, i, all) =>
+                      all.findIndex((g) => g.name === f.name && g.kind === f.kind) === i,
+                  )
+                  .map((failure) => (
+                    <li key={`${failure.kind}-${failure.name}`}>
+                      {failure.name} · {t(groupErrorKey(failure.error))}
+                    </li>
+                  ))}
+              </ul>
+              {groupFailures.some(
+                (f) => f.error instanceof DavError && f.error.code === "CONFLICT",
+              ) && (
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleConflictReload}
+                    disabled={busy}
+                    className="inline-flex h-9 items-center rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                  >
+                    {t("conflict_reload")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGroupOverwrite}
+                    disabled={busy}
+                    className="inline-flex h-9 items-center rounded-full border border-input bg-background px-3 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                  >
+                    {t("conflict_overwrite")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {saveError !== null && (
             <div
               role="alert"
@@ -1799,6 +2111,14 @@ function ContactFiche({
       )}
     </article>
   );
+}
+
+/** Why a group change was not written, for the bottom bar. */
+function groupErrorKey(err: unknown): TranslationKey {
+  if (err instanceof DavError && err.code === "CONFLICT") return "group_err_conflict";
+  if (err instanceof DavError && err.code === "NETWORK") return "group_err_network";
+  if (err instanceof DavError && err.code === "AUTH") return "group_err_auth";
+  return "group_err_refused";
 }
 
 /** Message for a failed PUT or DELETE other than a 412, which each caller handles. */
@@ -2192,6 +2512,103 @@ function CopyButton({ label, onCopy }: { label: string; onCopy: () => void }) {
         </button>
       }
     />
+  );
+}
+
+/**
+ * Groups in edit mode (DESIGN.md): the chips gain a ×, and an "Ajouter un
+ * groupe" input ends the line, suggesting the book's other group names.
+ */
+function GroupsEditor({
+  names,
+  suggestions,
+  onChange,
+}: {
+  names: string[];
+  suggestions: string[];
+  onChange: (names: string[]) => void;
+}) {
+  const { t } = useI18n();
+  const [value, setValue] = useState("");
+  const listId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function add() {
+    const name = value.trim();
+    if (name.length > 0 && !names.includes(name)) onChange([...names, name]);
+    setValue("");
+  }
+
+  return (
+    <div className="px-3.5 py-1.5">
+      <ul className="flex min-h-8 flex-wrap items-center gap-2">
+        {names.map((name) => (
+          <li
+            key={name}
+            className="inline-flex h-8 items-center gap-1 rounded-full bg-background pl-3 pr-1 text-sm font-bold"
+          >
+            {name}
+            <button
+              type="button"
+              aria-label={t("remove_group", { name })}
+              onClick={() => {
+                onChange(names.filter((other) => other !== name));
+                // The chip and its button go: the focus moves to the input.
+                inputRef.current?.focus();
+              }}
+              className="relative inline-flex size-6 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <XSmallIcon />
+            </button>
+          </li>
+        ))}
+        <li>
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            list={listId}
+            aria-label={t("add_group")}
+            placeholder={t("add_group")}
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              // ⌘/Ctrl + Enter is the save shortcut, which commits the name itself.
+              if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
+                event.preventDefault();
+                add();
+              }
+            }}
+            onBlur={add}
+            data-commit-on-blur
+            className="h-8 w-44 rounded-full border border-input bg-card px-3 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+          />
+          <datalist id={listId}>
+            {suggestions
+              .filter((name) => !names.includes(name))
+              .map((name) => (
+                <option key={name} value={name} />
+              ))}
+          </datalist>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function XSmallIcon() {
+  return (
+    <svg
+      className="size-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
   );
 }
 
