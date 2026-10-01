@@ -836,3 +836,91 @@ server. An untouched property read with `\;` is written back with `;`: an
 accepted normalisation, as in ADR 012, since both mean the same. A card that
 repeated saves filled with backslashes keeps them, except in a 4.0 data URI,
 which ADR 023 repairs. Tests are in `tests/vcard/semicolons.test.ts`.
+
+## 025 — Public demo: a static build with an in-memory CardDAV stand-in
+
+**Context.** The launch calls for a public demo instance. Its first plan,
+a read-only Radicale reset nightly, needs a server the maintainer hosts and
+exposes to whatever traffic a launch brings; the maintainer doesn't want
+that, and asked for a mock layer instead. All CardDAV I/O goes through
+`src/dav/` (AGENTS.md), behind nine functions (`discoverAddressBooks`,
+`listContacts`, `fetchCard`, `fetchCards`, `updateCard`, `cardHref`,
+`createCard`, `deleteCard`, `clearCachedDavSessions`) and `DavError`; the
+rest of the app imports them from `@/dav` and its types from `@/dav/types`,
+and never sees `tsdav` or HTTP.
+
+**Decision.**
+- `src/dav/demo.ts` exports the same nine functions and re-exports the same
+  `DavError` from `./types`, so `instanceof` checks behave. The compiler
+  holds it to the real API with a type-only check in a test file
+  (`typeof import("src/dav/demo")` assignable to `typeof
+  import("src/dav/index")`), which keeps `tsdav` out of the demo bundle. It keeps the cards as
+  vCard text in memory, per tab: two books ("Personnel", "Travail"), ETags
+  that change on each write, `If-Match` checked as a server would (a `412`,
+  `DavError` `CONFLICT`, on a mismatch or on a create whose href is taken;
+  with one visitor and no other writer, the conflict screens don't come up
+  in normal use), and a short delay (about 150 ms) so loading states show
+  as they do for real. Everything above `src/dav/`, `src/vcard/` included,
+  runs unchanged. Signing out and in again in the same tab keeps the books
+  as they were edited; only a reload brings the seed back.
+- The demo is a build mode, not a runtime switch: `VITE_DEMO=1 pnpm build`
+  adds, in `vite.config.ts` and before the `@` alias, an exact-match alias
+  (`find: /^@\/dav$/`) to `src/dav/demo.ts`, so `@/dav/types` still resolves
+  to the real types. The normal build and the Docker image never contain
+  it, and a test checks that the image's bundle has no demo marker.
+- It can be served under a subpath: the demo build sets Vite's `base` and
+  the router's `basepath` from one variable (`/natel/` for the repository's
+  GitHub Pages site); Vite prefixes the `index.html` links into `public/`
+  with it, the manifest is already relative, and the build copies
+  `index.html` to `404.html` so a deep
+  link (`/natel/contacts/…`) loads the app on a host without SPA fallback.
+  Static hosts send no headers, so the demo build carries the Caddyfile's
+  Content-Security-Policy as a `<meta http-equiv>` (without
+  `frame-ancestors`, which a meta tag can't set).
+- Sign-in accepts any username and password, kept in memory as always
+  (invariant 3). The sign-in panel says so in one line, and once signed in
+  a discreet reminder stays on every screen: a small "Demo" / "Démo" mark
+  next to the wordmark, and a muted caption saying it is a demo, that
+  nothing is saved and that visitors can change anything they like. Both
+  go through i18n (en + fr), and "nothing is saved" is about contacts and
+  credentials (display preferences still are, in localStorage, ADR 019). Their exact
+  design goes in DESIGN.md with the implementation, and ARCHITECTURE.md
+  gains the demo build mode and `demo.ts`.
+- The cards come from `src/dav/demo-seed.ts`: about 25 made-up contacts
+  (no real person), in vCard 3.0 and 4.0, with phones, e-mails, addresses,
+  birthdays, notes, a few groups (as group cards and as `CATEGORIES`), a
+  few small photos, and one unknown property, so every screen has
+  something to show. Nothing is persisted: reloading the page brings the
+  seed back, and no visitor ever sees another's changes, so there is
+  nothing to moderate or reset on a schedule. Import adds to the tab's
+  book, and export downloads it, as usual.
+- Hosting: the demo is static files, served by the repository's GitHub
+  Pages site, built and deployed by a workflow on each `vX.Y.Z` tag (a job
+  with `pages: write` and `id-token: write`); enabling Pages in the
+  repository's settings, and allowing `v*` tags to deploy to the
+  `github-pages` environment, is the maintainer's part. A CDN absorbs any traffic, and there is no server to
+  overload. Another static host works the same way, at its root or under
+  a subpath.
+- Tests: unit tests for `src/dav/demo.ts` (ETags, `412`, the seed parsing
+  with `src/vcard/`), and an e2e smoke run against the demo build, in
+  `tests/e2e-demo/` with its own Playwright config (no CardDAV server, the
+  subpath base): sign in with any credentials, open a deep link and see the
+  list mark that contact as open (the routes compare paths with the base
+  stripped), edit a contact, reload, the edit is gone. `pnpm e2e` against
+  Radicale, Baïkal and Xandikos, whose `testDir` is `tests/e2e/`, is
+  unchanged.
+- Considered: a service worker answering the app's `/dav` requests with a
+  small CardDAV server in the browser, which would also exercise `tsdav`
+  and the XML parsing but means writing a PROPFIND/REPORT responder; Mock
+  Service Worker, the same at the fetch level with a library, a new
+  dependency for the demo alone; stubbing the `queries/` hooks, which would
+  leave `src/vcard/` and the save logic out of the demo; and the read-only
+  Radicale of the first plan, which the maintainer declined.
+
+**Consequences.** The demo shows the whole UI, editing included, at no
+hosting cost and with no load to fear, but not compatibility with a real
+server: that is what the e2e matrix (ADR 018) is for, and the demo says it
+is a demo. A change to `src/dav/`'s API must also change `demo.ts`, which
+the compiler enforces. The seed is a second source of sample data next to
+`fixtures/public/`, kept small. The demo runs without the policy's
+`frame-ancestors`, so another site could frame it; it holds no real data.
