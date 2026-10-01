@@ -178,7 +178,8 @@ jobs:
 
   publish:
     # The only job allowed to write packages, and it runs no repository code.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Only this repository publishes the image; a copy of it doesn't.
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'KewinDousse/natel'
     needs: image
     runs-on: ubuntu-24.04
     timeout-minutes: 10
