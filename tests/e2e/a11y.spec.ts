@@ -102,6 +102,13 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(page.getByText("No results").first()).toBeVisible();
       await expectNoViolations(page, "search without result");
       await page.getByRole("searchbox", { name: "Search contacts" }).fill("");
+      await page.getByRole("button", { name: /^Filter by group/ }).click();
+      await expect(page.getByRole("menu", { name: "Groups" })).toBeVisible();
+      await expectNoViolations(page, "group menu");
+      await page.getByRole("menuitemradio", { name: /Science/ }).click();
+      await expect(page.getByText("1 contact in Science")).toBeVisible();
+      await expectNoViolations(page, "list filtered on a group");
+      await page.getByRole("button", { name: "Show all groups" }).click();
       await openBookMenu(page);
       await expectNoViolations(page, "book menu");
       await page.getByRole("menuitemradio", { name: "Work" }).click();

@@ -71,6 +71,12 @@ function ContactsScreen() {
 
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("family");
+  // For the session, like the sort; another book starts from every group.
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const selectedHref = selectedBook?.href;
+  useEffect(() => {
+    if (selectedHref !== undefined) setGroupFilter(null);
+  }, [selectedHref]);
 
   useEffect(() => {
     document.title = t("contacts_doc_title");
@@ -190,6 +196,9 @@ function ContactsScreen() {
               query={query}
               sortBy={sortBy}
               onSortBy={setSortBy}
+              groupCards={book?.groups ?? []}
+              groupFilter={groupFilter}
+              onGroupFilter={setGroupFilter}
             />
           </div>
           <ContactDetailPane hasContact={hasContact}>

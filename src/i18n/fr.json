@@ -186,5 +186,12 @@
   "photo_frame_hint": "Glissez pour déplacer la photo, pincez ou faites défiler pour zoomer. Le cadre sélectionné, les flèches la déplacent et + et − zooment.",
   "photo_err_undecodable": "Cette image ne peut pas être lue. Choisissez-en une autre.",
   "photo_err_too_large_to_crop": "Cette image est trop grande pour être recadrée dans ce navigateur. Zoomez, ou choisissez une image plus petite.",
-  "photo_err_encode": "Ce navigateur n’a pas pu préparer la photo. Réessayez, ou choisissez une autre image."
+  "photo_err_encode": "Ce navigateur n’a pas pu préparer la photo. Réessayez, ou choisissez une autre image.",
+  "group_all": "Tous les groupes",
+  "group_filter_label": "Filtrer par groupe\u00a0: {name}",
+  "group_filter_menu": "Groupes",
+  "group_filter_clear": "Afficher tous les groupes",
+  "count_in_group": "{n} contacts dans {group}",
+  "group_empty": "Aucun contact dans ce groupe.",
+  "count_in_group_1": "1 contact dans {group}"
 }

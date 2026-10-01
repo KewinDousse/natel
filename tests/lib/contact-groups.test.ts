@@ -3,7 +3,12 @@
  * the way ADR 022 reads them.
  */
 import { describe, expect, it } from "vitest";
-import { bookGroupNames, contactGroupNames } from "@/lib/contact-groups";
+import {
+  bookGroupNames,
+  bookGroups,
+  contactGroupNames,
+  contactsInGroup,
+} from "@/lib/contact-groups";
 import { parse } from "@/vcard";
 
 const card = (lines: string[]) => parse(["BEGIN:VCARD", ...lines, "END:VCARD", ""].join("\r\n"));
@@ -60,5 +65,33 @@ describe("bookGroupNames", () => {
       "Travail",
       "Vide",
     ]);
+  });
+});
+
+describe("bookGroups", () => {
+  const grace = card(["VERSION:3.0", "UID:grace", "FN:Grace", "CATEGORIES:Famille"]);
+  const alan = card(["VERSION:3.0", "UID:alan", "FN:Alan"]);
+
+  it("counts each group's contacts once, empty groups at 0, sorted", () => {
+    expect(bookGroups([ada, grace, alan], [family, club, empty])).toEqual([
+      { name: "Club", count: 1 },
+      { name: "Famille", count: 2 },
+      { name: "Travail", count: 1 },
+      { name: "Vide", count: 0 },
+    ]);
+  });
+
+  it("is empty for a book without groups", () => {
+    expect(bookGroups([alan], [])).toEqual([]);
+  });
+});
+
+describe("contactsInGroup", () => {
+  const grace = card(["VERSION:3.0", "UID:grace", "FN:Grace", "CATEGORIES:Famille"]);
+  const alan = card(["VERSION:3.0", "UID:alan", "FN:Alan"]);
+
+  it("keeps the members from group cards and from CATEGORIES", () => {
+    expect(contactsInGroup([ada, grace, alan], [family], "Famille")).toEqual([ada, grace]);
+    expect(contactsInGroup([ada, grace, alan], [family], "Vide")).toEqual([]);
   });
 });

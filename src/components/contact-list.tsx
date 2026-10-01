@@ -1,5 +1,5 @@
 /**
- * ContactList — the directory list pane: toolbar (count + sort toggle),
+ * ContactList — the directory list pane: toolbar (count, group filter, sort toggle),
  * letter-grouped rows, and the A–Z rail. Group/letter/sort/search logic lives
  * in src/lib/contact-list.ts; this file only composes and styles it.
  */
@@ -8,6 +8,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import type { PointerEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import { useI18n } from "@/i18n/react";
+import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
 import {
   ALPHABET,
   buildGroups,
@@ -26,6 +27,7 @@ import {
 import { formatPhone } from "@/lib/format-phone";
 import { isDesktop, isDialogOpen, isInMenu, isTyping } from "@/lib/shortcuts";
 import type { Contact } from "@/model/contact";
+import { GroupFilter } from "./group-filter";
 import { PhotoAvatar } from "./photo-avatar";
 
 type ContactListProps = {
@@ -36,14 +38,46 @@ type ContactListProps = {
   query: string;
   sortBy: SortBy;
   onSortBy: (sortBy: SortBy) => void;
+  /** The book's group cards, which the group filter reads with CATEGORIES. */
+  groupCards: Contact[];
+  /** The group the list is filtered on, or null for every contact. */
+  groupFilter: string | null;
+  onGroupFilter: (name: string | null) => void;
 };
 
-export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: ContactListProps) {
+export function ContactList({
+  contacts,
+  noBooks,
+  query,
+  sortBy,
+  onSortBy,
+  groupCards,
+  groupFilter,
+  onGroupFilter,
+}: ContactListProps) {
   const { t } = useI18n();
-  const groups = useMemo(
-    () => buildGroups(contacts ?? [], sortBy, query),
-    [contacts, sortBy, query],
+  const bookGroupList = useMemo(
+    () => bookGroups(contacts ?? [], groupCards),
+    [contacts, groupCards],
   );
+  // A group that no longer exists filters nothing.
+  const activeGroup = bookGroupList.some((group) => group.name === groupFilter)
+    ? groupFilter
+    : null;
+  const listed = useMemo(
+    () =>
+      activeGroup === null
+        ? (contacts ?? [])
+        : contactsInGroup(contacts ?? [], groupCards, activeGroup),
+    [contacts, groupCards, activeGroup],
+  );
+  const groups = useMemo(() => buildGroups(listed, sortBy, query), [listed, sortBy, query]);
+  // A group gone from the book ends the filter, which doesn't come back with it.
+  useEffect(() => {
+    if (contacts !== undefined && groupFilter !== null && activeGroup === null) {
+      onGroupFilter(null);
+    }
+  }, [contacts, groupFilter, activeGroup, onGroupFilter]);
   const shown = groups.reduce((total, group) => total + group.contacts.length, 0);
   const searching = query.trim().length > 0;
   useArrowNavigation(groups);
@@ -63,17 +97,31 @@ export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: Cont
       : shown === 1
         ? t("results_1")
         : t("results_n", { n: String(shown) })
-    : t("count", { n: String(contacts.length) });
+    : activeGroup !== null
+      ? listed.length === 1
+        ? t("count_in_group_1", { group: activeGroup })
+        : t("count_in_group", { n: String(listed.length), group: activeGroup })
+      : t("count", { n: String(contacts.length) });
 
   const showEmptyBook = !searching && contacts.length === 0;
+  const showEmptyGroup = !searching && !showEmptyBook && listed.length === 0;
   const showNoResults = searching && shown === 0;
 
   return (
     <ListShell>
-      <div className="flex items-center justify-between gap-3 px-2 pb-1 pt-3">
-        <p className="text-caption text-muted-foreground" aria-live="polite">
+      {/* On phones the group filter takes its own row, under the count and sort. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-1 pt-3">
+        <p className="mr-auto text-caption text-muted-foreground" aria-live="polite">
           <span className="tabular">{countLabel}</span>
         </p>
+        {bookGroupList.length > 0 && (
+          <GroupFilter
+            groups={bookGroupList}
+            selected={activeGroup}
+            onSelect={onGroupFilter}
+            className="order-last basis-full sm:order-none sm:basis-auto"
+          />
+        )}
         <fieldset
           aria-label={t("sort_label")}
           className="m-0 inline-flex items-center gap-1 border-0 p-0 text-caption"
@@ -99,6 +147,8 @@ export function ContactList({ contacts, noBooks, query, sortBy, onSortBy }: Cont
 
       {showEmptyBook ? (
         <StateBox title={t("book_empty")} />
+      ) : showEmptyGroup ? (
+        <StateBox title={t("group_empty")} />
       ) : showNoResults ? (
         <StateBox title={t("results_0")} hint={t("empty_hint")} />
       ) : (

@@ -81,7 +81,14 @@ Right edge. All 26 letters in `font-display text-[0.8125rem] font-bold`, present
 - From `lg`, the list scrolls in its own pane and the rail sits outside it (`lg:mr-8` on the list), so the whole scrollbar stays clickable.
 
 ### List toolbar
-Count (`text-caption text-muted-foreground`, `aria-live="polite"`) on the left; sort toggle "Nom / Prénom" on the right (small pills, `aria-pressed`).
+Count (`text-caption text-muted-foreground`, `aria-live="polite"`) on the left; sort toggle "Nom / Prénom" on the right (small pills, `aria-pressed`). Between them, from `sm`, the group filter; below 640px it takes its own row under the count and the sort, so the toolbar never wraps the count.
+
+### Group filter
+Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time; contacts without a group aren't a choice.
+- Trigger: "Tous les groupes" + chevron, the address-book switcher's pill (`h-8 rounded-full px-2.5 text-sm font-bold text-muted-foreground hover:bg-muted`); its accessible name is "Filtrer par groupe : <choice>".
+- Menu ("Groupes"): built like the book menu (same item classes, arrow keys, Home/End, Escape back to the trigger, outside click closes). "Tous les groupes" first, a separator, then each group of the book by name, its number of contacts on the right in `text-sm font-normal text-muted-foreground tabular`; the chosen entry shows the check instead (`menuitemradio`, `aria-checked`). From `sm` it opens under the trigger, right-aligned, `min-w-[13rem]`; on phones it spans the list's width.
+- Filtered: the pill takes `bg-secondary` and the group's name in `text-foreground`, without chevron, plus a × ("Afficher tous les groupes") that goes back to every group. The count reads "12 contacts dans Famille" ("1 contact dans Famille"); search applies within the group; the A–Z rail keeps every letter and greys those without a contact in the group, as it does for the book. A group with no contact shows "Aucun contact dans ce groupe."
+- For the session, like the sort; it goes back to "Tous les groupes" when another book is selected, or when the group no longer exists.
 
 ### Buttons
 | Kind | Classes |

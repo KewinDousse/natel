@@ -582,8 +582,8 @@ read both and write one.
   doesn't require members to resolve, and a delete stays one conditional
   `DELETE`, with no partial failure. Moving a contact (ADR 021) leaves its
   memberships in the source book the same way.
-- The group filter in the list is not decided here: its design is drawn in
-  DESIGN.md before it is built.
+- The group filter in the list is not decided here: its design is in
+  DESIGN.md ("Group filter").
 
 **Consequences.** Groups made in Natel show on iPhones, Macs and DAVx⁵
 phones in their default setup. Nextcloud's web app and DAVx⁵ in categories
