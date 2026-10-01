@@ -69,15 +69,21 @@ its checklist is ticked. Later phases are intentions, not commitments.
 
 ## Phase 3 — v0.2, usable by others ✅ when: someone who isn't the author runs it daily
 
-- [ ] Photos: upload, crop, encoding compatible with Android and Apple clients
-- [ ] Multiple address books, move contact between books
-- [ ] Groups: read both `CATEGORIES` and `KIND:group`; write one (decide in DECISIONS.md)
-- [ ] Import / export `.vcf`
-- [ ] PWA (installable, no offline yet)
-- [ ] Dark mode, keyboard shortcuts
-- [ ] Compatibility matrix in CI: Baïkal, Radicale, Xandikos, Nextcloud
-- [ ] Playwright e2e against Radicale in Docker
-- [ ] `v0.2.0`
+- [x] Photos: upload, crop, encoding compatible with Android and Apple clients
+      — The check on real Apple and Android devices is still to come.
+- [x] Multiple address books, move contact between books
+- [x] Groups: read both `CATEGORIES` and `KIND:group`; write one (decide in DECISIONS.md)
+      — Written as group cards (ADR 022); the group filter in the list is to
+        come.
+- [x] Import / export `.vcf`
+- [x] PWA (installable, no offline yet)
+- [x] Dark mode, keyboard shortcuts
+- [x] Compatibility matrix in CI: Baïkal, Radicale, Xandikos, Nextcloud
+      — Nextcloud is left out, too slow to set up per job (ADR 018).
+- [x] Playwright e2e against Radicale in Docker
+      — Radicale runs from pip rather than Docker (ADR 017); Baïkal runs from
+        Docker in CI (ADR 018).
+- [x] `v0.2.0`
 
 ## Phase 4 — Community (if it takes off)
 
