@@ -150,6 +150,46 @@ describe("fromServerHref", () => {
       "http://localhost:3000/dav/dav/alice/",
     );
   });
+
+  it("keeps a relative href that climbs but stays under /dav", () => {
+    expect(fromServerHref("../other/1.vcf", BOOK)).toBe(
+      "http://localhost:3000/dav/dav.php/addressbooks/alice/other/1.vcf",
+    );
+  });
+
+  it("reads a protocol-relative href as a server path, on the page's origin", () => {
+    expect(fromServerHref("//evil.example/x", BOOK)).toBe(
+      "http://localhost:3000/dav//evil.example/x",
+    );
+  });
+
+  it("throws UNEXPECTED for an absolute href that doesn't parse", () => {
+    expect(() => fromServerHref("http://[", BOOK)).toThrow(
+      expect.objectContaining({ name: "DavError", code: "UNEXPECTED" }),
+    );
+  });
+
+  // Credentials go with every request to an href read here: none may leave the proxy.
+  it.each([
+    ["\\\\evil.example/x/"],
+    ["\\/evil.example/x/"],
+    [" //evil.example/x/"],
+    ["\n//evil.example/x/"],
+    ["\t\\\\user@localhost:3000/dav/x/"],
+  ])("throws UNEXPECTED for %j, which the URL parser reads as another origin", (href) => {
+    expect(() => fromServerHref(href, BOOK)).toThrow(
+      expect.objectContaining({ name: "DavError", code: "UNEXPECTED" }),
+    );
+  });
+
+  it.each([["../../../../../x"], ["/../x"]])(
+    "throws UNEXPECTED for %j, which climbs out of /dav",
+    (href) => {
+      expect(() => fromServerHref(href, BOOK)).toThrow(
+        expect.objectContaining({ name: "DavError", code: "UNEXPECTED" }),
+      );
+    },
+  );
 });
 
 describe("toServerPath", () => {

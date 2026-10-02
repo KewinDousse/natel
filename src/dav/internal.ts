@@ -347,15 +347,24 @@ function proxyRoot(): string {
  * Servers answer with absolute paths in their own URL space (`/dav.php/…`),
  * sometimes with their own origin in front; both get the /dav prefix. A
  * relative href resolves against the request URL, which already carries it.
+ *
+ * The result is checked to lie under the proxy root: requests to it carry the
+ * credentials, and the URL parser reads some relative hrefs (`\\host/`,
+ * ` //host/`) as another origin.
  */
 function fromServerHref(href: string, requestUrl: string): string {
   let path = href;
   if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-    const url = new URL(href);
+    const url = new URL(absolutizeHref(href, requestUrl));
     path = `${url.pathname}${url.search}`;
   }
-  if (!path.startsWith("/")) return absolutizeHref(href, requestUrl);
-  return absolutizeHref(`${PROXY_PREFIX}${path}`, requestUrl);
+  const resolved = path.startsWith("/")
+    ? absolutizeHref(`${PROXY_PREFIX}${path}`, requestUrl)
+    : absolutizeHref(href, requestUrl);
+  if (!resolved.startsWith(proxyRoot())) {
+    throw new DavError(`CardDAV href outside the proxy: ${href}`, "UNEXPECTED");
+  }
+  return resolved;
 }
 
 /** Server-space path of a proxy URL, for hrefs sent inside a request body. */
