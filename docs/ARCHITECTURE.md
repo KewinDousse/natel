@@ -27,6 +27,10 @@ Browser ──HTTPS──▶ Caddy (single container)
   sends; anything else gets a 405, in Vite's proxy too. Every path of the
   server is reachable under `/dav`, so this keeps a `GET` or a `POST` from
   reaching whatever else runs there, such as Baïkal's admin and installer.
+- It passes the client's address on in `X-Forwarded-For`, keeping the one a
+  reverse proxy listed in `NATEL_TRUSTED_PROXIES` sends and dropping any
+  other, so the server, or a fail2ban, can block password guessing per
+  client; Natel itself doesn't.
 - `BAIKAL_URL` is the only required environment variable. The Caddyfile reads it
   directly (`{$BAIKAL_URL}`), no entrypoint templating.
 - Users are expected to put this behind their own reverse proxy (SWAG, Traefik,

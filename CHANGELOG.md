@@ -6,6 +6,12 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `NATEL_TRUSTED_PROXIES`: behind a reverse proxy, the CardDAV server sees
+  each client's own address, so it or a fail2ban can block password
+  guessing.
+
 ### Changed
 
 - The image runs Caddy as an unprivileged user (UID 10001) and listens on

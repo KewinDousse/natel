@@ -68,10 +68,33 @@ contacts. Groups are the exception, because clients store them in two ways:
 |---|---|---|
 | `BAIKAL_URL` | (required) | Origin of your CardDAV server, `scheme://host[:port]`, no path. Reached from inside the container: `http://baikal` works when Baïkal is a service of the same Compose file. |
 | `SITE_ADDRESS` | `http://` (port 8080) | What Caddy serves. Set it to your domain (`contacts.example.com`), publish the host's ports 80 and 443 to the container's 8080 and 8443 (`"80:8080"`, `"443:8443"`) and keep `/data` in a volume, and Caddy fetches and renews the certificate itself. |
+| `NATEL_TRUSTED_PROXIES` | (none) | The reverse proxies in front of Natel, as addresses or ranges separated by spaces (`172.16.0.0/12`), or `private_ranges` if nothing on those networks reaches Natel directly. The CardDAV server then sees each client's own address instead of the proxy's (see below). Only list your proxies: an address listed here can claim to be any client. |
 
 The container runs as an unprivileged user, UID 10001. A new named volume on
 `/data` needs nothing; a host directory mounted there, or a volume created by
 an earlier version, must belong to that user (`chown -R 10001:10001`).
+
+### Password guessing
+
+Natel adds no protection against password guessing: every sign-in attempt
+goes to the CardDAV server, which accepts or refuses it. Use strong
+passwords. For the server, or a fail2ban reading its logs, to block an
+attacker, it needs the client's address. Behind a reverse proxy, set
+`NATEL_TRUSTED_PROXIES`; then have the web server in front of Baïkal read
+`X-Forwarded-For` from Natel, with nginx for example:
+
+```nginx
+set_real_ip_from 172.20.0.5;   # Natel
+set_real_ip_from 172.20.0.2;   # the reverse proxy in front of Natel
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
+```
+
+List those two exact addresses (pin them in your Compose file, or give the
+network a subnet only they share), never a whole range: any address
+`set_real_ip_from` covers can claim to be any client, and so dodge a ban or
+get someone else banned. With Apache, `RemoteIPHeader X-Forwarded-For` and one
+`RemoteIPInternalProxy` line per address do the same.
 
 ### Finding your address books
 

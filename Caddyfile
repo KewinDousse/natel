@@ -1,4 +1,11 @@
 {
+  # The reverse proxies in front of Natel, if any: their X-Forwarded-For
+  # (and -Proto, -Host) is kept, so the CardDAV server sees the client's
+  # address, not the proxy's. Unset, no one is trusted and a client's
+  # X-Forwarded-* headers are dropped.
+  servers {
+    trusted_proxies static {$NATEL_TRUSTED_PROXIES}
+  }
   # Caddy's admin API reconfigures it without authentication, for anyone on
   # the machine: off unless NATEL_ADMIN gives it an address. The image sets
   # 127.0.0.1:2019, not published, for its healthcheck.
