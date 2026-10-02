@@ -315,6 +315,56 @@ describe("session cache", () => {
     expect(mockCreateDAVClient).toHaveBeenCalledTimes(2);
     expect(session2).toBeDefined();
   });
+
+  it("checks another password against the server rather than reusing the open session", async () => {
+    await createDavSession(AUTH);
+
+    const rejecting = mockClient();
+    rejecting.propfind.mockRejectedValue(new Error("Invalid credentials: PROPFIND returned 401"));
+    mockCreateDAVClient.mockResolvedValueOnce(rejecting);
+
+    await expect(createDavSession({ ...AUTH, password: "wrong" })).rejects.toMatchObject({
+      code: "AUTH",
+    });
+    expect(mockCreateDAVClient).toHaveBeenLastCalledWith(
+      expect.objectContaining({ credentials: { username: "alice", password: "wrong" } }),
+    );
+  });
+
+  it("leaves a newer session in place when an older one for the same user fails", async () => {
+    let failWrong: (err: Error) => void = () => {};
+    mockCreateDAVClient.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        failWrong = reject;
+      }),
+    );
+    const wrong = createDavSession({ ...AUTH, password: "wrong" });
+    const right = await createDavSession(AUTH);
+
+    failWrong(new Error("Invalid credentials: PROPFIND returned 401"));
+    await expect(wrong).rejects.toThrow();
+
+    expect(await createDavSession(AUTH)).toBe(right);
+    expect(mockCreateDAVClient).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves the session opened after a logout when one from before it fails", async () => {
+    let failOld: (err: Error) => void = () => {};
+    mockCreateDAVClient.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        failOld = reject;
+      }),
+    );
+    const old = createDavSession(AUTH);
+    internalTesting.clearSessionCache();
+    const fresh = await createDavSession(AUTH);
+
+    failOld(new Error("Connection refused"));
+    await expect(old).rejects.toThrow();
+
+    expect(await createDavSession(AUTH)).toBe(fresh);
+    expect(mockCreateDAVClient).toHaveBeenCalledTimes(2);
+  });
 });
 
 // ---------------------------------------------------------------------------
