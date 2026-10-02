@@ -193,5 +193,8 @@
   "group_filter_clear": "Show all groups",
   "count_in_group": "{n} contacts in {group}",
   "group_empty": "No contact in this group.",
-  "count_in_group_1": "1 contact in {group}"
+  "count_in_group_1": "1 contact in {group}",
+  "demo_mark": "Demo",
+  "demo_notice": "Demo: nothing is saved, change anything you like.",
+  "demo_login": "Demo: any username and password work. Nothing is saved."
 }

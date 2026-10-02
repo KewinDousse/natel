@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 
 // The app's Content-Security-Policy, read from the Caddyfile so the e2e suite
 // runs the production bundle under the policy users get.
@@ -10,19 +11,63 @@ const caddyfile = readFileSync(`${import.meta.dirname}/Caddyfile`, "utf8");
 const csp = /\(security_headers\)[\s\S]*?Content-Security-Policy "([^"]+)"/.exec(caddyfile)?.[1];
 if (!csp) throw new Error("No Content-Security-Policy in the Caddyfile's security_headers");
 
+// The demo build (ADR 025): an in-memory CardDAV stand-in, servable under a
+// subpath (VITE_BASE, such as /natel/ for GitHub Pages).
+const demo = process.env.VITE_DEMO === "1";
+const base = process.env.VITE_BASE ?? "/";
+
+/**
+ * What a static host can't send as headers: the CSP as a meta tag (without
+ * frame-ancestors, which a meta tag can't set), and a 404.html that loads
+ * the app on a deep link.
+ */
+function demoStaticHost(): Plugin {
+  let outDir = "dist";
+  return {
+    name: "natel-demo-static-host",
+    apply: "build",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    transformIndexHtml() {
+      const policy = (csp ?? "").replace(/;?\s*frame-ancestors [^;]*/, "");
+      return [
+        {
+          tag: "meta",
+          attrs: { "http-equiv": "Content-Security-Policy", content: policy },
+          injectTo: "head-prepend",
+        },
+      ];
+    },
+    writeBundle() {
+      if (existsSync(`${outDir}/index.html`)) {
+        copyFileSync(`${outDir}/index.html`, `${outDir}/404.html`);
+      }
+    },
+  };
+}
+
 /** What the /dav proxy relays: the methods the app sends, as in the Caddyfile. */
 const DAV_METHODS = ["PROPFIND", "REPORT", "PUT", "DELETE"];
 
 export default defineConfig({
+  base,
+  // The demo reminders follow the same switch as the alias, never a .env file.
+  define: { "import.meta.env.VITE_DEMO": JSON.stringify(demo ? "1" : "") },
   plugins: [
     TanStackRouterVite({ target: "react", autoCodeSplitting: true }),
     react(),
     tailwindcss(),
+    demo && demoStaticHost(),
   ],
   resolve: {
-    alias: {
-      "@": `${import.meta.dirname}/src`,
-    },
+    alias: [
+      // Exactly `@/dav`, before `@`: `@/dav/types` stays the real types.
+      ...(demo
+        ? [{ find: /^@\/dav$/, replacement: `${import.meta.dirname}/src/dav/demo.ts` }]
+        : []),
+      { find: "@", replacement: `${import.meta.dirname}/src` },
+    ],
   },
   server: {
     // VITE_DAV_URL must be origin-only (scheme://host[:port], no path).

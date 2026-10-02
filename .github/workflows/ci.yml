@@ -55,6 +55,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm build
+      # The demo's CardDAV stand-in (ADR 025) never ships in the image's build.
+      - run: |
+          if grep -rq demo.natel.invalid dist; then
+            echo "The demo's CardDAV stand-in is in the normal build" >&2
+            exit 1
+          fi
 
   e2e:
     name: e2e (${{ matrix.server }})
@@ -84,6 +90,9 @@ jobs:
       - run: pnpm e2e
         env:
           E2E_SERVER: ${{ matrix.server }}
+      # The demo build (ADR 025) needs no server: once is enough.
+      - if: matrix.server == 'radicale'
+        run: pnpm e2e:demo
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -201,3 +210,41 @@ jobs:
           done
         env:
           TAGS: ${{ needs.image.outputs.tags }}
+
+  demo:
+    # The demo (ADR 025) on this repository's GitHub Pages site, at each
+    # release; a pre-release (a tag with a suffix) leaves it as it is.
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+      && github.repository == 'KewinDousse/natel'
+    needs: [check, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # One deploy at a time, so two tags close together land in order.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build --outDir dist-demo
+        env:
+          VITE_DEMO: "1"
+          VITE_BASE: /natel/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-demo
+      - id: deploy
+        uses: actions/deploy-pages@v4

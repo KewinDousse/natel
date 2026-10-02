@@ -193,5 +193,8 @@
   "group_filter_clear": "Afficher tous les groupes",
   "count_in_group": "{n} contacts dans {group}",
   "group_empty": "Aucun contact dans ce groupe.",
-  "count_in_group_1": "1 contact dans {group}"
+  "count_in_group_1": "1 contact dans {group}",
+  "demo_mark": "Démo",
+  "demo_notice": "Démo\u00a0: rien n’est enregistré, modifiez tout ce que vous voulez.",
+  "demo_login": "Démo\u00a0: n’importe quel nom d’utilisateur et mot de passe fonctionnent. Rien n’est enregistré."
 }

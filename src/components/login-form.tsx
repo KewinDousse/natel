@@ -10,6 +10,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { useI18n } from "@/i18n/react";
+import { IS_DEMO } from "@/lib/demo";
 import { type DavAuth, DavError, useLogin } from "@/queries";
 import { useSessionStore } from "@/store/session";
 
@@ -170,6 +171,12 @@ export function LoginForm() {
           {t("submit")}
         </button>
       </form>
+
+      {IS_DEMO && (
+        <p className="mt-5 rounded-lg bg-secondary px-3.5 py-2.5 text-sm leading-snug text-foreground">
+          {t("demo_login")}
+        </p>
+      )}
 
       <p className="mt-8 flex gap-2.5 border-t pt-5 text-sm leading-snug text-muted-foreground">
         <LockIcon />

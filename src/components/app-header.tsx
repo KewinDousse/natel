@@ -16,6 +16,7 @@ import { isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/s
 import { cn } from "@/lib/utils";
 import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
+import { DemoMark, DemoNotice } from "./demo-notice";
 import { LogoutButton } from "./logout-button";
 
 type AppHeaderProps = {
@@ -90,6 +91,7 @@ export function AppHeader({
             onto a second row. */}
         <div className="order-1 flex h-14 min-w-30 flex-1 basis-0 items-center gap-2 lg:h-auto lg:flex-none lg:basis-auto lg:shrink-0">
           <span className="shrink-0 font-display text-[2rem] font-bold leading-none">Natel</span>
+          <DemoMark />
           {books !== undefined && books.length > 0 && (
             <BookSwitcher
               books={books}
@@ -169,6 +171,7 @@ export function AppHeader({
           <LogoutButton />
         </div>
       </div>
+      <DemoNotice />
     </header>
   );
 }

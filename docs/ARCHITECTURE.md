@@ -54,6 +54,14 @@ publishes that same build to
 `ghcr.io/kewindousse/natel` (`X.Y.Z`, `X.Y`, and `latest` for releases
 without a pre-release suffix).
 
+The demo (ADR 025) is another build of the same app: `VITE_DEMO=1` swaps
+`@/dav` for `src/dav/demo.ts`, an in-memory CardDAV stand-in seeded with
+made-up contacts, and `VITE_BASE` serves it under a subpath, with the CSP as
+a meta tag and a `404.html` for deep links. A release tag (without a
+pre-release suffix) publishes it to the repository's GitHub Pages site. The
+normal build, and so the image, never contains it, which the `check` job
+verifies.
+
 ## Source layout
 
 ```
@@ -61,7 +69,8 @@ src/
   routes/        TanStack Router file-based routes (thin: compose components, no logic)
   components/    UI components; components/ui/ is vendored shadcn
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.
-                 The ONLY module that imports tsdav.
+                 The ONLY module that imports tsdav. demo.ts and demo-seed.ts
+                 stand in for it in the demo build (ADR 025).
   vcard/         Parse/serialise vCard ↔ Contact model. Wraps ical.js.
                  The ONLY module that imports ical.js.
   lib/           Pure helpers: contact-list grouping, sorting, search logic;
@@ -75,6 +84,8 @@ tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, componen
   e2e/           Playwright against the production build and a throwaway
                  CardDAV server: Radicale by default (`pnpm e2e`, ADR 017),
                  Baïkal (Docker) or Xandikos with `E2E_SERVER`
+  e2e-demo/      Playwright against the demo build under /natel/
+                 (`pnpm e2e:demo`)
 fixtures/
   public/        synthetic vCards, committed
   private/       real vCards, gitignored

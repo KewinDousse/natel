@@ -7,7 +7,11 @@ import { createQueryClient } from "./queries/client";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
 
-const router = createRouter({ routeTree });
+// The demo build can be served under a subpath (ADR 025).
+const router = createRouter({
+  routeTree,
+  basepath: import.meta.env.BASE_URL.replace(/\/$/, "") || "/",
+});
 
 const queryClient = createQueryClient();
 

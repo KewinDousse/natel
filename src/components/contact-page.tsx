@@ -77,6 +77,7 @@ import {
   typeValuesOf,
   type VCardAddress,
 } from "@/vcard";
+import { DemoMark } from "./demo-notice";
 import { EditableCell } from "./editable-cell";
 import { MoveDialog } from "./move-dialog";
 import { PhotoAvatar } from "./photo-avatar";
@@ -176,6 +177,7 @@ export function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: s
         <ChevronLeftIcon />
         <span>{t("list_label")}</span>
       </Link>
+      <DemoMark className="ml-1" />
       {onEdit !== undefined && (
         <div className="ml-auto mr-1 grid [&>*]:[grid-area:1/1]">
           <button

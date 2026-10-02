@@ -31,6 +31,7 @@
     "includes": [
       "**",
       "!**/dist",
+      "!**/dist-demo",
       "!**/node_modules",
       "!**/.git",
       "!**/src/routeTree.gen.ts",

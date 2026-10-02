@@ -227,6 +227,13 @@ the tokens carry it.
 - The PWA manifest's `background_color` stays white: a manifest can't vary
   by scheme, so an installed Natel shows a white splash in dark mode.
 
+## Demo
+
+Only in the demo build (ADR 025), so a visitor always knows nothing is saved:
+- Sign-in: under the form, one line on `bg-secondary` (`rounded-lg px-3.5 py-2.5 text-sm text-foreground`): "Démo : n'importe quel nom d'utilisateur et mot de passe fonctionnent. Rien n'est enregistré."
+- Signed in: a "Démo" mark next to the wordmark (`rounded-full bg-secondary px-2 py-0.5 text-caption font-bold text-foreground`, the reminder in its `title`), and under the header bar one centred line in `text-caption text-muted-foreground`, bordered below like the bar: "Démo : rien n'est enregistré, modifiez tout ce que vous voulez."
+- On phones, where a contact, a new contact or the settings replace the header, the mark sits in the top bar after "Contacts".
+
 ## Still not designed
 
 Empty address book (one Big Shoulders line at `text-display` size + one primary action), offline state, a theme choice overriding the system setting.
