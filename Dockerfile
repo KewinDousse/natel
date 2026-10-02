@@ -9,10 +9,18 @@ RUN corepack enable && pnpm build
 
 # Runtime stage
 FROM caddy:2-alpine
+# Caddy runs as an unprivileged user, owning what it writes: certificates in
+# /data, the autosaved config in /config. Unprivileged ports follow, so the
+# binary needs no capability: with one, `cap_drop: ALL` would refuse to run it.
+RUN addgroup -S -g 10001 natel && adduser -S -D -H -u 10001 -G natel -s /sbin/nologin natel \
+  && chown -R natel:natel /data /config \
+  && setcap -r /usr/bin/caddy
 COPY --from=builder /app/dist /usr/share/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
-EXPOSE 80
+ENV NATEL_HTTP_PORT=8080 NATEL_HTTPS_PORT=8443 NATEL_ADMIN=127.0.0.1:2019
+USER natel
+EXPOSE 8080 8443
 # Caddy's admin API answers once the config is loaded, whatever SITE_ADDRESS
-# the site listens on.
+# the site listens on. The port isn't published.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
   CMD wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1

@@ -160,8 +160,11 @@ jobs:
       - run: pip install -r tests/e2e/requirements.txt
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # Locked down as a cautious user would run it: no capability, no new
+      # privileges, a read-only filesystem.
       - run: >
           docker run -d --name natel --network host
+          --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /config
           -e BAIKAL_URL=http://127.0.0.1:5299 -e SITE_ADDRESS=:4299 natel:ci
       - run: curl -fsS --retry 10 --retry-connrefused --retry-delay 1 -o /dev/null http://127.0.0.1:4299/
       - run: pnpm e2e

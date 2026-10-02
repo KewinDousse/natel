@@ -1,4 +1,11 @@
 {
+  # Caddy's admin API reconfigures it without authentication, for anyone on
+  # the machine: off unless NATEL_ADMIN gives it an address. The image sets
+  # 127.0.0.1:2019, not published, for its healthcheck.
+  admin {$NATEL_ADMIN:off}
+  # The image runs without root, so it listens on 8080 and 8443.
+  http_port {$NATEL_HTTP_PORT:80}
+  https_port {$NATEL_HTTPS_PORT:443}
   log {
     level error
   }
@@ -19,7 +26,7 @@
   }
 }
 
-{$SITE_ADDRESS:http://:80} {
+{$SITE_ADDRESS:http://} {
   # ---------------------------------------------------------------
   # CardDAV proxy — forward /dav/* to the user's CardDAV server
   # ---------------------------------------------------------------

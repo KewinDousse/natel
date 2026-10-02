@@ -40,7 +40,7 @@ services:
     environment:
       BAIKAL_URL: https://dav.example.com           # your CardDAV server origin
     ports:
-      - "8080:80"
+      - "8080:8080"
 ```
 
 Open `http://localhost:8080`, log in with your CardDAV credentials.
@@ -67,7 +67,11 @@ contacts. Groups are the exception, because clients store them in two ways:
 | Variable | Default | |
 |---|---|---|
 | `BAIKAL_URL` | (required) | Origin of your CardDAV server, `scheme://host[:port]`, no path. Reached from inside the container: `http://baikal` works when Baïkal is a service of the same Compose file. |
-| `SITE_ADDRESS` | `http://:80` | What Caddy serves. Set it to your domain (`contacts.example.com`), publish ports 80 and 443 and keep `/data` in a volume, and Caddy fetches and renews the certificate itself. |
+| `SITE_ADDRESS` | `http://` (port 8080) | What Caddy serves. Set it to your domain (`contacts.example.com`), publish the host's ports 80 and 443 to the container's 8080 and 8443 (`"80:8080"`, `"443:8443"`) and keep `/data` in a volume, and Caddy fetches and renews the certificate itself. |
+
+The container runs as an unprivileged user, UID 10001. A new named volume on
+`/data` needs nothing; a host directory mounted there, or a volume created by
+an earlier version, must belong to that user (`chown -R 10001:10001`).
 
 ### Finding your address books
 
@@ -85,7 +89,7 @@ location = /.well-known/carddav {
 
 ### Behind a reverse proxy
 
-Natel listens on port 80 in the container; the proxy terminates HTTPS and
+Natel listens on port 8080 in the container; the proxy terminates HTTPS and
 forwards everything, `Authorization` header included.
 
 **Traefik**, with Docker labels. `websecure` and `letsencrypt` stand for the
@@ -103,7 +107,7 @@ services:
       - traefik.http.routers.natel.rule=Host(`contacts.example.com`)
       - traefik.http.routers.natel.entrypoints=websecure
       - traefik.http.routers.natel.tls.certresolver=letsencrypt
-      - traefik.http.services.natel.loadbalancer.server.port=80
+      - traefik.http.services.natel.loadbalancer.server.port=8080
 ```
 
 **SWAG**, in `/config/nginx/proxy-confs/natel.subdomain.conf`, with the
@@ -122,7 +126,7 @@ server {
         include /config/nginx/proxy.conf;
         include /config/nginx/resolver.conf;
         set $upstream_app natel;
-        set $upstream_port 80;
+        set $upstream_port 8080;
         set $upstream_proto http;
         proxy_pass $upstream_proto://$upstream_app:$upstream_port;
     }
@@ -131,7 +135,7 @@ server {
 
 **Nginx Proxy Manager**: add a proxy host for your domain with scheme `http`,
 forward hostname `natel` (the container, on the same Docker network) and port
-`80`. In the SSL tab, request a certificate and turn on "Force SSL".
+`8080`. In the SSL tab, request a certificate and turn on "Force SSL".
 
 ## Non-goals
 

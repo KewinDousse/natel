@@ -46,9 +46,15 @@ Caddy sends a strict Content-Security-Policy (everything from the same
 origin, photos as `data:` or `blob:` URLs), keeps `/assets/*` for a year as
 immutable (a missing one is a 404, not `index.html`) and has the rest
 revalidated. `/dav` responses carry a `sandbox` policy, so a page the CardDAV
-server renders never runs as the app's origin. The image's `HEALTHCHECK` asks
-Caddy's admin API on `127.0.0.1:2019`, which answers whatever `SITE_ADDRESS`
-is.
+server renders never runs as the app's origin.
+
+Caddy runs as an unprivileged user (UID 10001) that owns `/data` and
+`/config`, so the image listens on 8080, and on 8443 when `SITE_ADDRESS` is a
+domain (`NATEL_HTTP_PORT`, `NATEL_HTTPS_PORT`; 80 and 443 elsewhere). Caddy's
+admin API, which reconfigures it without authentication, is off unless
+`NATEL_ADMIN` gives it an address. The image sets `127.0.0.1:2019`, not
+published, for its `HEALTHCHECK`, which answers whatever
+`SITE_ADDRESS` is.
 
 CI runs the e2e suite against Radicale, Baïkal and Xandikos, then builds the
 image for linux/amd64 and linux/arm64 and runs the suite against the amd64
