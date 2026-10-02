@@ -160,6 +160,12 @@ server {
 forward hostname `natel` (the container, on the same Docker network) and port
 `8080`. In the SSL tab, request a certificate and turn on "Force SSL".
 
+### Without Docker
+
+Natel is static files and a Caddyfile, so it runs on any machine with Caddy.
+[docs/bare-metal.md](docs/bare-metal.md) covers the build, the settings, and
+the defaults to change for it to stay safe.
+
 ## Non-goals
 
 - Calendars, tasks, mail. This is a contacts app.

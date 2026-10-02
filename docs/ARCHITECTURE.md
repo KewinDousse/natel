@@ -32,7 +32,9 @@ Browser ──HTTPS──▶ Caddy (single container)
   other, so the server, or a fail2ban, can block password guessing per
   client; Natel itself doesn't.
 - `BAIKAL_URL` is the only required environment variable. The Caddyfile reads it
-  directly (`{$BAIKAL_URL}`), no entrypoint templating.
+  directly (`{$BAIKAL_URL}`), no entrypoint templating. Outside the image,
+  `NATEL_ROOT` points Caddy at the build output and `NATEL_BIND` at one
+  interface (docs/bare-metal.md).
 - Users are expected to put this behind their own reverse proxy (SWAG, Traefik,
   Nginx Proxy Manager…). Caddy's automatic TLS is a bonus for direct exposure.
 
