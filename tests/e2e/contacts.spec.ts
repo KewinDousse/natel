@@ -16,7 +16,7 @@ const ADA = vcard([
   "N:Lovelace;Ada;;;",
   "ORG:Analytical Engines",
   // X-SOURCE is a parameter the UI does not know; it stays on the edited TEL.
-  "TEL;TYPE=CELL;X-SOURCE=phone:+41 79 318 44 27",
+  "TEL;TYPE=CELL;X-SOURCE=phone:+41 79 000 00 01",
   ...UNKNOWN,
 ]);
 
@@ -73,7 +73,7 @@ test("rejects a wrong password", async ({ page }) => {
 test("signs in, opens a contact and signs out", async ({ page }) => {
   await signIn(page);
   await openAda(page);
-  await expect(page.getByRole("link", { name: "079 318 44 27" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "079 000 00 01" }).first()).toBeVisible();
   // On a phone the contact is its own screen, without the header.
   if (test.info().project.name === "mobile") {
     await page.getByRole("link", { name: "Back to contacts" }).filter({ visible: true }).click();
@@ -136,24 +136,24 @@ async function saveOverConcurrentEdit(page: Page): Promise<void> {
   // Another client edits the card while this one is editing it.
   await putCard(
     "ada",
-    ADA.replace("+41 79 318 44 27", "+41 79 111 11 11").replace(
+    ADA.replace("+41 79 000 00 01", "+41 79 000 00 21").replace(
       "ORG:Analytical Engines",
       "ORG:Difference Engines",
     ),
   );
 
-  await primaryPhoneInput(page).fill("+41 79 222 22 22");
+  await primaryPhoneInput(page).fill("+41 79 000 00 22");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
   // Nothing was written over the other client's version.
-  expect(await getCard("ada")).toContain("+41 79 111 11 11");
+  expect(await getCard("ada")).toContain("+41 79 000 00 21");
 }
 
 test("reloads the server version after a conflict", async ({ page }) => {
   await saveOverConcurrentEdit(page);
   await page.getByRole("button", { name: "Reload" }).click();
   await expect(page.getByText("This contact was modified elsewhere.")).toBeHidden();
-  await expect(page.getByRole("link", { name: "079 111 11 11" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "079 000 00 21" }).first()).toBeVisible();
 });
 
 test("overwrites only the fields the user changed after a conflict", async ({ page }) => {
@@ -164,7 +164,7 @@ test("overwrites only the fields the user changed after a conflict", async ({ pa
 
   const saved = await getCard("ada");
   // The user's phone number wins; the other client's organisation stays (ADR 013).
-  expect(saved).toContain("+41 79 222 22 22");
+  expect(saved).toContain("+41 79 000 00 22");
   expect(saved).toContain("ORG:Difference Engines");
   expectUnknownKept(saved);
 });
@@ -186,15 +186,15 @@ test("does not delete a contact changed on the server since it was opened", asyn
   await startEditing(page);
 
   // Another client edits the card after this one loaded it.
-  await putCard("ada", ADA.replace("+41 79 318 44 27", "+41 79 111 11 11"));
+  await putCard("ada", ADA.replace("+41 79 000 00 01", "+41 79 000 00 21"));
 
   await page.getByRole("button", { name: "Delete contact" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
-  expect(await getCard("ada")).toContain("+41 79 111 11 11");
+  expect(await getCard("ada")).toContain("+41 79 000 00 21");
 
   await page.getByRole("button", { name: "Reload" }).click();
-  await expect(page.getByRole("link", { name: "079 111 11 11" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "079 000 00 21" }).first()).toBeVisible();
 });
 
 test("a background refresh during editing does not write over another client's change", async ({
@@ -221,11 +221,11 @@ test("a background refresh during editing does not write over another client's c
   // The page title follows the cache: the refetched card has reached the page.
   await expect(page.getByRole("heading", { level: 1, name: /King/ })).toBeAttached();
 
-  await primaryPhoneInput(page).fill("+41 79 222 22 22");
+  await primaryPhoneInput(page).fill("+41 79 000 00 22");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
   const saved = await getCard("ada");
   expect(saved).toContain("ORG:Difference Engines");
   expect(saved).toContain("N:King;Ada;;;");
-  expect(saved).toContain("+41 79 318 44 27");
+  expect(saved).toContain("+41 79 000 00 01");
 });

@@ -11,25 +11,25 @@ const CARD_RICH = [
   "BEGIN:VCARD",
   "VERSION:3.0",
   "UID:u-rich",
-  "FN:Anne-Sophie Delacrétaz-Vuilleumier",
-  "N:Delacrétaz-Vuilleumier;Anne-Sophie;;;",
-  "TITLE:Responsable des espaces verts",
-  "ORG:Commune de Pully",
-  "TEL;TYPE=CELL:+41793184427",
-  "ADR;TYPE=WORK:;;Avenue du Prieuré 2;Pully;VD;1009;Suisse",
+  "FN:Katarina Du Couteau-Laurent",
+  "N:Du Couteau-Laurent;Katarina;;;",
+  "TITLE:Lame de Noxus",
+  "ORG:Haut Commandement de Noxus",
+  "TEL;TYPE=CELL:+41790000001",
+  "ADR;TYPE=WORK:;;Place du Bastion 2;Noxus;NX;0000;Runeterra",
   "BDAY:1987-03-14",
-  "CATEGORIES:Travail,Repair Café",
-  "NOTE:Rencontrée au Repair Café de Renens.\\nPréfère les messages aux appels.",
+  "CATEGORIES:Travail,Fosse de Noxus",
+  "NOTE:Rencontrée à la Fosse de Noxus.\\nPréfère les messages aux appels.",
   "END:VCARD",
 ].join("\r\n");
 
 describe("jobTitleOf", () => {
   it("returns the TITLE value", () => {
-    expect(jobTitleOf(parse(CARD_RICH))).toBe("Responsable des espaces verts");
+    expect(jobTitleOf(parse(CARD_RICH))).toBe("Lame de Noxus");
   });
 
   it("returns an empty string when TITLE is absent", () => {
-    const card = CARD_RICH.replace("\r\nTITLE:Responsable des espaces verts", "");
+    const card = CARD_RICH.replace("\r\nTITLE:Lame de Noxus", "");
     expect(jobTitleOf(parse(card))).toBe("");
   });
 });
@@ -40,11 +40,11 @@ describe("addressOf", () => {
     expect(address).toEqual({
       poBox: "",
       extended: "",
-      street: "Avenue du Prieuré 2",
-      locality: "Pully",
-      region: "VD",
-      postalCode: "1009",
-      country: "Suisse",
+      street: "Place du Bastion 2",
+      locality: "Noxus",
+      region: "NX",
+      postalCode: "0000",
+      country: "Runeterra",
       extraParts: [],
       type: ["WORK"],
     });
@@ -52,7 +52,7 @@ describe("addressOf", () => {
 
   it("returns null when ADR is absent", () => {
     const card = CARD_RICH.replace(
-      "\r\nADR;TYPE=WORK:;;Avenue du Prieuré 2;Pully;VD;1009;Suisse",
+      "\r\nADR;TYPE=WORK:;;Place du Bastion 2;Noxus;NX;0000;Runeterra",
       "",
     );
     expect(addressOf(parse(card))).toBeNull();
@@ -107,13 +107,13 @@ describe("birthdayOf", () => {
 describe("noteOf", () => {
   it("returns the NOTE text with whitespace preserved", () => {
     expect(noteOf(parse(CARD_RICH))).toBe(
-      "Rencontrée au Repair Café de Renens.\nPréfère les messages aux appels.",
+      "Rencontrée à la Fosse de Noxus.\nPréfère les messages aux appels.",
     );
   });
 
   it("returns an empty string when NOTE is absent", () => {
     const card = CARD_RICH.replace(
-      "\r\nNOTE:Rencontrée au Repair Café de Renens.\\nPréfère les messages aux appels.",
+      "\r\nNOTE:Rencontrée à la Fosse de Noxus.\\nPréfère les messages aux appels.",
       "",
     );
     expect(noteOf(parse(card))).toBe("");
@@ -122,17 +122,17 @@ describe("noteOf", () => {
 
 describe("groupsOf", () => {
   it("flattens a multi-value CATEGORIES property", () => {
-    expect(groupsOf(parse(CARD_RICH))).toEqual(["Travail", "Repair Café"]);
+    expect(groupsOf(parse(CARD_RICH))).toEqual(["Travail", "Fosse de Noxus"]);
   });
 
   it("flattens several CATEGORIES properties in order", () => {
-    const card = CARD_RICH.replace("CATEGORIES:Travail,Repair Café", "CATEGORIES:Famille");
+    const card = CARD_RICH.replace("CATEGORIES:Travail,Fosse de Noxus", "CATEGORIES:Famille");
     const withSecond = card.replace("\r\nEND:VCARD", "\r\nCATEGORIES:Voisins\r\nEND:VCARD");
     expect(groupsOf(parse(withSecond))).toEqual(["Famille", "Voisins"]);
   });
 
   it("returns an empty array when CATEGORIES is absent", () => {
-    const card = CARD_RICH.replace("\r\nCATEGORIES:Travail,Repair Café", "");
+    const card = CARD_RICH.replace("\r\nCATEGORIES:Travail,Fosse de Noxus", "");
     expect(groupsOf(parse(card))).toEqual([]);
   });
 });

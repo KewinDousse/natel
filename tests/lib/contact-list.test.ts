@@ -80,14 +80,14 @@ describe("fold", () => {
   });
 
   it("lowercases and trims nothing", () => {
-    expect(fold("  BenAli ")).toBe("  benali ");
+    expect(fold("  MeDarda ")).toBe("  medarda ");
   });
 });
 
 describe("groupLetterOf", () => {
   it("returns the uppercase first letter of the folded key", () => {
-    expect(groupLetterOf("Benali")).toBe("B");
-    expect(groupLetterOf("Évrat")).toBe("E");
+    expect(groupLetterOf("Medarda")).toBe("M");
+    expect(groupLetterOf("Éclat")).toBe("E");
     expect(groupLetterOf("Łukasz")).toBe("L");
   });
 
@@ -100,8 +100,8 @@ describe("groupLetterOf", () => {
 
 describe("namePartsOf", () => {
   it("uses the structured name", () => {
-    const parts = namePartsOf(makeContact({ family: "Benali", given: "Karim" }));
-    expect(parts).toEqual({ family: "Benali", given: "Karim", display: "Benali Karim" });
+    const parts = namePartsOf(makeContact({ family: "Medarda", given: "Mel" }));
+    expect(parts).toEqual({ family: "Medarda", given: "Mel", display: "Medarda Mel" });
   });
 
   it("falls back to FN when N is empty", () => {
@@ -115,26 +115,26 @@ describe("isUnnamed", () => {
     expect(isUnnamed(makeContact({ family: "", given: "", fn: "" }))).toBe(true);
     expect(isUnnamed(makeContact({ family: "", given: "", fn: "", org: "Acme" }))).toBe(false);
     expect(isUnnamed(makeContact({ family: "", given: "", fn: "Acme SA" }))).toBe(false);
-    expect(isUnnamed(makeContact({ family: "Favre", given: "" }))).toBe(false);
+    expect(isUnnamed(makeContact({ family: "Fortune", given: "" }))).toBe(false);
   });
 });
 
 describe("orderedNameOf", () => {
-  const contact = makeContact({ family: "Favre", given: "Alain" });
+  const contact = makeContact({ family: "Fortune", given: "Sarah" });
 
   it("leads with the last name when sorted by last name", () => {
     expect(orderedNameOf(contact, "family")).toEqual({
-      lead: "Favre",
-      rest: "Alain",
-      display: "Favre Alain",
+      lead: "Fortune",
+      rest: "Sarah",
+      display: "Fortune Sarah",
     });
   });
 
   it("leads with the first name when sorted by first name", () => {
     expect(orderedNameOf(contact, "given")).toEqual({
-      lead: "Alain",
-      rest: "Favre",
-      display: "Alain Favre",
+      lead: "Sarah",
+      rest: "Fortune",
+      display: "Sarah Fortune",
     });
   });
 
@@ -150,11 +150,11 @@ describe("orderedNameOf", () => {
   });
 
   it("lets the other part lead when the sorted one is missing", () => {
-    const familyOnly = makeContact({ family: "Favre", given: "" });
+    const familyOnly = makeContact({ family: "Fortune", given: "" });
     expect(orderedNameOf(familyOnly, "given")).toEqual({
-      lead: "Favre",
+      lead: "Fortune",
       rest: "",
-      display: "Favre",
+      display: "Fortune",
     });
   });
 });
@@ -188,33 +188,35 @@ describe("trailingValueOf", () => {
   it("prefers the first TEL with TYPE=cell over other tels", () => {
     const contact = makeContact({
       tel: [
-        { value: "021 123 45 67", params: { TYPE: "WORK" } },
-        { value: "079 111 22 33", params: { TYPE: "CELL" } },
+        { value: "021 000 00 05", params: { TYPE: "WORK" } },
+        { value: "079 000 00 06", params: { TYPE: "CELL" } },
       ],
     });
-    expect(trailingValueOf(contact)).toEqual({ kind: "tel", value: "079 111 22 33" });
+    expect(trailingValueOf(contact)).toEqual({ kind: "tel", value: "079 000 00 06" });
   });
 
   it("matches TYPE=cell case-insensitively and as an array param", () => {
     const contact = makeContact({
-      tel: [{ value: "079 111 22 33", params: { TYPE: ["cell", "voice"] } }],
+      tel: [{ value: "079 000 00 06", params: { TYPE: ["cell", "voice"] } }],
     });
-    expect(trailingValueOf(contact)).toEqual({ kind: "tel", value: "079 111 22 33" });
+    expect(trailingValueOf(contact)).toEqual({ kind: "tel", value: "079 000 00 06" });
   });
 
   it("falls back to the first TEL, then EMAIL, then ORG", () => {
-    expect(trailingValueOf(makeContact({ tel: [{ value: "021 123 45 67" }], email: [] }))).toEqual({
+    expect(trailingValueOf(makeContact({ tel: [{ value: "021 000 00 05" }], email: [] }))).toEqual({
       kind: "tel",
-      value: "021 123 45 67",
+      value: "021 000 00 05",
     });
 
     expect(
-      trailingValueOf(makeContact({ tel: [], email: [{ value: "jean@example.ch" }] })),
-    ).toEqual({ kind: "email", value: "jean@example.ch" });
+      trailingValueOf(makeContact({ tel: [], email: [{ value: "jean@example.org" }] })),
+    ).toEqual({ kind: "email", value: "jean@example.org" });
 
-    expect(trailingValueOf(makeContact({ tel: [], email: [], org: "Commune de Pully" }))).toEqual({
+    expect(
+      trailingValueOf(makeContact({ tel: [], email: [], org: "Conseil de Piltover" })),
+    ).toEqual({
       kind: "org",
-      value: "Commune de Pully",
+      value: "Conseil de Piltover",
     });
   });
 
@@ -227,39 +229,39 @@ describe("searchTargetOf", () => {
   it("folds name, org, emails and phones as stored", () => {
     const target = searchTargetOf(
       makeContact({
-        family: "Benali",
-        given: "Karim",
-        org: "TLP",
-        tel: [{ value: "078 330 12 45" }],
-        email: [{ value: "k.benali@tlp.ch" }],
+        family: "Medarda",
+        given: "Mel",
+        org: "Piltover",
+        tel: [{ value: "078 000 00 03" }],
+        email: [{ value: "mel@medarda.example" }],
       }),
     );
-    expect(target.folded).toBe("benali karim karim benali k.benali@tlp.ch tlp");
-    expect(target.digits).toBe("benalikarimkarimbenalikbenali@tlpchtlp0783301245");
+    expect(target.folded).toBe("medarda mel mel medarda mel@medarda.example piltover");
+    expect(target.digits).toBe("medardamelmelmedardamel@medardaexamplepiltover0780000003");
   });
 });
 
 describe("matchesQuery", () => {
   const targetOf = (contact: Contact) => searchTargetOf(contact);
   const contact = makeContact({
-    family: "Benali",
-    given: "Karim",
-    org: "Transports publics",
-    tel: [{ value: "078 330 12 45" }],
-    email: [{ value: "karim@tlp.ch" }],
+    family: "Medarda",
+    given: "Mel",
+    org: "Conseil de Piltover",
+    tel: [{ value: "078 000 00 03" }],
+    email: [{ value: "mel@medarda.example" }],
   });
 
   it("matches on name, org and email, accent-insensitively", () => {
-    expect(matchesQuery(targetOf(contact), "ben")).toBe(true);
-    expect(matchesQuery(targetOf(contact), "KARIM")).toBe(true);
-    expect(matchesQuery(targetOf(contact), "transports")).toBe(true);
-    expect(matchesQuery(targetOf(contact), "karim@tlp")).toBe(true);
+    expect(matchesQuery(targetOf(contact), "med")).toBe(true);
+    expect(matchesQuery(targetOf(contact), "MEL")).toBe(true);
+    expect(matchesQuery(targetOf(contact), "conseil")).toBe(true);
+    expect(matchesQuery(targetOf(contact), "mel@med")).toBe(true);
   });
 
   it("matches digit queries as digit substrings, with or without spaces", () => {
-    expect(matchesQuery(targetOf(contact), "078330")).toBe(true);
-    expect(matchesQuery(targetOf(contact), "078 330")).toBe(true);
-    expect(matchesQuery(targetOf(contact), "330 12")).toBe(true);
+    expect(matchesQuery(targetOf(contact), "078000")).toBe(true);
+    expect(matchesQuery(targetOf(contact), "078 000")).toBe(true);
+    expect(matchesQuery(targetOf(contact), "000 00")).toBe(true);
   });
 
   it("uses the compact-digit rule only from 3 digits", () => {
@@ -300,9 +302,9 @@ describe("matchesQuery", () => {
 
 describe("splitByQuery", () => {
   it("marks the matching substring", () => {
-    expect(splitByQuery("Benali", "ben")).toEqual([
-      { text: "Ben", hit: true },
-      { text: "ali", hit: false },
+    expect(splitByQuery("Medarda", "med")).toEqual([
+      { text: "Med", hit: true },
+      { text: "arda", hit: false },
     ]);
   });
 
@@ -323,63 +325,63 @@ describe("splitByQuery", () => {
   });
 
   it("returns a single plain segment when there is no match", () => {
-    expect(splitByQuery("Karim", "ben")).toEqual([{ text: "Karim", hit: false }]);
+    expect(splitByQuery("Mel", "amb")).toEqual([{ text: "Mel", hit: false }]);
   });
 
   it("matches phone digits inside the value", () => {
     // Spaced query → the stored text contains it verbatim.
-    expect(splitByQuery("078 330 12 45", "078 330")).toEqual([
-      { text: "078 330", hit: true },
-      { text: " 12 45", hit: false },
+    expect(splitByQuery("078 000 00 03", "078 000")).toEqual([
+      { text: "078 000", hit: true },
+      { text: " 00 03", hit: false },
     ]);
     // Compact query only matches through the digit rule — the displayed
     // (spaced) value contains no such substring, so nothing is highlighted.
-    expect(splitByQuery("078 330 12 45", "078330")).toEqual([
-      { text: "078 330 12 45", hit: false },
+    expect(splitByQuery("078 000 00 03", "078000")).toEqual([
+      { text: "078 000 00 03", hit: false },
     ]);
   });
 });
 
 describe("buildGroups", () => {
-  const benali = makeContact({
-    uid: "b1",
-    family: "Benali",
-    given: "Karim",
-    org: "TLP",
-    tel: [{ value: "078 330 12 45" }],
+  const jarvan = makeContact({
+    uid: "l2",
+    family: "Lightshield",
+    given: "Jarvan",
+    org: "Demacia",
+    tel: [{ value: "078 000 00 03" }],
   });
-  const bernasconi = makeContact({ uid: "b2", family: "Bernasconi", given: "Giulia" });
-  const evrat = makeContact({ uid: "e1", family: "Évrat", given: "Luc" });
+  const fiora = makeContact({ uid: "l1", family: "Laurent", given: "Fiora" });
+  const ezreal = makeContact({ uid: "e1", family: "Éclat", given: "Ezreal" });
   const numero = makeContact({ uid: "n1", family: "123 Service", given: "" });
   const zoe = makeContact({ uid: "z1", family: "Zoe", given: "Zoe" });
 
   it("groups by the family initial with accented letters folded into A–Z", () => {
-    const groups = buildGroups([zoe, evrat, bernasconi, benali], "family", "");
-    expect(groups.map((g) => g.letter)).toEqual(["B", "E", "Z"]);
-    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["b1", "b2"]);
+    const groups = buildGroups([zoe, ezreal, jarvan, fiora], "family", "");
+    expect(groups.map((g) => g.letter)).toEqual(["E", "L", "Z"]);
+    expect(groups[1]?.contacts.map((c) => c.uid)).toEqual(["l1", "l2"]);
   });
 
   it("sorts contacts within a group by the sort key", () => {
-    const groups = buildGroups([benali, bernasconi], "family", "");
-    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["b1", "b2"]);
+    const groups = buildGroups([jarvan, fiora], "family", "");
+    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["l1", "l2"]);
   });
 
   it("puts the # group at the end, even though digits sort first", () => {
-    const groups = buildGroups([numero, benali, zoe], "family", "");
-    expect(groups.map((g) => g.letter)).toEqual(["B", "Z", "#"]);
+    const groups = buildGroups([numero, jarvan, zoe], "family", "");
+    expect(groups.map((g) => g.letter)).toEqual(["L", "Z", "#"]);
     expect(groups[2]?.contacts.map((c) => c.uid)).toEqual(["n1"]);
   });
 
   it("switches the grouping key with the sort toggle", () => {
-    // given: Giulia → G, Karim → K, Luc → L
-    const groups = buildGroups([benali, bernasconi, evrat], "given", "");
-    expect(groups.map((g) => g.letter)).toEqual(["G", "K", "L"]);
+    // given: Ezreal → E, Fiora → F, Jarvan → J
+    const groups = buildGroups([jarvan, fiora, ezreal], "given", "");
+    expect(groups.map((g) => g.letter)).toEqual(["E", "F", "J"]);
   });
 
   it("filters by query before grouping", () => {
-    const groups = buildGroups([benali, bernasconi, evrat], "family", "bern");
+    const groups = buildGroups([jarvan, fiora, ezreal], "family", "laur");
     expect(groups).toHaveLength(1);
-    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["b2"]);
+    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["l1"]);
   });
 });
 

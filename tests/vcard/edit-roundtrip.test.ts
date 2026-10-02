@@ -790,21 +790,21 @@ describe("ADR via real parse()", () => {
 
   describe.each(["3.0", "4.0"])("vCard %s", (version) => {
     it("untouched save keeps parameter order", () => {
-      const card = adrCard('ADR;TYPE=HOME;LABEL="1 Rue":;;1 Rue;Lausanne;;1000;CH', version);
+      const card = adrCard('ADR;TYPE=HOME;LABEL="1 Rue":;;1 Rue;Piltover;;0000;RT', version);
       expect(editField(card, () => {})).toBe(untouched(card));
     });
 
     it("untouched save keeps a list component as a list", () => {
-      const card = adrCard("ADR;TYPE=home:;;Rue A,Bât B;Lausanne;;1000;CH", version);
+      const card = adrCard("ADR;TYPE=home:;;Rue A,Bât B;Piltover;;0000;RT", version);
       expect(editField(card, () => {})).toBe(untouched(card));
     });
 
     it("editing the locality keeps the other parts and parameters as parsed", () => {
-      const card = adrCard('ADR;TYPE=HOME;LABEL="x":;;Rue A,Bât B;Lausanne;;1000;CH', version);
+      const card = adrCard('ADR;TYPE=HOME;LABEL="x":;;Rue A,Bât B;Piltover;;0000;RT', version);
       const result = editField(card, (draft) => {
-        if (draft.adr) draft.adr.locality = "Renens";
+        if (draft.adr) draft.adr.locality = "Zaun";
       });
-      expect(adrLineOf(result)).toBe("ADR;TYPE=HOME;LABEL=x:;;Rue A,Bât B;Renens;;1000;CH");
+      expect(adrLineOf(result)).toBe("ADR;TYPE=HOME;LABEL=x:;;Rue A,Bât B;Zaun;;0000;RT");
     });
   });
 });

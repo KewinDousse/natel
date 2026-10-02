@@ -58,8 +58,8 @@ describe("readImportCard", () => {
   });
 
   it("falls back to N for the name", () => {
-    const card = "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Favre;Alain;;;\r\nEND:VCARD\r\n";
-    expect(readImportCard(card).name).toBe("Alain Favre");
+    const card = "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Fortune;Sarah;;;\r\nEND:VCARD\r\n";
+    expect(readImportCard(card).name).toBe("Sarah Fortune");
   });
 
   it("throws on a card ical.js can't read", () => {

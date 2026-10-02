@@ -107,7 +107,7 @@ export function railTarget(
 
 /**
  * A row's name in the order of the sort toggle: the part the list is sorted
- * by leads (and is set bold), so "Favre Alain" by last name, "Alain Favre"
+ * by leads (and is set bold), so "Fortune Sarah" by last name, "Sarah Fortune"
  * by first name. A missing part leaves the other one to lead alone.
  */
 export function orderedNameOf(

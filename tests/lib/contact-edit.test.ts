@@ -136,12 +136,14 @@ END:VCARD`;
     draft.tel = [
       { id: "1", value: "+1-555-111-1111", type: "cell", _orig: { value: "+1-555-111-1111" } },
     ];
-    draft.email = [{ id: "2", value: "a@b.com", type: "work", _orig: { value: "a@b.com" } }];
+    draft.email = [
+      { id: "2", value: "a@b.example", type: "work", _orig: { value: "a@b.example" } },
+    ];
     applyDraft(contact, draft);
     expect(contact.fields.tel).toHaveLength(1);
     expect(contact.fields.tel[0]!.value).toBe("+1-555-111-1111");
     expect(contact.fields.email).toHaveLength(1);
-    expect(contact.fields.email[0]!.value).toBe("a@b.com");
+    expect(contact.fields.email[0]!.value).toBe("a@b.example");
   });
 });
 
@@ -534,7 +536,7 @@ END:VCARD`;
 VERSION:3.0
 FN:John Doe
 N:Doe;John;;;
-TEL;TYPE=CELL:+41 79 111 11 11
+TEL;TYPE=CELL:+41 79 000 00 21
 NOTE:their note
 UID:dirty@example.com
 END:VCARD`;
@@ -547,7 +549,7 @@ END:VCARD`;
 
     expect(fresh.fields.n.given).toBe("Johnny");
     expect(fresh.fields.fn).toBe("Johnny Doe");
-    expect(fresh.fields.tel[0]?.value).toBe("+41 79 111 11 11");
+    expect(fresh.fields.tel[0]?.value).toBe("+41 79 000 00 21");
     expect(fresh.fields.note).toBe("their note");
   });
 
@@ -600,8 +602,8 @@ END:VCARD`;
 
   it("keeps what was typed during the save, and gives new fields unused ids", () => {
     const sent = { ...buildDraft(makeContact()), note: "sent" };
-    const extra = { id: nextId(), value: "+41 79 111 11 11", type: "", _orig: { value: "" } };
-    const extra2 = { id: nextId(), value: "+41 79 222 22 22", type: "", _orig: { value: "" } };
+    const extra = { id: nextId(), value: "+41 79 000 00 21", type: "", _orig: { value: "" } };
+    const extra2 = { id: nextId(), value: "+41 79 000 00 22", type: "", _orig: { value: "" } };
     const current = { ...sent, title: "typed meanwhile", tel: [extra, extra2] };
     const saved = parse(savedText, "/test.vcf", "new");
 

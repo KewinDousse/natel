@@ -53,7 +53,7 @@ const AUTH: DavAuth = {
 };
 
 const BOOK_A: DavAddressBook = {
-  href: "https://dav.example.ch/dav/books/a/",
+  href: "https://dav.example.org/dav/books/a/",
   displayName: "Perso",
 };
 
@@ -61,18 +61,18 @@ const CARD_FULL = [
   "BEGIN:VCARD",
   "VERSION:3.0",
   "UID:full",
-  "FN:Delacrétaz Anne-Sophie",
-  "N:Delacrétaz;Anne-Sophie;;;",
-  "TITLE:Responsable des espaces verts",
-  "ORG:Commune de Pully",
-  "TEL;TYPE=CELL:+41793184427",
-  "TEL;TYPE=WORK:+41217213300",
-  "EMAIL;TYPE=WORK:as.delacretaz@pully.ch",
-  "EMAIL;TYPE=HOME:as.vuilleumier@proton.me",
-  "ADR;TYPE=WORK:;;Avenue du Prieuré 2;Pully;VD;1009;Suisse",
+  "FN:Du Couteau Katarina",
+  "N:Du Couteau;Katarina;;;",
+  "TITLE:Lame de Noxus",
+  "ORG:Haut Commandement de Noxus",
+  "TEL;TYPE=CELL:+41790000001",
+  "TEL;TYPE=WORK:+41210000002",
+  "EMAIL;TYPE=WORK:katarina@noxus.example",
+  "EMAIL;TYPE=HOME:kat@du-couteau.example",
+  "ADR;TYPE=WORK:;;Place du Bastion 2;Noxus;NX;0000;Runeterra",
   "BDAY:1987-03-14",
-  "CATEGORIES:Travail,Repair Café",
-  "NOTE:Rencontrée au Repair Café de Renens.\\nPréfère les messages aux appels.",
+  "CATEGORIES:Travail,Fosse de Noxus",
+  "NOTE:Rencontrée à la Fosse de Noxus.\\nPréfère les messages aux appels.",
   "END:VCARD",
 ].join("\r\n");
 
@@ -80,9 +80,9 @@ const CARD_PHONE_ONLY = [
   "BEGIN:VCARD",
   "VERSION:3.0",
   "UID:phone-only",
-  "FN:Meyer Luc",
-  "N:Meyer;Luc;;;",
-  "TEL;TYPE=VOICE:091 923 77 60",
+  "FN:Lightshield Jarvan",
+  "N:Lightshield;Jarvan;;;",
+  "TEL;TYPE=VOICE:091 000 00 04",
   "END:VCARD",
 ].join("\r\n");
 
@@ -91,7 +91,7 @@ const CARD_ORG = [
   "BEGIN:VCARD",
   "VERSION:3.0",
   "UID:org-card",
-  "ORG:Commune de Pully",
+  "ORG:Haut Commandement de Noxus",
   "END:VCARD",
 ].join("\r\n");
 
@@ -99,8 +99,8 @@ const CARD_BDAY_MONTH_DAY = [
   "BEGIN:VCARD",
   "VERSION:3.0",
   "UID:bday-md",
-  "FN:Favre Léa",
-  "N:Favre;Léa;;;",
+  "FN:Fortune Sarah",
+  "N:Fortune;Sarah;;;",
   "BDAY:--03-14",
   "END:VCARD",
 ].join("\r\n");
@@ -117,7 +117,7 @@ function loadCards(selected: Record<string, string> = CARDS) {
   mockListContacts.mockImplementation(async (_auth, bookHref) =>
     bookHref === BOOK_A.href
       ? entries.map(([uid]) => ({
-          href: `https://dav.example.ch/dav/books/a/${uid}.vcf`,
+          href: `https://dav.example.org/dav/books/a/${uid}.vcf`,
           etag: `"${uid}"`,
         }))
       : [],
@@ -227,8 +227,8 @@ describe("contact page content", () => {
     // The phone still drives the action row…
     expect(within(article).getByRole("link", { name: "Appeler" })).toBeTruthy();
     // …but the job title / organisation row is absent (no TITLE, no ORG).
-    expect(within(article).queryByText(/Responsable/)).toBeNull();
-    expect(within(article).queryByText(/Commune de Pully/)).toBeNull();
+    expect(within(article).queryByText(/Lame de Noxus/)).toBeNull();
+    expect(within(article).queryByText(/Haut Commandement de Noxus/)).toBeNull();
   });
 });
 
@@ -275,35 +275,35 @@ describe("phones and action row", () => {
   it("formats the displayed number but keeps tel:/sms:/mailto: hrefs raw", async () => {
     await renderLoggedIn("/contacts/full");
 
-    const callLink = await screen.findByRole("link", { name: "079 318 44 27" });
-    expect(callLink.getAttribute("href")).toBe("tel:+41793184427");
-    expect(screen.getByRole("link", { name: "SMS" }).getAttribute("href")).toBe("sms:+41793184427");
+    const callLink = await screen.findByRole("link", { name: "079 000 00 01" });
+    expect(callLink.getAttribute("href")).toBe("tel:+41790000001");
+    expect(screen.getByRole("link", { name: "SMS" }).getAttribute("href")).toBe("sms:+41790000001");
 
-    const workLink = screen.getByRole("link", { name: "021 721 33 00" });
-    expect(workLink.getAttribute("href")).toBe("tel:+41217213300");
+    const workLink = screen.getByRole("link", { name: "021 000 00 02" });
+    expect(workLink.getAttribute("href")).toBe("tel:+41210000002");
 
     const writeLink = screen.getByRole("link", { name: "Écrire" });
-    expect(writeLink.getAttribute("href")).toBe("mailto:as.delacretaz@pully.ch");
+    expect(writeLink.getAttribute("href")).toBe("mailto:katarina@noxus.example");
 
     // Emails display as stored.
-    expect(screen.getByText("as.vuilleumier@proton.me")).toBeTruthy();
+    expect(screen.getByText("kat@du-couteau.example")).toBeTruthy();
 
     // The list row's trailing phone is formatted too (display only).
-    const row = screen.getByRole("link", { name: /Delacrétaz Anne-Sophie/ });
-    expect(within(row).getByText("079 318 44 27")).toBeTruthy();
+    const row = screen.getByRole("link", { name: /Du Couteau Katarina/ });
+    expect(within(row).getByText("079 000 00 01")).toBeTruthy();
   });
 
   it("marks the primary number (first TYPE=cell) text-xl font-bold, others not", async () => {
     await renderLoggedIn("/contacts/full");
 
-    const primary = await screen.findByRole("link", { name: "079 318 44 27" });
+    const primary = await screen.findByRole("link", { name: "079 000 00 01" });
     expect(primary.parentElement?.className).toContain("text-xl");
     expect(primary.parentElement?.className).toContain("font-bold");
     // The primary must NOT carry the lg:text-[0.9375rem] step-down from TEXT;
     // at ≥1024px that would override text-xl and silently shrink the primary.
     expect(primary.parentElement?.className).not.toContain("lg:text-[0.9375rem]");
 
-    const work = screen.getByRole("link", { name: "021 721 33 00" });
+    const work = screen.getByRole("link", { name: "021 000 00 02" });
     expect(work.parentElement?.className).not.toContain("text-xl");
   });
 
@@ -368,7 +368,7 @@ describe("avatar and special sections", () => {
     await renderLoggedIn("/contacts/full");
 
     const article = await screen.findByRole("article");
-    const avatar = within(article).getByText("DA");
+    const avatar = within(article).getByText("DK");
     expect(avatar.className).toContain("bg-avatar");
     expect(avatar.className).toContain("font-display");
   });
@@ -378,9 +378,11 @@ describe("avatar and special sections", () => {
 
     const article = await screen.findByRole("article");
     // Once as the page's accessible name, once as the visible org line.
-    expect(within(article).getByRole("heading", { level: 1 }).textContent).toBe("Commune de Pully");
+    expect(within(article).getByRole("heading", { level: 1 }).textContent).toBe(
+      "Haut Commandement de Noxus",
+    );
     const visible = within(article)
-      .getAllByText("Commune de Pully")
+      .getAllByText("Haut Commandement de Noxus")
       .filter((el) => el.closest(".sr-only") === null);
     expect(visible).toHaveLength(1);
     expect(article.querySelector("svg")).not.toBeNull();
@@ -402,7 +404,7 @@ describe("avatar and special sections", () => {
     const article = await screen.findByRole("article");
     const chips = within(article).getAllByRole("listitem");
     expect(chips.map((c) => c.textContent)).toEqual(
-      expect.arrayContaining(["Travail", "Repair Café"]),
+      expect.arrayContaining(["Travail", "Fosse de Noxus"]),
     );
     for (const chip of chips) {
       expect(chip.className).toContain("rounded-full");
@@ -416,7 +418,7 @@ describe("avatar and special sections", () => {
     // getByText normalises whitespace, so match the collapsed form.
     // The note appears in both the view span and the hidden edit textarea.
     const noteElements = within(article).getAllByText(
-      "Rencontrée au Repair Café de Renens. Préfère les messages aux appels.",
+      "Rencontrée à la Fosse de Noxus. Préfère les messages aux appels.",
     );
     expect(noteElements.length).toBeGreaterThanOrEqual(1);
     const viewNote = noteElements[0] as HTMLElement;

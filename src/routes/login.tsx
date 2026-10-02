@@ -19,14 +19,6 @@ export const Route = createFileRoute("/login")({
   component: LoginRoute,
 });
 
-/** Decorative directory excerpt on the red panel (not clickable). */
-const DIRECTORY_EXCERPT: Array<{ family: string; given: string; tel: string }> = [
-  { family: "Favre", given: "Aurélien", tel: "079 412 58 03" },
-  { family: "Haddad", given: "Amina", tel: "079 204 18 33" },
-  { family: "Pasche", given: "Camille", tel: "076 205 91 14" },
-  { family: "Rochat", given: "Chloé", tel: "079 877 40 12" },
-];
-
 /** Restyle the language select against the red panel (CSS variable overrides). */
 const RED_PANEL_LANGUAGE_VARS = {
   "--foreground": "var(--brand-surface-foreground)",
@@ -36,35 +28,12 @@ const RED_PANEL_LANGUAGE_VARS = {
   "--input": "var(--brand-surface-foreground)",
 } as CSSProperties;
 
-/** Dotted-leader colour on the red panel. */
-const RED_PANEL_LEADER_VARS = {
-  "--leader": "color-mix(in oklab, var(--brand-surface-foreground) 45%, transparent)",
-} as CSSProperties;
-
 function LoginRoute() {
   const { t } = useI18n();
 
   return (
     <div className="min-h-dvh pb-14 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pb-0">
-      <aside
-        className="relative flex flex-col justify-between gap-6 overflow-hidden bg-brand-surface px-5 pb-7 lg:gap-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-brand-surface-foreground sm:px-8 lg:min-h-dvh lg:px-12 lg:py-12"
-        style={RED_PANEL_LEADER_VARS}
-      >
-        <ul
-          className="hidden max-w-[26rem] space-y-2.5 text-[0.9375rem] lg:block"
-          aria-hidden="true"
-        >
-          {DIRECTORY_EXCERPT.map((entry) => (
-            <li key={entry.family} className="flex items-baseline gap-2">
-              <span>
-                <b>{entry.family}</b> {entry.given}
-              </span>
-              <span className="leader" />
-              <span className="tabular">{entry.tel}</span>
-            </li>
-          ))}
-        </ul>
-
+      <aside className="relative flex flex-col justify-between gap-6 lg:justify-end overflow-hidden bg-brand-surface px-5 pb-7 lg:gap-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-brand-surface-foreground sm:px-8 lg:min-h-dvh lg:px-12 lg:py-12">
         {/* Mobile language select, restyled against the red panel */}
         <div className="flex justify-end lg:hidden" style={RED_PANEL_LANGUAGE_VARS}>
           <LoginLanguage id="lang-mobile" />

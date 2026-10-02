@@ -81,7 +81,7 @@ const AUTH: DavAuth = {
 };
 
 const BOOK_A: DavAddressBook = {
-  href: "https://dav.example.ch/dav/books/a/",
+  href: "https://dav.example.org/dav/books/a/",
   displayName: "Perso",
 };
 
@@ -93,8 +93,8 @@ const CARD_EDITABLE = [
   "N:Doe;John;;;",
   "TEL;TYPE=CELL:+1-555-111-1111",
   "TEL;TYPE=WORK:+1-555-222-2222",
-  "EMAIL;TYPE=WORK:john@work.com",
-  "EMAIL;TYPE=HOME:john@home.com",
+  "EMAIL;TYPE=WORK:john@work.example",
+  "EMAIL;TYPE=HOME:john@home.example",
   "ADR;TYPE=HOME:;;123 Main St;Springfield;;12345;US",
   "BDAY:1987-03-14",
   "END:VCARD",
@@ -164,7 +164,7 @@ function setupMocks() {
   mockListContacts.mockImplementation(async (_auth, bookHref) =>
     bookHref === BOOK_A.href
       ? entries.map(([uid]) => ({
-          href: `https://dav.example.ch/dav/books/a/${uid}.vcf`,
+          href: `https://dav.example.org/dav/books/a/${uid}.vcf`,
           etag: `"${uid}"`,
         }))
       : [],
@@ -300,7 +300,7 @@ describe("edit mode — validation", () => {
     await renderEditView("editable");
     const user = userEvent.setup();
 
-    const emailInputs = await screen.findAllByDisplayValue("john@work.com");
+    const emailInputs = await screen.findAllByDisplayValue("john@work.example");
     const firstEmail = emailInputs[0];
     if (!firstEmail) return;
     await user.clear(firstEmail);
@@ -644,7 +644,7 @@ describe("edit mode — background refetch", () => {
 });
 
 describe("edit mode — delete", () => {
-  const EDITABLE_HREF = "https://dav.example.ch/dav/books/a/editable.vcf";
+  const EDITABLE_HREF = "https://dav.example.org/dav/books/a/editable.vcf";
 
   it("asks for confirmation and sends a conditional DELETE", async () => {
     const { router } = await renderEditView("editable");

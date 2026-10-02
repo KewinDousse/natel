@@ -103,16 +103,16 @@ describe("new contact", () => {
     const user = userEvent.setup();
     const [family, given] = await nameInputs();
 
-    await user.type(family, "Favre");
-    await user.type(given, "Aline");
+    await user.type(family, "Fortune");
+    await user.type(given, "Sarah");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => expect(mockCreateCard).toHaveBeenCalledTimes(1));
     const [auth, href, vcard] = mockCreateCard.mock.calls[0] ?? [];
     expect(auth).toEqual(AUTH);
     expect(vcard).toContain("VERSION:3.0");
-    expect(vcard).toContain("N:Favre;Aline;;;");
-    expect(vcard).toContain("FN:Aline Favre");
+    expect(vcard).toContain("N:Fortune;Sarah;;;");
+    expect(vcard).toContain("FN:Sarah Fortune");
     const uid = vcard?.match(/^UID:(.+)$/m)?.[1]?.trim();
     expect(uid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(href).toBe(`${BOOK.href}${uid}.vcf`);
@@ -120,7 +120,7 @@ describe("new contact", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/${uid}`));
     const article = await screen.findByRole("article");
     expect(article.getAttribute("data-mode")).toBe("view");
-    expect(screen.getByRole("heading", { level: 1, name: "Favre Aline" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Fortune Sarah" })).toBeTruthy();
     expect(screen.getByRole("status").textContent).toBe("Enregistré");
   });
 
@@ -152,7 +152,7 @@ describe("new contact", () => {
     const user = userEvent.setup();
     const [family] = await nameInputs();
 
-    await user.type(family, "Favre");
+    await user.type(family, "Fortune");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     expect(await screen.findByText(/Ce contact existe déjà sur le serveur/)).toBeTruthy();

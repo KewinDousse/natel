@@ -104,7 +104,7 @@ Touch targets are ≥ 40px (44–48px on mobile forms). Every interactive elemen
 `h-12 lg:h-11 rounded-md border border-input bg-card px-3.5 text-base lg:text-[0.9375rem]`. Labels above, `text-sm font-bold`. Hint below in `text-caption text-muted-foreground`, linked with `aria-describedby`. Invalid: `aria-invalid="true"` → `border-destructive`. Mobile inputs stay at 16px (prevents iOS zoom).
 
 ### Sign-in screen
-Desktop: `grid-cols-[5fr_6fr]`. Left: full-height `bg-brand` panel, directory excerpt (4 rows with leaders, white) at the top, tagline + giant wordmark (`font-display`, `clamp(8rem,13vw,13rem)`, `leading-[0.78]`) at the bottom. Right: a compact language select top-right ("Langue" label, `h-9 px-2.5 text-sm` select), form centred, `max-w-[24rem]`. Mobile: red block on top (language select, wordmark 6.5rem, tagline), form below. On the red panel, restyle the select by overriding CSS variables locally (see the reference file) rather than adding new colours. The select writes the same preference as the settings page (ADR 019).
+Desktop: `grid-cols-[5fr_6fr]`. Left: full-height `bg-brand` panel, nothing at the top for now, tagline + giant wordmark (`font-display`, `clamp(8rem,13vw,13rem)`, `leading-[0.78]`) at the bottom. Right: a compact language select top-right ("Langue" label, `h-9 px-2.5 text-sm` select), form centred, `max-w-[24rem]`. Mobile: red block on top (language select, wordmark 6.5rem, tagline), form below. On the red panel, restyle the select by overriding CSS variables locally (see the reference file) rather than adding new colours. The select writes the same preference as the settings page (ADR 019).
 
 The form has two fields, username and password. There is no server field: the CardDAV server is set by the operator (ADR 014).
 
@@ -274,7 +274,7 @@ The "Raccourcis clavier" dialog is built like the import dialog once finished: t
 - Only list-row names and trailing values truncate (full name in `title`, and in full in the detail pane), plus the header's book name on phones (see Header). UI labels wrap.
 - French typography: `’` apostrophe, « » with non-breaking spaces, "Aucun résultat" for zero.
 - The mobile phone type is labelled **"Natel"** in French, "Mobile" in English.
-- Swiss numbers are displayed in local format (`079 318 44 27`), foreign numbers in international format. Store numbers as they are in the vCard; formatting is display only (libphonenumber-js is fine — propose before adding).
+- Swiss numbers are displayed in local format (`079 000 00 01`), foreign numbers in international format. Store numbers as they are in the vCard; formatting is display only (libphonenumber-js is fine — propose before adding).
 - Search is accent-insensitive (NFD + strip marks, plus ł→l, ø→o, đ→d), matches name, org, email and phone digits, and highlights matches with `<mark>`.
 - The language defaults to the first of `navigator.languages` Natel has, French when none; an explicit choice is stored in `localStorage` (`natel.preferences`, ADR 019). Languages are listed by their own names ("Français", "English").
 

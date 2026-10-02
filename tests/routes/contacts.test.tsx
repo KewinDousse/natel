@@ -64,10 +64,10 @@ const AUTH: DavAuth = {
 };
 
 const BOOK_A: DavAddressBook = {
-  href: "https://dav.example.ch/dav/books/a/",
+  href: "https://dav.example.org/dav/books/a/",
   displayName: "Perso",
 };
-const BOOK_B: DavAddressBook = { href: "https://dav.example.ch/dav/books/b/", displayName: "Pro" };
+const BOOK_B: DavAddressBook = { href: "https://dav.example.org/dav/books/b/", displayName: "Pro" };
 
 function rawStub(): RawComponent {
   return {
@@ -83,7 +83,7 @@ function rawStub(): RawComponent {
 
 function makeContact(uid: string, overrides: Partial<Contact> = {}): Contact {
   const base: Contact = {
-    href: `https://dav.example.ch/dav/books/a/${uid}.vcf`,
+    href: `https://dav.example.org/dav/books/a/${uid}.vcf`,
     etag: `"${uid}"`,
     uid,
     fields: {
@@ -112,11 +112,11 @@ function makeContact(uid: string, overrides: Partial<Contact> = {}): Contact {
 /** The five contacts of the "Perso" book used by the default pipeline. */
 function bookAContacts(): Contact[] {
   return [
-    makeContact("benali", {
+    makeContact("jarvan", {
       fields: {
-        fn: "Benali Karim",
-        n: { family: "Benali", given: "Karim", additional: "", prefix: "", suffix: "" },
-        tel: [{ value: "078 330 12 45", params: { TYPE: "CELL" } }],
+        fn: "Lightshield Jarvan",
+        n: { family: "Lightshield", given: "Jarvan", additional: "", prefix: "", suffix: "" },
+        tel: [{ value: "078 000 00 03", params: { TYPE: "CELL" } }],
         email: [],
         nickname: "",
         adr: null,
@@ -128,11 +128,11 @@ function bookAContacts(): Contact[] {
         photo: { kind: "unchanged" },
       },
     }),
-    makeContact("bernasconi", {
+    makeContact("fiora", {
       fields: {
-        fn: "Bernasconi Giulia",
-        n: { family: "Bernasconi", given: "Giulia", additional: "", prefix: "", suffix: "" },
-        tel: [{ value: "091 923 77 60", params: { TYPE: "HOME" } }],
+        fn: "Laurent Fiora",
+        n: { family: "Laurent", given: "Fiora", additional: "", prefix: "", suffix: "" },
+        tel: [{ value: "091 000 00 04", params: { TYPE: "HOME" } }],
         email: [],
         nickname: "",
         adr: null,
@@ -144,12 +144,12 @@ function bookAContacts(): Contact[] {
         photo: { kind: "unchanged" },
       },
     }),
-    makeContact("chen", {
+    makeContact("lux", {
       fields: {
-        fn: "Chen Olivia",
-        n: { family: "Chen", given: "Olivia", additional: "", prefix: "", suffix: "" },
+        fn: "Crownguard Luxanna",
+        n: { family: "Crownguard", given: "Luxanna", additional: "", prefix: "", suffix: "" },
         tel: [],
-        email: [{ value: "olivia@chen.ch" }],
+        email: [{ value: "luxanna@crownguard.example" }],
         nickname: "",
         adr: null,
         bday: null,
@@ -160,10 +160,10 @@ function bookAContacts(): Contact[] {
         photo: { kind: "unchanged" },
       },
     }),
-    makeContact("evrat", {
+    makeContact("ezreal", {
       fields: {
-        fn: "Évrat Luc",
-        n: { family: "Évrat", given: "Luc", additional: "", prefix: "", suffix: "" },
+        fn: "Éclat Ezreal",
+        n: { family: "Éclat", given: "Ezreal", additional: "", prefix: "", suffix: "" },
         tel: [],
         email: [],
         nickname: "",
@@ -307,7 +307,7 @@ describe("address books", () => {
     await renderLoggedIn();
 
     await waitFor(() => expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_A.href));
-    expect(await screen.findByText(/Benali/)).toBeTruthy();
+    expect(await screen.findByText(/Lightshield/)).toBeTruthy();
     // The count line is announced and shows the full book size.
     const count = screen.getByText("5 contacts");
     expect(count.parentElement?.getAttribute("aria-live")).toBe("polite");
@@ -333,11 +333,11 @@ describe("list grouping and rail", () => {
     const headings = (await screen.findAllByRole("heading", { level: 2 })).map(
       (h) => h.textContent,
     );
-    expect(headings).toEqual(["B", "C", "E", "#"]);
+    expect(headings).toEqual(["C", "E", "L", "#"]);
 
     const rail = document.getElementById("rail");
     expect(rail).not.toBeNull();
-    expect(rail?.querySelector('a[href="#g-B"]')).not.toBeNull();
+    expect(rail?.querySelector('a[href="#g-C"]')).not.toBeNull();
     // Absent letters are non-interactive spans, not links.
     expect(rail?.querySelector('a[href="#g-A"]')).toBeNull();
     expect(rail?.querySelector("span")?.textContent).toBe("A");
@@ -374,26 +374,28 @@ describe("list grouping and rail", () => {
     await renderLoggedIn();
     const user = userEvent.setup();
 
-    const row = await screen.findByRole("link", { name: /Benali Karim/ });
+    const row = await screen.findByRole("link", { name: /Lightshield Jarvan/ });
     await user.click(row);
 
     // The router's Link marks the active row; our styles key off its
     // data-status="active" marker.
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: /Benali Karim/ }).getAttribute("aria-current")).toBe(
-        "page",
-      );
+      expect(
+        screen.getByRole("link", { name: /Lightshield Jarvan/ }).getAttribute("aria-current"),
+      ).toBe("page");
     });
-    expect(screen.getByRole("link", { name: /Benali Karim/ }).getAttribute("data-status")).toBe(
-      "active",
-    );
-    expect(await screen.findByRole("heading", { level: 1, name: "Benali Karim" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Lightshield Jarvan/ }).getAttribute("data-status"),
+    ).toBe("active");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Lightshield Jarvan" }),
+    ).toBeTruthy();
     // The back affordance exists on mobile.
     expect(screen.getByRole("link", { name: "Retour aux contacts" })).toBeTruthy();
 
     await user.click(screen.getByRole("link", { name: "Retour aux contacts" }));
     expect(
-      screen.getByRole("link", { name: /Benali Karim/ }).getAttribute("aria-current"),
+      screen.getByRole("link", { name: /Lightshield Jarvan/ }).getAttribute("aria-current"),
     ).toBeNull();
   });
 
@@ -402,13 +404,13 @@ describe("list grouping and rail", () => {
     const user = userEvent.setup();
 
     expect((await screen.findAllByRole("heading", { level: 2 })).map((h) => h.textContent)).toEqual(
-      ["B", "C", "E", "#"],
+      ["C", "E", "L", "#"],
     );
 
     await user.click(screen.getByRole("button", { name: "Prénom" }));
 
     const headings = await screen.findAllByRole("heading", { level: 2 });
-    expect(headings.map((h) => h.textContent)).toEqual(["G", "K", "L", "O", "#"]);
+    expect(headings.map((h) => h.textContent)).toEqual(["E", "F", "J", "L", "#"]);
     expect(screen.getByRole("button", { name: "Prénom" }).getAttribute("aria-pressed")).toBe(
       "true",
     );
@@ -425,14 +427,14 @@ describe("search", () => {
     await renderLoggedIn();
     const user = userEvent.setup();
 
-    await screen.findByText(/Benali/);
-    await user.type(screen.getByRole("searchbox"), "evr");
+    await screen.findByText(/Lightshield/);
+    await user.type(screen.getByRole("searchbox"), "ecl");
 
-    // Only Évrat survives; the mark covers the matched characters.
-    expect(screen.getByRole("link", { name: /Évrat Luc/ })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Benali/ })).toBeNull();
-    expect(screen.getByRole("link", { name: /Évrat/ }).querySelector("mark")?.textContent).toBe(
-      "Évr",
+    // Only Éclat survives; the mark covers the matched characters.
+    expect(screen.getByRole("link", { name: /Éclat Ezreal/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Lightshield/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /Éclat/ }).querySelector("mark")?.textContent).toBe(
+      "Écl",
     );
     expect(screen.getByText("1 résultat")).toBeTruthy();
   });
@@ -441,23 +443,23 @@ describe("search", () => {
     await renderLoggedIn();
     const user = userEvent.setup();
 
-    await screen.findByText(/Benali/);
+    await screen.findByText(/Lightshield/);
     // Compact digit query matches through the digit rule. The digits-only
-    // query "078330" matches the digits of "078 330 12 45" → the whole
+    // query "078000" matches the digits of "078 000 00 03" → the whole
     // formatted value is highlighted.
-    await user.type(screen.getByRole("searchbox"), "078330");
+    await user.type(screen.getByRole("searchbox"), "078000");
 
-    expect(screen.getByRole("link", { name: /Benali/ })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Bernasconi/ })).toBeNull();
-    const digitsMark = screen.getByRole("link", { name: /Benali/ }).querySelector("mark");
+    expect(screen.getByRole("link", { name: /Lightshield/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Laurent/ })).toBeNull();
+    const digitsMark = screen.getByRole("link", { name: /Lightshield/ }).querySelector("mark");
     expect(digitsMark).not.toBeNull();
-    expect(digitsMark?.textContent).toBe("078 330 12 45");
+    expect(digitsMark?.textContent).toBe("078 000 00 03");
 
     await user.clear(screen.getByRole("searchbox"));
-    await user.type(screen.getByRole("searchbox"), "078 330");
-    expect(screen.getByRole("link", { name: /Benali/ }).querySelector("mark")?.textContent).toBe(
-      "078 330",
-    );
+    await user.type(screen.getByRole("searchbox"), "078 000");
+    expect(
+      screen.getByRole("link", { name: /Lightshield/ }).querySelector("mark")?.textContent,
+    ).toBe("078 000");
 
     await user.clear(screen.getByRole("searchbox"));
     await user.type(screen.getByRole("searchbox"), "78x");
@@ -468,8 +470,8 @@ describe("search", () => {
     await renderLoggedIn();
     const user = userEvent.setup();
 
-    await screen.findByText(/Benali/);
-    await user.type(screen.getByRole("searchbox"), "be");
+    await screen.findByText(/Lightshield/);
+    await user.type(screen.getByRole("searchbox"), "ar");
 
     // Rail still rendered (results exist) but hidden.
     expect(document.getElementById("rail")?.hasAttribute("hidden")).toBe(true);
@@ -567,7 +569,7 @@ describe("layout and sync status", () => {
     const user = userEvent.setup();
 
     // Wait for the router to mount the route before inspecting the layout.
-    const row = await screen.findByRole("link", { name: /Benali Karim/ });
+    const row = await screen.findByRole("link", { name: /Lightshield Jarvan/ });
     const main = document.querySelector("main");
     expect(main?.className).toContain("lg:grid-cols-[minmax(26rem,34rem)_1fr]");
     expect(document.querySelector("aside")?.className).toContain("lg:bg-muted");
@@ -609,7 +611,7 @@ describe("logout", () => {
         </I18nProvider>
       </QueryClientProvider>,
     );
-    await screen.findByText(/Benali/);
+    await screen.findByText(/Lightshield/);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Se déconnecter" }));

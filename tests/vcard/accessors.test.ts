@@ -22,7 +22,7 @@ const CARD_MULTI_ORG = [
   "UID:u2",
   "FN:Bob",
   "N:Doe;Bob;;;",
-  "ORG:Commune de Pully;Espaces verts",
+  "ORG:Haut Commandement de Noxus;Espaces verts",
   "END:VCARD",
 ].join("\r\n");
 
@@ -32,7 +32,7 @@ describe("orgOf", () => {
   });
 
   it("joins org units with ', ' for a multi-part ORG", () => {
-    expect(orgOf(parse(CARD_MULTI_ORG))).toBe("Commune de Pully, Espaces verts");
+    expect(orgOf(parse(CARD_MULTI_ORG))).toBe("Haut Commandement de Noxus, Espaces verts");
   });
 
   it("returns an empty string when ORG is absent", () => {
