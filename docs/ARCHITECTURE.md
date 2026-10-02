@@ -67,7 +67,8 @@ verifies.
 ```
 src/
   routes/        TanStack Router file-based routes (thin: compose components, no logic)
-  components/    UI components; components/ui/ is vendored shadcn
+  components/    UI components; components/ui/ is vendored shadcn, added with
+                 `pnpm dlx shadcn@latest add` (the CLI is not a dependency)
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.
                  The ONLY module that imports tsdav. demo.ts and demo-seed.ts
                  stand in for it in the demo build (ADR 025).
