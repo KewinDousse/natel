@@ -5,6 +5,7 @@
   "tagline": "A directory for your contacts, on your own server.",
   "title": "Open your address book",
   "lede": "Natel reads and edits your contacts directly on your CardDAV server.",
+  "insecure": "This connection isn’t encrypted: your password can be read on the network.",
   "user": "Username",
   "pass": "Password",
   "show": "Show",

@@ -10,7 +10,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DavError } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
@@ -117,6 +117,33 @@ describe("rendering", () => {
     localStorage.setItem("natel.preferences", '{"locale":"en"}');
     renderApp("/login");
     expect(await screen.findByRole("heading", { name: "Open your address book" })).toBeTruthy();
+  });
+});
+
+describe("unencrypted connection", () => {
+  function setSecureContext(secure: boolean) {
+    Object.defineProperty(window, "isSecureContext", { value: secure, configurable: true });
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(window, "isSecureContext");
+  });
+
+  it("warns that the password can be read when the page isn't served over HTTPS", async () => {
+    setSecureContext(false);
+    renderApp("/login");
+    expect(
+      await screen.findByText(
+        "Cette connexion n’est pas chiffrée : votre mot de passe peut être lu sur le réseau.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("says nothing over HTTPS or on localhost", async () => {
+    setSecureContext(true);
+    renderApp("/login");
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
+    expect(screen.queryByText(/pas chiffrée/)).toBeNull();
   });
 });
 

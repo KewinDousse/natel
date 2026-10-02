@@ -108,6 +108,8 @@ Desktop: `grid-cols-[5fr_6fr]`. Left: full-height `bg-brand` panel, directory ex
 
 The form has two fields, username and password. There is no server field: the CardDAV server is set by the operator (ADR 014).
 
+Served outside a secure context (`window.isSecureContext` is false: plain HTTP, except on `localhost`), a line above the form says the connection isn't encrypted and the password can be read on the network, "Cette connexion n’est pas chiffrée : votre mot de passe peut être lu sur le réseau." It is built like the privacy note under the form (open padlock icon, `text-sm leading-snug`), in `text-warning`. It doesn't block the sign-in: a trusted network over HTTP is a legitimate use, and the browser already flags the page.
+
 Connection errors appear above the form in a `border-destructive/40 bg-destructive/5` box with an alert icon, saying what failed and what to do. The two cases are wrong credentials and the CardDAV server not answering behind the proxy.
 
 ## Contact page: one skeleton, two states

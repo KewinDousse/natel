@@ -5,6 +5,7 @@
   "tagline": "L’annuaire de vos contacts, sur votre propre serveur.",
   "title": "Ouvrir le carnet",
   "lede": "Natel lit et modifie vos contacts directement sur votre serveur CardDAV.",
+  "insecure": "Cette connexion n’est pas chiffrée\u00a0: votre mot de passe peut être lu sur le réseau.",
   "user": "Nom d’utilisateur",
   "pass": "Mot de passe",
   "show": "Afficher",

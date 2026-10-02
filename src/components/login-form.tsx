@@ -80,6 +80,15 @@ export function LoginForm() {
 
   return (
     <>
+      {/* Basic auth sends the password with every request: over plain HTTP,
+          anyone on the network reads it. localhost counts as secure. */}
+      {globalThis.isSecureContext === false && (
+        <p className="mt-6 flex gap-2.5 text-sm leading-snug text-warning">
+          <LockIcon open />
+          <span>{t("insecure")}</span>
+        </p>
+      )}
+
       {formError && (
         <div
           className="mt-6 flex gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3.5 text-sm text-destructive"
@@ -231,7 +240,7 @@ function EyeIcon(): ReactNode {
   );
 }
 
-function LockIcon(): ReactNode {
+function LockIcon({ open = false }: { open?: boolean }): ReactNode {
   return (
     <svg
       className="size-4 mt-0.5 shrink-0"
@@ -244,7 +253,7 @@ function LockIcon(): ReactNode {
       aria-hidden="true"
     >
       <rect x="4" y="11" width="16" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      <path d={open ? "M8 11V7a4 4 0 0 1 7.75-1.4" : "M8 11V7a4 4 0 0 1 8 0v4"} />
     </svg>
   );
 }
