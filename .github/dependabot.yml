@@ -1,0 +1,36 @@
+# Weekly updates, grouped so each ecosystem opens one pull request a week at
+# most; a major npm version gets its own. Actions and base images are pinned
+# by digest, which Dependabot moves along with their version comments.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      images:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+    groups:
+      e2e-servers:
+        patterns: ["*"]
