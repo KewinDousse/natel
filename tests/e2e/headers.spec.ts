@@ -14,6 +14,12 @@ test("sends the security and cache headers", async ({ request }) => {
   );
   expect(headers["cache-control"]).toBe("no-cache");
   expect(headers["x-xss-protection"]).toBeUndefined();
+  expect(headers["referrer-policy"]).toBe("no-referrer");
+  expect(headers["cross-origin-opener-policy"]).toBe("same-origin");
+  expect(headers["cross-origin-resource-policy"]).toBe("same-origin");
+  expect(headers["permissions-policy"]).toBe(
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  );
 
   const script = (await page.text()).match(/src="(\/assets\/[^"]+\.js)"/)?.[1];
   expect(script).toBeDefined();
@@ -27,6 +33,7 @@ test("sends the security and cache headers", async ({ request }) => {
   expect(dav.headers()["content-security-policy"]).toBe(
     "sandbox; default-src 'none'; frame-ancestors 'none'",
   );
+  expect(dav.headers()["referrer-policy"]).toBe("no-referrer");
 });
 
 test("breaks no rule of its own content security policy", async ({ page }) => {

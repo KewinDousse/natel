@@ -5,10 +5,15 @@ import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
-// The app's Content-Security-Policy, read from the Caddyfile so the e2e suite
-// runs the production bundle under the policy users get.
+// The app's security headers, read from the Caddyfile so the e2e suite runs
+// the production bundle under the headers users get.
 const caddyfile = readFileSync(`${import.meta.dirname}/Caddyfile`, "utf8");
-const csp = /\(security_headers\)[\s\S]*?Content-Security-Policy "([^"]+)"/.exec(caddyfile)?.[1];
+const snippet = /\(security_headers\)\s*\{\s*header\s*\{([^}]*)\}/.exec(caddyfile)?.[1] ?? "";
+const securityHeaders: Record<string, string> = {};
+for (const [, name, value] of snippet.matchAll(/^\s*([\w-]+) "([^"]+)"$/gm)) {
+  if (name && value) securityHeaders[name] = value;
+}
+const csp = securityHeaders["Content-Security-Policy"];
 if (!csp) throw new Error("No Content-Security-Policy in the Caddyfile's security_headers");
 
 // The demo build (ADR 025): an in-memory CardDAV stand-in, servable under a
@@ -107,6 +112,6 @@ export default defineConfig({
       : undefined,
   },
   preview: {
-    headers: { "Content-Security-Policy": csp },
+    headers: securityHeaders,
   },
 });

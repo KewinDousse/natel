@@ -23,6 +23,14 @@
     # included (through /dav). Photos from vCards are shown as data: or
     # blob: URLs.
     Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    # A link out doesn't tell the site where this instance lives
+    Referrer-Policy "no-referrer"
+    # A window that opened the app, or that it opens, gets no handle on it
+    Cross-Origin-Opener-Policy "same-origin"
+    # Other sites can't load the app's files
+    Cross-Origin-Resource-Policy "same-origin"
+    # Features the app never asks for
+    Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
   }
 }
 
@@ -59,6 +67,7 @@
     # sabre/dav's browser) must not run as the app's origin.
     header Content-Security-Policy "sandbox; default-src 'none'; frame-ancestors 'none'"
     header X-Content-Type-Options "nosniff"
+    header Referrer-Policy "no-referrer"
   }
 
   # ---------------------------------------------------------------
