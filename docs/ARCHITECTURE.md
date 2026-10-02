@@ -20,6 +20,9 @@ Browser ──HTTPS──▶ Caddy (single container)
 - It drops `WWW-Authenticate` from responses: that challenge makes the browser
   open its own Basic auth prompt over the app, which reports a rejected login
   itself.
+- It lets no cookie through, `Cookie` up or `Set-Cookie` down: the session
+  cookie a server sets (Baïkal opens a PHP session on every request) would
+  stay in the browser after logout (invariant 3).
 - It relays only `PROPFIND`, `REPORT`, `PUT` and `DELETE`, the methods the app
   sends; anything else gets a 405, in Vite's proxy too. Every path of the
   server is reachable under `/dav`, so this keeps a `GET` or a `POST` from

@@ -42,6 +42,11 @@
       # prompt over the app. The app sends credentials itself and reports a
       # rejected login on its own, so the challenge is dropped.
       header_down -WWW-Authenticate
+      # The app authenticates every request itself. A session cookie the
+      # server sets (Baïkal and Nextcloud do, even for Basic auth) would
+      # outlive the logout in the browser, against "no credentials at rest".
+      header_up -Cookie
+      header_down -Set-Cookie
     }
     # The app only fetches from here; a page the server renders (an error,
     # sabre/dav's browser) must not run as the app's origin.

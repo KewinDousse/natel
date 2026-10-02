@@ -87,14 +87,19 @@ export default defineConfig({
                 return req.url;
               }
             },
-            // Same as the Caddyfile's header_down: map redirects under /dav
-            // and drop the challenge that opens the browser's login prompt.
+            // Same as the Caddyfile's header_up and header_down: map redirects
+            // under /dav, drop the challenge that opens the browser's login
+            // prompt, and let no cookie through either way.
             configure: (proxy) => {
+              proxy.on("proxyReq", (proxyReq) => {
+                proxyReq.removeHeader("cookie");
+              });
               proxy.on("proxyRes", (res) => {
                 const location = res.headers.location;
                 if (location)
                   res.headers.location = location.replace(/^(https?:\/\/[^/]+)?\//, "/dav/");
                 delete res.headers["www-authenticate"];
+                delete res.headers["set-cookie"];
               });
             },
           },
