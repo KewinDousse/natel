@@ -266,7 +266,7 @@ export function validateDraft(draft: ContactDraft): ValidationErrors {
   }
 
   // URL format validation (lenient)
-  if (draft.url.length > 0 && !isValidUrl(draft.url)) {
+  if (draft.url.length > 0 && !isWebUrl(draft.url)) {
     errors.url = "field_url_invalid";
   }
 
@@ -314,8 +314,11 @@ function isValidEmail(value: string): boolean {
   return domain.includes(".") && domain.length >= 3;
 }
 
-/** Lenient URL check — requires scheme + host. */
-function isValidUrl(value: string): boolean {
+/**
+ * An http or https URL: the only kind a draft may hold, and the only kind
+ * the contact page turns into a link, whatever another client wrote.
+ */
+export function isWebUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";

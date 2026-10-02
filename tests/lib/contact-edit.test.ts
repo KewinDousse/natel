@@ -11,6 +11,7 @@ import {
   dirtyDiff,
   isDirty,
   isValid,
+  isWebUrl,
   nextId,
   rebaseDraft,
   replaceFirstType,
@@ -478,6 +479,26 @@ describe("validateDraft", () => {
       expect(errors.bday_day).toBeUndefined();
       expect(errors.bday_year).toBeUndefined();
     });
+  });
+});
+
+describe("isWebUrl", () => {
+  it("accepts http and https addresses", () => {
+    expect(isWebUrl("https://example.org/a")).toBe(true);
+    expect(isWebUrl("http://example.org")).toBe(true);
+  });
+
+  it("refuses any other scheme, also behind the whitespace the URL parser strips", () => {
+    expect(isWebUrl("ms-msdt:/id PCWDiagnostic")).toBe(false);
+    expect(isWebUrl("javascript:alert(1)")).toBe(false);
+    expect(isWebUrl(" javascript:alert(1)")).toBe(false);
+    expect(isWebUrl("\tjavascript:alert(1)")).toBe(false);
+    expect(isWebUrl("data:text/html,<p>")).toBe(false);
+  });
+
+  it("refuses what isn't a URL", () => {
+    expect(isWebUrl("example.org")).toBe(false);
+    expect(isWebUrl("")).toBe(false);
   });
 });
 

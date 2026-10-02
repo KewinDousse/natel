@@ -233,6 +233,41 @@ describe("contact page content", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Web address
+// ---------------------------------------------------------------------------
+
+describe("web address", () => {
+  async function renderWithUrl(url: string) {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:site",
+      "FN:Meyer Luc",
+      "N:Meyer;Luc;;;",
+      `URL:${url}`,
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ site: card });
+    renderApp("/contacts/site");
+  }
+
+  it.each([["https://example.org/luc"], ["http://example.org/luc"]])("links %s", async (url) => {
+    await renderWithUrl(url);
+    const link = await screen.findByRole("link", { name: url });
+    expect(link.getAttribute("href")).toBe(url);
+  });
+
+  // A card written by another client or imported from a file can carry any scheme.
+  it("shows an address with another scheme as text, not as a link", async () => {
+    await renderWithUrl("ms-msdt:/id PCWDiagnostic");
+    expect(await screen.findByText("ms-msdt:/id PCWDiagnostic")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /ms-msdt/ })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Phones, emails, action row
 // ---------------------------------------------------------------------------
 

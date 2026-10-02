@@ -20,6 +20,7 @@ import {
   dirtyDiff,
   isDirty,
   isValid,
+  isWebUrl,
   nextId,
   rebaseDraft,
   replaceFirstType,
@@ -1800,14 +1801,19 @@ function ContactFiche({
                     <EditableCell
                       frameClassName={TEXT}
                       view={
-                        <a
-                          href={contact.fields.url}
-                          className="block min-w-0 truncate hover:underline"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {contact.fields.url}
-                        </a>
+                        // Another scheme could open a local application.
+                        isWebUrl(contact.fields.url) ? (
+                          <a
+                            href={contact.fields.url}
+                            className="block min-w-0 truncate hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {contact.fields.url}
+                          </a>
+                        ) : (
+                          <span className="block min-w-0 truncate">{contact.fields.url}</span>
+                        )
                       }
                     />
                   }
