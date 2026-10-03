@@ -18,6 +18,11 @@ updates:
     groups:
       images:
         patterns: ["*"]
+    # A new Node major is a deliberate move, made by hand once it is LTS:
+    # Node 25+ drops corepack, which the Dockerfile enables.
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /
