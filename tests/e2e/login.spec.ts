@@ -26,3 +26,27 @@ test("leaves no cookie in the browser once signed in", async ({ page }) => {
   await expect(page.getByRole("searchbox")).toBeVisible();
   expect(await page.context().cookies()).toEqual([]);
 });
+
+// The thumb-index tabs are decoration: screen readers skip them, and on the
+// smallest desktop they end above the tagline, so above the wordmark too.
+test("ends the index tabs above the tagline", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 640 });
+  await page.goto("/");
+  const tabs = page.locator("aside ol");
+  await expect(tabs.locator("li")).toHaveText([
+    "A–B",
+    "C–D",
+    "E–G",
+    "H–K",
+    "L–M",
+    "N–P",
+    "Q–S",
+    "T–V",
+    "W–Z",
+  ]);
+  await expect(tabs).toHaveAttribute("aria-hidden", "true");
+  const box = await tabs.boundingBox();
+  const tagline = await page.getByText("A directory for your contacts").boundingBox();
+  if (!box || !tagline) throw new Error("not laid out");
+  expect(box.y + box.height).toBeLessThanOrEqual(tagline.y);
+});

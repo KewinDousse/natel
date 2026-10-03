@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { LanguageSelect } from "@/components/language-select";
 import { LoginForm } from "@/components/login-form";
 import { useI18n } from "@/i18n/react";
+import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/session";
 
 /**
@@ -28,12 +29,36 @@ const RED_PANEL_LANGUAGE_VARS = {
   "--input": "var(--brand-surface-foreground)",
 } as CSSProperties;
 
+/**
+ * Thumb-index tabs on the red panel's edge, as on a paper phone book.
+ * Decorative: letters only, no data, not clickable. N–P stands out for Natel.
+ */
+const INDEX_TABS = ["A–B", "C–D", "E–G", "H–K", "L–M", "N–P", "Q–S", "T–V", "W–Z"];
+const CURRENT_TAB = "N–P";
+
 function LoginRoute() {
   const { t } = useI18n();
 
   return (
     <div className="min-h-dvh pb-14 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pb-0">
       <aside className="relative flex flex-col justify-between gap-6 lg:justify-end overflow-hidden bg-brand-surface px-5 pb-7 lg:gap-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-brand-surface-foreground sm:px-8 lg:min-h-dvh lg:px-12 lg:py-12">
+        <ol
+          className="absolute top-0 right-0 hidden h-[62%] w-13 flex-col lg:flex"
+          aria-hidden="true"
+        >
+          {INDEX_TABS.map((tab) => (
+            <li
+              key={tab}
+              className={cn(
+                "flex flex-1 items-center justify-center border-b border-l border-brand-surface-foreground/35 text-[0.8125rem] font-bold",
+                tab === CURRENT_TAB && "bg-brand-surface-foreground text-brand-surface",
+              )}
+            >
+              {tab}
+            </li>
+          ))}
+        </ol>
+
         {/* Mobile language select, restyled against the red panel */}
         <div className="flex justify-end lg:hidden" style={RED_PANEL_LANGUAGE_VARS}>
           <LoginLanguage id="lang-mobile" />
