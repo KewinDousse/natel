@@ -899,6 +899,13 @@ and never sees `tsdav` or HTTP.
   seed back, and no visitor ever sees another's changes, so there is
   nothing to moderate or reset on a schedule. Import adds to the tab's
   book, and export downloads it, as usual.
+- The seed's people are League of Legends characters, and its phone
+  numbers come only from ranges reserved for fiction, in several
+  countries' formats, so the demo shows the formats Natel reads without
+  ever showing a number someone owns: zeroed Swiss numbers, ARCEP's
+  fiction ranges in France, Ofcom's drama numbers in the UK, 555-01xx in
+  the US, ACMA's fiction numbers in Australia. Some are stored as people
+  type them, so the formatting shows too.
 - Hosting: the demo is static files, served by the repository's GitHub
   Pages site, built and deployed by a workflow on each `vX.Y.Z` tag (a job
   with `pages: write` and `id-token: write`); enabling Pages in the

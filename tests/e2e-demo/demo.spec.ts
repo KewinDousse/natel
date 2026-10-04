@@ -6,7 +6,7 @@ async function signIn(page: Page): Promise<void> {
   await page.getByLabel("Username").fill("visitor");
   await page.getByLabel("Password", { exact: true }).fill("anything");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("link", { name: /Rochat Léa/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Crownguard Luxanna/ })).toBeVisible();
 }
 
 test("signs in with any credentials, and says on every screen that it is a demo", async ({
@@ -15,7 +15,7 @@ test("signs in with any credentials, and says on every screen that it is a demo"
   await page.goto("./");
   await signIn(page);
   await expect(page.getByText("Demo: nothing is saved, change anything you like.")).toBeVisible();
-  await page.getByRole("link", { name: /Rochat Léa/ }).click();
+  await page.getByRole("link", { name: /Crownguard Luxanna/ }).click();
   await expect(page).toHaveURL(/\/natel\/contacts\/p01$/);
   await expect(page.getByText("Demo", { exact: true }).filter({ visible: true })).toBeVisible();
 });
@@ -24,8 +24,8 @@ test("keeps the open contact marked in the list under the subpath", async ({ pag
   test.skip(isMobile, "the list and the contact share the screen from lg");
   await page.goto("./");
   await signIn(page);
-  await page.getByRole("link", { name: /Rochat Léa/ }).click();
-  await expect(page.getByRole("link", { name: /Rochat Léa/ })).toHaveAttribute(
+  await page.getByRole("link", { name: /Crownguard Luxanna/ }).click();
+  await expect(page.getByRole("link", { name: /Crownguard Luxanna/ })).toHaveAttribute(
     "aria-current",
     "page",
   );
@@ -40,7 +40,7 @@ test("loads the app on a deep link", async ({ page }) => {
 test("forgets an edit on reload", async ({ page }) => {
   await page.goto("./");
   await signIn(page);
-  await page.getByRole("link", { name: /Rochat Léa/ }).click();
+  await page.getByRole("link", { name: /Crownguard Luxanna/ }).click();
   await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
   await page.locator('input[type="tel"]').first().fill("+41 79 000 99 99");
   await page.getByRole("button", { name: "Save" }).click();
@@ -49,7 +49,7 @@ test("forgets an edit on reload", async ({ page }) => {
 
   await page.reload();
   await signIn(page);
-  await page.getByRole("link", { name: /Rochat Léa/ }).click();
+  await page.getByRole("link", { name: /Crownguard Luxanna/ }).click();
   await expect(page.getByRole("link", { name: "079 000 00 01" }).first()).toBeVisible();
 });
 
