@@ -11,7 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useRouter } from "@tanstack/react-router";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
-import { useI18n } from "@/i18n/react";
+import { type I18nContextValue, useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import {
   applyDraft,
@@ -37,6 +37,7 @@ import {
 } from "@/lib/contact-list";
 import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
+import { formatMegabytes } from "@/lib/format-size";
 import { decodeImage, PhotoError } from "@/lib/photo-prepare";
 import { isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
@@ -833,7 +834,7 @@ function ContactFiche({
           if (isNew) setSaveError(t("err_create_exists"));
           else setConflict(true);
         } else {
-          setSaveError(t(writeErrorKey(err, "save")));
+          setSaveError(writeErrorText(err, "save", t, locale));
         }
         return;
       }
@@ -853,7 +854,7 @@ function ContactFiche({
       }
       await finishSave(saved, savedId, session, pending, sent);
     },
-    [t, isNew, delta, editBase, finishSave, router, routeId, onIdChange],
+    [t, isNew, delta, editBase, finishSave, router, routeId, onIdChange, locale],
   );
 
   // What the contact's own card needs for the group changes: CATEGORIES
@@ -1040,9 +1041,9 @@ function ContactFiche({
       if (session !== editSession.current) return;
       setSaveStatus("idle");
       if (err instanceof DavError && err.code === "CONFLICT") setDeleteConflict("delete");
-      else setSaveError(t(writeErrorKey(err, "delete")));
+      else setSaveError(writeErrorText(err, "delete", t, locale));
     }
-  }, [editBase, deleteContact, router, showToast, t]);
+  }, [editBase, deleteContact, router, showToast, t, locale]);
 
   // Move (ADR 021) — the card as the server has it goes to the other book,
   // then leaves this one. After a failure the page stays in edit mode, with
@@ -1100,7 +1101,7 @@ function ContactFiche({
           setDeleteConflict("move");
           break;
         case "failed":
-          setSaveError(t(writeErrorKey(outcome.error, "move")));
+          setSaveError(writeErrorText(outcome.error, "move", t, locale));
           break;
         case "exists":
           setSaveError(t("err_move_exists"));
@@ -1124,7 +1125,7 @@ function ContactFiche({
           break;
       }
     },
-    [auth, editBase, selectedBook, selectBook, queryClient, router, showToast, t],
+    [auth, editBase, selectedBook, selectBook, queryClient, router, showToast, t, locale],
   );
 
   // Copy handler
@@ -2136,13 +2137,21 @@ const NETWORK_ERROR_KEYS: Record<"save" | "delete" | "move", TranslationKey> = {
   move: "err_move_network",
 };
 
-function writeErrorKey(err: unknown, write: "save" | "delete" | "move"): TranslationKey {
+function writeErrorText(
+  err: unknown,
+  write: "save" | "delete" | "move",
+  t: I18nContextValue["t"],
+  locale: string,
+): string {
   if (err instanceof DavError && err.code === "NETWORK") {
-    return NETWORK_ERROR_KEYS[write];
+    return t(NETWORK_ERROR_KEYS[write]);
   }
-  if (err instanceof DavError && err.code === "AUTH") return "err_save_auth";
-  if (err instanceof DavError && err.code === "TOO_LARGE") return "err_save_too_large";
-  return write === "move" ? "err_move_unexpected" : "err_save_unexpected";
+  if (err instanceof DavError && err.code === "AUTH") return t("err_save_auth");
+  if (err instanceof DavError && (err.code === "TOO_LARGE" || err.code === "MAYBE_TOO_LARGE")) {
+    const key = err.code === "TOO_LARGE" ? "err_save_too_large" : "err_save_maybe_too_large";
+    return t(key, { size: formatMegabytes(err.bytes ?? 0, locale) });
+  }
+  return t(write === "move" ? "err_move_unexpected" : "err_save_unexpected");
 }
 
 // ---------------------------------------------------------------------------

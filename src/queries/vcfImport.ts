@@ -15,7 +15,8 @@ export type ImportFailureReason =
   | "conflict"
   | "refused"
   | "network"
-  | "too_large";
+  | "too_large"
+  | "maybe_too_large";
 
 /** A failed card, named by its FN or N, else by its place in the file (1-based). */
 export type ImportFailure = { name: string; position: number; reason: ImportFailureReason };
@@ -107,5 +108,6 @@ function failureReason(err: unknown): ImportFailureReason {
   if (err instanceof DavError && err.code === "CONFLICT") return "conflict";
   if (err instanceof DavError && err.code === "NETWORK") return "network";
   if (err instanceof DavError && err.code === "TOO_LARGE") return "too_large";
+  if (err instanceof DavError && err.code === "MAYBE_TOO_LARGE") return "maybe_too_large";
   return "refused";
 }

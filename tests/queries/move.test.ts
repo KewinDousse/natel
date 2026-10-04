@@ -107,14 +107,15 @@ describe("moveContact", () => {
   });
 
   it("shows a create refused outright as an error", async () => {
-    const auth = new DavError("403", "AUTH");
-    mockCreateCard.mockRejectedValueOnce(auth);
-    expect(await moveContact(AUTH, source, TARGET)).toEqual({ kind: "failed", error: auth });
+    for (const err of [new DavError("403", "AUTH"), new DavError("413", "TOO_LARGE")]) {
+      mockCreateCard.mockRejectedValueOnce(err);
+      expect(await moveContact(AUTH, source, TARGET)).toEqual({ kind: "failed", error: err });
+    }
     expect(mockDeleteCard).not.toHaveBeenCalled();
   });
 
   it("never deletes the source when the create may have landed", async () => {
-    for (const err of [NET, ODD]) {
+    for (const err of [NET, ODD, new DavError("lost", "MAYBE_TOO_LARGE")]) {
       mockCreateCard.mockRejectedValueOnce(err);
       expect(await moveContact(AUTH, source, TARGET)).toEqual({ kind: "create_uncertain" });
     }

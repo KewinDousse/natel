@@ -47,7 +47,8 @@ export type DavErrorCode =
   | "NETWORK"
   | "UNEXPECTED"
   | "CONFLICT"
-  | "TOO_LARGE";
+  | "TOO_LARGE"
+  | "MAYBE_TOO_LARGE";
 
 /** Typed error for CardDAV operations. */
 export class DavError extends Error {
@@ -55,16 +56,22 @@ export class DavError extends Error {
    * Machine-readable error code for programmatic handling.
    *
    * - CONFLICT: HTTP 412 Precondition Failed (resource changed on server).
-   * - TOO_LARGE: HTTP 413 on a PUT, or a network failure while sending a
-   *   card over 1 MB, which a proxy often gives instead (ADR 023).
+   * - TOO_LARGE: HTTP 413 on a PUT: the server, or a proxy in front of it,
+   *   refused the card for its size (ADR 023).
+   * - MAYBE_TOO_LARGE: a network failure while sending a card over 1 MB,
+   *   which a proxy often gives instead of a 413, but which a dropped
+   *   connection gives too (ADR 023).
    * - UNEXPECTED: data integrity violation (e.g. missing/empty ETag for a
    *   conditional write) or any unrecognised server error.
    */
   public readonly code: DavErrorCode;
+  /** The size of the card sent, for TOO_LARGE and MAYBE_TOO_LARGE. */
+  public readonly bytes?: number;
 
-  constructor(message: string, code: DavErrorCode, cause?: unknown) {
+  constructor(message: string, code: DavErrorCode, cause?: unknown, bytes?: number) {
     super(message, { cause });
     this.name = "DavError";
     this.code = code;
+    this.bytes = bytes;
   }
 }

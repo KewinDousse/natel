@@ -83,6 +83,7 @@ describe("importVcf", () => {
       if (href.endsWith("cnet.vcf")) throw new DavError("net", "NETWORK");
       if (href.endsWith("c403.vcf")) throw new DavError("403", "UNEXPECTED");
       if (href.endsWith("c413.vcf")) throw new DavError("413", "TOO_LARGE");
+      if (href.endsWith("cbig.vcf")) throw new DavError("lost", "MAYBE_TOO_LARGE");
       return { href, etag: '"1"' };
     });
     const file = ["BEGIN:VCARD\r\nFN:cut short\r\n"].join("");
@@ -93,7 +94,8 @@ describe("importVcf", () => {
         card(["UID:ok", "FN:Fine"]) +
         card(["UID:ok", "FN:Again"]) +
         file +
-        card(["UID:c413", "FN:Heavy"]),
+        card(["UID:c413", "FN:Heavy"]) +
+        card(["UID:cbig", "FN:Dropped"]),
     );
     expect(await done).toEqual({
       imported: 1,
@@ -105,6 +107,7 @@ describe("importVcf", () => {
         { name: "Again", position: 5, reason: "duplicate" },
         { name: "", position: 6, reason: "unreadable" },
         { name: "Heavy", position: 7, reason: "too_large" },
+        { name: "Dropped", position: 8, reason: "maybe_too_large" },
       ],
     });
   });

@@ -29,7 +29,7 @@ export type MoveOutcome =
   /** The delete may have landed; the copy stays. */
   | { kind: "delete_uncertain" };
 
-const DEFINITE = new Set(["CONFLICT", "NOT_FOUND", "AUTH"]);
+const DEFINITE = new Set(["CONFLICT", "NOT_FOUND", "AUTH", "TOO_LARGE"]);
 
 /** True when the request certainly did not take effect. */
 function definite(err: unknown): err is DavError {

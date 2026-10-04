@@ -21,6 +21,7 @@ const REASON_KEYS: Record<ImportFailureReason, TranslationKey> = {
   refused: "import_reason_refused",
   network: "import_reason_network",
   too_large: "import_reason_too_large",
+  maybe_too_large: "import_reason_maybe_too_large",
 };
 
 export function ImportDialog({

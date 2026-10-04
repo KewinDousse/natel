@@ -249,13 +249,17 @@ function assertOk(
   );
 }
 
+function byteLength(text: string): number {
+  return new TextEncoder().encode(text).length;
+}
+
 /** A body past which a proxy's default request limit is likely (a stock nginx stops at 1 MB). */
 const LARGE_BODY_BYTES = 1024 * 1024;
 
 /**
  * PUT a card. A proxy often answers a body over its limit by closing the
  * connection rather than with a 413, so a network failure on a large card
- * reads as TOO_LARGE (ADR 023).
+ * reads as MAYBE_TOO_LARGE (ADR 023).
  */
 async function putCard(
   client: DAVClient,
@@ -280,16 +284,25 @@ async function putCard(
       context,
     );
     if (responses[0]?.status === 413) {
-      throw new DavError(`CardDAV card too large: ${context}`, "TOO_LARGE", responses[0]);
+      throw new DavError(
+        `CardDAV card too large: ${context}`,
+        "TOO_LARGE",
+        responses[0],
+        byteLength(vcardText),
+      );
     }
     assertOk(responses[0], context);
   } catch (err) {
-    if (
-      err instanceof DavError &&
-      err.code === "NETWORK" &&
-      new TextEncoder().encode(vcardText).length > LARGE_BODY_BYTES
-    ) {
-      throw new DavError(`CardDAV card too large: ${context} — connection lost`, "TOO_LARGE", err);
+    if (err instanceof DavError && err.code === "NETWORK") {
+      const bytes = byteLength(vcardText);
+      if (bytes > LARGE_BODY_BYTES) {
+        throw new DavError(
+          `CardDAV connection lost sending a large card: ${context}`,
+          "MAYBE_TOO_LARGE",
+          err,
+          bytes,
+        );
+      }
     }
     throw err;
   }

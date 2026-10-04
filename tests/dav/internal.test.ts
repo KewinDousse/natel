@@ -803,11 +803,14 @@ describe("updateCard", () => {
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
+    const bytes = new TextEncoder().encode(VCARD).length;
     await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
       code: "TOO_LARGE",
+      bytes,
     });
     await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({
       code: "TOO_LARGE",
+      bytes,
     });
   });
 
@@ -823,14 +826,15 @@ describe("updateCard", () => {
     });
   });
 
-  it("reads a lost connection as TOO_LARGE only for a card over 1 MB", async () => {
+  it("reads a lost connection as MAYBE_TOO_LARGE only for a card over 1 MB", async () => {
     const davId = vi.fn().mockRejectedValue(new TypeError("Load failed"));
     mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
     const large = VCARD.replace("END:VCARD", `NOTE:${"é".repeat(600_000)}\r\nEND:VCARD`);
     await expect(session.updateCard(CARD_HREF, '"old"', large)).rejects.toMatchObject({
-      code: "TOO_LARGE",
+      code: "MAYBE_TOO_LARGE",
+      bytes: new TextEncoder().encode(large).length,
     });
     await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
       code: "NETWORK",

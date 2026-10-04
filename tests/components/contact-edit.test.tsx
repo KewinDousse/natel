@@ -506,15 +506,36 @@ describe("edit mode — save error", () => {
     await waitFor(() => expect(screen.getByText(/Erreur réseau/)).toBeTruthy());
   });
 
-  it("says a card refused for its size can pass once the server's limit is raised", async () => {
-    mockUpdateCard.mockRejectedValueOnce(new DavError("Too large", "TOO_LARGE"));
+  it("says the server refused a card for its size, and how large it was", async () => {
+    mockUpdateCard.mockRejectedValueOnce(
+      new DavError("Too large", "TOO_LARGE", undefined, 7_000_000),
+    );
     const { article } = await renderEditView("editable");
     const user = userEvent.setup();
 
     await user.type(screen.getByDisplayValue("John"), "x");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
-    await waitFor(() => expect(screen.getByText(/refusé un contact aussi lourd/)).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText(/refusé ce contact pour sa taille \(6,7\s?Mo\)/)).toBeTruthy(),
+    );
+    expect(article.getAttribute("data-mode")).toBe("edit");
+  });
+
+  it("hedges about the size when the connection dropped on a large card", async () => {
+    mockUpdateCard.mockRejectedValueOnce(
+      new DavError("Lost", "MAYBE_TOO_LARGE", undefined, 1_900_000),
+    );
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/connexion a coupé.*\(1,9\s?Mo\).*peut-être refusé/)).toBeTruthy(),
+    );
+    expect(screen.queryByText(/refusé ce contact pour sa taille/)).toBeNull();
     expect(article.getAttribute("data-mode")).toBe("edit");
   });
 });

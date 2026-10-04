@@ -452,9 +452,10 @@ itself is not drawn in DESIGN.md.
   differs from the version it started from, the action is disabled with a
   hint to save or cancel first.
 - Each request's outcome is read from its `DavError` code. A definite answer
-  (`CONFLICT`, `NOT_FOUND`, `AUTH`) means the request did not take effect;
-  `NETWORK` and `UNEXPECTED` (any other status, including 5xx, or a lost
-  answer to the PUT or to the PROPFIND that follows it) mean it may have.
+  (`CONFLICT`, `NOT_FOUND`, `AUTH`, and `TOO_LARGE`, a 413 on the create)
+  means the request did not take effect; `NETWORK`, `MAYBE_TOO_LARGE` and
+  `UNEXPECTED` (any other status, including 5xx, or a lost answer to the
+  PUT or to the PROPFIND that follows it) mean it may have.
   For a clear refusal that maps to `UNEXPECTED` (a 409, a 415), the cautious
   message is accepted.
   - The create gets a definite answer: nothing changed, the error is shown.
@@ -724,11 +725,15 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   canvas, so it is unaffected.
 - No size limit of Natel's own. A server that refuses the card for its size
   (413, a new `DavError` code `TOO_LARGE` in `src/dav/`) shows an error
-  saying the server refused a card this large and
-  that its request size limit can be raised (a stock nginx in front of
-  Baïkal stops at 1 MB); the edit stays open. A proxy often closes the
-  connection on a large body instead, so a network failure on a card
-  larger than 1 MB shows the same hint.
+  saying the server refused the card for its size, with the card's size,
+  and that its request size limit can be raised; the edit stays open. The
+  413 is certain about the size, not about which hop refused it, so the
+  message says "the server", as the user sees it, and names no server. A
+  proxy often closes the connection on a large body instead, but a dropped
+  connection looks the same: a network failure on a card larger than 1 MB
+  (a stock nginx's limit) is `MAYBE_TOO_LARGE`, and its message says the
+  connection dropped, that the size may be why, and to try again
+  otherwise. The import names both reasons the same way.
 - Encoding in the card:
   - On a 3.0 card: `PHOTO;ENCODING=b;TYPE=JPEG:<base64>` (or `TYPE=PNG`,
     `GIF`, `WEBP`; RFC 2426, what Apple and ez-vcard write, and what ical.js
