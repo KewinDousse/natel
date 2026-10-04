@@ -14,7 +14,15 @@ import {
   zoomTo,
 } from "@/lib/photo-crop";
 import { stripMetadata } from "@/lib/photo-metadata";
-import { preparePhoto, toBase64 } from "@/lib/photo-prepare";
+import {
+  keptWhole,
+  MAX_KEPT_BYTES,
+  MAX_SIDE,
+  preparePhoto,
+  scaledSize,
+  scaleSteps,
+  toBase64,
+} from "@/lib/photo-prepare";
 import photos from "../vcard/photo-bytes.json";
 
 const landscape = { width: 800, height: 600 };
@@ -73,14 +81,68 @@ describe("preparePhoto without a crop", () => {
   });
 });
 
-describe("preparePhoto with a crop", () => {
-  it("refuses an area past the canvas cap before drawing anything", async () => {
-    const bytes = Uint8Array.from(atob(photos.jpeg), (c) => c.charCodeAt(0));
-    const bitmap = { width: 5000, height: 5000 } as ImageBitmap;
-    const area = { x: 0, y: 0, width: 5000, height: 5000 };
-    await expect(preparePhoto(bytes, bitmap, area)).rejects.toMatchObject({
-      code: "TOO_LARGE_TO_CROP",
-    });
+describe("scaledSize", () => {
+  it("brings the longest side down to the limit, keeping the ratio", () => {
+    expect(scaledSize({ width: 4000, height: 3000 }, 1024)).toEqual({ width: 1024, height: 768 });
+    expect(scaledSize({ width: 1200, height: 4800 }, 1024)).toEqual({ width: 256, height: 1024 });
+  });
+
+  it("never scales up", () => {
+    expect(scaledSize({ width: 300, height: 200 }, 1024)).toEqual({ width: 300, height: 200 });
+  });
+});
+
+describe("scaleSteps", () => {
+  it("halves until the next half would pass the target, then lands on it", () => {
+    expect(scaleSteps({ width: 4000, height: 3000 }, { width: 1024, height: 768 })).toEqual([
+      { width: 2000, height: 1500 },
+      { width: 1024, height: 768 },
+    ]);
+  });
+
+  it("draws once when the area is already within twice the target", () => {
+    expect(scaleSteps({ width: 1500, height: 1500 }, { width: 1024, height: 1024 })).toEqual([
+      { width: 1024, height: 1024 },
+    ]);
+    expect(scaleSteps({ width: 300, height: 200 }, { width: 300, height: 200 })).toEqual([
+      { width: 300, height: 200 },
+    ]);
+  });
+
+  it("skips a half past iOS Safari's canvas cap, and never undershoots the target", () => {
+    const target = { width: 1024, height: 768 };
+    const steps = scaleSteps({ width: 12000, height: 9000 }, target);
+    expect(steps[0]).toEqual({ width: 3000, height: 2250 });
+    expect(steps.at(-1)).toEqual(target);
+    for (const step of steps) {
+      expect(step.width * step.height).toBeLessThanOrEqual(16_777_216);
+      expect(step.width).toBeGreaterThanOrEqual(target.width);
+      expect(step.height).toBeGreaterThanOrEqual(target.height);
+    }
+  });
+});
+
+describe("keptWhole", () => {
+  const bytes = Uint8Array.from(atob(photos.png), (c) => c.charCodeAt(0));
+
+  it("keeps a file within MAX_SIDE and MAX_KEPT_BYTES", () => {
+    expect(keptWhole(bytes, { width: MAX_SIDE, height: 6 })?.format).toBe("png");
+  });
+
+  it("re-encodes an image past MAX_SIDE", () => {
+    expect(keptWhole(bytes, { width: MAX_SIDE + 1, height: 6 })).toBeNull();
+  });
+
+  it("re-encodes a file whose kept data is past MAX_KEPT_BYTES", () => {
+    // A PNG ancillary chunk the filter keeps (sBIT), padded past the limit.
+    const iend = bytes.length - 12;
+    const data = new Uint8Array(MAX_KEPT_BYTES);
+    const chunk = new Uint8Array(12 + data.length);
+    new DataView(chunk.buffer).setUint32(0, data.length);
+    chunk.set([0x73, 0x42, 0x49, 0x54], 4);
+    const large = new Uint8Array([...bytes.subarray(0, iend), ...chunk, ...bytes.subarray(iend)]);
+    expect(stripMetadata(large)?.bytes.length).toBeGreaterThan(MAX_KEPT_BYTES);
+    expect(keptWhole(large, { width: 8, height: 6 })).toBeNull();
   });
 });
 

@@ -37,7 +37,6 @@ export type ChosenPhoto =
 
 const ERROR_KEYS: Record<PhotoError["code"], TranslationKey> = {
   UNDECODABLE: "photo_err_undecodable",
-  TOO_LARGE_TO_CROP: "photo_err_too_large_to_crop",
   ENCODE_FAILED: "photo_err_encode",
 };
 

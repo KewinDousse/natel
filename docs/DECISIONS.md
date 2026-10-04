@@ -595,16 +595,19 @@ quick start, when groups ship. Saving a contact can write several cards, so a
 save can partly fail; the bottom bar then says what was not saved and how
 to finish it. Loading a book now sorts group cards from contacts.
 
-## 023 — Photos: the chosen image is kept as it is, without the metadata that doesn't show
+## 023 — Photos: a small image is kept as it is, a large one scaled down, without the metadata that doesn't show
 
 **Context.** The contact page draws a photo and "Changer la
 photo" / "Retirer la photo" (DESIGN.md), but `PHOTO` is neither shown nor
 edited today; it is only preserved. The photo has to show on Android
 (DAVx⁵, ez-vcard) and Apple clients in vCard 3.0 and 4.0, and the crop
-needs either a library or a canvas. The maintainer's rule: Natel doesn't
-lose what the user sees of their photo and doesn't choose a compression
-level for them, so a large file makes a large card; metadata that doesn't
-change how the image shows, such as a GPS location, can go. ical.js 2.2.1
+needs either a library or a canvas. The maintainer's rule: the photo keeps
+the best quality the circumstances allow, knowing most platforms already
+re-encode contact photos. A small file stays as it is; a large one is
+scaled down, rather than making a card that a stock server refuses (a
+stock nginx in front of Baïkal stops at 1 MB) and that every phone
+downloads at each sync, only to shrink it to an avatar. Metadata that
+doesn't change how the image shows, such as a GPS location, can go. ical.js 2.2.1
 reads a 3.0 `PHOTO` with an `ENCODING` as binary and round-trips it byte
 for byte. It types the 4.0
 data URI as `uri` but escapes it like text, so the comma comes out as
@@ -634,7 +637,8 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
 - Writing, when the frame ends as it opened (1×, centred: the centred
   square every client shows of a non-square photo; the final crop rectangle
   is compared by value, so a frame moved and brought back counts as
-  unchanged), the image is kept whole:
+  unchanged), an image at most 1024 px on its longest side whose kept data
+  is at most 512 KB is kept whole:
   - A JPEG, PNG, GIF or WebP file keeps its image data byte for byte, at
     its size and resolution, with no re-encoding. Only its metadata is
     filtered, by copying the file's segments or chunks verbatim, in their
@@ -688,20 +692,32 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
     EXIF and show it sideways: the maintainer's device check settles it,
     and if it does, rotated photos go through the canvas as below.
   - Any other format the browser decodes (AVIF, BMP, TIFF…), which not
-    every client reads, goes through the canvas, as for a crop below.
-- Writing, when the frame is moved or zoomed, or for an uncommon format:
-  the square (or, uncropped, the whole image) is drawn on a canvas at the
-  source's resolution, never scaled, and encoded in the source's family: a
-  JPEG as JPEG at the highest quality the browser offers (1.0), anything
-  else as PNG, lossless. This is the closest to the source a browser can
-  write without a library, and it costs something: the result loses its
-  colour profile and all metadata, the rotation is baked in, an HDR photo
-  loses its gain map, a JPEG is often larger than its source,
-  a 16-bit or HDR source drops to 8 bits, a HEIC or AVIF becomes a much
-  larger PNG, and an animated GIF or WebP keeps only its first frame. The
-  canvas is `display-p3` where the browser supports it
-  (`getContext("2d", { colorSpace: "display-p3" })`), sRGB elsewhere, where
-  a Display-P3 photo loses the colours outside sRGB.
+    every client reads, and any larger image go through the canvas, as for
+    a crop below.
+- Writing, when the frame is moved or zoomed, for an uncommon format, or
+  for a larger image: the square (or, uncropped, the whole image) is drawn
+  on a canvas, scaled down so its longest side is at most 1024 px (never
+  up). 1024 px is past what any client shows a contact photo at (Android
+  keeps 720 px) and leaves a sharp avatar on a high-density screen. The
+  scaling halves the image step by step with `imageSmoothingQuality:
+  "high"`, then lands on the target: one large step aliases in browsers
+  whose smoothing reads few source pixels per output pixel. The result is
+  a JPEG at quality 0.9, where the loss doesn't show at avatar sizes for a
+  third of quality 1's weight. A source that isn't a JPEG is checked for
+  transparency, and kept as a PNG if it has some and the PNG is at most
+  512 KB; a heavier one (a cut-out photo) is flattened on white and
+  becomes a JPEG, since a card that size is what servers refuse. A PNG,
+  GIF or WebP source without transparency is also encoded as a PNG, and
+  the lighter is kept, so a flat graphic stays a crisp PNG and a photo
+  becomes a JPEG. A browser that hands back another type than
+  asked for fails the photo. It costs something: the result loses its
+  colour profile and all metadata, the rotation is baked in (which settles
+  Android's EXIF question for these), an HDR photo loses its gain map, a
+  16-bit or HDR source drops to 8 bits, and an animated GIF or WebP keeps
+  only its first frame. A photo of at most 1024 px and 512 KB, uncropped,
+  avoids all of it. The canvas is `display-p3` where the browser supports
+  it (`getContext("2d", { colorSpace: "display-p3" })`), sRGB elsewhere,
+  where a Display-P3 photo loses the colours outside sRGB.
 - Considered: a lossless JPEG crop and rotation (jpegtran compiled to
   WebAssembly), which keeps the colour profile and adds no JPEG loss, but crops only on
   the 8 or 16 px block grid and adds a dependency of a few hundred KB, which
@@ -709,21 +725,23 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   lossless from there, but several times larger. Merging this ADR as
   written picks the canvas path; either option is asked for in review
   instead.
-- A canvas past what the browser can hold shows an error in the dialog, in
-  the `role="alert"` message, saying the image is too large to crop in this
-  browser, and to zoom in or choose a smaller image; the image is never
-  scaled down to fit. Browsers can fail silently there (iOS Safari caps a
-  canvas at 16,777,216 px, less than a 24 MP photo, and may hand back a
-  blank one), so every check runs: the area against that cap before
-  drawing, in every browser so the behaviour is the same and testable, at
-  the cost of refusing on desktop a crop it could handle; a `getContext` or
-  `toBlob` that returns `null`; and the encoded blob decoded back to the
-  expected size, with a few sampled pixels compared, within a JPEG
-  tolerance, to the same area drawn small from the source. A blank image
-  never replaces the user's photo, and the new photo shows on the contact
-  page in edit mode before it is saved. An uncropped JPEG, PNG, GIF or WebP never goes through the
-  canvas, so it is unaffected.
-- No size limit of Natel's own. A server that refuses the card for its size
+- Browsers can fail silently on a canvas (iOS Safari caps one at
+  16,777,216 px, less than a 24 MP photo, and may hand back a blank one).
+  The output is at most 1024 × 1024, and a halving step past the cap is
+  skipped, so no canvas goes past it. Every other check runs: a
+  `getContext` or `toBlob` that returns `null`, and the encoded blob
+  decoded back to the expected size, with a few sampled pixels compared,
+  within a JPEG tolerance, to the same area drawn small from the source
+  (through the same halving, so both alias alike, and both on white, where
+  a nearly transparent pixel's colour no longer swings with its alpha). Each canvas is emptied once used, since iOS
+  Safari counts canvas memory until garbage collection.
+  A failure shows an error in the dialog, in the `role="alert"` message.
+  A blank image never replaces the user's photo, and the new photo shows
+  on the contact page in edit mode before it is saved. A photo kept whole
+  never goes through the canvas, so it is unaffected.
+- Past the 1024 px and 512 KB rule above, no size limit of Natel's own:
+  a card can still be large through other properties or another client's
+  photo. A server that refuses the card for its size
   (413, a new `DavError` code `TOO_LARGE` in `src/dav/`) shows an error
   saying the server refused the card for its size, with the card's size,
   and that its request size limit can be raised; the edit stays open. The
@@ -791,16 +809,19 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   `fixtures/public/` when provided. Round-trip tests check that a card keeps
   its photo byte for byte when another field is edited, except that a 4.0
   data URI in `PHOTO` or `LOGO` read with `,` or `\;` is written with `\,`
-  and `;`; and that an uncropped JPEG, PNG, GIF or WebP lands in the card
-  with its image data byte for byte and only the kept metadata.
+  and `;`; and that an uncropped JPEG, PNG, GIF or WebP within 1024 px
+  and 512 KB lands in the card with its image data byte for byte and only
+  the kept metadata.
 
-**Consequences.** Photos set in Natel show on Android and Apple devices, as
-the user chose them: a large file makes a large card, which every client
-downloads on each sync and Natel loads with the book at sign-in, and which
-a server with a small request limit refuses. DAVx⁵ keeps only a scaled-down
-copy on the phone, and writes that copy back if the contact is later edited
-there. Only a crop or an uncommon format re-encodes the image (and a
-rotated photo, if the device check requires it). A photo
+**Consequences.** Photos set in Natel show on Android and Apple devices. A
+small photo stays as the user chose it; a large one is scaled down to
+1024 px, so the card stays within a few hundred KB: it fits a stock
+server's request limit, and every client downloads it on each sync and
+Natel with the book at sign-in without strain. DAVx⁵ keeps only a
+scaled-down copy on the phone, and writes that copy back if the contact
+is later edited there. A crop, an uncommon format or a large photo
+re-encodes the image (and a small rotated photo, if the device check
+requires it). A photo
 set in Natel carries no GPS location, camera or date: nothing that doesn't
 show leaves the device. Apple photos show uncropped, filling their square,
 until `X-ABCROP-RECTANGLE` is applied. The maintainer checks on real devices that

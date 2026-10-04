@@ -1,14 +1,15 @@
 /**
  * Turns a chosen file into the photo a card stores (ADR 023). An uncropped
- * JPEG, PNG, GIF or WebP keeps its image data byte for byte, only its hidden
- * metadata filtered; a crop, or any other format the browser decodes, is
- * drawn on a canvas at the source's resolution and encoded in the source's
- * family. Every way a browser can fail silently there is checked, so a blank
- * image never replaces the user's photo.
+ * JPEG, PNG, GIF or WebP that is already small keeps its image data byte for
+ * byte, only its hidden metadata filtered. Anything else (a crop, a large
+ * photo, a format not every client reads) is drawn on a canvas, scaled down
+ * to MAX_SIDE, and encoded as a JPEG, or a PNG when it has transparency or
+ * comes out smaller. Every way a browser can fail silently there is
+ * checked, so a blank image never replaces the user's photo.
  */
 
 import type { Rect, Size } from "./photo-crop";
-import { formatOf, stripMetadata } from "./photo-metadata";
+import { formatOf, type StrippedImage, stripMetadata } from "./photo-metadata";
 
 export type PreparedPhoto = {
   mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
@@ -16,12 +17,12 @@ export type PreparedPhoto = {
 };
 
 /**
- * Why a photo can't be used: the file doesn't decode, the area is past what
- * a canvas holds in every browser, or the canvas gave back nothing usable.
+ * Why a photo can't be used: the file doesn't decode, or the canvas gave
+ * back nothing usable.
  */
 export class PhotoError extends Error {
   constructor(
-    public readonly code: "UNDECODABLE" | "TOO_LARGE_TO_CROP" | "ENCODE_FAILED",
+    public readonly code: "UNDECODABLE" | "ENCODE_FAILED",
     cause?: unknown,
   ) {
     super(`Photo: ${code}`, { cause });
@@ -29,8 +30,24 @@ export class PhotoError extends Error {
   }
 }
 
-/** iOS Safari's canvas cap, applied everywhere so the behaviour is the same. */
-export const MAX_CANVAS_PIXELS = 16_777_216;
+/**
+ * Longest side of a stored photo. Past what any client shows a contact
+ * photo at (Android keeps 720 px), with room for a sharp avatar on a
+ * high-density screen.
+ */
+export const MAX_SIDE = 1024;
+
+/** Past this, a photo is re-encoded even when it fits MAX_SIDE. */
+export const MAX_KEPT_BYTES = 512 * 1024;
+
+/** High enough that the loss doesn't show at avatar sizes, a third of quality 1's weight. */
+const JPEG_QUALITY = 0.9;
+
+/** Formats a flat graphic comes in, worth trying as a PNG. */
+const PNG_SOURCES = new Set<string | null>(["png", "gif", "webp"]);
+
+/** iOS Safari's canvas cap: no intermediate canvas goes past it. */
+const MAX_CANVAS_PIXELS = 16_777_216;
 
 /** The image with its EXIF orientation applied. */
 export async function decodeImage(file: Blob): Promise<ImageBitmap> {
@@ -54,24 +71,61 @@ export function bitmapSize(bitmap: ImageBitmap): Size {
 }
 
 /**
- * The photo to store. `crop` is null when the frame ended as it opened: the
- * whole file is then kept when its format allows.
+ * The photo to store. `crop` is null when the frame ended as it opened: a
+ * small enough file is then kept whole when its format allows.
  */
 export async function preparePhoto(
   bytes: Uint8Array,
   bitmap: ImageBitmap,
   crop: Rect | null,
 ): Promise<PreparedPhoto> {
-  if (crop === null) {
-    const stripped = stripMetadata(bytes);
-    if (stripped)
-      return { mediaType: `image/${stripped.format}`, base64: toBase64(stripped.bytes) };
-  }
+  const whole = crop === null ? keptWhole(bytes, bitmap) : null;
+  if (whole) return { mediaType: `image/${whole.format}`, base64: toBase64(whole.bytes) };
   const area = crop ?? { x: 0, y: 0, width: bitmap.width, height: bitmap.height };
-  const type = formatOf(bytes) === "jpeg" ? "image/jpeg" : "image/png";
-  const blob = await drawOnCanvas(bitmap, area, type);
-  await checkEncoded(blob, bitmap, area);
-  return { mediaType: type, base64: toBase64(new Uint8Array(await blob.arrayBuffer())) };
+  const size = scaledSize(area, MAX_SIDE);
+  const canvas = drawScaled(bitmap, area, size);
+  try {
+    const format = formatOf(bytes);
+    const { blob, type } = await encode(canvas, format !== "jpeg", PNG_SOURCES.has(format));
+    await checkEncoded(blob, bitmap, area, size);
+    return { mediaType: type, base64: toBase64(new Uint8Array(await blob.arrayBuffer())) };
+  } finally {
+    release(canvas);
+  }
+}
+
+/** The file without its hidden metadata, when it is small enough to keep as it is. */
+export function keptWhole(bytes: Uint8Array, image: Size): StrippedImage | null {
+  if (Math.max(image.width, image.height) > MAX_SIDE) return null;
+  const stripped = stripMetadata(bytes);
+  return stripped && stripped.bytes.length <= MAX_KEPT_BYTES ? stripped : null;
+}
+
+/** The area's size, scaled down so its longest side is at most `max`. */
+export function scaledSize(area: Size, max: number): Size {
+  const scale = Math.min(1, max / Math.max(area.width, area.height));
+  return {
+    width: Math.max(1, Math.round(area.width * scale)),
+    height: Math.max(1, Math.round(area.height * scale)),
+  };
+}
+
+/**
+ * The sizes to draw through, halving from the area towards the target, then
+ * the target. One large step aliases in browsers whose smoothing reads only
+ * a few source pixels per output pixel; no step goes past the canvas cap.
+ */
+export function scaleSteps(area: Size, target: Size): Size[] {
+  const steps: Size[] = [];
+  let { width, height } = area;
+  while (width / 2 >= target.width && height / 2 >= target.height) {
+    width = Math.round(width / 2);
+    height = Math.round(height / 2);
+    if (width * height <= MAX_CANVAS_PIXELS) steps.push({ width, height });
+  }
+  const last = steps.at(-1);
+  if (last?.width !== target.width || last?.height !== target.height) steps.push(target);
+  return steps;
 }
 
 function canvasOf(
@@ -88,25 +142,108 @@ function canvasOf(
   // others ignore the option and draw in sRGB.
   const context = canvas.getContext("2d", { colorSpace: "display-p3" });
   if (context === null) throw new PhotoError("ENCODE_FAILED");
+  context.imageSmoothingQuality = "high";
   return { canvas, context };
 }
 
-async function drawOnCanvas(bitmap: ImageBitmap, area: Rect, type: string): Promise<Blob> {
-  if (area.width * area.height > MAX_CANVAS_PIXELS) throw new PhotoError("TOO_LARGE_TO_CROP");
-  const { canvas, context } = canvasOf(area.width, area.height);
-  context.drawImage(bitmap, area.x, area.y, area.width, area.height, 0, 0, area.width, area.height);
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 1));
-  if (blob === null) throw new PhotoError("ENCODE_FAILED");
+/** iOS Safari counts canvas memory until GC: free a canvas as soon as it's done. */
+function release(canvas: HTMLCanvasElement): void {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
+function drawScaled(image: CanvasImageSource, area: Rect, size: Size): HTMLCanvasElement {
+  let source: CanvasImageSource = image;
+  let from: Rect = area;
+  let canvas: HTMLCanvasElement | null = null;
+  for (const step of scaleSteps(area, size)) {
+    const next = canvasOf(step.width, step.height);
+    next.context.drawImage(
+      source,
+      from.x,
+      from.y,
+      from.width,
+      from.height,
+      0,
+      0,
+      step.width,
+      step.height,
+    );
+    if (canvas) release(canvas);
+    canvas = next.canvas;
+    source = canvas;
+    from = { x: 0, y: 0, ...step };
+  }
+  if (canvas === null) throw new PhotoError("ENCODE_FAILED");
+  return canvas;
+}
+
+/**
+ * A JPEG, unless the image has transparency and its PNG fits
+ * MAX_KEPT_BYTES; past that, it is flattened on white, since a card that
+ * size is what servers refuse. A source that may be a flat graphic also
+ * tries PNG, and keeps the lighter.
+ */
+async function encode(
+  canvas: HTMLCanvasElement,
+  mayBeTransparent: boolean,
+  mayBeGraphic: boolean,
+): Promise<{ blob: Blob; type: "image/jpeg" | "image/png" }> {
+  if (mayBeTransparent && hasTransparency(canvas)) {
+    const png = await toBlob(canvas, "image/png");
+    if (png.size <= MAX_KEPT_BYTES) return { blob: png, type: "image/png" };
+    const flat = onWhite(canvas);
+    try {
+      return { blob: await toBlob(flat, "image/jpeg", JPEG_QUALITY), type: "image/jpeg" };
+    } finally {
+      release(flat);
+    }
+  }
+  const jpeg = await toBlob(canvas, "image/jpeg", JPEG_QUALITY);
+  if (!mayBeGraphic) return { blob: jpeg, type: "image/jpeg" };
+  const png = await toBlob(canvas, "image/png");
+  return png.size < jpeg.size
+    ? { blob: png, type: "image/png" }
+    : { blob: jpeg, type: "image/jpeg" };
+}
+
+function onWhite(image: HTMLCanvasElement): HTMLCanvasElement {
+  const { canvas, context } = canvasOf(image.width, image.height);
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, image.width, image.height);
+  context.drawImage(image, 0, 0);
+  return canvas;
+}
+
+async function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+  // A browser that can't encode the type hands back a PNG instead.
+  if (blob === null || blob.type !== type) throw new PhotoError("ENCODE_FAILED");
   return blob;
+}
+
+function hasTransparency(canvas: HTMLCanvasElement): boolean {
+  const context = canvas.getContext("2d");
+  if (context === null) throw new PhotoError("ENCODE_FAILED");
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] !== 255) return true;
+  }
+  return false;
 }
 
 /** Side of the thumbnails the encoded image is compared on. */
 const SAMPLE = 8;
-/** Per channel, well past JPEG's loss at quality 1, well short of a blank image. */
+/** Per channel, well past JPEG's loss at JPEG_QUALITY, well short of a blank image. */
 const TOLERANCE = 48;
 
 /** The encoded image decodes back to the expected size and looks like the source. */
-async function checkEncoded(blob: Blob, source: ImageBitmap, area: Rect): Promise<void> {
+async function checkEncoded(
+  blob: Blob,
+  source: ImageBitmap,
+  area: Rect,
+  size: Size,
+): Promise<void> {
   let decoded: ImageBitmap;
   try {
     decoded = await createImageBitmap(blob);
@@ -114,11 +251,11 @@ async function checkEncoded(blob: Blob, source: ImageBitmap, area: Rect): Promis
     throw new PhotoError("ENCODE_FAILED", err);
   }
   try {
-    if (decoded.width !== area.width || decoded.height !== area.height) {
+    if (decoded.width !== size.width || decoded.height !== size.height) {
       throw new PhotoError("ENCODE_FAILED");
     }
     const expected = sample(source, area);
-    const actual = sample(decoded, { x: 0, y: 0, width: area.width, height: area.height });
+    const actual = sample(decoded, { x: 0, y: 0, ...size });
     for (let i = 0; i < expected.length; i += 1) {
       if (Math.abs((expected[i] ?? 0) - (actual[i] ?? 0)) > TOLERANCE) {
         throw new PhotoError("ENCODE_FAILED");
@@ -129,10 +266,23 @@ async function checkEncoded(blob: Blob, source: ImageBitmap, area: Rect): Promis
   }
 }
 
+/**
+ * The area drawn small, through the same halving as the photo, so the
+ * source and its encoded copy alias alike. On white: a nearly transparent
+ * pixel's colour swings widely with a level of alpha, and a JPEG result was
+ * flattened anyway.
+ */
 function sample(image: ImageBitmap, area: Rect): Uint8ClampedArray {
-  const { context } = canvasOf(SAMPLE, SAMPLE);
-  context.drawImage(image, area.x, area.y, area.width, area.height, 0, 0, SAMPLE, SAMPLE);
-  return context.getImageData(0, 0, SAMPLE, SAMPLE).data;
+  const small = drawScaled(image, area, { width: SAMPLE, height: SAMPLE });
+  const thumbnail = onWhite(small);
+  try {
+    const context = thumbnail.getContext("2d");
+    if (context === null) throw new PhotoError("ENCODE_FAILED");
+    return context.getImageData(0, 0, SAMPLE, SAMPLE).data;
+  } finally {
+    release(small);
+    release(thumbnail);
+  }
 }
 
 /** Base64 of any size, in chunks small enough for `String.fromCharCode`. */

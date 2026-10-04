@@ -42,16 +42,21 @@ function jpegWithExif(orientation: number): Buffer {
 }
 const jpegWithGps = jpegWithExif(1);
 
-/** A 640 × 420 PNG whose red grows with x and green with y, so a pixel tells where it came from. */
-const gradientPng = (() => {
-  const [width, height] = [640, 420];
-  const rows = Buffer.alloc(height * (1 + width * 3));
+/**
+ * A PNG whose red grows with x and green with y, so a pixel tells where it
+ * came from; with `alpha`, every pixel has that opacity.
+ */
+function gradientPngOf(width: number, height: number, alpha?: number): Buffer {
+  const channels = alpha === undefined ? 3 : 4;
+  const rows = Buffer.alloc(height * (1 + width * channels));
   for (let y = 0; y < height; y += 1) {
-    const row = y * (1 + width * 3);
+    const row = y * (1 + width * channels);
     for (let x = 0; x < width; x += 1) {
-      rows[row + 1 + x * 3] = Math.floor((x * 255) / width);
-      rows[row + 2 + x * 3] = Math.floor((y * 255) / height);
-      rows[row + 3 + x * 3] = 160;
+      const at = row + 1 + x * channels;
+      rows[at] = Math.floor((x * 255) / width);
+      rows[at + 1] = Math.floor((y * 255) / height);
+      rows[at + 2] = 160;
+      if (alpha !== undefined) rows[at + 3] = alpha;
     }
   }
   const crcTable = Array.from({ length: 256 }, (_, n) => {
@@ -75,14 +80,15 @@ const gradientPng = (() => {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
   header.writeUInt32BE(height, 4);
-  header.set([8, 2, 0, 0, 0], 8);
+  header.set([8, channels === 4 ? 6 : 2, 0, 0, 0], 8);
   return Buffer.concat([
     Buffer.from("\x89PNG\r\n\x1a\n", "latin1"),
     chunk("IHDR", header),
     chunk("IDAT", deflateSync(rows)),
     chunk("IEND", Buffer.alloc(0)),
   ]);
-})();
+}
+const gradientPng = gradientPngOf(640, 420);
 
 async function signIn(page: Page): Promise<void> {
   await page.goto("/");
@@ -153,7 +159,9 @@ test("keeps an uncropped JPEG byte for byte, without its GPS location", async ({
   expect(jpegWithGps.includes("GPSLatitude")).toBe(true);
 });
 
-test("crops the square the frame shows, at the source's resolution", async ({ page }) => {
+test("crops the square the frame shows, at the source's resolution when it fits", async ({
+  page,
+}) => {
   await signIn(page);
   await editContact(page, /Lovelace/);
   await choosePhoto(page, jpegWithGps);
@@ -172,6 +180,55 @@ test("crops the square the frame shows, at the source's resolution", async ({ pa
   }, base64);
   // The 8 × 6 image at 2×: a square half its short side.
   expect(size).toEqual([3, 3]);
+});
+
+test("scales a large photo down to 1024 px on its longest side", async ({ page }) => {
+  await signIn(page);
+  await editContact(page, /Lovelace/);
+  await choosePhoto(page, gradientPngOf(2400, 1600), "large.png");
+  const dialog = page.getByRole("dialog", { name: "Crop photo" });
+  await dialog.getByRole("button", { name: "Use photo" }).click();
+  await expect(dialog).toBeHidden();
+
+  const [line] = await savedPhoto(page, "ada");
+  expect(line).toMatch(/^PHOTO;ENCODING=b;TYPE=(?:JPEG|PNG):/);
+  const base64 = line?.slice(line.indexOf(":") + 1) ?? "";
+  const [width, height, red] = await page.evaluate(async (data) => {
+    const blob = new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))]);
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const context = canvas.getContext("2d");
+    context?.drawImage(bitmap, 0, 0);
+    const pixel = context?.getImageData(bitmap.width - 1, 0, 1, 1).data;
+    return [bitmap.width, bitmap.height, pixel?.[0] ?? 0];
+  }, base64);
+  expect([width, height]).toEqual([1024, 683]);
+  // The right edge still holds the gradient's right edge: scaled, not cropped.
+  expect(red).toBeGreaterThan(240);
+});
+
+test("keeps a cropped photo with transparency as a PNG", async ({ page }) => {
+  await signIn(page);
+  await editContact(page, /Lovelace/);
+  await choosePhoto(page, gradientPngOf(64, 48, 128), "translucent.png");
+  const dialog = page.getByRole("dialog", { name: "Crop photo" });
+  await dialog.getByRole("slider", { name: "Zoom" }).fill("2");
+  await dialog.getByRole("button", { name: "Use photo" }).click();
+  await expect(dialog).toBeHidden();
+
+  const [line] = await savedPhoto(page, "ada");
+  expect(line).toMatch(/^PHOTO;ENCODING=b;TYPE=PNG:/);
+  const alpha = await page.evaluate(
+    async (data) => {
+      const blob = new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))]);
+      const bitmap = await createImageBitmap(blob);
+      const context = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
+      context?.drawImage(bitmap, 0, 0);
+      return context?.getImageData(0, 0, 1, 1).data[3] ?? 255;
+    },
+    line?.slice(line.indexOf(":") + 1) ?? "",
+  );
+  expect(Math.abs(alpha - 128)).toBeLessThanOrEqual(2);
 });
 
 test("applies the EXIF orientation of a rotated photo in the frame", async ({ page }) => {
@@ -201,7 +258,8 @@ test("moves the photo the way the arrow keys point", async ({ page }) => {
   await expect(dialog).toBeHidden();
 
   const [line] = await savedPhoto(page, "ada");
-  expect(line).toMatch(/^PHOTO;ENCODING=b;TYPE=PNG:/);
+  // A PNG source keeps whichever of PNG and JPEG comes out lighter.
+  expect(line).toMatch(/^PHOTO;ENCODING=b;TYPE=(?:PNG|JPEG):/);
   const [width, height, red, green] = await page.evaluate(
     async (data) => {
       const blob = new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))]);
@@ -216,8 +274,9 @@ test("moves the photo the way the arrow keys point", async ({ page }) => {
   );
   // 2× on 640 × 420: a 210 px square, first centred at x = 215, y = 105.
   expect([width, height]).toEqual([210, 210]);
-  expect(Math.abs(red - Math.floor(((215 + shift) * 255) / 640))).toBeLessThanOrEqual(3);
-  expect(Math.abs(green - Math.floor((105 * 255) / 420))).toBeLessThanOrEqual(3);
+  // Within JPEG's loss, far short of a pixel from elsewhere in the gradient.
+  expect(Math.abs(red - Math.floor(((215 + shift) * 255) / 640))).toBeLessThanOrEqual(8);
+  expect(Math.abs(green - Math.floor((105 * 255) / 420))).toBeLessThanOrEqual(8);
 });
 
 test("moves the frame with the keyboard, and keeps the image whole once back", async ({ page }) => {

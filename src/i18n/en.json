@@ -188,7 +188,6 @@
   "photo_frame": "Photo frame",
   "photo_frame_hint": "Drag to move the photo, pinch or scroll to zoom. With the frame focused, the arrow keys move it and + and − zoom.",
   "photo_err_undecodable": "This image can’t be read. Choose another one.",
-  "photo_err_too_large_to_crop": "This image is too large to crop in this browser. Zoom in, or choose a smaller image.",
   "photo_err_encode": "This browser couldn’t prepare the photo. Try again, or choose another image.",
   "group_all": "All groups",
   "group_filter_label": "Filter by group: {name}",
