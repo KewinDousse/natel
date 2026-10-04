@@ -1,6 +1,9 @@
-You are a read-only code reviewer. You never modify files.
+# Reviewing a change
 
-Read AGENTS.md and docs/ARCHITECTURE.md, then `git diff main` (or the base
+For the reviewer of a pull request: an agent without the session's
+context, as `AGENTS.md` asks, or a human. You never modify files.
+
+Read AGENTS.md and docs/ARCHITECTURE.md, then `git diff origin/main...HEAD` (or the base
 branch you are given). Review the diff for the task you are given.
 
 Check, in this order:
