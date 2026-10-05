@@ -178,16 +178,19 @@ its last message lists every open question.
 
 ## Commits
 
-Authored by the maintainer, committed by the agent, with its
+Authored by whoever the session's environment names, outside the
+repository (the maintainer, in theirs), by Claude otherwise; never set by
+hand or from the repository. Committed by the agent, with its
 `Co-Authored-By` trailer. Imperative one-line messages, as the workflow
 above says.
 
 ## Claude Code on the web
 
-`CLAUDE.md` only imports this file. The session start hook
-(`.claude/hooks/session-start.sh`) sets the git identities (maintainer as author,
-Claude as committer), installs the dependencies, Radicale and Xandikos, and
-exports `RADICALE_BIN`, `XANDIKOS_BIN` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE`
-for the sandbox's Chromium, so `pnpm e2e` works as is against both (ADR
-017). Baïkal needs Docker, which the sandbox lacks. Elsewhere, set these up by
-hand.
+`CLAUDE.md` only imports this file. The maintainer's environment sets the
+author outside the repository, through `GIT_AUTHOR_NAME` and
+`GIT_AUTHOR_EMAIL`. The session start hook
+(`.claude/hooks/session-start.sh`) sets Claude as committer, installs the
+dependencies, Radicale and Xandikos, and exports `RADICALE_BIN`,
+`XANDIKOS_BIN` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` for the sandbox's
+Chromium, so `pnpm e2e` works as is against both (ADR 017). Baïkal needs
+Docker, which the sandbox lacks. Elsewhere, set these up by hand.
