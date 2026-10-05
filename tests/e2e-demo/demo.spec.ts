@@ -31,6 +31,18 @@ test("keeps the open contact marked in the list under the subpath", async ({ pag
   );
 });
 
+// A static host sends no headers: the policy, Trusted Types included, comes
+// from the meta tag, which `vite preview`'s own headers would hide here.
+test("carries the content security policy in a meta tag", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the policy doesn't depend on the viewport");
+  await page.goto("./");
+  const policy = await page
+    .locator('meta[http-equiv="Content-Security-Policy"]')
+    .getAttribute("content");
+  expect(policy).toContain("default-src 'self'");
+  expect(policy).toContain("require-trusted-types-for 'script'; trusted-types 'none'");
+});
+
 test("loads the app on a deep link", async ({ page }) => {
   await page.goto("./contacts/p01");
   // Credentials live in memory only: a fresh load asks for them again.

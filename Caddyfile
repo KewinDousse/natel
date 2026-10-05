@@ -31,8 +31,10 @@
     X-Frame-Options "DENY"
     # Everything the app loads comes from this origin, the CardDAV server
     # included (through /dav). Photos from vCards are shown as data: or
-    # blob: URLs.
-    Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    # blob: URLs. No string reaches an HTML sink such as innerHTML, or loads
+    # as a script, a worker included (Trusted Types): the app has none, so a
+    # card's content never becomes markup. A worker would need a policy here.
+    Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'"
     # A link out doesn't tell the site where this instance lives
     Referrer-Policy "no-referrer"
     # A window that opened the app, or that it opens, gets no handle on it

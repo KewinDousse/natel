@@ -53,7 +53,9 @@ which the app is 1 MB; 12 MB of RAM at rest in a fresh container, about
 16 MB after a few hundred requests.
 
 Caddy sends a strict Content-Security-Policy (everything from the same
-origin, photos as `data:` or `blob:` URLs), keeps `/assets/*` for a year as
+origin, photos as `data:` or `blob:` URLs, and Trusted Types, so no string
+reaches an HTML sink such as `innerHTML` or loads as a script, a worker
+included), keeps `/assets/*` for a year as
 immutable (a missing one is a 404, not `index.html`) and has the rest
 revalidated. No path with a part that starts with a dot is served from the
 folder: it is a 404 under `/assets`, and the app elsewhere. Caddy also sends

@@ -10,7 +10,7 @@ test("sends the security and cache headers", async ({ request }) => {
   const page = await request.get("/");
   const headers = page.headers();
   expect(headers["content-security-policy"]).toBe(
-    "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'",
   );
   expect(headers["cache-control"]).toBe("no-cache");
   expect(headers["x-xss-protection"]).toBeUndefined();
