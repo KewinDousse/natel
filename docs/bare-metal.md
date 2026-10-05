@@ -77,7 +77,7 @@ then `sudo systemctl restart caddy`. That example serves Natel on
 | `SITE_ADDRESS` | `http://` | What Caddy serves. Exposed directly, your domain (`contacts.example.com`): Caddy gets and renews the certificate itself, on ports 80 and 443. |
 | `NATEL_BIND` | (all interfaces) | The interface Caddy listens on. Behind a reverse proxy on the same machine, `127.0.0.1`, so Natel can't be reached around the proxy in plain HTTP. A host in `SITE_ADDRESS` doesn't do that: Caddy still listens everywhere and only matches the `Host` header, which the client chooses. |
 | `NATEL_ROOT` | `/usr/share/caddy` | The folder holding the contents of `dist/`, and nothing else. |
-| `NATEL_ADMIN` | (off) | Caddy's admin API, which reconfigures Caddy without authentication for anyone on the machine. Leave it off. It is what `caddy reload` talks to, so `systemctl reload caddy` fails: use `systemctl restart caddy`. |
+| `NATEL_ADMIN` | (off) | Caddy's admin API, which reconfigures Caddy without authentication for anyone on the machine. Leave it unset, or set it to `off`: an empty value (`Environment=NATEL_ADMIN=`) turns it on at `localhost:2019`. It is what `caddy reload` talks to, so `systemctl reload caddy` fails: use `systemctl restart caddy`. |
 | `NATEL_HTTP_PORT`, `NATEL_HTTPS_PORT` | 80, 443 | The ports Caddy uses for HTTP and HTTPS when `SITE_ADDRESS` names none. |
 
 ## Update

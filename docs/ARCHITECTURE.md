@@ -70,10 +70,12 @@ renders never runs as the app's origin, and no referrer either.
 Caddy runs as an unprivileged user (UID 10001) that owns `/data` and
 `/config`, so the image listens on 8080, and on 8443 when `SITE_ADDRESS` is a
 domain (`NATEL_HTTP_PORT`, `NATEL_HTTPS_PORT`; 80 and 443 elsewhere). Caddy's
-admin API, which reconfigures it without authentication, is off unless
-`NATEL_ADMIN` gives it an address. The image sets `127.0.0.1:2019`, not
-published, for its `HEALTHCHECK`, which answers whatever
-`SITE_ADDRESS` is.
+admin API, which reconfigures it without authentication, is off when
+`NATEL_ADMIN` is unset or `off`, and on at the address it gives otherwise;
+an empty value turns it on at `localhost:2019`, since the Caddyfile's `off`
+fallback applies only to an unset variable. The image sets
+`127.0.0.1:2019`, not published, for its `HEALTHCHECK`, which answers
+whatever `SITE_ADDRESS` is.
 
 CI runs the e2e suite against Radicale, Baïkal and Xandikos, then builds the
 image for linux/amd64 and linux/arm64 and runs the suite against the amd64
