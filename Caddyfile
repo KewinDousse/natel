@@ -72,6 +72,13 @@
       # outlive the logout in the browser, against "no credentials at rest".
       header_up -Cookie
       header_down -Set-Cookie
+      # The server's own copies of the headers set below would add to them,
+      # and its software and version are nobody's business.
+      header_down -Content-Security-Policy
+      header_down -X-Content-Type-Options
+      header_down -Referrer-Policy
+      header_down -Server
+      header_down -X-Powered-By
     }
     # The app only fetches from here; a page the server renders (an error,
     # sabre/dav's browser) must not run as the app's origin.

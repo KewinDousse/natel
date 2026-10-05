@@ -34,6 +34,20 @@ test("sends the security and cache headers", async ({ request }) => {
     "sandbox; default-src 'none'; frame-ancestors 'none'",
   );
   expect(dav.headers()["referrer-policy"]).toBe("no-referrer");
+
+  // An answer from the server carries these, and only these: Radicale sends
+  // its own (tests/e2e/radicale.sh), which would add to them.
+  const answer = await request.fetch("/dav/", { method: "PROPFIND", headers: { Depth: "0" } });
+  const values = (name: string) =>
+    answer
+      .headersArray()
+      .filter((header) => header.name.toLowerCase() === name)
+      .map((header) => header.value);
+  expect(values("content-security-policy")).toEqual([
+    "sandbox; default-src 'none'; frame-ancestors 'none'",
+  ]);
+  expect(values("referrer-policy")).toEqual(["no-referrer"]);
+  expect(values("x-content-type-options")).toEqual(["nosniff"]);
 });
 
 test("breaks no rule of its own content security policy", async ({ page }) => {

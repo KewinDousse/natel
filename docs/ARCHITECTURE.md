@@ -23,6 +23,10 @@ Browser ──HTTPS──▶ Caddy (single container)
 - It lets no cookie through, `Cookie` up or `Set-Cookie` down: the session
   cookie a server sets (Baïkal opens a PHP session on every request) would
   stay in the browser after logout (invariant 3).
+- It drops the server's `Server` and `X-Powered-By`, which tell anyone what
+  runs behind it and in which version, and in Caddy the server's own
+  `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy`,
+  which would add to the ones `/dav` sends (below).
 - It relays only `PROPFIND`, `REPORT`, `PUT` and `DELETE`, the methods the app
   sends; anything else gets a 405, in Vite's proxy too. Every path of the
   server is reachable under `/dav`, so this keeps a `GET` or a `POST` from

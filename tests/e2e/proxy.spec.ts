@@ -22,3 +22,12 @@ test("refuses the methods the app never sends", async ({ request }) => {
     expect(response.headers().allow, method).toBe("PROPFIND, REPORT, PUT, DELETE");
   }
 });
+
+// Through Caddy as through Vite's proxy, which mirrors it.
+test("hides the server's software and version", async ({ request }) => {
+  const response = await request.fetch("/dav/", { method: "PROPFIND", headers: { Depth: "0" } });
+  const headers = response.headers();
+  // Caddy may name itself, without a version.
+  expect([undefined, "Caddy"]).toContain(headers.server);
+  expect(headers["x-powered-by"]).toBeUndefined();
+});

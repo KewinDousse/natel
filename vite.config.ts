@@ -94,7 +94,8 @@ export default defineConfig({
             },
             // Same as the Caddyfile's header_up and header_down: map redirects
             // under /dav, drop the challenge that opens the browser's login
-            // prompt, and let no cookie through either way.
+            // prompt, let no cookie through either way, and drop the server's
+            // software and version.
             configure: (proxy) => {
               proxy.on("proxyReq", (proxyReq) => {
                 proxyReq.removeHeader("cookie");
@@ -105,6 +106,8 @@ export default defineConfig({
                   res.headers.location = location.replace(/^(https?:\/\/[^/]+)?\//, "/dav/");
                 delete res.headers["www-authenticate"];
                 delete res.headers["set-cookie"];
+                delete res.headers.server;
+                delete res.headers["x-powered-by"];
               });
             },
           },
