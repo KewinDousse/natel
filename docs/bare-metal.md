@@ -20,6 +20,25 @@ pnpm build                 # writes dist/
 `pnpm dev` and `pnpm preview` are development servers. Don't serve Natel
 with them.
 
+## Caddy
+
+Install Caddy 2.9 or later from a package
+([caddyserver.com/docs/install](https://caddyserver.com/docs/install)), and
+check with `caddy version`. Debian 12 and 13, Ubuntu 24.04 to 26.04 and the
+distributions based on them ship Caddy 2.6, which lacks years of fixes and
+refuses this Caddyfile:
+`unrecognized servers option 'trusted_proxies'`.
+On those, add Caddy's
+[stable repository](https://caddyserver.com/docs/install#debian-ubuntu-raspbian),
+or on Debian 13 install it from `trixie-backports`. Don't get an older Caddy
+to start by deleting the lines it refuses: `NATEL_BIND` and
+`NATEL_TRUSTED_PROXIES` (see the README) would then do nothing, and Natel
+would listen on every interface.
+
+The package runs Caddy as its own `caddy` user under systemd, allowed to
+bind ports 80 and 443 without being root. Don't start Caddy as root by hand:
+a flaw in it or in what it parses would then run as root.
+
 ## Install
 
 Copy `dist/` alone into a folder of its own. Caddy serves every file in that
@@ -36,12 +55,6 @@ If this Caddy already serves other sites, copy the `(security_headers)`
 snippet and the site block into your own Caddyfile instead, and keep your
 global options. The admin API then follows them: Caddy turns it on by
 default, so add `admin off` there unless you need it.
-
-Install Caddy from your distribution's package
-([caddyserver.com/docs/install](https://caddyserver.com/docs/install)). It
-runs Caddy as its own `caddy` user under systemd, allowed to bind ports 80
-and 443 without being root. Don't start Caddy as root by hand: a flaw in it
-or in what it parses would then run as root.
 
 ## Configure
 
