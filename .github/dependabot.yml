@@ -1,12 +1,16 @@
 # Weekly updates, grouped so each ecosystem opens one pull request a week at
 # most; a major npm version gets its own. Actions and base images are pinned
 # by digest, which Dependabot moves along with their version comments.
+# A release is proposed a week after it came out: a compromised one is
+# usually pulled by then. Security updates don't wait.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
@@ -15,6 +19,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       images:
         patterns: ["*"]
@@ -28,6 +34,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       npm:
         update-types: [minor, patch]
@@ -36,6 +44,8 @@ updates:
     directory: /tests/e2e
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       e2e-servers:
         patterns: ["*"]
