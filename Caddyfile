@@ -23,8 +23,9 @@
 
 (security_headers) {
   header {
-    # HSTS — 1 year, include subdomains
-    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    # HTTPS only, for a year, on this host alone: its subdomains are their
+    # owner's to decide, and Natel uses no cookie for one of them to reach.
+    Strict-Transport-Security "max-age=31536000"
     # Prevent MIME sniffing
     X-Content-Type-Options "nosniff"
     # Don't let the page be framed

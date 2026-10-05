@@ -13,6 +13,7 @@ test("sends the security and cache headers", async ({ request }) => {
     "default-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'",
   );
   expect(headers["cache-control"]).toBe("no-cache");
+  expect(headers["strict-transport-security"]).toBe("max-age=31536000");
   expect(headers["x-xss-protection"]).toBeUndefined();
   expect(headers["referrer-policy"]).toBe("no-referrer");
   expect(headers["cross-origin-opener-policy"]).toBe("same-origin");

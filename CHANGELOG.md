@@ -23,6 +23,11 @@ Notable changes to Natel. The format follows
   `127.0.0.1:2019` for its healthcheck only.
 - No file or folder whose name starts with a dot (`.env`, `.git/`) is
   served, so one left in the app's folder outside the image stays private.
+- HSTS covers Natel's own host only, without `includeSubDomains`: a Natel
+  at the root of a domain no longer forces HTTPS on all its subdomains for a
+  year. A browser that already has the old rule drops it for the subdomains
+  on its next visit to an updated Natel; one that doesn't come back keeps it
+  until it expires.
 - A photo larger than 1024 px or 512 KB is scaled down to 1024 px on its
   longest side, so a phone photo fits a server's default request limit: a
   JPEG, or a PNG when it has transparency and stays under 512 KB, or comes
