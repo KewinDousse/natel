@@ -42,8 +42,8 @@ a flaw in it or in what it parses would then run as root.
 ## Install
 
 Copy `dist/` alone into a folder of its own. Caddy serves every file in that
-folder, so never point it at the repository: `.git/` or a `.env` would be
-served too.
+folder but those whose name starts with a dot (`.git/`, a `.env`), so never
+point it at the repository: everything else in it would be served too.
 
 ```sh
 sudo mkdir -p /usr/share/natel

@@ -51,9 +51,11 @@ which the app is 1 MB; 12 MB of RAM at rest in a fresh container, about
 Caddy sends a strict Content-Security-Policy (everything from the same
 origin, photos as `data:` or `blob:` URLs), keeps `/assets/*` for a year as
 immutable (a missing one is a 404, not `index.html`) and has the rest
-revalidated. It also sends `Referrer-Policy: no-referrer`,
-`Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` set to
-`same-origin`, and a `Permissions-Policy` that turns off the camera,
+revalidated. No path with a part that starts with a dot is served from the
+folder: it is a 404 under `/assets`, and the app elsewhere. Caddy also sends
+`Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy` and
+`Cross-Origin-Resource-Policy` set to `same-origin`, and a
+`Permissions-Policy` that turns off the camera,
 microphone, geolocation, payment and USB; `vite preview` sends the same
 headers, read from the Caddyfile, so the e2e suite runs under them.
 `/dav` responses carry a `sandbox` policy, so a page the CardDAV server

@@ -21,6 +21,8 @@ Notable changes to Natel. The format follows
   `docker run --rm -v <volume>:/data alpine chown -R 10001:10001 /data`.
 - Caddy's admin API is off outside the image, which keeps it on
   `127.0.0.1:2019` for its healthcheck only.
+- No file or folder whose name starts with a dot (`.env`, `.git/`) is
+  served, so one left in the app's folder outside the image stays private.
 - A photo larger than 1024 px or 512 KB is scaled down to 1024 px on its
   longest side, so a phone photo fits a server's default request limit: a
   JPEG, or a PNG when it has transparency and stays under 512 KB, or comes
