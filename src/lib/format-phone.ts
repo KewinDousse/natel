@@ -5,8 +5,9 @@
  * local format (e.g. 079 000 00 01), foreign numbers get international format.
  * Any parse failure or uncertainty returns the raw stored string untouched.
  *
- * tel: hrefs, copy actions, and everything that touches the vCard keep the RAW
- * stored value — this helper is display only.
+ * tel: hrefs are built by valueHref from the RAW stored value; copy actions
+ * and everything that touches the vCard keep it as is — this helper is
+ * display only.
  */
 
 import { parsePhoneNumberFromString } from "libphonenumber-js";

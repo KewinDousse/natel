@@ -1,6 +1,7 @@
 /**
  * Contact edit state — pure logic for building drafts, detecting changes,
- * validating fields, and applying edits back to a Contact.
+ * validating fields, and applying edits back to a Contact; and which of its
+ * values the contact page turns into links, and how.
  *
  * All functions are pure and fully unit-testable. No React, no I/O.
  */
@@ -325,6 +326,23 @@ export function isWebUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * What each scheme would read in a value as fields, an escape or a parameter
+ * (RFC 6068, 5724, 3966). A `,` stays: it adds a recipient the user sees, or
+ * a pause in a number.
+ */
+const URI_SYNTAX = { mailto: /[%?#&;=]/g, sms: /[%?#]/g, tel: /[%?#]/g };
+
+/**
+ * The link to a number or an address of a card, with the characters its
+ * scheme would read as syntax encoded: `?` would start the URI's own fields
+ * (a hidden copy, a prefilled body), `%` an escape. A phone dials `%23` as
+ * `#` (RFC 3966), and a number's `;ext=` stays a parameter.
+ */
+export function valueHref(scheme: "mailto" | "sms" | "tel", value: string): string {
+  return `${scheme}:${value.replace(URI_SYNTAX[scheme], (char) => encodeURIComponent(char))}`;
 }
 
 // ---------------------------------------------------------------------------

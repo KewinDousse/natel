@@ -293,6 +293,35 @@ describe("phones and action row", () => {
     expect(within(row).getByText("079 000 00 01")).toBeTruthy();
   });
 
+  // A card imported from a file or shared by another account can carry any value.
+  it("keeps a value from adding fields to the tel:, sms: and mailto: links", async () => {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:fields",
+      "FN:Meyer Luc",
+      "N:Meyer;Luc;;;",
+      "TEL;TYPE=CELL:*21#?body=Hi",
+      "EMAIL:luc@example.org?bcc=x@attacker.example&body=Hi%0A",
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ fields: card });
+    renderApp("/contacts/fields");
+
+    const write = await screen.findByRole("link", { name: "Écrire" });
+    expect(write.getAttribute("href")).toBe(
+      "mailto:luc@example.org%3Fbcc%3Dx@attacker.example%26body%3DHi%250A",
+    );
+    expect(screen.getByRole("link", { name: "SMS" }).getAttribute("href")).toBe(
+      "sms:*21%23%3Fbody=Hi",
+    );
+    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(hrefs).toContain("tel:*21%23%3Fbody=Hi");
+    expect(hrefs.filter((href) => /^(tel|sms|mailto):.*[?#]/.test(href ?? ""))).toEqual([]);
+  });
+
   it("marks the primary number (first TYPE=cell) text-xl font-bold, others not", async () => {
     await renderLoggedIn("/contacts/full");
 

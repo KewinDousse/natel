@@ -26,6 +26,7 @@ import {
   replaceFirstType,
   type ValidationErrors,
   validateDraft,
+  valueHref,
 } from "@/lib/contact-edit";
 import { bookGroupNames, contactGroupNames } from "@/lib/contact-groups";
 import {
@@ -1326,18 +1327,18 @@ function ContactFiche({
               view={
                 <div className="flex flex-wrap gap-2">
                   {primary && (
-                    <a href={`tel:${primary.value}`} className={PRIMARY_PILL}>
+                    <a href={valueHref("tel", primary.value)} className={PRIMARY_PILL}>
                       <PhoneIcon />
                       {t("call")}
                     </a>
                   )}
                   {primary && (
-                    <a href={`sms:${primary.value}`} className={OUTLINE_PILL}>
+                    <a href={valueHref("sms", primary.value)} className={OUTLINE_PILL}>
                       {t("sms")}
                     </a>
                   )}
                   {firstEmail && (
-                    <a href={`mailto:${firstEmail.value}`} className={OUTLINE_PILL}>
+                    <a href={valueHref("mailto", firstEmail.value)} className={OUTLINE_PILL}>
                       <MailIcon />
                       {t("write")}
                     </a>
@@ -1406,7 +1407,7 @@ function ContactFiche({
                       frameClassName={cn(field === primary ? "text-xl font-bold tabular" : TEXT)}
                       view={
                         <a
-                          href={`tel:${field.value}`}
+                          href={valueHref("tel", field.value)}
                           className="block min-w-0 truncate hover:underline"
                         >
                           {formatPhone(field.value)}
@@ -1447,7 +1448,7 @@ function ContactFiche({
                       )}
                       view={
                         <a
-                          href={`tel:${field.value}`}
+                          href={valueHref("tel", field.value)}
                           className="block min-w-0 truncate hover:underline"
                         >
                           {formatPhone(field.value)}
@@ -1500,7 +1501,7 @@ function ContactFiche({
                       frameClassName={TEXT}
                       view={
                         <a
-                          href={`mailto:${field.value}`}
+                          href={valueHref("mailto", field.value)}
                           className="block min-w-0 truncate hover:underline"
                         >
                           {field.value}
@@ -1538,7 +1539,7 @@ function ContactFiche({
                       frameClassName={TEXT}
                       view={
                         <a
-                          href={`mailto:${field.value}`}
+                          href={valueHref("mailto", field.value)}
                           className="block min-w-0 truncate hover:underline"
                         >
                           {field.value}
