@@ -72,6 +72,7 @@ contacts. Groups are the exception, because clients store them in two ways:
 | `BAIKAL_URL` | (required) | Origin of your CardDAV server, `scheme://host[:port]`, no path. Reached from inside the container: `http://baikal` works when Baïkal is a service of the same Compose file. |
 | `SITE_ADDRESS` | `http://` (port 8080) | What Caddy serves. Set it to your domain (`contacts.example.com`), publish the host's ports 80 and 443 to the container's 8080 and 8443 (`"80:8080"`, `"443:8443"`) and keep `/data` in a volume, and Caddy fetches and renews the certificate itself. |
 | `NATEL_TRUSTED_PROXIES` | (none) | The reverse proxies in front of Natel, as addresses or ranges separated by spaces (`172.16.0.0/12`), or `private_ranges` if nothing on those networks reaches Natel directly. The CardDAV server then sees each client's own address instead of the proxy's (see below). Only list your proxies: an address listed here can claim to be any client. |
+| `NATEL_ADMIN` | `127.0.0.1:2019` | Caddy's admin API, which reconfigures it without authentication and which the image's healthcheck reads. Set it to `"off"` when the container shares its network namespace (see below). |
 
 The container runs as an unprivileged user, UID 10001. A new named volume on
 `/data` needs nothing; a host directory mounted there, or a volume created by
@@ -162,6 +163,43 @@ server {
 **Nginx Proxy Manager**: add a proxy host for your domain with scheme `http`,
 forward hostname `natel` (the container, on the same Docker network) and port
 `8080`. In the SSL tab, request a certificate and turn on "Force SSL".
+
+### Host network, sidecars and pods
+
+The admin API listens on the container's own `127.0.0.1`. With
+`network_mode: host`, `network_mode: service:…` or `container:…` (a VPN or
+Tailscale sidecar, say), or in a Kubernetes pod, that address is shared:
+any user or process on the host, or any container sharing the namespace
+(the sidecar, the pod's other containers), could reconfigure Caddy, for
+example point `/dav` at a server of theirs and collect passwords. A port
+2019 already in use, by another Caddy for instance, also keeps Natel from
+starting.
+
+In those setups, turn the API off, and the healthcheck with it, since it
+reads the API and would then fail:
+
+```yaml
+services:
+  natel:
+    image: ghcr.io/kewindousse/natel:latest
+    network_mode: host
+    environment:
+      BAIKAL_URL: https://dav.example.com
+      NATEL_ADMIN: "off"
+    healthcheck:
+      disable: true
+```
+
+On the host's network, Natel also listens in plain HTTP on port 8080 of
+every interface, and no `ports:` mapping can keep it to `127.0.0.1`. With a
+reverse proxy on the same machine, set `NATEL_BIND: 127.0.0.1` (see
+[docs/bare-metal.md](docs/bare-metal.md)); otherwise, open 8080 in the
+host's firewall to your proxy alone, which works here, unlike for a
+published port.
+
+Kubernetes doesn't run the image's healthcheck: `NATEL_ADMIN` alone is
+enough there. A Docker network shared with a reverse proxy, as in the
+Traefik example above, needs none of this.
 
 ### Without Docker
 
