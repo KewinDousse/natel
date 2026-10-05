@@ -15,8 +15,8 @@ Notable changes to Natel. The format follows
 ### Changed
 
 - The image runs Caddy as an unprivileged user (UID 10001) and listens on
-  port 8080, and 8443 for HTTPS: publish `8080:8080` instead of `8080:80`,
-  and point a reverse proxy at port 8080. A `/data` volume from an earlier
+  port 8080, and 8443 for HTTPS: publish the container's port 8080 instead
+  of 80, and point a reverse proxy at port 8080. A `/data` volume from an earlier
   version must be handed to that user once:
   `docker run --rm -v <volume>:/data alpine chown -R 10001:10001 /data`.
 - Caddy's admin API is off outside the image, which keeps it on

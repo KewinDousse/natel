@@ -40,14 +40,17 @@ services:
     environment:
       BAIKAL_URL: https://dav.example.com           # your CardDAV server origin
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"                       # this machine only
 ```
 
 Open `http://localhost:8080`, log in with your CardDAV credentials.
 
 Your browser sends those credentials with every request, so anywhere but on
 your own machine, serve Natel over HTTPS: behind a reverse proxy (below), or
-let its Caddy get a certificate itself.
+let its Caddy get a certificate itself. That's why the port above is
+published on `127.0.0.1` only: `"8080:8080"` would open it, in plain HTTP,
+to every network the machine is on, and a firewall such as ufw or firewalld
+wouldn't close it, since Docker's own rules let it through.
 
 ## Compatibility
 
