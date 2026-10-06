@@ -380,12 +380,12 @@ describe("edit round-trip — type edit keeps the other TYPE values", () => {
     );
   });
 
-  it("keeps PREF when an email type changes", () => {
+  it("keeps INTERNET and PREF when an email type changes", () => {
     const result = editField(VCARD_MULTI_TYPE, (draft) => {
       if (draft.email[0]) draft.email[0].type = "work";
     });
     expect(result.split("\n").map((l) => l.trimEnd())).toContain(
-      "EMAIL;TYPE=WORK,PREF:primary@example.com",
+      "EMAIL;TYPE=WORK,INTERNET,PREF:primary@example.com",
     );
   });
 

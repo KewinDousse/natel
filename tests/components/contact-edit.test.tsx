@@ -17,6 +17,7 @@ import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
+import { usePreferences } from "@/store/preferences";
 import { useSessionStore } from "@/store/session";
 import { parse } from "@/vcard";
 
@@ -119,10 +120,23 @@ const CARD_TEXT_BDAY = [
   "END:VCARD",
 ].join("\r\n");
 
+const CARD_ORG = [
+  "BEGIN:VCARD",
+  "VERSION:3.0",
+  "UID:org",
+  "FN:Garage du Lac",
+  "N:;;;;",
+  "ORG:Garage du Lac",
+  "EMAIL;TYPE=INTERNET:info@garage.example",
+  "X-SOCIALPROFILE;TYPE=mastodon:https://social.example/@garage",
+  "END:VCARD",
+].join("\r\n");
+
 const CARDS: Record<string, string> = {
   editable: CARD_EDITABLE,
   minimal: CARD_MINIMAL,
   textbday: CARD_TEXT_BDAY,
+  org: CARD_ORG,
 };
 
 // ---------------------------------------------------------------------------
@@ -191,6 +205,7 @@ beforeEach(async () => {
   setLanguage("fr-FR");
   shimMatchMedia();
   localStorage.clear();
+  usePreferences.setState({ sortBy: "family", theme: null });
   useSessionStore.setState({ auth: null, selectedBook: null });
   vi.resetAllMocks();
   setupMocks();
@@ -248,18 +263,19 @@ describe("edit mode — enter/leave", () => {
 });
 
 describe("edit mode — add/remove fields", () => {
-  it("shows add phone button and adds a row", async () => {
+  it("shows add phone button and adds a row under the others, focused", async () => {
     const { article } = await renderEditView("editable");
-    const addBtn = within(article).getByText("+ Ajouter un téléphone");
+    const addBtn = within(article).getByText("Ajouter un téléphone");
     const user = userEvent.setup();
     await user.click(addBtn);
     const telInputs = article.querySelectorAll('input[type="tel"]');
     expect(telInputs.length).toBe(3);
+    await waitFor(() => expect(document.activeElement).toBe(telInputs[2]));
   });
 
   it("shows add email button and adds a row", async () => {
     const { article } = await renderEditView("editable");
-    const addBtn = within(article).getByText("+ Ajouter un e-mail");
+    const addBtn = within(article).getByText("Ajouter un e\u2060-\u2060mail");
     const user = userEvent.setup();
     await user.click(addBtn);
     const emailInputs = article.querySelectorAll('input[type="email"]');
@@ -277,12 +293,12 @@ describe("edit mode — add/remove fields", () => {
 
   it("shows add address button when no address", async () => {
     const { article } = await renderEditView("minimal");
-    expect(within(article).getByText("+ Ajouter une adresse")).toBeTruthy();
+    expect(within(article).getByText("Ajouter une adresse")).toBeTruthy();
   });
 
   it("shows add birthday button when no birthday", async () => {
     const { article } = await renderEditView("minimal");
-    expect(within(article).getByText("+ Ajouter un anniversaire")).toBeTruthy();
+    expect(within(article).getByText("Ajouter un anniversaire")).toBeTruthy();
   });
 });
 
@@ -310,8 +326,137 @@ describe("edit mode — validation", () => {
     const saveBtn = screen.getByRole("button", { name: "Enregistrer" });
     await user.click(saveBtn);
 
-    expect(await screen.findByText("Adresse e-mail invalide")).toBeTruthy();
+    expect(await screen.findByText("Adresse e\u2060-\u2060mail invalide")).toBeTruthy();
     expect(mockUpdateCard).not.toHaveBeenCalled();
+  });
+});
+
+describe("edit mode — name fields", () => {
+  it("come in the order the list sorts by", async () => {
+    usePreferences.setState({ sortBy: "given" });
+    const { article } = await renderEditView("editable");
+    const labels = within(article)
+      .getAllByText(/^(Nom|Prénom)$/)
+      .map((label) => label.textContent);
+    expect(labels).toEqual(["Prénom", "Nom"]);
+  });
+});
+
+describe("edit mode — field types", () => {
+  it("shows Autre for an e-mail typed only INTERNET, and offers no Mobile for e-mails", async () => {
+    await renderEditView("org");
+    const select = screen.getByRole("combobox", { name: "Type d’adresse e\u2060-\u2060mail" });
+    expect((select as HTMLSelectElement).value).toBe("");
+    const options = within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual(["Domicile", "Travail", "Autre"]);
+  });
+
+  it("offers Mobile for phone numbers", async () => {
+    await renderEditView("editable");
+    const [select] = screen.getAllByRole("combobox", { name: "Type de numéro" });
+    const options = within(select as HTMLElement)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual(["Mobile", "Travail", "Domicile", "Autre"]);
+  });
+});
+
+describe("edit mode — names", () => {
+  it("saves a card that has only an organisation", async () => {
+    await renderEditView("org");
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Fonction"), "Réparations");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    const vcardText = mockUpdateCard.mock.calls[0]?.[3] ?? "";
+    expect(vcardText).toContain("FN:Garage du Lac");
+    expect(vcardText).toContain("ORG:Garage du Lac");
+    expect(screen.queryByText("Indiquez un nom, un prénom ou une organisation.")).toBeNull();
+  });
+
+  it("asks for a name, a first name or an organisation when all three are empty", async () => {
+    await renderEditView("minimal");
+    const user = userEvent.setup();
+    await user.clear(screen.getByLabelText("Nom"));
+    await user.clear(screen.getByLabelText("Prénom"));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(await screen.findByText("Indiquez un nom, un prénom ou une organisation.")).toBeTruthy();
+    expect(mockUpdateCard).not.toHaveBeenCalled();
+  });
+});
+
+describe("edit mode — fields to fix on save", () => {
+  it("counts them in the bar and moves the focus to the first one", async () => {
+    await renderEditView("editable");
+    const user = userEvent.setup();
+    const [email] = await screen.findAllByDisplayValue("john@work.example");
+    if (!email) throw new Error("no e-mail field");
+    await user.clear(email);
+    await user.type(email, "not-an-email");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(await screen.findByText("1 champ à corriger")).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(email));
+    expect(mockUpdateCard).not.toHaveBeenCalled();
+  });
+});
+
+describe("edit mode — optional sections", () => {
+  it("opens the website field from its pill and focuses it", async () => {
+    const { article } = await renderEditView("minimal");
+    expect(within(article).queryByLabelText("Site web")).toBeNull();
+    const user = userEvent.setup();
+    await user.click(within(article).getByRole("button", { name: "Ajouter un site web" }));
+
+    const url = within(article).getByLabelText("Site web");
+    await waitFor(() => expect(document.activeElement).toBe(url));
+    expect(within(article).queryByRole("button", { name: "Ajouter un site web" })).toBeNull();
+  });
+
+  it("opens the note from its pill and focuses it", async () => {
+    const { article } = await renderEditView("minimal");
+    const user = userEvent.setup();
+    await user.click(within(article).getByRole("button", { name: "Ajouter une note" }));
+
+    const note = within(article).getByLabelText("Note");
+    await waitFor(() => expect(document.activeElement).toBe(note));
+  });
+});
+
+describe("edit mode — optional sections after a save", () => {
+  it("shows a note saved earlier when the form opens again", async () => {
+    const { article } = await renderEditView("minimal");
+    const user = userEvent.setup();
+    await user.click(within(article).getByRole("button", { name: "Ajouter une note" }));
+    await user.type(within(article).getByLabelText("Note"), "Rappeler lundi");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+
+    await user.keyboard("e");
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("edit"));
+    expect((within(article).getByLabelText("Note") as HTMLTextAreaElement).value).toBe(
+      "Rappeler lundi",
+    );
+    expect(within(article).queryByRole("button", { name: "Ajouter une note" })).toBeNull();
+  });
+});
+
+describe("edit mode — information not shown", () => {
+  it("lists the card's other properties in a dialog, as they are written", async () => {
+    const { article } = await renderEditView("org");
+    const user = userEvent.setup();
+    await user.click(
+      within(article).getByRole("button", { name: "1 autre information non affichée" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "Informations non affichées" });
+    expect(dialog.textContent).toContain(
+      "X-SOCIALPROFILE;TYPE=mastodon:https://social.example/@garage",
+    );
   });
 });
 
@@ -672,7 +817,7 @@ describe("edit mode — delete", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
-    const dialog = screen.getByRole("dialog", { name: "Supprimer ce contact\u00a0?" });
+    const dialog = screen.getByRole("dialog", { name: "Supprimer John Doe\u00a0?" });
     expect(mockDeleteCard).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole("button", { name: "Supprimer" }));
 
@@ -795,7 +940,7 @@ describe("edit mode — delete", () => {
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
 
     await waitFor(() =>
-      expect(screen.getByText("Erreur réseau — impossible de supprimer.")).toBeTruthy(),
+      expect(screen.getByText("Erreur réseau : rien n’a été supprimé.")).toBeTruthy(),
     );
   });
 });
@@ -950,6 +1095,17 @@ describe("view mode — E shortcut", () => {
     );
     return screen.findByRole("article", {}, { timeout: 5000 });
   }
+
+  it("opens the form on a section from its pencil, focused on its first value", async () => {
+    const article = await renderView();
+    const user = userEvent.setup();
+    await user.click(within(article).getByRole("button", { name: "Modifier les téléphones" }));
+
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("edit"));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(article).getByDisplayValue("+1-555-111-1111")),
+    );
+  });
 
   it("offers a Modifier pill in the mobile top bar, even on a name-only card", async () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });

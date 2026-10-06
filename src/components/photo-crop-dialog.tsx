@@ -29,6 +29,9 @@ import {
   zoomTo,
 } from "@/lib/photo-crop";
 import { bitmapSize, PhotoError, type PreparedPhoto, preparePhoto } from "@/lib/photo-prepare";
+import { cn } from "@/lib/utils";
+import { buttonClass, FOCUS_RING } from "./button";
+import { Dialog, DialogActions, DialogTitle } from "./dialog";
 
 /** The chosen file, decoded, or why it couldn't be. */
 export type ChosenPhoto =
@@ -70,6 +73,7 @@ export function PhotoCropDialog({
   const [frame, setFrame] = useState(0);
   const [error, setError] = useState<PhotoError | null>("error" in chosen ? chosen.error : null);
   const [working, setWorking] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const applyRef = useRef<HTMLButtonElement>(null);
@@ -162,20 +166,6 @@ export function PhotoCropDialog({
     }
   };
 
-  const trapTab = (event: ReactKeyboardEvent) => {
-    if (event.key !== "Tab") return;
-    const first = frameRef.current ?? cancelRef.current;
-    const last =
-      applyRef.current && !applyRef.current.disabled ? applyRef.current : cancelRef.current;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first?.focus();
-    }
-  };
-
   const use = async () => {
     if (!image) return;
     setWorking(true);
@@ -195,109 +185,95 @@ export function PhotoCropDialog({
   const scale = frame > 0 ? scaleOf(size, crop, frame) : 0;
 
   return (
-    <div
-      onClick={(event) => {
-        if (!working && event.target === event.currentTarget) onCancel();
-      }}
-      onKeyDown={trapTab}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      aria-busy={working}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center dark:bg-black/60"
-    >
-      <div
-        role="document"
-        className="w-full max-w-md rounded-t-xl bg-background p-6 shadow-overlay sm:rounded-xl"
-      >
-        <h2 id={titleId} className="font-display text-2xl font-bold leading-tight">
-          {t("photo_crop_title")}
-        </h2>
-        {image && (
-          <>
-            <div className="relative mt-4 overflow-hidden rounded-xl bg-black">
-              <div className="flex justify-center py-2">
-                <div
-                  ref={frameRef}
-                  // biome-ignore lint/a11y/noNoninteractiveTabindex: ADR 023 makes the frame the keyboard's target, a widget of its own
-                  tabIndex={0}
-                  role="application"
-                  aria-label={t("photo_frame")}
-                  aria-describedby={hintId}
-                  onKeyDown={onFrameKey}
-                  onPointerDown={onPointerDown}
-                  onPointerMove={onPointerMove}
-                  onPointerUp={onPointerEnd}
-                  onPointerCancel={onPointerEnd}
-                  className="relative aspect-square w-full max-w-80 cursor-grab touch-none rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:cursor-grabbing"
-                >
-                  {scale > 0 && (
-                    <img
-                      src={image.url}
-                      alt=""
-                      draggable={false}
-                      className="pointer-events-none absolute left-0 top-0 max-w-none origin-top-left select-none"
-                      style={{
-                        width: size.width * scale,
-                        height: size.height * scale,
-                        transform: `translate(${frame / 2 - crop.cx * scale}px, ${frame / 2 - crop.cy * scale}px)`,
-                      }}
-                    />
-                  )}
-                  {/* Dims the image outside the frame; the stage clips it. */}
-                  <div className="pointer-events-none absolute inset-0 rounded-xl shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" />
-                </div>
+    <Dialog titleId={titleId} panelRef={panelRef} busy={working} onDismiss={onCancel}>
+      <DialogTitle id={titleId}>{t("photo_crop_title")}</DialogTitle>
+      {image && (
+        <>
+          <div className="relative mt-4 overflow-hidden rounded-xl bg-black">
+            <div className="flex justify-center py-2">
+              <div
+                ref={frameRef}
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: ADR 023 makes the frame the keyboard's target, a widget of its own
+                tabIndex={0}
+                role="application"
+                aria-label={t("photo_frame")}
+                aria-describedby={hintId}
+                onKeyDown={onFrameKey}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerEnd}
+                onPointerCancel={onPointerEnd}
+                className={cn(
+                  "relative aspect-square w-full max-w-80 cursor-grab touch-none rounded-xl active:cursor-grabbing",
+                  FOCUS_RING,
+                )}
+              >
+                {scale > 0 && (
+                  <img
+                    src={image.url}
+                    alt=""
+                    draggable={false}
+                    className="pointer-events-none absolute left-0 top-0 max-w-none origin-top-left select-none"
+                    style={{
+                      width: size.width * scale,
+                      height: size.height * scale,
+                      transform: `translate(${frame / 2 - crop.cx * scale}px, ${frame / 2 - crop.cy * scale}px)`,
+                    }}
+                  />
+                )}
+                {/* Dims the image outside the frame; the stage clips it. */}
+                <div className="pointer-events-none absolute inset-0 rounded-xl shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" />
               </div>
             </div>
-            <p id={hintId} className="mt-2 text-caption text-muted-foreground">
-              {t("photo_frame_hint")}
-            </p>
-            <label htmlFor={zoomId} className="mt-3 block text-sm font-bold">
-              {t("photo_zoom")}
-            </label>
-            <input
-              id={zoomId}
-              type="range"
-              min={MIN_ZOOM}
-              max={MAX_ZOOM}
-              step={0.01}
-              value={crop.zoom}
-              disabled={working}
-              onChange={(event) =>
-                setCrop((state) => zoomTo(size, state, Number(event.target.value)))
-              }
-              className="mt-1 w-full accent-primary"
-            />
-          </>
-        )}
-        {error && (
-          <p role="alert" className="mt-4 text-sm text-destructive">
-            {t(ERROR_KEYS[error.code])}
+          </div>
+          <p id={hintId} className="mt-2 text-caption text-muted-foreground">
+            {t("photo_frame_hint")}
           </p>
-        )}
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button
-            ref={cancelRef}
-            type="button"
-            onClick={onCancel}
+          <label htmlFor={zoomId} className="mt-3 block text-sm font-bold">
+            {t("photo_zoom")}
+          </label>
+          <input
+            id={zoomId}
+            type="range"
+            min={MIN_ZOOM}
+            max={MAX_ZOOM}
+            step={0.01}
+            value={crop.zoom}
             disabled={working}
-            className="inline-flex h-10 items-center justify-center rounded-full border border-input bg-background px-4 text-sm font-bold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+            onChange={(event) =>
+              setCrop((state) => zoomTo(size, state, Number(event.target.value)))
+            }
+            className="mt-1 w-full accent-primary"
+          />
+        </>
+      )}
+      {error && (
+        <p role="alert" className="mt-4 text-sm text-destructive">
+          {t(ERROR_KEYS[error.code])}
+        </p>
+      )}
+      <DialogActions>
+        <button
+          ref={cancelRef}
+          type="button"
+          onClick={onCancel}
+          disabled={working}
+          className={buttonClass({ variant: "outline" })}
+        >
+          {t("cancel")}
+        </button>
+        {image && (
+          <button
+            ref={applyRef}
+            type="button"
+            onClick={use}
+            disabled={working}
+            className={buttonClass()}
           >
-            {t("cancel")}
+            {t("photo_use")}
           </button>
-          {image && (
-            <button
-              ref={applyRef}
-              type="button"
-              onClick={use}
-              disabled={working}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
-            >
-              {t("photo_use")}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+        )}
+      </DialogActions>
+    </Dialog>
   );
 }

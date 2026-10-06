@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
+import { fieldClass } from "@/components/button";
 import { LanguageSelect } from "@/components/language-select";
 import { LoginForm } from "@/components/login-form";
 import { useI18n } from "@/i18n/react";
@@ -50,7 +51,7 @@ function LoginRoute() {
             <li
               key={tab}
               className={cn(
-                "flex flex-1 items-center justify-center border-b border-l border-brand-surface-foreground/35 text-[0.8125rem] font-bold",
+                "flex flex-1 items-center justify-center border-b border-l border-brand-surface-foreground/35 text-small font-bold",
                 tab === CURRENT_TAB && "bg-brand-surface-foreground text-brand-surface",
               )}
             >
@@ -81,7 +82,7 @@ function LoginRoute() {
         <div className="h-8 lg:hidden" />
         <div className="flex flex-1 items-start justify-center lg:items-center lg:pb-24">
           <div className="w-full max-w-[24rem]">
-            <h1 className="font-display text-[2.75rem] font-bold leading-[0.95] tracking-[-0.005em] text-balance">
+            <h1 className="font-display text-title font-bold tracking-[-0.005em] text-balance">
               {t("title")}
             </h1>
             <p className="mt-3 text-base leading-relaxed text-muted-foreground">{t("lede")}</p>
@@ -102,7 +103,7 @@ function LoginLanguage({ id }: { id: string }) {
       <label htmlFor={id} className="text-sm font-bold">
         {t("lang_label")}
       </label>
-      <LanguageSelect id={id} className="h-9 px-2.5 text-sm" />
+      <LanguageSelect id={id} className={fieldClass("h-9 w-auto px-2.5 text-sm lg:text-sm")} />
     </div>
   );
 }

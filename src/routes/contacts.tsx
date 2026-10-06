@@ -15,15 +15,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { ContactDetailPane } from "@/components/contact-detail";
-import { ContactList } from "@/components/contact-list";
+import { ContactList, type ListLoad } from "@/components/contact-list";
 import { ImportDialog, type ImportState } from "@/components/import-dialog";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { ToastProvider, useToast } from "@/components/toast";
 import { useI18n } from "@/i18n/react";
-import type { SortBy } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
 import { bookName, downloadText, exportFileName } from "@/lib/vcf-file";
 import {
+  DavError,
   EmptyImportError,
   exportVcf,
   IncompleteExportError,
@@ -33,6 +33,7 @@ import {
   useContacts,
 } from "@/queries";
 import { contactsKey } from "@/queries/keys";
+import { usePreferences } from "@/store/preferences";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import { isGroupCard } from "@/vcard";
 
@@ -70,17 +71,19 @@ function ContactsScreen() {
   });
 
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortBy>("family");
-  // For the session, like the sort; another book starts from every group.
+  const sortBy = usePreferences((state) => state.sortBy);
+  const setSortBy = usePreferences((state) => state.setSortBy);
+  // For the session; another book starts from every group.
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const selectedHref = selectedBook?.href;
   useEffect(() => {
     if (selectedHref !== undefined) setGroupFilter(null);
   }, [selectedHref]);
 
+  // A contact, a new contact or the settings name the tab themselves.
   useEffect(() => {
-    document.title = t("contacts_doc_title");
-  }, [t]);
+    if (!hasContact) document.title = t("contacts_doc_title");
+  }, [t, hasContact]);
 
   const booksQuery = useAddressBooks(auth ?? undefined);
   const books = booksQuery.isPlaceholderData ? undefined : booksQuery.data;
@@ -96,6 +99,14 @@ function ContactsScreen() {
   const contactsQuery = useContacts(auth ?? undefined, selectedBook ?? undefined);
   const book = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data;
   const contacts = book?.contacts;
+  // What the list shows while it has no contacts: a failed discovery or load
+  // says so, anything else, a retry included, is still on its way.
+  const loadError = booksQuery.error ?? contactsQuery.error;
+  const retrying = booksQuery.isFetching || contactsQuery.isFetching;
+  const listLoad: ListLoad =
+    loadError === null || retrying
+      ? { kind: "loading" }
+      : { kind: "failed", expired: loadError instanceof DavError && loadError.code === "AUTH" };
 
   async function exportBook() {
     if (!auth || !selectedBook) return;
@@ -193,6 +204,12 @@ function ContactsScreen() {
             <ContactList
               contacts={contacts}
               noBooks={books !== undefined && books.length === 0}
+              load={listLoad}
+              onRetry={() => {
+                if (booksQuery.isError) void booksQuery.refetch();
+                else void contactsQuery.refetch();
+              }}
+              onImport={contacts !== undefined ? importFile : undefined}
               query={query}
               sortBy={sortBy}
               onSortBy={setSortBy}

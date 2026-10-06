@@ -87,6 +87,7 @@ describe("rendering", () => {
       expect((select as HTMLSelectElement).value).toBe("browser");
     }
     expect(document.title).toBe("Se connecter · Natel");
+    expect(document.documentElement.lang).toBe("fr");
   });
 
   it("asks only for credentials, never for a server", async () => {
@@ -111,6 +112,7 @@ describe("rendering", () => {
     }
     expect(localStorage.getItem("natel.preferences")).toBe('{"locale":"en"}');
     expect(document.title).toBe("Sign in · Natel");
+    expect(document.documentElement.lang).toBe("en");
   });
 
   it("starts in the stored language", async () => {

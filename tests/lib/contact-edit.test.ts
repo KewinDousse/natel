@@ -12,11 +12,12 @@ import {
   isDirty,
   isValid,
   isWebUrl,
+  kindOf,
   nextId,
   rebaseDraft,
-  replaceFirstType,
   validateDraft,
   valueHref,
+  withKind,
 } from "../../src/lib/contact-edit";
 import type { Contact } from "../../src/model/contact";
 import { parse } from "../../src/vcard";
@@ -229,25 +230,29 @@ describe("validateDraft", () => {
     expect(isValid(errors)).toBe(true);
   });
 
-  it("rejects empty family and given", () => {
-    const draft = {
-      family: "",
-      given: "",
-      tel: [],
-      email: [],
-      nickname: "",
-      adr: null,
-      bday: null,
-      org: "",
-      title: "",
-      url: "",
-      note: "",
-      photo: { kind: "unchanged" as const },
-    };
-    const errors = validateDraft(draft);
-    expect(errors.family).toBe("field_required");
-    expect(errors.given).toBe("field_required");
+  const emptyDraft = () => ({
+    family: "",
+    given: "",
+    tel: [],
+    email: [],
+    nickname: "",
+    adr: null,
+    bday: null,
+    org: "",
+    title: "",
+    url: "",
+    note: "",
+    photo: { kind: "unchanged" as const },
+  });
+
+  it("asks for a name when there is no name nor organisation", () => {
+    const errors = validateDraft(emptyDraft());
+    expect(errors.name).toBe("field_name_required");
     expect(isValid(errors)).toBe(false);
+  });
+
+  it("takes an organisation alone as the card's name", () => {
+    expect(isValid(validateDraft({ ...emptyDraft(), org: "Garage du Lac" }))).toBe(true);
   });
 
   it("validates email format", () => {
@@ -255,7 +260,7 @@ describe("validateDraft", () => {
       family: "Doe",
       given: "John",
       tel: [],
-      email: [{ id: "1", value: "invalid", type: "", _orig: { value: "invalid" } }],
+      email: [{ id: "1", value: "invalid", type: "" as const, _orig: { value: "invalid" } }],
       nickname: "",
       adr: null,
       bday: null,
@@ -275,7 +280,12 @@ describe("validateDraft", () => {
       given: "John",
       tel: [],
       email: [
-        { id: "1", value: "test@example.com", type: "", _orig: { value: "test@example.com" } },
+        {
+          id: "1",
+          value: "test@example.com",
+          type: "" as const,
+          _orig: { value: "test@example.com" },
+        },
       ],
       nickname: "",
       adr: null,
@@ -527,22 +537,36 @@ describe("valueHref", () => {
   });
 });
 
-describe("replaceFirstType", () => {
-  it("replaces the first value and keeps the others in the list's case", () => {
-    expect(replaceFirstType(["HOME", "PREF"], "work")).toEqual(["WORK", "PREF"]);
-    expect(replaceFirstType(["cell", "voice"], "home")).toEqual(["home", "voice"]);
+describe("kindOf", () => {
+  it("reads Mobile before Travail before Domicile, in any case", () => {
+    expect(kindOf(["VOICE", "CELL"])).toBe("cell");
+    expect(kindOf(["home", "work"])).toBe("work");
+    expect(kindOf(["PREF", "HOME"])).toBe("home");
   });
 
-  it("drops only the first value for Other", () => {
-    expect(replaceFirstType(["HOME", "PREF"], "")).toEqual(["PREF"]);
+  it("reads anything else as Autre", () => {
+    expect(kindOf(["INTERNET", "PREF"])).toBe("");
+    expect(kindOf([])).toBe("");
+  });
+});
+
+describe("withKind", () => {
+  it("puts the new kind first and keeps the other values in the list's case", () => {
+    expect(withKind(["HOME", "PREF"], "work")).toEqual(["WORK", "PREF"]);
+    expect(withKind(["INTERNET", "PREF"], "work")).toEqual(["WORK", "INTERNET", "PREF"]);
+    expect(withKind(["cell", "voice"], "home")).toEqual(["home", "voice"]);
   });
 
-  it("does not duplicate a value already in the list", () => {
-    expect(replaceFirstType(["HOME", "CELL"], "cell")).toEqual(["CELL"]);
+  it("drops only the kinds for Autre", () => {
+    expect(withKind(["HOME", "PREF"], "")).toEqual(["PREF"]);
+  });
+
+  it("leaves a single kind", () => {
+    expect(withKind(["HOME", "CELL"], "cell")).toEqual(["CELL"]);
   });
 
   it("starts a list when there was none", () => {
-    expect(replaceFirstType([], "home")).toEqual(["home"]);
+    expect(withKind([], "home")).toEqual(["home"]);
   });
 });
 
@@ -625,8 +649,18 @@ END:VCARD`;
 
   it("keeps what was typed during the save, and gives new fields unused ids", () => {
     const sent = { ...buildDraft(makeContact()), note: "sent" };
-    const extra = { id: nextId(), value: "+41 79 000 00 21", type: "", _orig: { value: "" } };
-    const extra2 = { id: nextId(), value: "+41 79 000 00 22", type: "", _orig: { value: "" } };
+    const extra = {
+      id: nextId(),
+      value: "+41 79 000 00 21",
+      type: "" as const,
+      _orig: { value: "" },
+    };
+    const extra2 = {
+      id: nextId(),
+      value: "+41 79 000 00 22",
+      type: "" as const,
+      _orig: { value: "" },
+    };
     const current = { ...sent, title: "typed meanwhile", tel: [extra, extra2] };
     const saved = parse(savedText, "/test.vcf", "new");
 
@@ -635,5 +669,40 @@ END:VCARD`;
     expect(rebased.title).toBe("typed meanwhile");
     expect(rebased.tel).toBe(current.tel);
     expect([extra.id, extra2.id]).not.toContain(nextId());
+  });
+});
+
+describe("applyDraft on an organisation's card", () => {
+  const card = (lines: string) =>
+    parse(`BEGIN:VCARD\r\nVERSION:3.0\r\nUID:org@example.com\r\n${lines}\r\nEND:VCARD`);
+
+  it("names a card with only an organisation after it", () => {
+    const contact = card("FN:\r\nN:;;;;");
+    const draft = { ...buildDraft(contact), org: "Garage du Lac" };
+    expect(applyDraft(contact, draft).fields.fn).toBe("Garage du Lac");
+  });
+
+  it("follows a renamed organisation when the card was named after it", () => {
+    const contact = card("FN:Garage du Lac\r\nN:;;;;\r\nORG:Garage du Lac");
+    const draft = { ...buildDraft(contact), org: "Garage du Port" };
+    expect(applyDraft(contact, draft).fields.fn).toBe("Garage du Port");
+  });
+
+  it("takes the organisation's name when the person's name is cleared", () => {
+    const contact = card("FN:Jean Dupont\r\nN:Dupont;Jean;;;\r\nORG:Garage du Lac");
+    const draft = { ...buildDraft(contact), family: "", given: "" };
+    expect(applyDraft(contact, draft).fields.fn).toBe("Garage du Lac");
+  });
+
+  it("leaves the name alone when the edit doesn't touch it", () => {
+    const contact = card("FN:Acme sa\r\nN:;;;;\r\nORG:ACME SA");
+    const draft = { ...buildDraft(contact), note: "Fermé le lundi" };
+    expect(applyDraft(contact, draft).fields.fn).toBe("Acme sa");
+  });
+
+  it("keeps a name of its own", () => {
+    const contact = card("FN:Le garagiste\r\nN:Dupont;Jean;;;\r\nORG:Garage du Lac");
+    const draft = { ...buildDraft(contact), family: "", given: "" };
+    expect(applyDraft(contact, draft).fields.fn).toBe("Le garagiste");
   });
 });

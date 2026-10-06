@@ -12,11 +12,12 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DavAddressBook, DavAuth } from "@/dav/types";
+import { type DavAddressBook, type DavAuth, DavError } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import type { Contact, RawComponent } from "@/model/contact";
 import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
+import { usePreferences } from "@/store/preferences";
 import { useSessionStore } from "@/store/session";
 
 // ---------------------------------------------------------------------------
@@ -274,6 +275,8 @@ beforeEach(() => {
   shimMatchMedia();
   localStorage.clear();
   useSessionStore.setState({ auth: null, selectedBook: null });
+  // The sort is remembered: a test that changes it mustn't leave it changed.
+  usePreferences.setState({ sortBy: "family", theme: null });
   vi.resetAllMocks();
 });
 
@@ -482,7 +485,9 @@ describe("search", () => {
 
     expect(screen.getAllByText("Aucun résultat").length).toBeGreaterThan(0);
     expect(
-      screen.getByText("La recherche porte aussi sur les numéros, e-mails et organisations."),
+      screen.getByText(
+        "La recherche porte aussi sur les numéros, e\u2060-\u2060mails et organisations.",
+      ),
     ).toBeTruthy();
     expect(document.getElementById("rail")).toBeNull();
   });
@@ -555,7 +560,7 @@ describe("book switcher", () => {
 
     await waitFor(() => expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_B.href));
     // Book B is empty in the pipeline → empty-book state.
-    expect(await screen.findByText("Ce carnet est vide.")).toBeTruthy();
+    expect(await screen.findByText("Ce carnet est vide")).toBeTruthy();
   });
 });
 
@@ -620,5 +625,78 @@ describe("logout", () => {
     expect(router.state.location.pathname).toBe("/login");
     expect(useSessionStore.getState().auth).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Loading, failing and empty books
+// ---------------------------------------------------------------------------
+
+describe("while the book loads, fails or is empty", () => {
+  it("shows placeholder rows while the book loads", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    mockListContacts.mockImplementation(() => new Promise(() => {}));
+    renderApp("/contacts");
+
+    expect(await screen.findByText("Chargement des contacts…")).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Contacts" }).getAttribute("aria-busy")).toBe(
+      "true",
+    );
+  });
+
+  it("says the server isn't answering, and tries again", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    mockListContacts.mockRejectedValue(new DavError("down", "NETWORK"));
+    renderApp("/contacts");
+    const user = userEvent.setup();
+
+    expect(
+      await screen.findByText("Impossible de charger les contacts", {}, { timeout: 8000 }),
+    ).toBeTruthy();
+    loadBook(bookAContacts());
+    await user.click(screen.getByRole("button", { name: "Réessayer" }));
+    expect(await screen.findByRole("link", { name: /Lightshield Jarvan/ })).toBeTruthy();
+  }, 15000);
+
+  it("asks to sign in again when the session has expired", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockRejectedValue(new DavError("expired", "AUTH"));
+    renderApp("/contacts");
+
+    expect(await screen.findByText("Votre session a expiré", {}, { timeout: 8000 })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Se reconnecter" }).getAttribute("href")).toBe(
+      "/logout",
+    );
+  }, 15000);
+
+  it("offers a first contact and an import on an empty book", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadBook([]);
+    renderApp("/contacts");
+
+    expect(await screen.findByText("Ce carnet est vide")).toBeTruthy();
+    const list = screen.getByRole("navigation", { name: "Contacts" });
+    expect(within(list).getByRole("link", { name: "Nouveau contact" }).getAttribute("href")).toBe(
+      "/contacts/new",
+    );
+    expect(within(list).getByRole("button", { name: "Importer un fichier .vcf" })).toBeTruthy();
+  });
+
+  it("counts a lone contact in the singular", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadBook(bookAContacts().slice(0, 1));
+    renderApp("/contacts");
+
+    expect(await screen.findByText("1 contact")).toBeTruthy();
+  });
+
+  it("names the open book in the switcher's accessible name", async () => {
+    await renderLoggedIn();
+
+    expect(await screen.findByRole("button", { name: "Carnet d’adresses : Perso" })).toBeTruthy();
   });
 });

@@ -50,3 +50,18 @@ test("ends the index tabs above the tagline", async ({ page }) => {
   if (!box || !tagline) throw new Error("not laid out");
   expect(box.y + box.height).toBeLessThanOrEqual(tagline.y);
 });
+
+test("draws a focused field's border in ink, with the mouse too", async ({ page }) => {
+  await page.goto("/login");
+  const field = page.getByLabel("Username");
+  await field.click();
+  const [border, ink] = await field.evaluate((el) => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--ring)";
+    document.body.append(probe);
+    const colors = [getComputedStyle(el).borderTopColor, getComputedStyle(probe).color];
+    probe.remove();
+    return colors;
+  });
+  expect(border).toBe(ink);
+});

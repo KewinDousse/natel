@@ -12,6 +12,7 @@ import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
+import { usePreferences } from "@/store/preferences";
 import { useSessionStore } from "@/store/session";
 
 const mocks = vi.hoisted(() => ({
@@ -38,6 +39,8 @@ let books: Record<string, Record<string, string>>;
 
 beforeEach(async () => {
   cleanup();
+  // Lettered by last name, as the rail assertions read.
+  usePreferences.setState({ sortBy: "family" });
   await new Promise((r) => setTimeout(r, 50));
   Object.defineProperty(window.navigator, "language", { get: () => "fr-FR", configurable: true });
   Object.defineProperty(window.navigator, "languages", {
@@ -220,12 +223,12 @@ describe("the group filter", () => {
     await user.click(screen.getByRole("menuitemradio", { name: /Club/ }));
     expect(screen.getByText("1 contact dans Club")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Carnet d’adresses" }));
+    await user.click(screen.getByRole("button", { name: /^Carnet d’adresses/ }));
     await user.click(screen.getByRole("menuitemradio", { name: "Travail" }));
     await screen.findByRole("link", { name: /Dijkstra/ });
     expect(screen.queryByRole("button", { name: /^Filtrer par groupe/ })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Carnet d’adresses" }));
+    await user.click(screen.getByRole("button", { name: /^Carnet d’adresses/ }));
     await user.click(screen.getByRole("menuitemradio", { name: "Perso" }));
     await screen.findByRole("link", { name: /Turing/ });
     expect(trigger().textContent).toBe("Tous les groupes");

@@ -892,6 +892,41 @@ export function parse(text: string, href = "", etag = ""): Contact {
   return { href, etag, uid, fields, raw };
 }
 
+/** Properties the contact page shows every occurrence of, and the card's framing. */
+const SHOWN_ALL = new Set([
+  "tel",
+  "email",
+  "categories",
+  // The photo control shows one and replaces them all (ADR 023).
+  "photo",
+  "version",
+  "uid",
+  "rev",
+  "prodid",
+]);
+
+/** Properties the contact page reads once: a later occurrence isn't shown. */
+const SHOWN_FIRST = new Set(["fn", "n", "nickname", "adr", "bday", "org", "title", "url", "note"]);
+
+/**
+ * The card's properties the contact page neither shows nor edits, each as
+ * its vCard line, for whoever wants to look: a save writes them back as they
+ * are. Read-only.
+ */
+export function unshownPropertiesOf(contact: Contact): string[] {
+  const seen = new Set<string>();
+  return (contact.raw as unknown as ICAL.Component)
+    .getAllProperties()
+    .filter((prop) => {
+      const name = prop.name.toLowerCase();
+      if (SHOWN_ALL.has(name)) return false;
+      if (!SHOWN_FIRST.has(name) || seen.has(name)) return true;
+      seen.add(name);
+      return false;
+    })
+    .map((prop) => prop.toICALString());
+}
+
 /**
  * Takes `name` out of the contact's CATEGORIES (ADR 022): only that value
  * goes, a property left empty is dropped, and the other values, parameters

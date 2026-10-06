@@ -112,11 +112,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       await openBookMenu(page);
       await expectNoViolations(page, "book menu");
       await page.getByRole("menuitemradio", { name: "Work" }).click();
-      await expect(page.getByText("This address book is empty.")).toBeVisible();
+      await expect(page.getByText("This address book is empty")).toBeVisible();
       await expectNoViolations(page, "empty book");
     });
 
-    test("contact page, editing and its dialogs", async ({ page, context }) => {
+    test("contact page, editing and its dialogs", async ({ page, context, isMobile }) => {
       // The "Copied" toast shows only once the clipboard write succeeds.
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
       await page.goto("/");
@@ -124,9 +124,14 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.getByRole("link", { name: /Lovelace/ }).click();
       await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeVisible();
       await expectNoViolations(page, "contact");
-      await page.getByRole("button", { name: "Copy number" }).first().click();
-      await expect(page.getByText("Copied")).toBeVisible();
-      await expectNoViolations(page, "toast");
+      if (isMobile) {
+        // A touch screen copies with a long press: the page has no copy button.
+        await expect(page.getByRole("button", { name: "Copy number" })).toBeHidden();
+      } else {
+        await page.getByRole("button", { name: "Copy number" }).first().click();
+        await expect(page.getByText("Copied")).toBeVisible();
+        await expectNoViolations(page, "toast");
+      }
 
       await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
       await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
@@ -149,7 +154,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expectNoViolations(page, "move dialog");
       await page.keyboard.press("Escape");
 
-      await page.getByPlaceholder("Last name").fill("Lovelace-Byron");
+      await page.getByLabel("Last name", { exact: true }).fill("Lovelace-Byron");
       await page.getByRole("button", { name: "Cancel" }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await expectNoViolations(page, "discard dialog");

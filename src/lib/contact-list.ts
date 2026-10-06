@@ -77,6 +77,19 @@ export function isUnnamed(contact: Contact): boolean {
 }
 
 /**
+ * A card for an organisation rather than a person: no name of a person, and
+ * its organisation as its only name (the shape iOS and Android give a
+ * company's card). Units after the organisation's name don't count.
+ */
+export function isOrgCard(contact: Contact): boolean {
+  const { family, given } = contact.fields.n;
+  if (family || given) return false;
+  const org = contact.fields.org.trim();
+  const fn = contact.fields.fn.trim();
+  return org.length > 0 && (fn.length === 0 || fold(fn) === fold(org));
+}
+
+/**
  * Sort key for the current toggle: family or given name. Falls back to the
  * display name so cards without a structured name still sort by their FN.
  */

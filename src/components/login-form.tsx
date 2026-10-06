@@ -8,11 +8,14 @@
  */
 
 import { useNavigate } from "@tanstack/react-router";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { IS_DEMO } from "@/lib/demo";
+import { cn } from "@/lib/utils";
 import { type DavAuth, DavError, useLogin } from "@/queries";
 import { useSessionStore } from "@/store/session";
+import { buttonClass, FOCUS_RING, fieldClass } from "./button";
+import { AlertIcon, EyeIcon, LockIcon, SpinnerIcon } from "./icons";
 
 type FieldName = "username" | "password";
 type FieldErrors = Partial<Record<FieldName, string>>;
@@ -84,7 +87,7 @@ export function LoginForm() {
           anyone on the network reads it. localhost counts as secure. */}
       {globalThis.isSecureContext === false && (
         <p className="mt-6 flex gap-2.5 text-sm leading-snug text-warning">
-          <LockIcon open />
+          <LockIcon open className="mt-0.5 size-4" />
           <span>{t("insecure")}</span>
         </p>
       )}
@@ -94,7 +97,7 @@ export function LoginForm() {
           className="mt-6 flex gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3.5 text-sm text-destructive"
           role="alert"
         >
-          <AlertIcon />
+          <AlertIcon className="mt-px size-5" />
           <p className="leading-snug">
             <span className="font-bold">{formError.title}</span>{" "}
             {formError.body && <span className="text-foreground">{formError.body}</span>}
@@ -126,7 +129,7 @@ export function LoginForm() {
             }
             aria-invalid={errors.username ? true : undefined}
             aria-describedby={errors.username ? "user-error" : undefined}
-            className="block h-12 w-full rounded-md border border-input bg-card px-3.5 text-base text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-[invalid=true]:border-destructive lg:h-11 lg:text-[0.9375rem]"
+            className={fieldClass("h-12 lg:h-11")}
           />
           {errors.username && (
             <p id="user-error" className="text-caption leading-snug text-destructive">
@@ -152,14 +155,17 @@ export function LoginForm() {
               }
               aria-invalid={errors.password ? true : undefined}
               aria-describedby={errors.password ? "pass-error" : undefined}
-              className="block h-12 w-full rounded-md border border-input bg-card pl-3.5 pr-28 text-base text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-[invalid=true]:border-destructive lg:h-11 lg:text-[0.9375rem]"
+              className={fieldClass("h-12 pr-28 lg:h-11")}
             />
             <button
               type="button"
               aria-controls="pass"
               aria-pressed={showPassword}
               onClick={() => setShowPassword((show) => !show)}
-              className="absolute inset-y-1.5 right-1.5 inline-flex items-center gap-1.5 rounded-full px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={buttonClass(
+                { variant: "ghost" },
+                "absolute inset-y-1.5 right-1.5 gap-1.5 px-3 text-sm focus-visible:ring-offset-0",
+              )}
             >
               <EyeIcon />
               <span>{showPassword ? t("hide") : t("show")}</span>
@@ -175,9 +181,16 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-6 text-base font-bold text-primary-foreground transition-colors hover:bg-primary/85 active:bg-primary/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:h-11"
+          className={buttonClass({ size: "lg" }, "w-full disabled:opacity-100")}
         >
-          {t("submit")}
+          {submitting ? (
+            <>
+              <SpinnerIcon />
+              {t("signing_in")}
+            </>
+          ) : (
+            t("submit")
+          )}
         </button>
       </form>
 
@@ -188,72 +201,21 @@ export function LoginForm() {
       )}
 
       <p className="mt-8 flex gap-2.5 border-t pt-5 text-sm leading-snug text-muted-foreground">
-        <LockIcon />
+        <LockIcon className="mt-0.5 size-4" />
         <span>{t("privacy")}</span>
       </p>
       <p className="mt-6 text-caption text-muted-foreground">
         {t("footer")}{" "}
         <a
           href="https://github.com/KewinDousse/natel"
-          className="rounded-sm font-bold text-foreground underline decoration-leader underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn(
+            "rounded-sm font-bold text-foreground underline decoration-leader underline-offset-2 hover:decoration-foreground",
+            FOCUS_RING,
+          )}
         >
           {t("source")}
         </a>
       </p>
     </>
-  );
-}
-
-function AlertIcon(): ReactNode {
-  return (
-    <svg
-      className="size-5 mt-px shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 8v4M12 16h.01" />
-    </svg>
-  );
-}
-
-function EyeIcon(): ReactNode {
-  return (
-    <svg
-      className="size-4 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function LockIcon({ open = false }: { open?: boolean }): ReactNode {
-  return (
-    <svg
-      className="size-4 mt-0.5 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="4" y="11" width="16" height="10" rx="2" />
-      <path d={open ? "M8 11V7a4 4 0 0 1 7.75-1.4" : "M8 11V7a4 4 0 0 1 8 0v4"} />
-    </svg>
   );
 }

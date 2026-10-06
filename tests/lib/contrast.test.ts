@@ -18,15 +18,12 @@ function tokens(block: string): Record<string, string> {
 }
 
 const light = tokens(/^:root \{([\s\S]*?)^\}/m.exec(css)?.[1] ?? "");
-const darkOnly = tokens(
-  /@media \(prefers-color-scheme: dark\) \{([\s\S]*?)^\}/m.exec(css)?.[1] ?? "",
-);
-const dark = { ...light, ...darkOnly };
+const dark = tokens(/^:root\[data-theme="dark"\] \{([\s\S]*?)^\}/m.exec(css)?.[1] ?? "");
 
 it("finds both palettes", () => {
   expect(Object.keys(light).length).toBeGreaterThan(20);
   // Every colour the light palette has is redefined in dark.
-  expect(Object.keys(darkOnly).sort()).toEqual(Object.keys(light).sort());
+  expect(Object.keys(dark).sort()).toEqual(Object.keys(light).sort());
 });
 
 function luminance(hex: string): number {
@@ -63,6 +60,11 @@ const PAIRS: [string, string, number][] = [
   ["selection-foreground", "selection", 4.5],
   ["muted-foreground", "selection", 4.5],
   ["avatar-foreground", "avatar", 4.5],
+  ...[1, 2, 3, 4, 5, 6].map((n): [string, string, number] => [
+    "avatar-foreground",
+    `avatar-tint-${n}`,
+    4.5,
+  ]),
   ["input", "background", 3],
   ["input", "muted", 3],
   ["input", "card", 3],

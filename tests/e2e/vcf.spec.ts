@@ -95,7 +95,7 @@ test("round-trips a book through export and import", async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   // Import waits for the book to load.
-  await expect(page.getByText("This address book is empty.")).toBeVisible();
+  await expect(page.getByText("This address book is empty")).toBeVisible();
   await openBookMenu(page);
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("menuitem", { name: "Import a .vcf file…" }).click();
@@ -114,7 +114,7 @@ test("offers no export for an empty book", async ({ page }) => {
   await page.getByLabel("Username").fill(USER);
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByText("This address book is empty.")).toBeVisible();
+  await expect(page.getByText("This address book is empty")).toBeVisible();
   await openBookMenu(page);
   const exportItem = page.getByRole("menuitem", { name: /^Export/ });
   await expect(exportItem).toHaveAttribute("aria-disabled", "true");

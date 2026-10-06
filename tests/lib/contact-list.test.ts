@@ -11,6 +11,7 @@ import {
   contactIdOf,
   fold,
   groupLetterOf,
+  isOrgCard,
   isUnnamed,
   matchesQuery,
   namePartsOf,
@@ -21,6 +22,7 @@ import {
   trailingValueOf,
 } from "@/lib/contact-list";
 import type { Contact, RawComponent } from "@/model/contact";
+import { parse } from "@/vcard";
 
 /** Minimal Contact with an org stubbed through the raw component. */
 type ContactOverrides = {
@@ -54,7 +56,7 @@ function makeContact(overrides: ContactOverrides = {}): Contact {
       nickname: "",
       adr: null,
       bday: null,
-      org: "",
+      org: Array.isArray(org) ? (org[0] ?? "") : (org ?? ""),
       title: "",
       url: "",
       note: "",
@@ -419,5 +421,27 @@ describe("empty handlings", () => {
 
   it("trailingValueOf is null for a nameless, orgless card", () => {
     expect(trailingValueOf(makeContact({ family: "", given: "", fn: "" }))).toBeNull();
+  });
+});
+
+describe("isOrgCard", () => {
+  it("holds for a card named after its organisation, or not named at all", () => {
+    expect(isOrgCard(makeContact({ family: "", given: "", fn: "Acme SA", org: "Acme SA" }))).toBe(
+      true,
+    );
+    expect(isOrgCard(makeContact({ family: "", given: "", fn: "", org: "Acme" }))).toBe(true);
+  });
+
+  it("doesn't hold for a person, or a name of its own", () => {
+    expect(isOrgCard(makeContact({ family: "Medarda", given: "Mel", org: "Conseil" }))).toBe(false);
+    expect(isOrgCard(makeContact({ family: "", given: "", fn: "Maman", org: "Acme" }))).toBe(false);
+    expect(isOrgCard(makeContact({ family: "", given: "", fn: "Acme SA" }))).toBe(false);
+  });
+
+  it("holds for an organisation with units, named after the organisation", () => {
+    const contact = parse(
+      "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:acme\r\nFN:ACME\r\nN:;;;;\r\nORG:ACME;Sales\r\nEND:VCARD",
+    );
+    expect(isOrgCard(contact)).toBe(true);
   });
 });

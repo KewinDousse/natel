@@ -957,3 +957,69 @@ is a demo. A change to `src/dav/`'s API must also change `demo.ts`, which
 the compiler enforces. The seed is a second source of sample data next to
 `fixtures/public/`, kept small. The demo runs without the policy's
 `frame-ancestors`, so another site could frame it; it holds no real data.
+
+## 026 — The theme and the list's sort are display preferences too
+
+**Context.** The UI review before the repository goes public asked for a
+theme choice overriding the system's light or dark, which DESIGN.md listed
+as not designed, and for the list's sort to survive a reload, which signs
+out (ADR 007). Both are display choices, the kind ADR 019 stores.
+
+**Decision.**
+- Both live in `natel.preferences` next to the language, under ADR 019's
+  rules: only an explicit choice is stored, a value this version doesn't
+  know counts as absent, storage is best effort. `"theme"` is `"light"` or
+  `"dark"`, absent for the system's; `"sort"` is `"family"`, absent for the
+  default, by first name.
+- The default sort becomes the first name, as people say a name in French
+  and English; the list, the contact page's name, the initials and the
+  form's name fields all follow the sort, so "Trier par Nom" gives back the
+  directory order (**Family** Given) in one place. Some cultures put the
+  family name first (Hungary, East Asia), and directories and
+  administrations often sort by it: the choice covers both.
+- The settings page gets them under "Affichage": "Apparence" (Comme le
+  système, Clair, Sombre) and "Trier par" (Prénom, Nom). The list's own
+  toggle writes the same preference.
+- The theme applies through `data-theme` on `<html>`, always set: the
+  colour tokens are defined on `:root` and again on
+  `:root[data-theme="dark"]`, each block with its `color-scheme`.
+  `public/theme.js`, a classic script loaded from `index.html` before the
+  styles, sets it before the first paint, from the stored choice or else
+  the system's; an inline script would need a hash in the CSP. While
+  nothing is chosen, `src/lib/theme.ts` follows the system when it
+  changes. The `theme-color` metas follow the choice.
+- Not `light-dark()`, which would switch every token from one declaration:
+  it needs Safari 17.5 and Chrome 123, above Tailwind v4's own floor
+  (Safari 16.4, Chrome 111), and below it every colour token fails, the
+  primary buttons' text included. iPhones held on iOS 16 would get a broken
+  page.
+- The group filter stays per session: a group is tied to a book's content,
+  not to how the user likes to read.
+
+**Consequences.** A reload keeps the theme and the sort, still per browser,
+not per account. `src/store/preferences.ts` holds them in Zustand. Nothing
+sensitive is added to storage (invariant 3 unchanged). Without JavaScript
+the page stays light, which matters little: Natel doesn't run without it.
+
+## 027 — The demo's two books: Runeterra and Expédition 33
+
+**Context.** ADR 025 seeds the demo with two books, "Personnel" and
+"Travail", of League of Legends characters. The review before going public
+found the second book thin, and the maintainer asked for two books that each
+tell their own story, so the book switcher and moving a contact show
+something.
+
+**Decision.**
+- "Runeterra" holds the League of Legends characters of both former books,
+  with their groups (Famille, Randonnée, Atelier).
+- "Expédition 33" holds about a dozen characters and places of the game
+  *Clair Obscur: Expedition 33*, with a group card ("Expédition 33") and
+  `CATEGORIES` groups, a photo-less organisation card, and an unknown
+  property (`X-SOCIALPROFILE`) so "1 autre information non affichée" shows.
+- Phone numbers still come only from ranges reserved for fiction (ADR 025):
+  ARCEP's `+33 6 39 98` and `+33 1 99 00` ranges for this book.
+
+**Consequences.** The demo e2e and unit tests name the two books. The
+characters belong to their publishers; the demo uses their names only, with
+no artwork.
+

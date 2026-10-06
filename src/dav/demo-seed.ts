@@ -1,18 +1,18 @@
 /**
- * The demo build's address books (ADR 025): League of Legends characters,
- * organisations and groups, no real person. Phone numbers come from ranges
- * reserved for fiction (zeroed Swiss numbers, ARCEP, Ofcom, 555-01xx,
- * ACMA), in several countries' formats. vCard 3.0 and 4.0, a few abstract
- * photos and one property Natel doesn't know, so every screen has
- * something to show.
+ * The demo build's address books (ADR 025): one of League of Legends
+ * characters, one of Clair Obscur: Expedition 33's, their organisations and
+ * groups, no real person. Phone numbers come from ranges reserved for
+ * fiction (zeroed Swiss numbers, ARCEP, Ofcom, 555-01xx, ACMA), in several
+ * countries' formats. vCard 3.0 and 4.0, a few abstract photos and
+ * properties Natel doesn't know, so every screen has something to show.
  */
 
 export type DemoBook = { slug: string; displayName: string; cards: Record<string, string> };
 
 export const DEMO_BOOKS: DemoBook[] = [
   {
-    slug: "personnel",
-    displayName: "Personnel",
+    slug: "runeterra",
+    displayName: "Runeterra",
     cards: {
       p01: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:p01\r\nFN:Luxanna Crownguard\r\nN:Crownguard;Luxanna;;;\r\nTEL;TYPE=CELL:+41 79 000 00 01\r\nEMAIL;TYPE=INTERNET:lux@example.org\r\nBDAY:1991-04-12\r\nADR;TYPE=HOME:;;Place des Lumières 4;Grande-Cité;;;Demacia\r\nPHOTO;ENCODING=b;TYPE=PNG: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\r\nEND:VCARD\r\n",
       p02: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:p02\r\nFN:Garen Crownguard\r\nN:Crownguard;Garen;;;\r\nTEL;TYPE=CELL:+41 79 000 00 02\r\nEMAIL;TYPE=INTERNET:garen@example.org\r\nNOTE:Frère de Lux. Préfère les messages aux appels.\r\nEND:VCARD\r\n",
@@ -35,12 +35,6 @@ export const DEMO_BOOKS: DemoBook[] = [
         "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:g-famille\r\nFN:Famille\r\nN:Famille;;;;\r\nX-ADDRESSBOOKSERVER-KIND:group\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:p01\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:p02\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:p07\r\nEND:VCARD\r\n",
       "g-randonnee":
         "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:g-randonnee\r\nFN:Randonnée\r\nN:Randonnée;;;;\r\nX-ADDRESSBOOKSERVER-KIND:group\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:p09\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:p12\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:p13\r\nEND:VCARD\r\n",
-    },
-  },
-  {
-    slug: "travail",
-    displayName: "Travail",
-    cards: {
       w01: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:w01\r\nFN:Mel Medarda\r\nN:Medarda;Mel;;;\r\nTEL;TYPE=WORK:+33 1 99 00 00 18\r\nEMAIL;TYPE=INTERNET:mel@example.com\r\nORG:Conseil de Piltover\r\nTITLE:Conseillère\r\nEND:VCARD\r\n",
       w02: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:w02\r\nFN:Jayce Talis\r\nN:Talis;Jayce;;;\r\nTEL;TYPE=WORK:+33 1 99 00 00 19\r\nEMAIL;TYPE=INTERNET:jayce@example.com\r\nORG:Atelier Hextech\r\nTITLE:Inventeur\r\nEND:VCARD\r\n",
       w03: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:w03\r\nFN:Camille Ferros\r\nN:Ferros;Camille;;;\r\nTEL;TYPE=WORK:+33 1 99 00 00 20\r\nEMAIL;TYPE=INTERNET:camille@example.com\r\nORG:Clan Ferros\r\nTITLE:Conseillère principale\r\nEND:VCARD\r\n",
@@ -51,6 +45,26 @@ export const DEMO_BOOKS: DemoBook[] = [
       w08: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:w08\r\nFN:Soraka\r\nN:;Soraka;;;\r\nTEL;TYPE=WORK:+61 491 570 158\r\nEMAIL;TYPE=INTERNET:soraka@example.com\r\nORG:Sanctuaire du Mont Targon\r\nTITLE:Guérisseuse\r\nEND:VCARD\r\n",
       "g-atelier":
         "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:g-atelier\r\nFN:Hextech\r\nN:Hextech;;;;\r\nX-ADDRESSBOOKSERVER-KIND:group\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:w01\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:w02\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:w05\r\nEND:VCARD\r\n",
+    },
+  },
+  {
+    slug: "expedition-33",
+    displayName: "Expédition 33",
+    cards: {
+      e01: "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:e01\r\nFN:Gustave\r\nN:;Gustave;;;\r\nTEL;TYPE=cell:+33 6 39 98 33 01\r\nEMAIL;TYPE=work:gustave@example.net\r\nORG:Expédition 33\r\nTITLE:Ingénieur\r\nBDAY:--0312\r\nNOTE:Toujours un carnet sur lui. Le bras mécanique est à réviser avant le départ.\r\nEND:VCARD\r\n",
+      e02: "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:e02\r\nFN:Maelle\r\nN:;Maelle;;;\r\nTEL;TYPE=cell:+33 6 39 98 33 02\r\nEMAIL:maelle@example.net\r\nORG:Expédition 33\r\nTITLE:Duelliste\r\nNOTE:Sœur adoptive de Gustave.\r\nEND:VCARD\r\n",
+      e03: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e03\r\nFN:Lune\r\nN:;Lune;;;\r\nTEL;TYPE=CELL:+33 6 39 98 33 03\r\nEMAIL;TYPE=INTERNET:lune@example.net\r\nORG:Expédition 33\r\nTITLE:Chercheuse\r\nURL:https://example.net/lune/carnets\r\nX-SOCIALPROFILE;TYPE=mastodon:https://example.net/@lune\r\nEND:VCARD\r\n",
+      e04: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e04\r\nFN:Sciel\r\nN:;Sciel;;;\r\nTEL;TYPE=CELL:+33 6 39 98 33 04\r\nORG:Expédition 33\r\nTITLE:Combattante\r\nADR;TYPE=HOME:;;Ferme des Champs-Dorés;Lumière;;;\r\nEND:VCARD\r\n",
+      e05: "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:e05\r\nFN:Monoco\r\nN:;Monoco;;;\r\nORG:Gestrals\r\nNICKNAME:Le collectionneur\r\nNOTE:Apprend les techniques des ennemis qu’il affronte.\r\nCATEGORIES:Gestrals\r\nEND:VCARD\r\n",
+      e06: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e06\r\nFN:Verso Dessendre\r\nN:Dessendre;Verso;;;\r\nTEL;TYPE=CELL:+33 6 39 98 33 06\r\nEMAIL;TYPE=INTERNET:verso@example.net\r\nCATEGORIES:Famille Dessendre\r\nEND:VCARD\r\n",
+      e07: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e07\r\nFN:Renoir Dessendre\r\nN:Dessendre;Renoir;;;\r\nTEL;TYPE=WORK:+33 1 99 00 33 07\r\nORG:Atelier Dessendre\r\nTITLE:Peintre\r\nCATEGORIES:Famille Dessendre\r\nEND:VCARD\r\n",
+      e08: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e08\r\nFN:Aline Dessendre\r\nN:Dessendre;Aline;;;\r\nTEL;TYPE=CELL:+33 6 39 98 33 08\r\nEMAIL;TYPE=INTERNET:aline@example.net\r\nORG:Atelier Dessendre\r\nTITLE:Peintresse\r\nCATEGORIES:Famille Dessendre\r\nEND:VCARD\r\n",
+      e09: "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:e09\r\nFN:Clea Dessendre\r\nN:Dessendre;Clea;;;\r\nTEL;TYPE=cell:+33 6 39 98 33 09\r\nEMAIL;TYPE=work:clea@example.net\r\nORG:Atelier Dessendre\r\nCATEGORIES:Famille Dessendre\r\nEND:VCARD\r\n",
+      e10: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e10\r\nFN:Esquie\r\nN:;Esquie;;;\r\nEMAIL;TYPE=INTERNET:esquie@example.net\r\nNOTE:Ne sait pas encore nager. Adore les câlins.\r\nEND:VCARD\r\n",
+      e11: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e11\r\nFN:Emma\r\nN:;Emma;;;\r\nTEL;TYPE=HOME:+33 1 99 00 33 11\r\nTEL;TYPE=CELL:+33 6 39 98 33 11\r\nEMAIL;TYPE=INTERNET:emma@example.net\r\nORG:Conseil de Lumière\r\nTITLE:Ingénieure\r\nNOTE:Sœur de Gustave.\r\nEND:VCARD\r\n",
+      e12: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e12\r\nFN:Atelier de Lumière\r\nN:;;;;\r\nTEL;TYPE=WORK:+33 1 99 00 33 12\r\nEMAIL;TYPE=INTERNET:atelier@example.net\r\nORG:Atelier de Lumière\r\nADR;TYPE=WORK:;;Quai des Inventeurs 3;Lumière;;75033;\r\nEND:VCARD\r\n",
+      "g-expedition":
+        "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:g-expedition\r\nFN:Expédition 33\r\nN:Expédition 33;;;;\r\nX-ADDRESSBOOKSERVER-KIND:group\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:e01\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:e02\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:e03\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:e04\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:e05\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:e06\r\nX-ADDRESSBOOKSERVER-MEMBER:urn:uuid:e10\r\nEND:VCARD\r\n",
     },
   },
 ];

@@ -23,15 +23,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      {toast !== null && (
-        <div
-          className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm font-bold text-background shadow-float"
-          role="status"
-          aria-live="polite"
-        >
-          {toast.text}
-        </div>
-      )}
+      {/* Always present: a live region added with its text is often not read. */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4"
+      >
+        {toast !== null && (
+          <p className="rounded-full bg-foreground px-4 py-2 text-sm font-bold text-background shadow-float duration-200 animate-in fade-in-0 slide-in-from-bottom-2">
+            {toast.text}
+          </p>
+        )}
+      </div>
     </ToastContext.Provider>
   );
 }

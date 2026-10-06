@@ -9,6 +9,15 @@ import { useNavigate } from "@tanstack/react-router";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { isApple, isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
+import { buttonClass } from "./button";
+import { Dialog, DialogActions, DialogTitle } from "./dialog";
+
+const OPEN_EVENT = "natel:open-shortcuts";
+
+/** Opens the "Raccourcis clavier" dialog, as `?` does. */
+export function openShortcuts() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
 
 export function KeyboardShortcuts({ canCreate }: { canCreate: boolean }) {
   const navigate = useNavigate();
@@ -26,8 +35,13 @@ export function KeyboardShortcuts({ canCreate }: { canCreate: boolean }) {
         void navigate({ to: "/contacts/new" });
       }
     }
+    const onOpen = () => setOpen(true);
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener(OPEN_EVENT, onOpen);
+    };
   }, [navigate, canCreate]);
 
   return open ? <ShortcutsDialog onClose={() => setOpen(false)} /> : null;
@@ -36,6 +50,7 @@ export function KeyboardShortcuts({ canCreate }: { canCreate: boolean }) {
 function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
   const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const desktop = isDesktop();
   const mod = isApple() ? "⌘" : "Ctrl";
@@ -54,11 +69,6 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     if (event.key === "Escape") {
       event.preventDefault();
       onClose();
-    }
-    // Close is the only control: keep Tab on it.
-    if (event.key === "Tab") {
-      event.preventDefault();
-      closeRef.current?.focus();
     }
   }
 
@@ -94,49 +104,27 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      onKeyDown={onKeyDown}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center dark:bg-black/60"
-    >
-      <div
-        tabIndex={-1}
-        role="document"
-        className="w-full max-w-md rounded-t-xl bg-background p-6 shadow-overlay focus:outline-none sm:rounded-xl"
-      >
-        <h2 id={titleId} className="font-display text-2xl font-bold leading-tight">
-          {t("shortcuts_title")}
-        </h2>
-        <dl className="mt-4 space-y-2 text-sm leading-snug">
-          {rows.map(({ keys, label }) => (
-            <div key={label} className="grid grid-cols-[8.5rem_1fr] items-center gap-x-4">
-              <dt className="flex items-center gap-1 whitespace-nowrap">{keys}</dt>
-              <dd>{label}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button
-            ref={closeRef}
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            {t("close")}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Dialog titleId={titleId} panelRef={panelRef} onDismiss={onClose} onKeyDown={onKeyDown}>
+      <DialogTitle id={titleId}>{t("shortcuts_title")}</DialogTitle>
+      <dl className="mt-4 space-y-2 text-sm leading-snug">
+        {rows.map(({ keys, label }) => (
+          <div key={label} className="grid grid-cols-[8.5rem_1fr] items-center gap-x-4">
+            <dt className="flex items-center gap-1 whitespace-nowrap">{keys}</dt>
+            <dd>{label}</dd>
+          </div>
+        ))}
+      </dl>
+      <DialogActions>
+        <button ref={closeRef} type="button" onClick={onClose} className={buttonClass()}>
+          {t("close")}
+        </button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
 /** A key cap; `label` names a symbol screen readers may not read aloud. */
-function Key({ children, label }: { children: ReactNode; label?: string }) {
+export function Key({ children, label }: { children: ReactNode; label?: string }) {
   return (
     <kbd className="inline-flex h-6 min-w-6 items-center justify-center rounded-sm border bg-muted px-1.5 font-sans text-caption text-muted-foreground">
       {label ? (

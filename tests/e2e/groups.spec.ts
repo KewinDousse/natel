@@ -29,7 +29,7 @@ test("keeps group cards out of the list and shows both kinds of groups", async (
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page.getByRole("link", { name: /Lovelace/ })).toBeVisible();
-  await expect(page.getByText("1 contacts")).toBeVisible();
+  await expect(page.getByText("1 contact", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /Famille/ })).toHaveCount(0);
 
   await page.getByRole("link", { name: /Lovelace/ }).click();
@@ -61,7 +61,7 @@ test("keeps an imported group card out of the list", async ({ page }) => {
   await expect(dialog.getByText("Imported: 1")).toBeVisible();
   await dialog.getByRole("button", { name: "Close" }).click();
 
-  await expect(page.getByText("1 contacts")).toBeVisible();
+  await expect(page.getByText("1 contact", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /Club/ })).toHaveCount(0);
   await page.getByRole("link", { name: /Lovelace/ }).click();
   const groups = page.locator("section").filter({ has: page.getByText("Groups", { exact: true }) });

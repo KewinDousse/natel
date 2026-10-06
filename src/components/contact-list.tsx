@@ -15,6 +15,7 @@ import {
   type ContactGroup,
   contactIdOf,
   type HighlightSegment,
+  isOrgCard,
   isUnnamed,
   namePartsOf,
   OTHER_GROUP,
@@ -26,15 +27,26 @@ import {
 } from "@/lib/contact-list";
 import { formatPhone } from "@/lib/format-phone";
 import { isDesktop, isDialogOpen, isInMenu, isTyping } from "@/lib/shortcuts";
+import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
+import { buttonClass, FOCUS_RING } from "./button";
 import { GroupFilter } from "./group-filter";
-import { PhotoAvatar } from "./photo-avatar";
+import { PlusIcon, RefreshIcon, UploadIcon } from "./icons";
+import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
+
+/** Why the book shows no list: still loading, or a load that failed. */
+export type ListLoad = { kind: "loading" } | { kind: "failed"; expired: boolean };
 
 type ContactListProps = {
   /** Contacts of the selected book; undefined while the book is loading. */
   contacts: Contact[] | undefined;
   /** Discovery returned zero address books — dedicated state, no crash. */
   noBooks: boolean;
+  /** While `contacts` is undefined: loading, or why it failed. */
+  load: ListLoad;
+  onRetry: () => void;
+  /** Present once the book can take new contacts, for the empty book's actions. */
+  onImport?: (file: File) => void;
   query: string;
   sortBy: SortBy;
   onSortBy: (sortBy: SortBy) => void;
@@ -48,6 +60,9 @@ type ContactListProps = {
 export function ContactList({
   contacts,
   noBooks,
+  load,
+  onRetry,
+  onImport,
   query,
   sortBy,
   onSortBy,
@@ -89,7 +104,28 @@ export function ContactList({
       </ListShell>
     );
   }
-  if (contacts === undefined) return null;
+  if (contacts === undefined) {
+    return (
+      <ListShell busy={load.kind === "loading"}>
+        {load.kind === "loading" ? (
+          <ListSkeleton />
+        ) : load.expired ? (
+          <StateBox title={t("session_expired_title")} hint={t("session_expired_body")}>
+            <Link to="/logout" className={buttonClass()}>
+              {t("sign_in_again")}
+            </Link>
+          </StateBox>
+        ) : (
+          <StateBox title={t("load_failed_title")} hint={t("load_failed_body")}>
+            <button type="button" onClick={onRetry} className={buttonClass()}>
+              <RefreshIcon />
+              {t("retry")}
+            </button>
+          </StateBox>
+        )}
+      </ListShell>
+    );
+  }
 
   const countLabel = searching
     ? shown === 0
@@ -101,7 +137,9 @@ export function ContactList({
       ? listed.length === 1
         ? t("count_in_group_1", { group: activeGroup })
         : t("count_in_group", { n: String(listed.length), group: activeGroup })
-      : t("count", { n: String(contacts.length) });
+      : contacts.length === 1
+        ? t("count_1")
+        : t("count", { n: String(contacts.length) });
 
   const showEmptyBook = !searching && contacts.length === 0;
   const showEmptyGroup = !searching && !showEmptyBook && listed.length === 0;
@@ -128,25 +166,25 @@ export function ContactList({
         >
           <button
             type="button"
-            aria-pressed={sortBy === "family"}
-            onClick={() => onSortBy("family")}
-            className="rounded-full px-2 py-0.5 font-bold text-muted-foreground transition-colors aria-pressed:bg-secondary aria-pressed:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-pressed={sortBy === "given"}
+            onClick={() => onSortBy("given")}
+            className={SORT_PILL}
           >
-            {t("sort_family")}
+            {t("sort_given")}
           </button>
           <button
             type="button"
-            aria-pressed={sortBy === "given"}
-            onClick={() => onSortBy("given")}
-            className="rounded-full px-2 py-0.5 font-bold text-muted-foreground transition-colors aria-pressed:bg-secondary aria-pressed:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-pressed={sortBy === "family"}
+            onClick={() => onSortBy("family")}
+            className={SORT_PILL}
           >
-            {t("sort_given")}
+            {t("sort_family")}
           </button>
         </fieldset>
       </div>
 
       {showEmptyBook ? (
-        <StateBox title={t("book_empty")} />
+        <EmptyBook onImport={onImport} />
       ) : showEmptyGroup ? (
         <StateBox title={t("group_empty")} />
       ) : showNoResults ? (
@@ -215,7 +253,7 @@ function useArrowNavigation(groups: ContactGroup[]) {
   }, [groups, router]);
 }
 
-function ListShell({ children }: { children: ReactNode }) {
+function ListShell({ children, busy = false }: { children: ReactNode; busy?: boolean }) {
   const { t } = useI18n();
   // From lg the list scrolls itself; its right margin keeps the scrollbar
   // clear of the rail, which sits outside it.
@@ -223,6 +261,7 @@ function ListShell({ children }: { children: ReactNode }) {
     <nav
       id="list"
       aria-label={t("list_label")}
+      aria-busy={busy || undefined}
       className="pb-24 pl-2 pr-7 lg:mr-8 lg:h-full lg:overflow-y-auto lg:pb-10 lg:pr-2"
     >
       {children}
@@ -230,11 +269,87 @@ function ListShell({ children }: { children: ReactNode }) {
   );
 }
 
-function StateBox({ title, hint }: { title: string; hint?: string }) {
+function StateBox({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="px-4 py-14 text-center">
-      <p className="font-display text-3xl font-bold leading-tight">{title}</p>
-      {hint && <p className="mt-2 text-sm leading-snug text-muted-foreground">{hint}</p>}
+      <p className="font-display text-3xl font-bold leading-tight text-balance">{title}</p>
+      {hint && (
+        <p className="mx-auto mt-2 max-w-xs text-sm leading-snug text-muted-foreground">{hint}</p>
+      )}
+      {children && <div className="mt-6 flex flex-wrap justify-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
+/** A new book's first screen: what to do with it. */
+function EmptyBook({ onImport }: { onImport?: (file: File) => void }) {
+  const { t } = useI18n();
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <StateBox title={t("book_empty")} hint={t("book_empty_hint")}>
+      <Link to="/contacts/new" className={buttonClass({}, "pl-3")}>
+        <PlusIcon className="size-4" />
+        {t("new_contact")}
+      </Link>
+      {onImport && (
+        <>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className={buttonClass({ variant: "outline" }, "pl-3")}
+          >
+            <UploadIcon />
+            {t("import_vcf")}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".vcf,text/vcard,text/x-vcard"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) onImport(file);
+            }}
+          />
+        </>
+      )}
+    </StateBox>
+  );
+}
+
+/** Rows standing in for the book while it loads. */
+function ListSkeleton() {
+  const { t } = useI18n();
+  const widths = ["w-40", "w-28", "w-36", "w-44", "w-32", "w-24", "w-48", "w-20"];
+  return (
+    <div className="pt-12">
+      <p role="status" className="sr-only">
+        {t("loading_contacts")}
+      </p>
+      <div className="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[4rem_1fr] lg:grid-cols-[4.25rem_1fr]">
+        <span aria-hidden="true" />
+        <ul aria-hidden="true" className="animate-pulse">
+          {widths.map((width) => (
+            <li
+              key={width}
+              className="flex min-h-[3.5rem] items-center gap-3 px-2 sm:min-h-[3.25rem]"
+            >
+              <span className="size-10 shrink-0 rounded-lg bg-muted" />
+              <span className={cn("h-3.5 rounded-full bg-muted", width)} />
+              <span className="ml-auto hidden h-3.5 w-24 rounded-full bg-muted sm:block" />
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -253,7 +368,7 @@ function GroupSection({
       id={`g-${group.letter}`}
       className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 first:border-t-0 sm:grid-cols-[4rem_1fr] lg:scroll-mt-0 lg:grid-cols-[4.25rem_1fr]"
     >
-      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-2 font-display text-[2.25rem] font-bold leading-[0.8] text-brand sm:text-[2.75rem] lg:top-2 lg:text-index">
+      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-2 font-display text-title-sm font-bold leading-[0.8] text-brand sm:text-title lg:top-2 lg:text-index">
         {group.letter}
       </h2>
       {/* biome-ignore lint/a11y/noRedundantRoles: DESIGN.md mandates <ul role="list"> */}
@@ -279,7 +394,7 @@ function ContactRow({
   const { lead, rest, display } = orderedNameOf(contact, sortBy);
   const trailing = trailingValueOf(contact);
   const id = contactIdOf(contact);
-  const orgOnly = display.length === 0;
+  const orgCard = isOrgCard(contact);
   const unnamed = isUnnamed(contact);
   const { t } = useI18n();
 
@@ -323,11 +438,22 @@ function ContactRow({
           contact={contact}
           lazy
           className="size-10 rounded-lg"
-          fallback={orgOnly ? <BuildingAvatar /> : <InitialsAvatar family={family} given={given} />}
+          fallback={
+            orgCard ? (
+              <BuildingAvatar className="size-10 rounded-lg" />
+            ) : (
+              <InitialsAvatar
+                family={family}
+                given={given}
+                seed={contact.uid || contact.href}
+                className="size-10 rounded-lg text-lg"
+              />
+            )
+          }
         />
         <span className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
           <span
-            className="block min-w-0 truncate text-base sm:text-[0.9375rem]"
+            className="block min-w-0 truncate text-base sm:text-body"
             title={unnamed ? t("contact_unnamed") : display}
           >
             {nameValue}
@@ -335,7 +461,7 @@ function ContactRow({
           {trailing && <span className="leader hidden sm:block" aria-hidden="true" />}
           {trailing &&
             (trailing.kind === "tel" ? (
-              <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-[0.9375rem] sm:text-foreground">
+              <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-body sm:text-foreground">
                 <TelMarked value={trailing.value} query={query} />
               </span>
             ) : (
@@ -346,43 +472,6 @@ function ContactRow({
         </span>
       </Link>
     </li>
-  );
-}
-
-/** Initials avatar per DESIGN.md rule 7 (no photo → initials on bg-avatar). */
-function InitialsAvatar({ family, given }: { family: string; given: string }) {
-  const letters = `${family.charAt(0)}${given.charAt(0)}`.toUpperCase();
-  return (
-    <span
-      aria-hidden="true"
-      className="grid size-10 shrink-0 place-items-center rounded-lg bg-avatar font-display text-lg font-bold text-avatar-foreground"
-    >
-      {letters || "?"}
-    </span>
-  );
-}
-
-/** Organisation-only cards get a building icon instead of initials. */
-function BuildingAvatar() {
-  return (
-    <span
-      aria-hidden="true"
-      className="grid size-10 shrink-0 place-items-center rounded-lg bg-avatar text-avatar-foreground"
-    >
-      <svg
-        className="size-5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="4" y="2" width="16" height="20" rx="2" />
-        <path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01" />
-      </svg>
-    </span>
   );
 }
 
@@ -471,7 +560,7 @@ function AlphabetRail({ present, hidden }: { present: Set<string>; hidden: boole
       onPointerMove={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) jumpTo(event);
       }}
-      className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex touch-none select-none flex-col [-webkit-touch-callout:none] items-center justify-center font-display text-[0.8125rem] font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
+      className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex touch-none select-none flex-col [-webkit-touch-callout:none] items-center justify-center font-display text-small font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
     >
       {ALPHABET.split("").map((letter) => {
         if (present.has(letter)) {
@@ -501,3 +590,9 @@ function AlphabetRail({ present, hidden }: { present: Set<string>; hidden: boole
     </nav>
   );
 }
+
+/** The sort toggle's pills: small to look at, a full row high to tap. */
+const SORT_PILL = cn(
+  "relative rounded-full px-2 py-0.5 font-bold text-muted-foreground transition-colors after:absolute after:-inset-y-3 after:inset-x-0 after:content-[''] aria-pressed:bg-secondary aria-pressed:text-foreground",
+  FOCUS_RING,
+);

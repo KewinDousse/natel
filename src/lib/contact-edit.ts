@@ -52,7 +52,8 @@ export type DraftBirthday = {
 export type DraftField = {
   id: string;
   value: string;
-  type: string;
+  /** The kind the row's type menu shows and edits. */
+  type: Kind;
   /** Original ContactField — preserved for round-trip fidelity.
    *  Only value/type are mutated in place; all params, groups and the value
    *  type are written back unchanged. */
@@ -144,10 +145,13 @@ function fromDraftBirthday(bday: DraftBirthday): VCardBirthdayField {
   };
 }
 
-function toDraftField(field: ContactField): DraftField {
+function typesOf(field: ContactField): string[] {
   const types = field.params?.TYPE ?? field.params?.type;
-  const type = Array.isArray(types) ? (types[0] ?? "") : typeof types === "string" ? types : "";
-  return { id: nextId(), value: field.value, type: type.toLowerCase(), _orig: field };
+  return Array.isArray(types) ? types : typeof types === "string" ? [types] : [];
+}
+
+function toDraftField(field: ContactField): DraftField {
+  return { id: nextId(), value: field.value, type: kindOf(typesOf(field)), _orig: field };
 }
 
 // ---------------------------------------------------------------------------
@@ -193,13 +197,7 @@ function fieldsDiffer(originals: ContactField[], drafts: DraftField[]): boolean 
   return originals.some((orig, i) => {
     const draft = drafts[i];
     if (!draft) return true;
-    const origTypes = orig.params?.TYPE ?? orig.params?.type;
-    const origType = Array.isArray(origTypes)
-      ? (origTypes[0] ?? "")
-      : typeof origTypes === "string"
-        ? origTypes
-        : "";
-    return orig.value !== draft.value || origType.toLowerCase() !== draft.type;
+    return orig.value !== draft.value || kindOf(typesOf(orig)) !== draft.type;
   });
 }
 
@@ -252,10 +250,13 @@ export type ValidationErrors = Record<string, string | undefined>;
 export function validateDraft(draft: ContactDraft): ValidationErrors {
   const errors: ValidationErrors = {};
 
-  // At least one of family or given must be non-empty
-  if (draft.family.trim().length === 0 && draft.given.trim().length === 0) {
-    errors.family = "field_required";
-    errors.given = "field_required";
+  // A card needs a name: a person's, or an organisation's for a company.
+  if (
+    draft.family.trim().length === 0 &&
+    draft.given.trim().length === 0 &&
+    draft.org.trim().length === 0
+  ) {
+    errors.name = "field_name_required";
   }
 
   // Email format validation (on blur and save)
@@ -360,6 +361,8 @@ export function valueHref(scheme: "mailto" | "sms" | "tel", value: string): stri
  * FN is updated only when the original FN was derived from N parts
  * ("Given Family" or "Family Given" convention). Custom FN values like
  * "Maman", "Dupont, Jean", or prefix/suffix forms are preserved untouched.
+ * A card left without a person's name is named after its organisation, when
+ * its FN was empty, the organisation's, or derived from N.
  */
 export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFields): Contact {
   const take = (field: keyof DirtyFields) => only === undefined || only[field];
@@ -368,6 +371,7 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
   // Capture original N parts BEFORE updating, so FN derivation can compare
   // the original FN against the original N composition
   const origN = { family: f.n.family, given: f.n.given };
+  const origOrg = f.org;
   const newN = {
     family: take("family") ? draft.family : origN.family,
     given: take("given") ? draft.given : origN.given,
@@ -387,6 +391,15 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
   if (take("adr")) f.adr = draft.adr !== null ? { ...draft.adr } : null;
   if (take("bday")) f.bday = draft.bday !== null ? fromDraftBirthday(draft.bday) : null;
   if (take("org")) f.org = draft.org;
+  // An organisation's card is named after it, once this edit changes a name.
+  const named = f.org !== origOrg || newN.family !== origN.family || newN.given !== origN.given;
+  const nameless = newN.family.trim().length === 0 && newN.given.trim().length === 0;
+  if (named && nameless && f.org.trim().length > 0) {
+    const fn = f.fn.trim().toLowerCase();
+    if (fn.length === 0 || fn === origOrg.trim().toLowerCase() || composesN(fn, origN)) {
+      f.fn = f.org.trim();
+    }
+  }
   if (take("title")) f.title = draft.title;
   if (take("url")) f.url = draft.url;
   if (take("note")) f.note = draft.note;
@@ -458,22 +471,24 @@ function deriveFnFromN(
   return null;
 }
 
+/** Whether a lowercased FN is the N's parts, in either order or alone. */
+function composesN(fn: string, n: { family: string; given: string }): boolean {
+  const given = n.given.trim().toLowerCase();
+  const family = n.family.trim().toLowerCase();
+  const forms = [`${given} ${family}`, `${family} ${given}`, given, family];
+  return forms.some((form) => form.trim().length > 0 && form.trim() === fn);
+}
+
 function fromDraftField(field: DraftField): ContactField {
   // Clone the original contact field and update value/type in place,
   // preserving all unknown params, groups, and the value type.
   const params: Record<string, string | string[]> = { ...(field._orig.params ?? {}) };
 
-  const origTypes = field._orig.params?.TYPE ?? field._orig.params?.type;
-  const origTypeValues = Array.isArray(origTypes)
-    ? origTypes
-    : typeof origTypes === "string"
-      ? [origTypes]
-      : [];
-  const origFirstType = origTypeValues[0] ?? "";
+  const origTypeValues = typesOf(field._orig);
 
   // Only update TYPE if the user explicitly changed it
-  if (field.type.toLowerCase() !== origFirstType.toLowerCase()) {
-    const types = replaceFirstType(origTypeValues, field.type);
+  if (field.type !== kindOf(origTypeValues)) {
+    const types = withKind(origTypeValues, field.type);
 
     // Remove BOTH casings of the type param before writing the new one
     delete params.TYPE;
@@ -496,18 +511,30 @@ function fromDraftField(field: DraftField): ContactField {
   };
 }
 
-/**
- * Replace the first TYPE value — the one the UI shows and edits — keeping the
- * others (VOICE, PREF…) and the letter case of the list. An empty `value`
- * ("other") drops the first value only.
- */
-export function replaceFirstType(types: string[], value: string): string[] {
-  const [first = "", ...others] = types;
-  const kept = others.filter((type) => type.toLowerCase() !== value.toLowerCase());
-  return value.length > 0 ? [inCaseOf(value, first), ...kept] : kept;
+/** The kinds a row's type menu offers; any other TYPE value reads as "Autre". */
+export const KINDS = ["cell", "work", "home"] as const;
+export type Kind = (typeof KINDS)[number] | "";
+
+function isKind(type: string): boolean {
+  return (KINDS as readonly string[]).includes(type.toLowerCase());
 }
 
-/** `value` in the letter case of `reference`, so an uppercase TYPE list stays uppercase. */
+/** The kind a list of TYPE values shows: Mobile before Travail before Domicile. */
+export function kindOf(types: readonly string[]): Kind {
+  const lower = types.map((type) => type.toLowerCase());
+  return KINDS.find((kind) => lower.includes(kind)) ?? "";
+}
+
+/**
+ * TYPE values with a new kind: the old kinds go, the new one leads, and every
+ * other value (VOICE, PREF, INTERNET…) stays, all in the list's letter case.
+ * An empty `kind` ("Autre") only drops the kinds.
+ */
+export function withKind(types: string[], kind: Kind): string[] {
+  const kept = types.filter((type) => !isKind(type));
+  return kind.length > 0 ? [inCaseOf(kind, types[0] ?? ""), ...kept] : kept;
+}
+
 function inCaseOf(value: string, reference: string): string {
   return reference.length > 0 && reference === reference.toUpperCase()
     ? value.toUpperCase()

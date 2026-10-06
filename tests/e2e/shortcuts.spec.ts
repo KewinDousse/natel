@@ -21,16 +21,17 @@ test.beforeEach(async () => {
 
 test("walks the list with the arrow keys, in the order shown", async ({ page }) => {
   await signIn(page);
-  await page.keyboard.press("ArrowDown");
-  await expect(page).toHaveURL(/\/contacts\/grace$/);
+  // By first name: Ada, Alan, Grace.
   await page.keyboard.press("ArrowDown");
   await expect(page).toHaveURL(/\/contacts\/ada$/);
-  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await expect(page).toHaveURL(/\/contacts\/alan$/);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(page).toHaveURL(/\/contacts\/grace$/);
   await page.keyboard.press("ArrowUp");
-  await expect(page).toHaveURL(/\/contacts\/ada$/);
-  await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/contacts\/alan$/);
+  await expect(page.getByRole("heading", { level: 1, name: /Turing/ })).toBeVisible();
 });
 
 test("moves on from where a key just went, however fast they come", async ({ page }) => {
@@ -38,17 +39,17 @@ test("moves on from where a key just went, however fast they come", async ({ pag
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
-  await expect(page).toHaveURL(/\/contacts\/alan$/);
+  await expect(page).toHaveURL(/\/contacts\/grace$/);
 });
 
 test("hands a focused row's focus on to the next one", async ({ page }) => {
   await signIn(page);
-  await page.getByRole("link", { name: /Hopper/ }).click();
-  await expect(page).toHaveURL(/\/contacts\/grace$/);
-  await page.getByRole("link", { name: /Hopper/ }).focus();
-  await page.keyboard.press("ArrowDown");
+  await page.getByRole("link", { name: /Lovelace/ }).click();
   await expect(page).toHaveURL(/\/contacts\/ada$/);
-  await expect(page.getByRole("link", { name: /Lovelace/ })).toBeFocused();
+  await page.getByRole("link", { name: /Lovelace/ }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page).toHaveURL(/\/contacts\/alan$/);
+  await expect(page.getByRole("link", { name: /Turing/ })).toBeFocused();
 });
 
 test("leaves the arrow keys to the search field", async ({ page }) => {

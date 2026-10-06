@@ -21,7 +21,7 @@ beforeEach(() => {
 describe("the demo books", () => {
   it("lists two books whose cards all parse, groups included", async () => {
     const books = await demo.discoverAddressBooks(AUTH);
-    expect(books.map((book) => book.displayName)).toEqual(["Personnel", "Travail"]);
+    expect(books.map((book) => book.displayName)).toEqual(["Runeterra", "Expédition 33"]);
     for (const book of books) {
       const summaries = await demo.listContacts(AUTH, book.href);
       const cards = await demo.fetchCards(

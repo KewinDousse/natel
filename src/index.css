@@ -15,11 +15,14 @@
 @import "@fontsource-variable/work-sans";
 @import "@fontsource-variable/big-shoulders";
 
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* The dark palette: data-theme on <html>, set from the settings or the system. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
   --radius: 0.625rem;
-  color-scheme: light dark;
+  /* The light palette; the dark one is below. public/theme.js sets data-theme
+     on <html> before the first paint, from the settings or the system (ADR 026). */
+  color-scheme: light;
   --background: oklch(1 0 0); /* #FFFFFF */
   --foreground: oklch(0.21 0.008 274.5); /* #17181C */
   --card: oklch(1 0 0); /* #FFFFFF */
@@ -50,82 +53,71 @@
   --highlight-foreground: oklch(0.21 0.008 274.5); /* #17181C */
   --avatar: oklch(0.952 0.003 106.4); /* #EFEFED */
   --avatar-foreground: oklch(0.21 0.008 274.5); /* #17181C */
+  /* A tint per person without a photo: no red or pink (marks and selection), one lightness. */
+  --avatar-tint-1: #e8d5b5; /* #E8D5B5 */
+  --avatar-tint-2: #cfe0c8; /* #CFE0C8 */
+  --avatar-tint-3: #c9dbee; /* #C9DBEE */
+  --avatar-tint-4: #dccfea; /* #DCCFEA */
+  --avatar-tint-5: #c4e2de; /* #C4E2DE */
+  --avatar-tint-6: #ebd9a6; /* #EBD9A6 */
   --success: oklch(0.528 0.121 154.9); /* #1B7F4B */
   --warning: oklch(0.544 0.117 70.8); /* #9A6200 */
-  --chart-1: oklch(0.21 0.008 274.5); /* #17181C */
-  --chart-2: oklch(0.569 0.213 29); /* #D8261D */
-  --chart-3: oklch(0.64 0.009 271.3); /* #8A8C92 */
-  --chart-4: oklch(0.528 0.121 154.9); /* #1B7F4B */
-  --chart-5: oklch(0.544 0.117 70.8); /* #9A6200 */
-  --sidebar: var(--background);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--accent-foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
   --elevation-float:
-    0 1px 2px oklch(0.2 0.006 270 / 0.06), 0 8px 24px -6px oklch(0.2 0.006 270 / 0.16);
+    0 0 0 1px transparent, 0 1px 2px oklch(0.2 0.006 270 / 0.06),
+    0 8px 24px -6px oklch(0.2 0.006 270 / 0.16);
   --elevation-overlay:
-    0 2px 4px oklch(0.2 0.006 270 / 0.06), 0 24px 48px -12px oklch(0.2 0.006 270 / 0.28);
+    0 0 0 1px transparent, 0 2px 4px oklch(0.2 0.006 270 / 0.06),
+    0 24px 48px -12px oklch(0.2 0.006 270 / 0.28);
   /* Mobile header height (band 0.375rem + 56px bar + search row), consumed by
      sticky group letters (top-[var(--header-h)]) and section scroll margins.
      On lg+ Tailwind overrides (lg:top-2 / lg:scroll-mt-0) take precedence. */
   --header-h: 7.375rem;
 }
 
-/* Dark mode: the brand kit's palette, following the system setting. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.187 0.006 271.1); /* #121316 */
-    --foreground: oklch(0.943 0 0); /* #ECECEC */
-    --card: oklch(0.257 0.009 276.7); /* #222328 */
-    --card-foreground: oklch(0.943 0 0); /* #ECECEC */
-    --popover: oklch(0.274 0.009 276.8); /* #26272C */
-    --popover-foreground: oklch(0.943 0 0); /* #ECECEC */
-    --primary: oklch(0.943 0 0); /* #ECECEC */
-    --primary-foreground: oklch(0.21 0.008 274.5); /* #17181C */
-    --brand: oklch(0.644 0.204 27.8); /* #F04A40 */
-    --brand-foreground: oklch(0.154 0.04 31.1); /* #1A0503 */
-    --brand-surface: oklch(0.462 0.167 28.7); /* #A11F18 */
-    --brand-surface-foreground: oklch(1 0 0); /* #FFFFFF */
-    --secondary: oklch(0.274 0.009 276.8); /* #26272C */
-    --secondary-foreground: oklch(0.943 0 0); /* #ECECEC */
-    --muted: oklch(0.227 0.008 274.6); /* #1B1C20 */
-    --muted-foreground: oklch(0.719 0.01 273.3); /* #A2A4AB */
-    --accent: oklch(0.274 0.009 276.8); /* #26272C */
-    --accent-foreground: oklch(0.943 0 0); /* #ECECEC */
-    --selection: oklch(0.266 0.049 22.8); /* #3A1B1A */
-    --selection-foreground: oklch(0.925 0.022 24.4); /* #F5E1DF */
-    --destructive: oklch(0.71 0.183 26.6); /* #FF6B61 */
-    --destructive-foreground: oklch(0.154 0.04 31.1); /* #1A0503 */
-    --border: oklch(0.298 0.009 276.8); /* #2C2D32 */
-    --input: oklch(0.573 0.011 273.2); /* #76787F */
-    --ring: oklch(0.943 0 0); /* #ECECEC */
-    --leader: oklch(0.417 0.01 271.2); /* #4A4C52 */
-    --highlight: oklch(0.397 0.118 27.8); /* #7A2620 */
-    --highlight-foreground: oklch(0.951 0.024 26.9); /* #FFE9E6 */
-    --avatar: oklch(0.274 0.009 276.8); /* #26272C */
-    --avatar-foreground: oklch(0.888 0.004 271.4); /* #D9DADD */
-    --success: oklch(0.783 0.14 157.1); /* #5FD394 */
-    --warning: oklch(0.8 0.123 79.2); /* #E8B45A */
-    --chart-1: oklch(0.946 0 0); /* #EDEDED */
-    --chart-2: oklch(0.687 0.202 27.5); /* #FF5A4F */
-    --chart-3: oklch(0.7 0.01 273.3); /* #9C9EA5 */
-    --chart-4: oklch(0.783 0.14 157.1); /* #5FD394 */
-    --chart-5: oklch(0.8 0.123 79.2); /* #E8B45A */
-    --sidebar: var(--background);
-    --sidebar-foreground: var(--foreground);
-    --sidebar-primary: var(--primary);
-    --sidebar-primary-foreground: var(--primary-foreground);
-    --sidebar-accent: var(--accent);
-    --sidebar-accent-foreground: var(--accent-foreground);
-    --sidebar-border: var(--border);
-    --sidebar-ring: var(--ring);
-    --elevation-float: 0 0 0 1px oklch(1 0 0 / 0.07), 0 8px 24px -6px oklch(0 0 0 / 0.55);
-    --elevation-overlay: 0 0 0 1px oklch(1 0 0 / 0.09), 0 24px 48px -12px oklch(0 0 0 / 0.65);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.187 0.006 271.1); /* #121316 */
+  --foreground: oklch(0.943 0 0); /* #ECECEC */
+  --card: oklch(0.257 0.009 276.7); /* #222328 */
+  --card-foreground: oklch(0.943 0 0); /* #ECECEC */
+  --popover: oklch(0.274 0.009 276.8); /* #26272C */
+  --popover-foreground: oklch(0.943 0 0); /* #ECECEC */
+  --primary: oklch(0.943 0 0); /* #ECECEC */
+  --primary-foreground: oklch(0.21 0.008 274.5); /* #17181C */
+  --brand: oklch(0.644 0.204 27.8); /* #F04A40 */
+  --brand-foreground: oklch(0.154 0.04 31.1); /* #1A0503 */
+  --brand-surface: oklch(0.462 0.167 28.7); /* #A11F18 */
+  --brand-surface-foreground: oklch(1 0 0); /* #FFFFFF */
+  --secondary: oklch(0.274 0.009 276.8); /* #26272C */
+  --secondary-foreground: oklch(0.943 0 0); /* #ECECEC */
+  --muted: oklch(0.227 0.008 274.6); /* #1B1C20 */
+  --muted-foreground: oklch(0.719 0.01 273.3); /* #A2A4AB */
+  --accent: oklch(0.274 0.009 276.8); /* #26272C */
+  --accent-foreground: oklch(0.943 0 0); /* #ECECEC */
+  --selection: oklch(0.266 0.049 22.8); /* #3A1B1A */
+  --selection-foreground: oklch(0.925 0.022 24.4); /* #F5E1DF */
+  --destructive: oklch(0.71 0.183 26.6); /* #FF6B61 */
+  --destructive-foreground: oklch(0.154 0.04 31.1); /* #1A0503 */
+  --border: oklch(0.298 0.009 276.8); /* #2C2D32 */
+  --input: oklch(0.573 0.011 273.2); /* #76787F */
+  --ring: oklch(0.943 0 0); /* #ECECEC */
+  --leader: oklch(0.417 0.01 271.2); /* #4A4C52 */
+  --highlight: oklch(0.397 0.118 27.8); /* #7A2620 */
+  --highlight-foreground: oklch(0.951 0.024 26.9); /* #FFE9E6 */
+  --avatar: oklch(0.274 0.009 276.8); /* #26272C */
+  --avatar-foreground: oklch(0.888 0.004 271.4); /* #D9DADD */
+  --avatar-tint-1: #4a3f2c; /* #4A3F2C */
+  --avatar-tint-2: #34452f; /* #34452F */
+  --avatar-tint-3: #2c3f55; /* #2C3F55 */
+  --avatar-tint-4: #43365a; /* #43365A */
+  --avatar-tint-5: #2a4744; /* #2A4744 */
+  --avatar-tint-6: #4a4228; /* #4A4228 */
+  --success: oklch(0.783 0.14 157.1); /* #5FD394 */
+  --warning: oklch(0.8 0.123 79.2); /* #E8B45A */
+  --elevation-float:
+    0 0 0 1px oklch(1 0 0 / 0.07), 0 1px 2px transparent, 0 8px 24px -6px oklch(0 0 0 / 0.55);
+  --elevation-overlay:
+    0 0 0 1px oklch(1 0 0 / 0.09), 0 2px 4px transparent, 0 24px 48px -12px oklch(0 0 0 / 0.65);
 }
 
 @theme inline {
@@ -168,19 +160,6 @@
   --color-avatar-foreground: var(--avatar-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 
   --radius-sm: calc(var(--radius) - 4px); /* 6px  : badges, touches */
   --radius-md: calc(var(--radius) - 2px); /* 8px  : champs */
@@ -197,10 +176,18 @@
   --text-caption--line-height: 1rem;
   --text-index: 3.5rem;
   --text-index--line-height: 0.8; /* lettres A, B, C de la liste */
-  --text-hero: 2.75rem;
-  --text-hero--line-height: 1; /* numéro principal en fiche */
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.125rem; /* lettres de l'index, onglets */
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem; /* texte courant à partir de lg */
+  --text-wordmark: 2rem;
+  --text-wordmark--line-height: 1; /* « Natel » dans l'en-tête */
+  --text-title-sm: 2.25rem;
+  --text-title-sm--line-height: 1;
+  --text-title: 2.75rem;
+  --text-title--line-height: 0.95; /* titres d'écran, lettres de la liste sur sm */
   --text-person: 3.5rem;
-  --text-person--line-height: 0.95; /* nom en tête de fiche */
+  --text-person--line-height: 0.95; /* titres d'écran à partir de lg */
 
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
@@ -230,6 +217,22 @@
   mark {
     @apply bg-highlight text-highlight-foreground rounded-[2px];
   }
+}
+
+/* Fields show their focus with the mouse too: an ink border, doubled by a
+   1px ring, rather than the offset ring buttons get from the keyboard.
+   Unlayered, so they win over the border utilities a field carries. */
+.field {
+  transition-property: border-color, box-shadow;
+}
+.field:focus {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+.field[aria-invalid="true"]:focus {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 1px var(--destructive);
 }
 
 @utility leader {

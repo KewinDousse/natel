@@ -64,13 +64,13 @@ test("screens", async ({ page }) => {
   await shot(page, "02-login-error");
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("link", { name: /Lovelace Ada/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Ada Lovelace/ })).toBeVisible();
   await shot(page, "03-list");
   await page.getByRole("searchbox", { name: "Search contacts" }).fill("zoe");
   await expect(page.getByText("1 result")).toBeVisible();
   await shot(page, "04-search");
   await page.getByRole("searchbox", { name: "Search contacts" }).fill("");
-  await page.getByRole("link", { name: /Lovelace Ada/ }).click();
+  await page.getByRole("link", { name: /Ada Lovelace/ }).click();
   await expect(page.getByRole("heading", { level: 1 })).toBeAttached();
   await shot(page, "05-contact");
   await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
@@ -80,7 +80,7 @@ test("screens", async ({ page }) => {
   await expect(page.getByRole("dialog")).toBeVisible();
   await shot(page, "07-delete-dialog");
   await page.keyboard.press("Escape");
-  await page.getByPlaceholder("Last name").fill("Lovelace-Byron");
+  await page.getByLabel("Last name", { exact: true }).fill("Lovelace-Byron");
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await shot(page, "08-discard-dialog");

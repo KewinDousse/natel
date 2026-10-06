@@ -76,7 +76,7 @@ README header that follows GitHub's light/dark theme:
 </picture>
 ```
 
-The contact names and numbers shown in these images are fictional.
+The social images take up the sign-in panel: the red, the thumb-index tabs on the right edge (N–P stands out), the tagline and the giant wordmark, with no contact on them. The README banners show fictional names, with zeroed numbers (`079 000 00 01`), like the demo's (ADR 025).
 
 ## Regenerating
 The PNGs are rendered from the SVGs in this folder. To change a colour or a line of text, edit the SVG and re-export at the same pixel size.

@@ -98,16 +98,21 @@ verifies.
 src/
   routes/        TanStack Router file-based routes (thin: compose components, no logic)
   components/    UI components; components/ui/ is vendored shadcn, added with
-                 `pnpm dlx shadcn@latest add` (the CLI is not a dependency)
+                 `pnpm dlx shadcn@latest add` (the CLI is not a dependency).
+                 button.ts, icons.tsx and dialog.tsx hold the shared controls;
+                 the contact page is contact-page.tsx (state, saves, dialogs)
+                 over contact-view.tsx (reading) and contact-editor.tsx (form)
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.
                  The ONLY module that imports tsdav. demo.ts and demo-seed.ts
                  stand in for it in the demo build (ADR 025).
   vcard/         Parse/serialise vCard ↔ Contact model. Wraps ical.js.
                  The ONLY module that imports ical.js.
   lib/           Pure helpers: contact-list grouping, sorting, search logic;
-                 edit drafts, dirty tracking and validation; display formatting.
+                 edit drafts, dirty tracking and validation; display formatting;
+                 the theme, which public/theme.js applies before the first paint.
   model/         Contact type, address book type. Plain data, no I/O.
-  store/         Zustand: session (credentials, selected book). Memory only.
+  store/         Zustand: session (credentials, selected book), memory only;
+                 preferences (sort, theme), stored like the language (ADR 026).
   queries/       TanStack Query hooks; the bridge between dav/ and routes/.
   i18n/          en.json, fr.json, setup, stored display preferences (ADR 019)
 tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, components)

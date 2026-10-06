@@ -12,6 +12,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import type { BookGroup } from "@/lib/contact-groups";
 import { cn } from "@/lib/utils";
+import { FOCUS_RING } from "./button";
+import { CheckIcon, ChevronDownIcon, XSmallIcon } from "./icons";
 
 type GroupFilterProps = {
   groups: BookGroup[];
@@ -127,7 +129,11 @@ export function GroupFilter({ groups, selected, onSelect, className }: GroupFilt
   };
 
   return (
-    <div ref={rootRef} className={cn("relative min-w-0", className)}>
+    // On its own row on phones, the unfiltered label lines up with the count.
+    <div
+      ref={rootRef}
+      className={cn("relative min-w-0", selected === null && "max-sm:-ml-2.5", className)}
+    >
       <div
         className={cn(
           "inline-flex h-8 max-w-full items-center rounded-full",
@@ -149,7 +155,8 @@ export function GroupFilter({ groups, selected, onSelect, className }: GroupFilt
             }
           }}
           className={cn(
-            "inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 text-sm font-bold transition-colors",
+            FOCUS_RING,
             selected === null
               ? "text-muted-foreground hover:bg-muted hover:text-foreground"
               : "pl-3 pr-1 text-foreground",
@@ -171,7 +178,10 @@ export function GroupFilter({ groups, selected, onSelect, className }: GroupFilt
               // The × goes with the filter: the focus stays on the trigger.
               triggerRef.current?.focus();
             }}
-            className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className={cn(
+              "relative inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:bg-muted hover:text-foreground",
+              FOCUS_RING,
+            )}
           >
             <XSmallIcon />
           </button>
@@ -192,56 +202,5 @@ export function GroupFilter({ groups, selected, onSelect, className }: GroupFilt
         </div>
       )}
     </div>
-  );
-}
-
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      className="size-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function XSmallIcon() {
-  return (
-    <svg
-      className="size-3.5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
   );
 }

@@ -11,6 +11,7 @@
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
+import { Key } from "./keyboard-shortcuts";
 
 type ContactDetailPaneProps = {
   /** True when a /contacts/$id route is active. */
@@ -26,7 +27,7 @@ export function ContactDetailPane({ hasContact, children }: ContactDetailPanePro
       {hasContact ? (
         children
       ) : (
-        <div className="mx-auto w-full max-w-[44rem] px-5 pb-10 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
+        <div className="mx-auto w-full max-w-[44rem] px-5 pb-10 pt-6 sm:px-8 lg:h-full lg:px-10 lg:pt-10 xl:px-14">
           <EmptyDetail />
         </div>
       )}
@@ -37,7 +38,7 @@ export function ContactDetailPane({ hasContact, children }: ContactDetailPanePro
 function EmptyDetail() {
   const { t } = useI18n();
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center lg:min-h-full">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 pb-[10vh] text-center lg:h-full">
       <p
         className="font-display text-5xl font-bold leading-none text-leader"
         aria-hidden="true"
@@ -46,6 +47,18 @@ function EmptyDetail() {
         Natel
       </p>
       <p className="text-sm text-muted-foreground">{t("select_contact")}</p>
+      {/* Keys only help where there is a keyboard: the pane shows from lg. */}
+      <p className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-caption text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <Key>N</Key>
+          {t("hint_new_contact")}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span className="inline-flex items-center gap-1.5">
+          <Key>?</Key>
+          {t("hint_shortcuts")}
+        </span>
+      </p>
     </div>
   );
 }

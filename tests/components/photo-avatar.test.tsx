@@ -4,7 +4,7 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { PhotoAvatar } from "@/components/photo-avatar";
+import { PhotoAvatar, tintOf } from "@/components/photo-avatar";
 import { parse } from "@/vcard";
 import bytes from "../vcard/photo-bytes.json";
 
@@ -53,5 +53,14 @@ describe("PhotoAvatar", () => {
       <PhotoAvatar contact={withPhoto(bytes.webp)} className="size-10" fallback={fallback} />,
     );
     expect(container.querySelector("img")?.getAttribute("src")).toContain("image/png;base64,UklGR");
+  });
+});
+
+describe("tintOf", () => {
+  it("draws one of the six tints, always the same for a card", () => {
+    const tints = ["full", "ada", "4f1c2e8a-0b7d-4c55-9e1f-2a3b4c5d6e7f", ""].map(tintOf);
+    for (const tint of tints) expect(tint).toBeGreaterThanOrEqual(1);
+    for (const tint of tints) expect(tint).toBeLessThanOrEqual(6);
+    expect(tintOf("ada")).toBe(tintOf("ada"));
   });
 });

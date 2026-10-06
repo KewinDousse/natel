@@ -26,15 +26,18 @@ test.beforeEach(async () => {
 test("puts the sorted part of the name first", async ({ page }) => {
   await signIn(page);
   const row = page.getByRole("link", { name: /Aardin/ });
-  await expect(row.locator("b")).toHaveText("Aardin");
-  await expect(row).toContainText("Aardin Alain");
-  await page.getByRole("button", { name: "First name" }).click();
+  // By first name unless the settings say otherwise.
   await expect(row.locator("b")).toHaveText("Alain");
   await expect(row).toContainText("Alain Aardin");
+  await page.getByRole("button", { name: "Last name" }).click();
+  await expect(row.locator("b")).toHaveText("Aardin");
+  await expect(row).toContainText("Aardin Alain");
 });
 
 test("follows a finger sliding down the A–Z rail", async ({ page, isMobile }) => {
   test.skip(!isMobile, "touch only");
+  // Lettered by last name: every card here is an Alain.
+  await page.addInitScript(() => localStorage.setItem("natel.preferences", '{"sort":"family"}'));
   await signIn(page);
   const center = async (letter: string) => {
     const box = await page.locator("#rail").getByText(letter, { exact: true }).boundingBox();

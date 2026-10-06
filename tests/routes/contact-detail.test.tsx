@@ -7,13 +7,15 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { tintOf } from "@/components/photo-avatar";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
+import { usePreferences } from "@/store/preferences";
 import { useSessionStore } from "@/store/session";
 
 // ---------------------------------------------------------------------------
@@ -190,6 +192,7 @@ beforeEach(() => {
   setLanguage("fr-FR");
   shimMatchMedia();
   localStorage.clear();
+  usePreferences.setState({ sortBy: "family", theme: null });
   useSessionStore.setState({ auth: null, selectedBook: null });
   vi.resetAllMocks();
 });
@@ -206,7 +209,14 @@ describe("contact page content", () => {
     const titles = within(article)
       .getAllByRole("heading", { level: 2 })
       .map((h) => h.textContent);
-    expect(titles).toEqual(["Téléphones", "E-mails", "Adresse", "Anniversaire", "Groupes", "Note"]);
+    expect(titles).toEqual([
+      "Téléphones",
+      "E\u2060-\u2060mails",
+      "Adresse",
+      "Anniversaire",
+      "Groupes",
+      "Note",
+    ]);
   });
 
   it("hides empty sections entirely", async () => {
@@ -216,8 +226,18 @@ describe("contact page content", () => {
     const titles = within(article)
       .getAllByRole("heading", { level: 2 })
       .map((h) => h.textContent);
-    expect(titles).toEqual(["Téléphones"]);
-    expect(within(article).queryByText("E-mails")).toBeNull();
+    expect(titles).toEqual(["Téléphone"]);
+    expect(within(article).queryByText("E\u2060-\u2060mail")).toBeNull();
+  });
+
+  it("titles a section in the plural only for several values", async () => {
+    await renderLoggedIn("/contacts/full");
+
+    const article = await screen.findByRole("article");
+    expect(within(article).getByRole("heading", { level: 2, name: "Téléphones" })).toBeTruthy();
+    expect(
+      within(article).getByRole("heading", { level: 2, name: "E\u2060-\u2060mails" }),
+    ).toBeTruthy();
   });
 
   it("hides the job/org row when neither is present", async () => {
@@ -282,7 +302,7 @@ describe("phones and action row", () => {
     const workLink = screen.getByRole("link", { name: "021 000 00 02" });
     expect(workLink.getAttribute("href")).toBe("tel:+41210000002");
 
-    const writeLink = screen.getByRole("link", { name: "Écrire" });
+    const writeLink = screen.getByRole("link", { name: "E\u2060-\u2060mail" });
     expect(writeLink.getAttribute("href")).toBe("mailto:katarina@noxus.example");
 
     // Emails display as stored.
@@ -310,7 +330,7 @@ describe("phones and action row", () => {
     loadCards({ fields: card });
     renderApp("/contacts/fields");
 
-    const write = await screen.findByRole("link", { name: "Écrire" });
+    const write = await screen.findByRole("link", { name: "E\u2060-\u2060mail" });
     expect(write.getAttribute("href")).toBe(
       "mailto:luc@example.org%3Fbcc%3Dx@attacker.example%26body%3DHi%250A",
     );
@@ -326,14 +346,13 @@ describe("phones and action row", () => {
     await renderLoggedIn("/contacts/full");
 
     const primary = await screen.findByRole("link", { name: "079 000 00 01" });
-    expect(primary.parentElement?.className).toContain("text-xl");
-    expect(primary.parentElement?.className).toContain("font-bold");
-    // The primary must NOT carry the lg:text-[0.9375rem] step-down from TEXT;
-    // at ≥1024px that would override text-xl and silently shrink the primary.
-    expect(primary.parentElement?.className).not.toContain("lg:text-[0.9375rem]");
+    expect(primary.className).toContain("text-xl");
+    expect(primary.className).toContain("font-bold");
+    // The body text's step-down at lg would override text-xl and shrink it.
+    expect(primary.className).not.toContain("lg:text-body");
 
     const work = screen.getByRole("link", { name: "021 000 00 02" });
-    expect(work.parentElement?.className).not.toContain("text-xl");
+    expect(work.className).not.toContain("text-xl");
   });
 
   it("omits the SMS button when the contact has no number", async () => {
@@ -350,14 +369,14 @@ describe("phones and action row", () => {
     expect(await screen.findByRole("article")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "SMS" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Appeler" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Écrire" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "E\u2060-\u2060mail" })).toBeNull();
   });
 
-  it("translates the mobile type label to Natel and the others", async () => {
+  it("translates the mobile type label to Mobile and the others", async () => {
     await renderLoggedIn("/contacts/full");
 
     const article = await screen.findByRole("article");
-    expect(within(article).getByText("Natel")).toBeTruthy();
+    expect(within(article).getByText("Mobile")).toBeTruthy();
     expect(within(article).getByText("Domicile")).toBeTruthy();
     // "Travail" appears as a type label (work tel + work email) and a group chip.
     expect(within(article).getAllByText("Travail").length).toBeGreaterThanOrEqual(3);
@@ -393,12 +412,12 @@ describe("copy buttons", () => {
 // ---------------------------------------------------------------------------
 
 describe("avatar and special sections", () => {
-  it("shows initials on bg-avatar for a person card", async () => {
+  it("shows initials on the card's own tint for a person card", async () => {
     await renderLoggedIn("/contacts/full");
 
     const article = await screen.findByRole("article");
     const avatar = within(article).getByText("DK");
-    expect(avatar.className).toContain("bg-avatar");
+    expect(avatar.style.backgroundColor).toBe(`var(--avatar-tint-${tintOf("full")})`);
     expect(avatar.className).toContain("font-display");
   });
 
@@ -416,6 +435,119 @@ describe("avatar and special sections", () => {
     expect(visible).toHaveLength(1);
     expect(article.querySelector("svg")).not.toBeNull();
     expect(within(article).queryByText(/^[A-Z]{2}$/)).toBeNull();
+  });
+
+  it("shows the building icon, and the name once, for a card named after its organisation", async () => {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:atelier",
+      "FN:Atelier de Lumière",
+      "N:;;;;",
+      "ORG:Atelier de Lumière",
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ atelier: card });
+    renderApp("/contacts/atelier");
+
+    const article = await screen.findByRole("article");
+    const visible = within(article)
+      .getAllByText("Atelier de Lumière")
+      .filter((el) => el.closest(".sr-only") === null);
+    expect(visible).toHaveLength(1);
+    expect(article.querySelector("svg")).not.toBeNull();
+  });
+
+  it("writes the name and the initials in the order the list sorts by", async () => {
+    await renderLoggedIn("/contacts/full");
+    const article = await screen.findByRole("article");
+    const grey = within(article).getByText("Katarina");
+    expect(grey.className).toContain("text-muted-foreground");
+    expect(grey.parentElement?.textContent).toBe("Du Couteau Katarina");
+
+    act(() => usePreferences.setState({ sortBy: "given" }));
+    const second = within(article).getByText("Du Couteau");
+    expect(second.className).toContain("text-muted-foreground");
+    expect(second.parentElement?.textContent).toBe("Katarina Du Couteau");
+    expect(within(article).getByText("KD")).toBeTruthy();
+  });
+
+  it("names an organisation once, its units under it", async () => {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:acme",
+      "FN:",
+      "N:;;;;",
+      "ORG:ACME;Ventes",
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ acme: card });
+    renderApp("/contacts/acme");
+
+    const article = await screen.findByRole("article");
+    const names = within(article)
+      .getAllByText("ACME")
+      .filter((el) => el.closest(".sr-only") === null);
+    expect(names).toHaveLength(1);
+    expect(within(article).getByText("Ventes")).toBeTruthy();
+  });
+
+  it("puts a first name alone on the first line, in ink", async () => {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:jinx",
+      "FN:Jinx",
+      "N:;Jinx;;;",
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ jinx: card });
+    renderApp("/contacts/jinx");
+
+    const article = await screen.findByRole("article");
+    const name = within(article)
+      .getAllByText("Jinx")
+      .filter((el) => el.closest(".sr-only") === null);
+    expect(name).toHaveLength(1);
+    expect(name[0]?.className).not.toContain("text-muted-foreground");
+    expect(name[0]?.parentElement?.className).not.toContain("text-muted-foreground");
+  });
+
+  it("writes the address as one block, the locality whole without a postcode", async () => {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:sciel",
+      "FN:Sciel",
+      "N:;Sciel;;;",
+      "ADR;TYPE=HOME:;;Ferme des Champs-Dorés;Grande-Cité;;;",
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ sciel: card });
+    renderApp("/contacts/sciel");
+
+    const article = await screen.findByRole("article");
+    const address = article.querySelector("address");
+    expect(address?.textContent).toBe("Ferme des Champs-DorésGrande-Cité");
+    expect(within(address as HTMLElement).getByText("Grande-Cité").className).not.toContain(
+      "truncate",
+    );
+  });
+
+  it("names the browser tab after the contact", async () => {
+    await renderLoggedIn("/contacts/full");
+
+    await screen.findByRole("article");
+    await waitFor(() => expect(document.title).toBe("Du Couteau Katarina · Natel"));
   });
 
   it("renders a month-day birthday without a year", async () => {
@@ -445,15 +577,10 @@ describe("avatar and special sections", () => {
 
     const article = await screen.findByRole("article");
     // getByText normalises whitespace, so match the collapsed form.
-    // The note appears in both the view span and the hidden edit textarea.
-    const noteElements = within(article).getAllByText(
+    const note = within(article).getByText(
       "Rencontrée à la Fosse de Noxus. Préfère les messages aux appels.",
     );
-    expect(noteElements.length).toBeGreaterThanOrEqual(1);
-    const viewNote = noteElements[0] as HTMLElement;
-    expect(viewNote).toBeTruthy();
-    const parent = viewNote.parentElement;
-    expect(parent?.className).toContain("whitespace-pre-wrap");
+    expect(note.className).toContain("whitespace-pre-wrap");
   });
 });
 
@@ -504,23 +631,10 @@ describe("loading, not-found and mobile top bar", () => {
 // ---------------------------------------------------------------------------
 
 describe("edit-mode readiness", () => {
-  it("page root is an article with group/fiche and data-mode=view", async () => {
+  it("page root is an article with data-mode=view", async () => {
     await renderLoggedIn("/contacts/full");
 
     const article = await screen.findByRole("article");
     expect(article.getAttribute("data-mode")).toBe("view");
-    expect(article.className).toContain("group/fiche");
-  });
-
-  it("value cells stack view and edit layers in one grid area, edit hidden", async () => {
-    await renderLoggedIn("/contacts/full");
-
-    const article = await screen.findByRole("article");
-    const stacked = article.querySelector('[class*="grid-area:1/1"]');
-    expect(stacked).not.toBeNull();
-    // The view frame carries the edit-hiding classes already.
-    const frame = stacked?.querySelector('[class*="group-data-[mode=edit]"]');
-    expect(frame).not.toBeNull();
-    expect(stacked?.className).toContain("grid");
   });
 });

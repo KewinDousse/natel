@@ -38,8 +38,8 @@ test("moves a contact to another book, card unchanged", async ({ page }) => {
   await editAda(page);
   await page.getByRole("button", { name: "Move to another address book" }).click();
   const dialog = page.getByRole("dialog", { name: "Move this contact?" });
-  await expect(dialog.getByRole("button", { name: "Move" })).toBeDisabled();
-  await dialog.getByRole("radio", { name: "Work" }).check();
+  // The only other book is chosen already.
+  await expect(dialog.getByRole("radio", { name: "Work" })).toBeChecked();
   await dialog.getByRole("button", { name: "Move" }).click();
 
   await expect(page.getByText("Moved to “Work”")).toBeVisible();
@@ -52,7 +52,7 @@ test("moves a contact to another book, card unchanged", async ({ page }) => {
 test("asks to save or cancel before moving unsaved changes", async ({ page }) => {
   await signIn(page);
   await editAda(page);
-  await page.getByPlaceholder("Last name").fill("Byron");
+  await page.getByLabel("Last name", { exact: true }).fill("Byron");
   const move = page.getByRole("button", { name: "Move to another address book" });
   await expect(move).toBeDisabled();
   await expect(page.getByText("Save or cancel your changes first.")).toBeVisible();
@@ -100,7 +100,7 @@ test("edits and saves a contact moved into a book already opened", async ({ page
   // Open Work once, so its contacts are cached when the card lands there.
   await page.getByRole("button", { name: /Address book/ }).click();
   await page.getByRole("menuitemradio", { name: "Work" }).click();
-  await expect(page.getByText("This address book is empty.")).toBeVisible();
+  await expect(page.getByText("This address book is empty")).toBeVisible();
   await page.getByRole("button", { name: /Address book/ }).click();
   await page.getByRole("menuitemradio", { name: "Contacts" }).click();
   await editAda(page);
@@ -111,7 +111,7 @@ test("edits and saves a contact moved into a book already opened", async ({ page
   await expect(page.getByText("Moved to “Work”")).toBeVisible();
 
   await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
-  await page.getByPlaceholder("Last name").fill("Byron");
+  await page.getByLabel("Last name", { exact: true }).fill("Byron");
   await page.getByRole("button", { name: "Save" }).click();
   // The button reads "Saving…" while the PUT runs: wait for the server instead.
   await expect.poll(() => getCard("ada", EXTRA_BOOK_PATH)).toContain("N:Byron;Ada;;;");

@@ -62,7 +62,7 @@ test("asks before leaving an unsaved edit for the settings", async ({ page, isMo
   await signIn(page);
   await page.getByRole("link", { name: /Lovelace/ }).click();
   await page.getByRole("button", { name: /^Edit/ }).first().click();
-  await page.getByPlaceholder("Last name").fill("Byron");
+  await page.getByLabel("Last name", { exact: true }).fill("Byron");
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
 });

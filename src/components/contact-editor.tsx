@@ -1,0 +1,689 @@
+/**
+ * ContactEditor — the contact page's edit form (DESIGN.md "Contact page"),
+ * for a contact or a new one. The sections come in the reading view's order;
+ * an optional one the card doesn't have waits as a "+ Ajouter" pill under the
+ * form. The page around it owns the draft, the save and the dialogs.
+ */
+
+import { type Dispatch, type ReactNode, type RefObject, useId, useRef, useState } from "react";
+import { useI18n } from "@/i18n/react";
+import type { TranslationKey } from "@/i18n/setup";
+import { type ContactDraft, kindOf, type ValidationErrors } from "@/lib/contact-edit";
+import type { DraftAction } from "@/lib/draft-reducer";
+import { cn } from "@/lib/utils";
+import type { Contact } from "@/model/contact";
+import { usePreferences } from "@/store/preferences";
+import { buttonClass, fieldClass } from "./button";
+import { AddPill, kindLabelKey, RemoveButton, Section, TypeSelect } from "./contact-fields";
+import {
+  ArrowRightIcon,
+  CakeIcon,
+  GlobeIcon,
+  ImageIcon,
+  MailIcon,
+  MapPinIcon,
+  NoteIcon,
+  PhoneIcon,
+  TagIcon,
+  TrashIcon,
+  UsersIcon,
+  XSmallIcon,
+} from "./icons";
+import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
+
+/** Optional sections the form shows only once they have something, or are asked for. */
+type Optional = "url" | "nickname" | "note";
+
+export function ContactEditor({
+  contact,
+  isNew,
+  draft,
+  dispatch,
+  errors,
+  onBlurValidate,
+  groups,
+  groupSuggestions,
+  onGroupsChange,
+  photo,
+  unknownCount,
+  onShowUnknown,
+  move,
+  onDelete,
+  busy,
+}: {
+  contact: Contact;
+  isNew: boolean;
+  draft: ContactDraft;
+  dispatch: Dispatch<DraftAction>;
+  errors: ValidationErrors;
+  onBlurValidate: () => void;
+  /** The contact's groups as edited; none on a new contact. */
+  groups: string[] | null;
+  groupSuggestions: string[];
+  onGroupsChange: (names: string[]) => void;
+  photo: {
+    canChange: boolean;
+    shown: boolean;
+    inputRef: RefObject<HTMLInputElement | null>;
+    buttonRef: RefObject<HTMLButtonElement | null>;
+    onFile: (file: File) => void;
+  };
+  /** Properties of the card the page doesn't show, kept as they are. */
+  unknownCount: number;
+  onShowUnknown: () => void;
+  /** Absent on a new contact and when the account has a single book. */
+  move?: { disabled: boolean; hint: boolean; onClick: () => void };
+  /** Absent on a new contact. */
+  onDelete?: () => void;
+  busy: boolean;
+}) {
+  const { t } = useI18n();
+  const moveHintId = useId();
+  const nameErrorId = useId();
+  const [opened, setOpened] = useState<Set<Optional>>(() => new Set());
+  // What the card has shows at once; an empty section, once asked for.
+  const shown = (section: Optional) =>
+    opened.has(section) || contact.fields[section].length > 0 || draft[section].length > 0;
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // A section asked for gets the focus, once it is on the page.
+  const open = (section: Optional | "adr" | "bday", sectionId: string) => {
+    if (section === "adr") dispatch({ type: "ADD_ADR" });
+    else if (section === "bday") dispatch({ type: "ADD_BDAY" });
+    else setOpened((current) => new Set(current).add(section));
+    requestAnimationFrame(() => {
+      const field = formRef.current?.querySelector<HTMLElement>(
+        `#${sectionId} input, #${sectionId} textarea`,
+      );
+      field?.focus();
+    });
+  };
+
+  // A new number or address goes under the others, focused.
+  const addRow = (field: "tel" | "email") => {
+    dispatch({ type: field === "tel" ? "ADD_TEL" : "ADD_EMAIL" });
+    requestAnimationFrame(() => {
+      const inputs = formRef.current?.querySelectorAll<HTMLElement>(`#sec-${field} input`);
+      inputs?.[inputs.length - 1]?.focus();
+    });
+  };
+
+  const nameInvalid = errors.name !== undefined;
+  // The name fields come in the order the list sorts by.
+  const sortBy = usePreferences((state) => state.sortBy);
+  const nameOrder =
+    sortBy === "given" ? (["given", "family"] as const) : (["family", "given"] as const);
+  const pills: { label: TranslationKey; show: boolean; onClick: () => void }[] = [
+    { label: "add_address", show: draft.adr === null, onClick: () => open("adr", "sec-adr") },
+    { label: "add_bday", show: draft.bday === null, onClick: () => open("bday", "sec-bday") },
+    { label: "add_url", show: !shown("url"), onClick: () => open("url", "sec-url") },
+    {
+      label: "add_nickname",
+      show: !shown("nickname"),
+      onClick: () => open("nickname", "sec-nickname"),
+    },
+    { label: "add_note", show: !shown("note"), onClick: () => open("note", "sec-note") },
+  ];
+
+  return (
+    <div
+      ref={formRef}
+      className="mx-auto w-full max-w-[44rem] px-5 pb-28 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <PhotoAvatar
+            contact={contact}
+            edited={draft.photo}
+            className="size-24 rounded-xl sm:size-28"
+            fallback={
+              // An organisation's card keeps its building, as in the reading view.
+              !draft.family.trim() && !draft.given.trim() && draft.org.trim() ? (
+                <BuildingAvatar className="size-24 rounded-xl sm:size-28" />
+              ) : (
+                <InitialsAvatar
+                  family={draft.family}
+                  given={draft.given}
+                  seed={contact.uid || contact.href}
+                  className="size-24 rounded-xl text-5xl sm:size-28"
+                />
+              )
+            }
+          />
+          {(photo.canChange || photo.shown) && (
+            <div className="flex flex-col items-start gap-2">
+              {photo.canChange && (
+                <>
+                  <button
+                    ref={photo.buttonRef}
+                    type="button"
+                    onClick={() => photo.inputRef.current?.click()}
+                    className={buttonClass({ variant: "outline", size: "sm" }, "pl-2.5")}
+                  >
+                    <ImageIcon />
+                    {t("photo_change")}
+                  </button>
+                  <input
+                    ref={photo.inputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      // Choosing the same file again should reopen the dialog.
+                      event.target.value = "";
+                      if (file) photo.onFile(file);
+                    }}
+                  />
+                </>
+              )}
+              {photo.shown && (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: "SET_PHOTO", value: { kind: "removed" } })}
+                  className={buttonClass({ variant: "outline", size: "sm" }, "pl-2.5")}
+                >
+                  <TrashIcon className="size-4" />
+                  {t("photo_remove")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <span className="hidden h-10 items-center text-sm font-bold text-muted-foreground lg:inline-flex">
+          {isNew ? t("new_contact") : t("edit_label")}
+        </span>
+      </div>
+
+      {/* Two by two on phones too: they open the form, so they keep it short. */}
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        {nameOrder.map((part) => (
+          <Field key={part} label={t(part === "family" ? "label_family" : "label_given")}>
+            {(id) => (
+              <input
+                id={id}
+                type="text"
+                value={draft[part]}
+                autoComplete="off"
+                onChange={(e) =>
+                  dispatch({
+                    type: part === "family" ? "SET_FAMILY" : "SET_GIVEN",
+                    value: e.target.value,
+                  })
+                }
+                onBlur={onBlurValidate}
+                aria-invalid={nameInvalid || undefined}
+                aria-describedby={nameInvalid ? nameErrorId : undefined}
+                className={fieldClass("h-11")}
+              />
+            )}
+          </Field>
+        ))}
+        {nameInvalid && (
+          <p id={nameErrorId} className="col-span-2 -mt-1 text-sm text-destructive">
+            {t(errors.name as TranslationKey)}
+          </p>
+        )}
+        <Field label={t("label_org")}>
+          {(id) => (
+            <input
+              id={id}
+              type="text"
+              value={draft.org}
+              autoComplete="organization"
+              onChange={(e) => dispatch({ type: "SET_ORG", value: e.target.value })}
+              onBlur={onBlurValidate}
+              aria-invalid={nameInvalid || undefined}
+              aria-describedby={nameInvalid ? nameErrorId : undefined}
+              className={fieldClass("h-11")}
+            />
+          )}
+        </Field>
+        <Field label={t("label_title")}>
+          {(id) => (
+            <input
+              id={id}
+              type="text"
+              value={draft.title}
+              onChange={(e) => dispatch({ type: "SET_TITLE", value: e.target.value })}
+              className={fieldClass("h-11")}
+            />
+          )}
+        </Field>
+      </div>
+
+      <div className="mt-8 space-y-6">
+        <Section
+          id="sec-tel"
+          icon={<PhoneIcon />}
+          title={t(draft.tel.length > 1 ? "s_phones" : "s_phones_1")}
+        >
+          <div className="space-y-3 sm:space-y-2">
+            {draft.tel.map((field, i) => (
+              <EditRow
+                key={field.id}
+                type={
+                  <TypeSelect
+                    field="tel"
+                    aria-label={t("label_tel_type")}
+                    value={field.type}
+                    onChange={(value) => dispatch({ type: "SET_TEL_TYPE", index: i, value })}
+                  />
+                }
+                remove={
+                  <RemoveButton
+                    label={t("remove_tel")}
+                    onClick={() => dispatch({ type: "REMOVE_TEL", index: i })}
+                  />
+                }
+              >
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  aria-label={`${t("label_tel")} (${t(kindLabelKey(field.type))})`}
+                  value={field.value}
+                  onChange={(e) => dispatch({ type: "SET_TEL", index: i, value: e.target.value })}
+                  className={fieldClass("h-11 tabular")}
+                />
+              </EditRow>
+            ))}
+          </div>
+          <AddPill
+            label={t("add_phone")}
+            onClick={() => addRow("tel")}
+            className={cn("w-full justify-center", draft.tel.length > 0 && "mt-3")}
+          />
+        </Section>
+
+        <Section
+          id="sec-email"
+          icon={<MailIcon />}
+          title={t(draft.email.length > 1 ? "s_emails" : "s_emails_1")}
+        >
+          <div className="space-y-3 sm:space-y-2">
+            {draft.email.map((field, i) => {
+              const error = errors[`email_${i}`];
+              return (
+                <EditRow
+                  key={field.id}
+                  type={
+                    <TypeSelect
+                      field="email"
+                      aria-label={t("label_email_type")}
+                      value={field.type}
+                      onChange={(value) => dispatch({ type: "SET_EMAIL_TYPE", index: i, value })}
+                    />
+                  }
+                  remove={
+                    <RemoveButton
+                      label={t("remove_email")}
+                      onClick={() => dispatch({ type: "REMOVE_EMAIL", index: i })}
+                    />
+                  }
+                  error={
+                    error && (
+                      <ErrorText id={`err-email-${i}`}>{t(error as TranslationKey)}</ErrorText>
+                    )
+                  }
+                >
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    aria-label={`${t("label_email")} (${t(kindLabelKey(field.type))})`}
+                    value={field.value}
+                    onChange={(e) =>
+                      dispatch({ type: "SET_EMAIL", index: i, value: e.target.value })
+                    }
+                    onBlur={onBlurValidate}
+                    aria-invalid={error !== undefined || undefined}
+                    aria-describedby={error ? `err-email-${i}` : undefined}
+                    className={fieldClass("h-11")}
+                  />
+                </EditRow>
+              );
+            })}
+          </div>
+          <AddPill
+            label={t("add_email")}
+            onClick={() => addRow("email")}
+            className={cn("w-full justify-center", draft.email.length > 0 && "mt-3")}
+          />
+        </Section>
+
+        {draft.adr !== null && (
+          <Section id="sec-adr" icon={<MapPinIcon />} title={t("s_address")}>
+            <EditRow
+              type={
+                <TypeSelect
+                  field="adr"
+                  aria-label={t("label_adr_type")}
+                  value={kindOf(draft.adr.type)}
+                  onChange={(value) => dispatch({ type: "SET_ADR_TYPE", value })}
+                />
+              }
+              wide
+            >
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  aria-label={t("label_street")}
+                  placeholder={t("label_street")}
+                  autoComplete="street-address"
+                  value={draft.adr.street}
+                  onChange={(e) => dispatch({ type: "SET_ADR_STREET", value: e.target.value })}
+                  className={fieldClass("h-11")}
+                />
+                <div className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={t("label_postal_code")}
+                    placeholder={t("label_postal_code")}
+                    autoComplete="postal-code"
+                    value={draft.adr.postalCode}
+                    onChange={(e) =>
+                      dispatch({ type: "SET_ADR_POSTAL_CODE", value: e.target.value })
+                    }
+                    className={fieldClass("h-11")}
+                  />
+                  <input
+                    type="text"
+                    aria-label={t("label_locality")}
+                    placeholder={t("label_locality")}
+                    autoComplete="address-level2"
+                    value={draft.adr.locality}
+                    onChange={(e) => dispatch({ type: "SET_ADR_LOCALITY", value: e.target.value })}
+                    className={fieldClass("h-11")}
+                  />
+                </div>
+                <input
+                  type="text"
+                  aria-label={t("label_country")}
+                  placeholder={t("label_country")}
+                  autoComplete="country-name"
+                  value={draft.adr.country}
+                  onChange={(e) => dispatch({ type: "SET_ADR_COUNTRY", value: e.target.value })}
+                  className={fieldClass("h-11")}
+                />
+              </div>
+            </EditRow>
+          </Section>
+        )}
+
+        {draft.bday !== null && (
+          <Section id="sec-bday" icon={<CakeIcon />} title={t("s_bday")}>
+            <div className="flex flex-wrap gap-2 py-1">
+              {(
+                [
+                  ["day", "SET_BDAY_DAY", "label_bday_day", "placeholder_bday_day", "w-16"],
+                  ["month", "SET_BDAY_MONTH", "label_bday_month", "placeholder_bday_month", "w-16"],
+                  ["year", "SET_BDAY_YEAR", "label_bday_year", "placeholder_bday_year", "w-24"],
+                ] as const
+              ).map(([part, action, label, placeholder, width]) => {
+                const error = errors[`bday_${part}`];
+                return (
+                  <div key={part}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      aria-label={t(label)}
+                      placeholder={t(placeholder)}
+                      value={draft.bday?.[part] ?? ""}
+                      onChange={(e) => dispatch({ type: action, value: e.target.value })}
+                      onBlur={onBlurValidate}
+                      aria-invalid={error !== undefined || undefined}
+                      aria-describedby={error ? `err-bday-${part}` : undefined}
+                      className={fieldClass(cn("h-11 px-3 text-center", width))}
+                    />
+                    {error && (
+                      <ErrorText id={`err-bday-${part}`}>{t(error as TranslationKey)}</ErrorText>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {groups !== null && (
+          <Section icon={<UsersIcon />} title={t("s_groups")}>
+            <GroupsEditor names={groups} suggestions={groupSuggestions} onChange={onGroupsChange} />
+          </Section>
+        )}
+
+        {shown("url") && (
+          <Section id="sec-url" icon={<GlobeIcon />} title={t("s_url")}>
+            <input
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              aria-label={t("label_url")}
+              value={draft.url}
+              onChange={(e) => dispatch({ type: "SET_URL", value: e.target.value })}
+              onBlur={onBlurValidate}
+              aria-invalid={errors.url !== undefined || undefined}
+              aria-describedby={errors.url ? "err-url" : undefined}
+              className={fieldClass("h-11")}
+            />
+            {errors.url && <ErrorText id="err-url">{t(errors.url as TranslationKey)}</ErrorText>}
+          </Section>
+        )}
+
+        {shown("nickname") && (
+          <Section id="sec-nickname" icon={<TagIcon />} title={t("s_nickname")}>
+            <input
+              type="text"
+              aria-label={t("s_nickname")}
+              value={draft.nickname}
+              onChange={(e) => dispatch({ type: "SET_NICKNAME", value: e.target.value })}
+              className={fieldClass("h-11")}
+            />
+          </Section>
+        )}
+
+        {shown("note") && (
+          <Section id="sec-note" icon={<NoteIcon />} title={t("s_note")}>
+            <textarea
+              aria-label={t("s_note")}
+              value={draft.note}
+              onChange={(e) => dispatch({ type: "SET_NOTE", value: e.target.value })}
+              className={fieldClass("min-h-[6rem] resize-y py-2.5 leading-relaxed")}
+            />
+          </Section>
+        )}
+      </div>
+
+      <div className="mt-8 space-y-5">
+        {pills.some((pill) => pill.show) && (
+          <div className="flex flex-wrap gap-2">
+            {pills
+              .filter((pill) => pill.show)
+              .map((pill) => (
+                <AddPill key={pill.label} label={t(pill.label)} onClick={pill.onClick} />
+              ))}
+          </div>
+        )}
+        {unknownCount > 0 && (
+          <p className="text-sm text-muted-foreground">
+            <button
+              type="button"
+              onClick={onShowUnknown}
+              className="rounded-sm underline decoration-leader underline-offset-2 hover:text-foreground hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {unknownCount === 1
+                ? t("preserved_fields_1")
+                : t("preserved_fields", { n: String(unknownCount) })}
+            </button>
+          </p>
+        )}
+        {move && (
+          <div>
+            <button
+              type="button"
+              onClick={move.onClick}
+              disabled={move.disabled}
+              aria-describedby={move.hint ? moveHintId : undefined}
+              className={buttonClass({ variant: "outline" }, "pl-3.5")}
+            >
+              <ArrowRightIcon />
+              {t("move_contact")}
+            </button>
+            {move.hint && (
+              <p id={moveHintId} className="mt-1.5 text-caption text-muted-foreground">
+                {t("move_disabled_hint")}
+              </p>
+            )}
+          </div>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            className={buttonClass({ variant: "destructive" }, "pl-3.5")}
+          >
+            <TrashIcon />
+            {t("delete_contact")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
+  const id = useId();
+  return (
+    <div className="min-w-0 space-y-1">
+      <label htmlFor={id} className="block text-sm font-bold">
+        {label}
+      </label>
+      {children(id)}
+    </div>
+  );
+}
+
+/**
+ * A value with its type menu and its remove button, on one line when the
+ * field keeps 10rem; on a narrow phone the field and the button wrap under
+ * the menu. An address, `wide`, always takes its own line on phones.
+ */
+function EditRow({
+  type,
+  remove,
+  error,
+  wide = false,
+  children,
+}: {
+  type: ReactNode;
+  remove?: ReactNode;
+  error?: ReactNode;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
+      <div className="w-[6.5rem] shrink-0 sm:w-[7.5rem]">{type}</div>
+      <div className={cn("min-w-40 flex-1", wide && "max-sm:basis-full")}>
+        {children}
+        {error}
+      </div>
+      {/* Without a button, the same room keeps the fields aligned with the others. */}
+      {remove ? (
+        <div className="shrink-0">{remove}</div>
+      ) : (
+        <div aria-hidden="true" className="hidden w-10 shrink-0 sm:block" />
+      )}
+    </div>
+  );
+}
+
+function ErrorText({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <p id={id} className="mt-1 text-sm text-destructive">
+      {children}
+    </p>
+  );
+}
+
+/**
+ * Groups in edit mode (DESIGN.md): the chips gain a ×, and an "Ajouter un
+ * groupe" input ends the line, suggesting the book's other group names.
+ */
+function GroupsEditor({
+  names,
+  suggestions,
+  onChange,
+}: {
+  names: string[];
+  suggestions: string[];
+  onChange: (names: string[]) => void;
+}) {
+  const { t } = useI18n();
+  const [value, setValue] = useState("");
+  const listId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function add() {
+    const name = value.trim();
+    if (name.length > 0 && !names.includes(name)) onChange([...names, name]);
+    setValue("");
+  }
+
+  return (
+    <ul className="flex flex-wrap items-center gap-2 py-1.5">
+      {names.map((name) => (
+        <li
+          key={name}
+          className="inline-flex h-8 items-center gap-1 rounded-full bg-secondary pl-3 pr-1 text-sm font-bold text-secondary-foreground"
+        >
+          {name}
+          <button
+            type="button"
+            aria-label={t("remove_group", { name })}
+            onClick={() => {
+              onChange(names.filter((other) => other !== name));
+              // The chip and its button go: the focus moves to the input.
+              inputRef.current?.focus();
+            }}
+            className="relative inline-flex size-6 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <XSmallIcon />
+          </button>
+        </li>
+      ))}
+      <li className="min-w-0 grow sm:grow-0">
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          list={listId}
+          aria-label={t("add_group")}
+          placeholder={t("add_group")}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            // ⌘/Ctrl + Enter is the save shortcut, which commits the name itself.
+            if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
+              event.preventDefault();
+              add();
+            }
+          }}
+          onBlur={add}
+          data-commit-on-blur
+          className={fieldClass(
+            "h-8 w-full min-w-44 rounded-full px-3 sm:w-56 sm:text-sm lg:text-sm",
+          )}
+        />
+        <datalist id={listId}>
+          {suggestions
+            .filter((name) => !names.includes(name))
+            .map((name) => (
+              <option key={name} value={name} />
+            ))}
+        </datalist>
+      </li>
+    </ul>
+  );
+}

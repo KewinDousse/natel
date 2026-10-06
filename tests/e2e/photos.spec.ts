@@ -63,6 +63,6 @@ test("falls back to the initials when a photo doesn't load", async ({ page }) =>
   );
   await signIn(page);
   const row = page.getByRole("link", { name: /Lovelace/ });
-  await expect(row.getByText("LA", { exact: true })).toBeVisible();
+  await expect(row.getByText("AL", { exact: true })).toBeVisible();
   await expect(row.locator("img")).toHaveCount(0);
 });

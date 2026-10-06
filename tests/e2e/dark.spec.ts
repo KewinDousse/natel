@@ -34,11 +34,12 @@ test("follows the system's dark setting", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeVisible();
   // Native controls and scrollbars follow too.
   expect(await page.locator("body").evaluate((el) => getComputedStyle(el).colorScheme)).toBe(
-    "light dark",
+    "dark",
   );
 
+  // The page follows the system when it changes, while nothing is chosen.
   await page.emulateMedia({ colorScheme: "light" });
-  expect(await backgroundOf(page.locator("body"))).toBe("#ffffff");
+  await expect.poll(() => backgroundOf(page.locator("body"))).toBe("#ffffff");
 });
 
 test("gives the browser bar a colour for each scheme", async ({ page }) => {

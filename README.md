@@ -1,10 +1,23 @@
-# Natel
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/readme/banner-dark-en.png">
+    <img alt="Natel: a directory for your contacts, on your own server." src="docs/brand/readme/banner-light-en.png">
+  </picture>
+</h1>
 
 A modern, lightweight web UI to browse and edit your contacts on a CardDAV server.
 Built for [Baïkal](https://sabre.io/baikal/), works with any RFC 6352 server.
 
 > **Status:** alpha. Browsing, creating, editing and deleting contacts
 > work. See [ROADMAP.md](ROADMAP.md).
+
+**[Try the demo](https://kewindousse.github.io/natel/)**: made-up contacts,
+in your browser only. Any username and password work, and nothing is saved.
+
+<p>
+  <img alt="The contact list and a contact's page, on a desktop screen." src="docs/screenshots/desktop.png" width="74%">
+  <img alt="A contact's page on a phone." src="docs/screenshots/mobile.png" width="23%">
+</p>
 
 ## Why
 

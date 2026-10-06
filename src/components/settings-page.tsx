@@ -1,19 +1,34 @@
 /**
- * SettingsPage — display preferences (ADR 019), in the detail pane on
- * desktop and as its own screen on phones. One labelled select per
+ * SettingsPage — display preferences (ADR 019) and the account, in the detail
+ * pane on desktop and as its own screen on phones. One labelled select per
  * preference; a change applies at once, with no save button. Back, or Esc
  * on desktop, returns to the list.
  */
 
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useI18n } from "@/i18n/react";
+import type { SortBy } from "@/lib/contact-list";
+import type { Theme } from "@/lib/theme";
+import { usePreferences } from "@/store/preferences";
+import { useAuth } from "@/store/session";
+import { buttonClass, fieldClass } from "./button";
 import { MobileTopBar } from "./contact-page";
+import { LogoutIcon } from "./icons";
+import { openShortcuts } from "./keyboard-shortcuts";
 import { LanguageSelect } from "./language-select";
+
+const SYSTEM = "system";
 
 export function SettingsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const auth = useAuth();
+  const { sortBy, setSortBy, theme, setTheme } = usePreferences();
+
+  useEffect(() => {
+    document.title = t("settings_doc_title");
+  }, [t]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -30,19 +45,97 @@ export function SettingsPage() {
     <>
       <MobileTopBar label={t("settings")} />
       <div className="mx-auto w-full max-w-[44rem] px-5 pb-10 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
-        <h1 className="font-display text-[2.25rem] font-bold leading-none sm:text-[2.75rem] lg:text-person">
+        <h1 className="font-display text-title-sm font-bold leading-none sm:text-title lg:text-person">
           {t("settings")}
         </h1>
-        <div className="mt-8 max-w-sm space-y-1.5">
-          <label htmlFor="setting-language" className="block text-sm font-bold">
-            {t("lang_label")}
-          </label>
-          <LanguageSelect
-            id="setting-language"
-            className="h-12 w-full px-3.5 text-base lg:h-11 lg:text-[0.9375rem]"
-          />
-        </div>
+
+        <SettingsSection title={t("settings_display")}>
+          <Field id="setting-language" label={t("lang_label")}>
+            <LanguageSelect id="setting-language" className={fieldClass("h-12 lg:h-11")} />
+          </Field>
+          <Field id="setting-theme" label={t("theme_label")}>
+            <select
+              id="setting-theme"
+              value={theme ?? SYSTEM}
+              onChange={(event) => {
+                const value = event.target.value;
+                setTheme(value === SYSTEM ? null : (value as Theme));
+              }}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value={SYSTEM}>{t("theme_system")}</option>
+              <option value="light">{t("theme_light")}</option>
+              <option value="dark">{t("theme_dark")}</option>
+            </select>
+          </Field>
+          <Field id="setting-sort" label={t("sort_label")}>
+            <select
+              id="setting-sort"
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as SortBy)}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value="given">{t("sort_given")}</option>
+              <option value="family">{t("sort_family")}</option>
+            </select>
+          </Field>
+        </SettingsSection>
+
+        <SettingsSection title={t("settings_account")}>
+          {auth && (
+            <p className="text-base lg:text-body">
+              {t("signed_in_as")} <b className="font-bold">{auth.username}</b>
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/logout" })}
+            className={buttonClass({ variant: "outline" }, "pl-3")}
+          >
+            <LogoutIcon className="size-4" />
+            {t("logout")}
+          </button>
+        </SettingsSection>
+
+        {/* Keys are for a keyboard: from lg, like the rest of the hints. */}
+        <SettingsSection title={t("shortcuts_title")} className="hidden lg:block">
+          <button
+            type="button"
+            onClick={openShortcuts}
+            className={buttonClass({ variant: "outline" })}
+          >
+            {t("shortcuts_show")}
+          </button>
+        </SettingsSection>
       </div>
     </>
+  );
+}
+
+function SettingsSection({
+  title,
+  className,
+  children,
+}: {
+  title: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={className}>
+      <h2 className="mt-10 mb-4 border-t pt-4 text-sm font-bold text-muted-foreground">{title}</h2>
+      <div className="max-w-sm space-y-5">{children}</div>
+    </section>
+  );
+}
+
+function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-bold">
+        {label}
+      </label>
+      {children}
+    </div>
   );
 }

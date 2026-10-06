@@ -14,6 +14,8 @@ import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { bookName } from "@/lib/vcf-file";
 import type { DavAddressBook } from "@/queries";
+import { FOCUS_RING } from "./button";
+import { CheckIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from "./icons";
 
 type BookSwitcherProps = {
   books: DavAddressBook[];
@@ -127,7 +129,8 @@ export function BookSwitcher({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls="book-menu"
-        aria-label={t("book_label")}
+        // The book's name is the visible label, so it is in the accessible one.
+        aria-label={t("book_label_current", { name: selectedBook ? bookName(selectedBook) : "" })}
         onClick={() => setOpen((value) => !value)}
         onKeyDown={(event) => {
           if (!open && event.key === "ArrowDown") {
@@ -135,7 +138,10 @@ export function BookSwitcher({
             setOpen(true);
           }
         }}
-        className="inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className={cn(
+          "inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+          FOCUS_RING,
+        )}
       >
         <span className="truncate">{selectedBook?.displayName ?? ""}</span>
         <ChevronDownIcon
@@ -191,7 +197,7 @@ export function BookSwitcher({
               }}
               className="flex h-10 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:text-muted-foreground aria-disabled:hover:bg-transparent"
             >
-              <DownloadIcon />
+              <DownloadIcon className="size-4 text-muted-foreground" />
               <span className="truncate">
                 {t("menu_export", { name: selectedBook ? bookName(selectedBook) : "" })}
               </span>
@@ -211,7 +217,7 @@ export function BookSwitcher({
               }}
               className="flex h-10 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:text-muted-foreground aria-disabled:hover:bg-transparent"
             >
-              <UploadIcon />
+              <UploadIcon className="size-4 text-muted-foreground" />
               <span className="truncate">{t("menu_import")}</span>
             </button>
           </div>
@@ -229,73 +235,5 @@ export function BookSwitcher({
         }}
       />
     </div>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg
-      className="size-4 shrink-0 text-muted-foreground"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 3v12m-5-5 5 5 5-5M5 21h14" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg
-      className="size-4 shrink-0 text-muted-foreground"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 21V9m-5 5 5-5 5 5M5 3h14" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      className="size-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
   );
 }

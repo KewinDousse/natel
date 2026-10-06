@@ -3,6 +3,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nProvider } from "./i18n/react";
+import { applyTheme, storedTheme } from "./lib/theme";
 import { createQueryClient } from "./queries/client";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
@@ -14,6 +15,8 @@ const router = createRouter({
 });
 
 const queryClient = createQueryClient();
+
+applyTheme(storedTheme());
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element not found");

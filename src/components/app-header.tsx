@@ -16,7 +16,9 @@ import { isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/s
 import { cn } from "@/lib/utils";
 import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
+import { buttonClass } from "./button";
 import { DemoMark, DemoNotice } from "./demo-notice";
+import { CheckIcon, GearIcon, PlusIcon, SearchIcon, XIcon } from "./icons";
 import { LogoutButton } from "./logout-button";
 
 type AppHeaderProps = {
@@ -90,7 +92,7 @@ export function AppHeader({
         {/* Zero basis: the book name truncates instead of pushing the actions
             onto a second row. */}
         <div className="order-1 flex h-14 min-w-30 flex-1 basis-0 items-center gap-2 lg:h-auto lg:flex-none lg:basis-auto lg:shrink-0">
-          <span className="shrink-0 font-display text-[2rem] font-bold leading-none">Natel</span>
+          <span className="shrink-0 font-display text-wordmark font-bold">Natel</span>
           <DemoMark />
           {books !== undefined && books.length > 0 && (
             <BookSwitcher
@@ -127,7 +129,7 @@ export function AppHeader({
                   onQueryChange("");
                 }
               }}
-              className="block h-11 w-full rounded-full border border-input bg-background pl-10 pr-11 text-base text-foreground transition-colors placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:h-10 lg:text-[0.9375rem]"
+              className="field block h-11 w-full rounded-full border border-input bg-background pl-10 pr-11 text-base text-foreground placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden lg:h-10 lg:text-body"
             />
             <kbd
               hidden={query !== ""}
@@ -140,7 +142,10 @@ export function AppHeader({
               hidden={query === ""}
               aria-label={t("clear")}
               onClick={clearSearch}
-              className="absolute inset-y-1 right-1 grid w-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={buttonClass(
+                { variant: "ghost" },
+                "absolute inset-y-1 right-1 w-9 focus-visible:ring-offset-0",
+              )}
             >
               <XIcon />
             </button>
@@ -154,18 +159,22 @@ export function AppHeader({
             to="/contacts/settings"
             aria-label={t("settings")}
             title={t("settings")}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className={buttonClass({ variant: "ghost", size: "icon" })}
           >
             <GearIcon />
           </Link>
           {books !== undefined && books.length > 0 && (
+            // Round "+" on phones; labelled from lg, where there is room.
             <Link
               to="/contacts/new"
               aria-label={t("new_contact")}
               title={t("new_contact")}
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className={buttonClass({ size: "icon" }, "lg:w-auto lg:pl-3 lg:pr-4")}
             >
               <PlusIcon />
+              <span className="hidden lg:inline" aria-hidden="true">
+                {t("new_contact")}
+              </span>
             </Link>
           )}
           <LogoutButton />
@@ -196,96 +205,9 @@ function SyncStatus({ at }: { at: number }) {
   return (
     <p className="hidden items-center gap-1.5 whitespace-nowrap text-sm text-muted-foreground xl:inline-flex">
       <span className="text-success">
-        <CheckIcon />
+        <CheckIcon className="size-3.5" />
       </span>
       <span className="tabular">{label}</span>
     </p>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      className="size-5 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      className="size-4 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg
-      className="size-4 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      className="size-3.5 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <svg
-      className="size-5 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
   );
 }

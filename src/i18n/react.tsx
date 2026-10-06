@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { browserLocale } from "@/lib/browser-locale";
 import { storeChoice, storedChoice } from "./preferences";
 import { type Locale, type TranslationKey, translate } from "./setup";
@@ -42,6 +42,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       t: (key, vars) => translate(locale, key, vars),
     };
   }, [choice]);
+  // Screen readers pick their voice, and browsers their translation offer, from it.
+  useEffect(() => {
+    document.documentElement.lang = value.locale;
+  }, [value.locale]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

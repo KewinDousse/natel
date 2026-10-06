@@ -46,7 +46,7 @@ async function signIn(page: Page, password = PASSWORD): Promise<void> {
 }
 
 async function openAda(page: Page): Promise<void> {
-  await page.getByRole("link", { name: /Lovelace Ada/ }).click();
+  await page.getByRole("link", { name: /Ada Lovelace/ }).click();
   await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeAttached();
 }
 
@@ -90,7 +90,7 @@ test("edits a phone number and keeps unknown properties", async ({ page }) => {
   await page.getByRole("button", { name: "Save" }).click();
   // The toast shows once the PUT has landed; the Save button is renamed
   // "Saving…" as soon as it starts.
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
 
   const saved = await getCard("ada");
   expect(saved).toContain("TEL;TYPE=CELL;X-SOURCE=phone:+41 79 000 00 00");
@@ -108,7 +108,7 @@ test("shows a semicolon the server escaped, and saves it without adding a backsl
   await startEditing(page);
   await primaryPhoneInput(page).fill("+41 79 000 00 00");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
 
   const note = (await getCard("ada"))?.split(/\r?\n/).find((line) => /^NOTE:/i.test(line));
   expect(note?.replace(/\\([\\,;])/g, "$1")).toBe("NOTE:Lac 1; 2e étage");
@@ -117,8 +117,8 @@ test("shows a semicolon the server escaped, and saves it without adding a backsl
 test("creates a contact", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: "New contact" }).filter({ visible: true }).click();
-  await page.getByPlaceholder("Last name").fill("Hopper");
-  await page.getByPlaceholder("First name").fill("Grace");
+  await page.getByLabel("Last name", { exact: true }).fill("Hopper");
+  await page.getByLabel("First name", { exact: true }).fill("Grace");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { level: 1, name: /Hopper/ })).toBeAttached();
 
@@ -160,7 +160,7 @@ test("overwrites only the fields the user changed after a conflict", async ({ pa
   await saveOverConcurrentEdit(page);
   await page.getByRole("button", { name: "Overwrite with my version" }).click();
   // The banner goes away as the PUT starts; the toast shows once it has landed.
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
 
   const saved = await getCard("ada");
   // The user's phone number wins; the other client's organisation stays (ADR 013).
@@ -176,7 +176,7 @@ test("deletes a contact after confirmation", async ({ page }) => {
   await page.getByRole("button", { name: "Delete contact" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
 
-  await expect(page.getByText("This address book is empty.")).toBeVisible();
+  await expect(page.getByText("This address book is empty")).toBeVisible();
   expect(await getCard("ada")).toBeNull();
 });
 
