@@ -28,7 +28,7 @@ URL, no remote images — ever.
 1. **Directory grammar.** A contact row reads like a phone directory entry: the part the list sorts by in bold, the other after it, dotted leader, primary phone number right-aligned. The default sort is by first name (**Given** Family, ADR 026); by last name the row reads like a Swiss phone book, **Family** Given.
 2. **Red (`brand`) marks position, never action.** Allowed: wordmark, A–Z group letters, the 3px selection bar, the sign-in panel, the 6px top band. Forbidden: buttons, links, error states, icons meaning "delete".
 3. **Primary action = ink pill** (`bg-primary text-primary-foreground rounded-full`). Destructive actions use `destructive`, always with an icon and a text label.
-4. **Two typefaces, strict roles.** `font-display` (Big Shoulders 700) only at ≥ 32px: wordmark, group letters, screen and state titles. Everything else is `font-sans` (Work Sans 400/700). Never Big Shoulders below 32px, except initials in avatars.
+4. **Two typefaces, strict roles.** `font-display` (Big Shoulders 700) only at ≥ 32px: wordmark, group letters, screen and state titles. Everything else is `font-sans` (Work Sans 400/700, and 500 for the second part of a list name). Never Big Shoulders below 32px, except initials in avatars.
 5. **Numbers are tabular.** Phone numbers, dates, counts: `tabular` class (or inside `a[href^="tel:"]` / `<time>`, handled by the base layer).
 6. **Nothing that sits on the page has a shadow.** Only floating layers: `shadow-float` (menus, popovers, toasts), `shadow-overlay` (dialogs, mobile sheets).
 7. **Photos are rounded squares, not circles.** List: `size-10 rounded-lg`. Detail: `size-28 rounded-xl`. No photo → initials in `font-display`, in the order the list sorts by (Aline Dessendre → "AD", by last name "DA"), on one of six tints (`--avatar-tint-1` to `-6`) drawn from the card's UID, so a person keeps theirs on every device, while the name is typed, and after a rename. The tints have no red or pink (marks and selection use them) and one lightness, so none stands out; the initials stay in `avatar-foreground`. Organisation-only card → building icon on the neutral `bg-avatar`.
@@ -42,18 +42,21 @@ Sizes are tokens in `src/index.css` (`--text-*`), used as `text-<name>`; `cn` kn
 | `caption` | 12 / 16px | Counts, hints, kbd |
 | `small` | 13 / 18px | A–Z rail, sign-in tabs |
 | `body` | 15 / 24px | Running text from `lg` (16px below, so iOS doesn't zoom) |
+| `name` | 17 / 24px | Names in the list, the page's main information |
 | `wordmark` | 32px / 1 | "Natel" in the header |
-| `title-sm` | 36px / 1 | Screen titles and group letters on phones |
-| `title` | 44px / 0.95 | Screen titles and group letters from `sm` |
-| `index`, `person` | 56px / 0.8, 0.95 | Group letters, screen titles from `lg` |
+| `title-sm` | 36px / 1 | Group letters; screen titles on phones |
+| `title` | 44px / 0.95 | Screen titles from `sm` |
+| `person` | 56px / 0.95 | Screen titles from `lg` |
 
 Tailwind's own `text-sm` (14px), `text-base` (16px), `text-lg` and `text-xl` cover the rest.
+
+The list's hierarchy follows what people look for: the name first, then its number, then the photo and the letter that help find it. The group letters mark the position without outweighing the names.
 
 ## Layout
 
 **Desktop (`lg`, ≥ 1024px):** full-height grid. Header 6px `bg-brand` band + 64px bar. Below: list pane `minmax(26rem,34rem)` (own scroll, `border-r`) + detail pane `1fr` on `bg-muted` (own scroll). Detail content max width `44rem`.
 
-**Mobile (< 1024px):** page scroll. Sticky header = band + 56px row (wordmark, address-book switcher, settings, round "+" button, sign out) + search row, on one row down to 320px. No detail pane: opening a contact is a separate route.
+**Mobile (< 1024px):** page scroll. Sticky header = band + 56px row (wordmark, address-book switcher, settings, round "+" button) + search row, on one row down to 320px. No detail pane: opening a contact is a separate route.
 
 Sticky offsets: use `--header-h` (exposed on the header) with `top-[var(--header-h)]`; do not hardcode pixel offsets.
 
@@ -68,26 +71,26 @@ Recipes below are the exact class sets from the references. Build them as React 
 - Book menu, below the books and a separator (ADR 020): "Exporter « Contacts »" (download icon) saves the selected book as `<name>.vcf`, disabled (`aria-disabled`, muted, still focusable) while the book shows no contact; "Importer un fichier .vcf…" (upload icon) opens the file picker (`.vcf`, `text/vcard`). An export that fails says so in a toast.
 - Import dialog: built like the discard dialog, titled "Importer dans « Contacts »". While cards are sent it shows "12 / 40" (`tabular`, `aria-live="polite"`) and can't be dismissed; then the counts (imported, already in the book, failed, the last in `text-destructive` when not zero), the failed cards by name (or "Carte 3") with their reason in `text-muted-foreground`, and a primary "Fermer", which takes the focus. `Esc` closes it once finished. The list behind shows each contact as it is created; closing leaves the user on the list, nothing selected.
 - Search: `field h-11 lg:h-10 rounded-full border border-input bg-background pl-10 pr-11 text-base lg:text-body`, search icon left, `/` kbd hint on desktop when empty, clear button when not empty. `/` focuses it, `Esc` clears it.
-- Sync status (xl only): check icon in `text-success` + "Synchronisé il y a 2 min".
-- Settings: ghost icon link (gear, `size-10 rounded-full text-muted-foreground hover:bg-muted`), accessible name and tooltip "Paramètres", on phones and desktop. Opens `/contacts/settings`; being a link, an unsaved edit gets the discard dialog first.
-- New contact: round ink "+" link (`size-10 rounded-full bg-primary text-primary-foreground`) after the settings link, shown once the server has an address book; from `lg` a pill with its label, "+ Nouveau contact". Opens `/contacts/new`.
-- Sign out: ghost icon button (log-out icon) last, always present, even with no address book. Accessible name and tooltip "Se déconnecter". It navigates to `/logout`, so an unsaved edit gets the discard dialog first.
+- Settings: ghost icon link (gear, `size-10 rounded-full text-muted-foreground hover:bg-muted`), accessible name and tooltip "Paramètres", on phones and desktop, always present, even with no address book. Opens `/contacts/settings`; being a link, an unsaved edit gets the discard dialog first. Signing out is there, so the bar keeps its room for the book's name.
+- Sync warning, only when the contacts shown couldn't be reloaded: a ghost button before the settings link, in `text-warning`, alert icon, its label from `xl`: "Synchronisation impossible", or "Votre session a expiré" when the server refused the session. It opens a panel (`aria-expanded`), built like the book menu's (`rounded-lg bg-popover p-4 shadow-float`, `w-80` right-aligned under it from `sm`, the header's width on phones, where only the icon shows and a tap must be worth it): the label in bold, then in `text-sm text-muted-foreground` "Les contacts affichés ne sont peut-être plus à jour. Dernière synchronisation réussie il y a 12 minutes." (in hours, then days, past an hour; kept true while open) and a primary `sm` "Réessayer" (refresh icon) on the right; for an expired session, "Reconnectez-vous pour retrouver vos contacts." and "Se reconnecter", which signs out. The action takes the focus and is described by the text above it; `Esc` or a click outside closes the panel and gives the button the focus back, and the focus leaving it closes it too. While a reload runs, or waits for the network, a spinner replaces the icon, the action reads "Synchronisation…" and takes `aria-disabled`. A reload that works closes it all and says "Contacts à jour" in a toast, and the focus it held goes to the settings link; one that fails again says "Toujours impossible de synchroniser". A visually hidden polite live region reads the label when the warning appears. Nothing shows while sync works; a book that never loaded shows the list's failed state instead.
+- New contact: round ink "+" link (`size-10 rounded-full bg-primary text-primary-foreground`) last, shown once the server has an address book; from `lg` a pill with its label, "+ Nouveau contact". Opens `/contacts/new`.
 
 ### Group (letter section)
 ```html
-<section class="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[4rem_1fr] lg:grid-cols-[4.25rem_1fr] border-t first:border-t-0 py-2">
-  <h2 class="sticky top-[var(--header-h)] lg:top-2 self-start pl-2 pt-2 font-display text-title-sm sm:text-title lg:text-index font-bold leading-[0.8] text-brand">B</h2>
+<section class="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[3rem_1fr] border-t first:border-t-0 py-2">
+  <h2 class="sticky top-[var(--header-h)] lg:top-2 self-start pl-2 pt-4 sm:pt-3.5 font-display text-title-sm font-bold leading-[0.8] text-brand">B</h2>
   <ul role="list">…rows…</ul>
 </section>
 ```
+The letter sits centred on its section's first row (56px on phones, 52px from `sm`), never above it.
 
 ### Contact row
 - Link: `group relative flex items-center gap-3 rounded-lg px-2 min-h-[3.5rem] py-1.5 sm:min-h-[3.25rem] sm:py-0 hover:bg-muted aria-[current=true]:bg-selection`.
 - Selection bar: `absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-brand opacity-0 group-aria-[current=true]:opacity-100`.
 - Content wrapper: `min-w-0 flex-1 sm:flex sm:items-center sm:gap-3`.
-  - Name: `block min-w-0 truncate text-base sm:text-[0.9375rem]` → the part the list is sorted by comes first, in bold: `<b class="font-bold">Family</b> Given` by last name, `<b class="font-bold">Given</b> Family` by first name. Full name, in the same order, in `title`. A card with neither a name nor an organisation shows "Contact sans nom" / "Unnamed contact" instead, in `italic text-muted-foreground` (the muted grey keeps 4.5:1; transparency wouldn't), and so does the contact page, in the family-name line and its title.
+  - Name: `block min-w-0 truncate text-name` → the part the list is sorted by comes first, in bold, the other in medium weight (500), so it stays as legible: `<b class="font-bold">Family</b> <span class="font-medium">Given</span>` by last name, `<b class="font-bold">Given</b> <span class="font-medium">Family</span>` by first name. Full name, in the same order, in `title`. A card with neither a name nor an organisation shows "Contact sans nom" / "Unnamed contact" instead, in `italic text-muted-foreground` (the muted grey keeps 4.5:1; transparency wouldn't), and so does the contact page, in the family-name line and its title.
   - Leader: `<span class="leader hidden sm:block" aria-hidden="true">`.
-  - Trailing value: primary phone (`tabular`, ink on ≥ sm) or, if none, email/org (`text-sm text-muted-foreground`, truncated, `sm:max-w-[42%]`).
+  - Trailing value: primary phone (`text-sm tabular`, ink on ≥ sm, a notch under the name) or, if none, email/org (`text-sm text-muted-foreground`, truncated, `sm:max-w-[42%]`).
 - **Mobile (< 640px):** trailing value drops under the name, leader hidden. This is deliberate: single-line rows truncate names too much on phones.
 
 Trailing value priority: first `TEL` with `TYPE=cell` → first `TEL` → first `EMAIL` → `ORG`.
@@ -98,7 +101,7 @@ Right edge. All 26 letters in `font-display text-[0.8125rem] font-bold`, present
 - From `lg`, the list scrolls in its own pane and the rail sits outside it (`lg:mr-8` on the list), so the whole scrollbar stays clickable.
 
 ### List toolbar
-Count (`text-caption text-muted-foreground`, `aria-live="polite"`) on the left; sort toggle "Prénom / Nom" on the right (small pills, `aria-pressed`, their touch area extended to 44px). The sort is a display preference, remembered like the language (ADR 026, settings "Trier par"). Between them, from `sm`, the group filter; below 640px it takes its own row under the count and the sort, so the toolbar never wraps the count.
+One size, `text-sm`: count (`text-muted-foreground`, `aria-live="polite"`) on the left; sort toggle "Prénom / Nom" on the right from `sm` (small bold pills, `aria-pressed`, their touch area extended to 44px). The sort is a display preference, remembered like the language (ADR 026, settings "Trier par"); below 640px only the settings offer it, so the count and the filter share a row (a long group name in the count can still wrap the filter under it). Between them, the group filter.
 
 ### List states
 - Loading: eight skeleton rows (`animate-pulse`, `bg-muted` avatar and bars) in the letter grid, hidden from screen readers, which hear "Chargement des contacts…" instead.
@@ -110,7 +113,7 @@ Count (`text-caption text-muted-foreground`, `aria-live="polite"`) on the left; 
 ### Group filter
 Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time; contacts without a group aren't a choice.
 - Trigger: "Tous les groupes" + chevron, the address-book switcher's pill (`h-8 rounded-full px-2.5 text-sm font-bold text-muted-foreground hover:bg-muted`); its accessible name is "Filtrer par groupe : <choice>".
-- Menu ("Groupes"): built like the book menu (same item classes, arrow keys, Home/End, Escape back to the trigger, outside click closes). "Tous les groupes" first, a separator, then each group of the book by name, its number of contacts on the right in `text-sm font-normal text-muted-foreground tabular`; the chosen entry shows the check instead (`menuitemradio`, `aria-checked`). From `sm` it opens under the trigger, right-aligned, `min-w-[13rem]`; on phones it spans the list's width.
+- Menu ("Groupes"): built like the book menu (same item classes, arrow keys, Home/End, Escape back to the trigger, outside click closes). "Tous les groupes" first, a separator, then each group of the book by name, its number of contacts on the right in `text-sm font-normal text-muted-foreground tabular`; the chosen entry shows the check instead (`menuitemradio`, `aria-checked`). From `sm` it opens under the trigger, right-aligned, `min-w-[13rem]`; on phones it spans the toolbar's width.
 - Filtered: the pill takes `bg-secondary` and the group's name in `text-foreground`, without chevron, plus a × ("Afficher tous les groupes") that goes back to every group. The count reads "12 contacts dans Famille" ("1 contact dans Famille"); search applies within the group; the A–Z rail keeps every letter and greys those without a contact in the group, as it does for the book. A group with no contact shows "Aucun contact dans ce groupe."
 - For the session; it goes back to "Tous les groupes" when another book is selected, or when the group no longer exists.
 
@@ -160,16 +163,16 @@ Back, or `Esc` on desktop, returns to `/contacts`. The tab title is "Paramètres
 `/contacts/new` is the form on a blank vCard 3.0 card, with no reading view to go back to. The top-right label (mobile top bar, desktop label slot) reads "Nouveau contact", and the avatar shows the initials as they are typed. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page, read; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
 
 ### Sections
-Both states group values in the same sections, in the same order: Téléphones, E-mails, Adresse, Anniversaire, Groupes, Site web, Surnom (form only; the reading view shows it under the name), Note. A section opens with a 1px rule, `border-t border-foreground/80`, and a 44px title line (`text-sm font-bold`) led by the section's icon in `text-muted-foreground` (phone, envelope, map pin, cake, people, globe, tag, page); its right slot holds the section's action. Titles follow the number of values: "Téléphone" for one, "Téléphones" for several, and the same for e-mails; "Site web" is singular, the page showing one. Sections are `space-y-6` apart.
+Both states group values in the same sections, in the same order: Téléphones, E-mails, Adresse, Anniversaire, Groupes, Site web, Surnom (form only; the reading view shows it under the name), Note. A section opens with a light 1px rule, `border-t` (the border token: the rule separates, it doesn't outweigh the values), and a 40px title line (`text-sm font-bold`) led by the section's icon in `text-muted-foreground` (phone, envelope, map pin, cake, people, globe, tag, page); its right slot holds the section's action. Titles follow the number of values: "Téléphone" for one, "Téléphones" for several, and the same for e-mails; "Site web" is singular, the page showing one. Sections are `space-y-4` apart in the reading view.
 
 ### Reading view, top to bottom
 1. Mobile only: 56px top bar, back ("Contacts") left, "Modifier" pill right.
 2. Photo (`size-24 sm:size-28 rounded-xl`), or initials on `bg-avatar`, or the building icon for an organisation's card. Desktop: the primary "Modifier" pill top right (`aria-label` "Modifier (E)").
-3. Name, in the text face, `text-3xl sm:text-4xl font-bold leading-tight tracking-tight`, on one line and in the order the list sorts by: the first part in ink, the second in `text-muted-foreground`, as the list makes the part it sorts by stand out. A card with one part only (a first name alone, an organisation's card) shows it in ink. A card with no name shows "Contact sans nom" in italic, muted.
+3. Name, in the text face, `text-3xl sm:text-4xl font-bold leading-tight tracking-tight`, in ink, in the order the list sorts by. It is the page's identity: no part of it is muted. A card with no name shows "Contact sans nom" in italic, muted.
 4. Under it, muted: "Fonction · Organisation" (the organisation is left out on an organisation's own card), then the nickname in « ».
 5. Actions: Appeler (primary), SMS and E-mail (outline), each with its icon, for the first number and the first e-mail; absent when the card has neither.
 6. The sections the card has, and only those. The title line's action is a pencil ("Modifier les téléphones"…) that opens the form on that section. On devices that hover, it shows while the section is hovered or the pencil focused; on touch it always shows.
-7. Rows: type | value | action on one line. The type (`text-sm text-muted-foreground`, regular weight: it qualifies the value) is 7.5rem wide from `sm`, 5.5rem on phones, where a value too long to sit beside it goes on the line below. Types read "Mobile", "Travail", "Domicile" or "Autre". The action is a copy button, absent on a phone's touch screen: a long press on a link already offers to copy.
+7. Rows: type | value | action on one line, the action right after the value so it reads as its own. The type (`text-sm text-muted-foreground`, regular weight: it qualifies the value) is 7.5rem wide from `sm`, 5.5rem on phones, where a value too long to sit beside it goes on the line below. Types read "Mobile", "Travail", "Domicile" or "Autre". The action is a copy button, absent on a phone's touch screen: a long press on a link already offers to copy.
    - Phones and e-mails are `tel:` and `mailto:` links. The primary number (first `TYPE=cell`, else the first number) is `text-lg font-bold sm:text-xl`.
    - The address is one block, as on an envelope: PO box, extended address, street, postal code and locality, region, country, each line only when the card has it; copying gives them joined by commas.
    - Birthday and website have no type. A website is a link only for `http(s)`: another scheme could open a local application.
@@ -188,7 +191,7 @@ Dotted leaders are used in the list only, not on the contact page: they need rig
    - Birthday: Jour / Mois / Année.
    - Groups: chips with a × ("Retirer de « Famille »") and an "Ajouter un groupe" field (`h-8 rounded-full`) suggesting the book's other group names through a `datalist`; Enter or leaving the field adds the name. Groups are read from the book's group cards and the contact's `CATEGORIES`, and written as group cards (ADR 022); group cards never show in the list.
 6. Below the sections, so nothing above shifts: one dashed pill per empty optional section ("Ajouter une adresse", "un anniversaire", "un site web", "un surnom", "une note"), which opens it and focuses its first field; "1 autre information non affichée" (see States); "Déplacer vers un autre carnet"; "Supprimer le contact".
-7. A sticky bottom bar, in the form's column: on the left, "2 champs à corriger" (`role="status"`, `text-destructive`) after a save that found errors; Annuler / Enregistrer on the right. Conflicts and errors show **inside this bar**, above the buttons, so they never push the form.
+7. A sticky bottom bar, in the form's column, at the foot of the screen even when the form is shorter (the page fills the pane in edit mode): on the left, "2 champs à corriger" (`role="status"`, `text-destructive`) after a save that found errors; Annuler / Enregistrer on the right. Conflicts and errors show **inside this bar**, above the buttons, so they never push the form.
 
 Fields follow the form-field recipe; mobile inputs stay at 16px.
 
@@ -260,7 +263,7 @@ below, matches `data-theme="dark"`.
 
 Only in the demo build (ADR 025), so a visitor always knows nothing is saved. It has two books, "Runeterra" and "Expédition 33" (ADR 027), so the book switcher and moving a contact have something to show.
 - Sign-in: under the form, one line on `bg-secondary` (`rounded-lg px-3.5 py-2.5 text-sm text-foreground`): "Démo : n'importe quel nom d'utilisateur et mot de passe fonctionnent. Rien n'est enregistré."
-- Signed in: a "Démo" mark next to the wordmark (`rounded-full bg-secondary px-2 py-0.5 text-caption font-bold text-foreground`, the reminder in its `title`), and under the header bar one centred line in `text-caption text-muted-foreground`, bordered below like the bar: "Démo : rien n'est enregistré, modifiez tout ce que vous voulez."
+- Signed in: a "Démo" mark next to the wordmark (`rounded-full bg-secondary px-2 py-0.5 text-caption font-bold text-foreground`, the reminder in its `title`), and under the header bar one centred line in `text-caption text-muted-foreground`, bordered below like the bar, led by an info icon in `text-foreground` to draw the eye: "Démo : rien n'est enregistré, modifiez tout ce que vous voulez."
 - On phones, where a contact, a new contact or the settings replace the header, the mark sits in the top bar after "Contacts".
 
 ## Still not designed

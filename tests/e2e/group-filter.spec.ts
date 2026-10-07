@@ -45,12 +45,13 @@ test("filters the list on a group from its group card and CATEGORIES", async ({ 
   await expect(page.getByRole("link", { name: /Turing/ })).toBeVisible();
 });
 
-test("puts the group filter on its own row on a phone", async ({ page, isMobile }) => {
-  test.skip(!isMobile, "the row only breaks below 640px");
+test("keeps the group filter on the count's row on a phone", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "the sort toggle leaves the row below 640px");
   await signIn(page);
   const count = await page.getByText("3 contacts").boundingBox();
   const filter = await page.getByRole("button", { name: /^Filter by group/ }).boundingBox();
-  expect(count && filter && filter.y >= count.y + count.height).toBe(true);
+  expect(count && filter && filter.y < count.y + count.height).toBe(true);
+  expect(count && filter && count.y < filter.y + filter.height).toBe(true);
   // The count stays on one line.
   expect(count && count.height < 24).toBe(true);
 });

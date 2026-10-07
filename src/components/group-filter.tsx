@@ -20,12 +20,11 @@ type GroupFilterProps = {
   /** The group shown, or null for every contact. */
   selected: string | null;
   onSelect: (name: string | null) => void;
-  className?: string;
 };
 
 const ITEMS = '[role="menuitemradio"]';
 
-export function GroupFilter({ groups, selected, onSelect, className }: GroupFilterProps) {
+export function GroupFilter({ groups, selected, onSelect }: GroupFilterProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -129,11 +128,8 @@ export function GroupFilter({ groups, selected, onSelect, className }: GroupFilt
   };
 
   return (
-    // On its own row on phones, the unfiltered label lines up with the count.
-    <div
-      ref={rootRef}
-      className={cn("relative min-w-0", selected === null && "max-sm:-ml-2.5", className)}
-    >
+    // On phones the menu spans the toolbar, which positions it.
+    <div ref={rootRef} className="min-w-0 sm:relative">
       <div
         className={cn(
           "inline-flex h-8 max-w-full items-center rounded-full",

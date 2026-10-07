@@ -29,6 +29,7 @@ import { formatPhone } from "@/lib/format-phone";
 import { isDesktop, isDialogOpen, isInMenu, isTyping } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
+import { useSignOut } from "@/queries";
 import { buttonClass, FOCUS_RING } from "./button";
 import { GroupFilter } from "./group-filter";
 import { PlusIcon, RefreshIcon, UploadIcon } from "./icons";
@@ -111,9 +112,7 @@ export function ContactList({
           <ListSkeleton />
         ) : load.expired ? (
           <StateBox title={t("session_expired_title")} hint={t("session_expired_body")}>
-            <Link to="/logout" className={buttonClass()}>
-              {t("sign_in_again")}
-            </Link>
+            <SignInAgain />
           </StateBox>
         ) : (
           <StateBox title={t("load_failed_title")} hint={t("load_failed_body")}>
@@ -147,22 +146,17 @@ export function ContactList({
 
   return (
     <ListShell>
-      {/* On phones the group filter takes its own row, under the count and sort. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-1 pt-3">
-        <p className="mr-auto text-caption text-muted-foreground" aria-live="polite">
+      {/* The sort is a setting too: on phones the toolbar keeps the count and the filter. */}
+      <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-1 pt-3 text-sm">
+        <p className="mr-auto text-muted-foreground" aria-live="polite">
           <span className="tabular">{countLabel}</span>
         </p>
         {bookGroupList.length > 0 && (
-          <GroupFilter
-            groups={bookGroupList}
-            selected={activeGroup}
-            onSelect={onGroupFilter}
-            className="order-last basis-full sm:order-none sm:basis-auto"
-          />
+          <GroupFilter groups={bookGroupList} selected={activeGroup} onSelect={onGroupFilter} />
         )}
         <fieldset
           aria-label={t("sort_label")}
-          className="m-0 inline-flex items-center gap-1 border-0 p-0 text-caption"
+          className="m-0 hidden items-center gap-1 border-0 p-0 sm:inline-flex"
         >
           <button
             type="button"
@@ -289,6 +283,16 @@ function StateBox({
   );
 }
 
+function SignInAgain() {
+  const { t } = useI18n();
+  const signOut = useSignOut();
+  return (
+    <button type="button" onClick={() => void signOut()} className={buttonClass()}>
+      {t("sign_in_again")}
+    </button>
+  );
+}
+
 /** A new book's first screen: what to do with it. */
 function EmptyBook({ onImport }: { onImport?: (file: File) => void }) {
   const { t } = useI18n();
@@ -335,7 +339,7 @@ function ListSkeleton() {
       <p role="status" className="sr-only">
         {t("loading_contacts")}
       </p>
-      <div className="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[4rem_1fr] lg:grid-cols-[4.25rem_1fr]">
+      <div className="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[3rem_1fr]">
         <span aria-hidden="true" />
         <ul aria-hidden="true" className="animate-pulse">
           {widths.map((width) => (
@@ -366,9 +370,9 @@ function GroupSection({
   return (
     <section
       id={`g-${group.letter}`}
-      className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 first:border-t-0 sm:grid-cols-[4rem_1fr] lg:scroll-mt-0 lg:grid-cols-[4.25rem_1fr]"
+      className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 first:border-t-0 sm:grid-cols-[3rem_1fr] lg:scroll-mt-0"
     >
-      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-2 font-display text-title-sm font-bold leading-[0.8] text-brand sm:text-title lg:top-2 lg:text-index">
+      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-4 font-display text-title-sm font-bold leading-[0.8] text-brand sm:pt-3.5 lg:top-2">
         {group.letter}
       </h2>
       {/* biome-ignore lint/a11y/noRedundantRoles: DESIGN.md mandates <ul role="list"> */}
@@ -408,7 +412,7 @@ function ContactRow({
       {rest && (
         <>
           {" "}
-          <span>
+          <span className="font-medium">
             <Marked value={rest} query={query} />
           </span>
         </>
@@ -453,7 +457,7 @@ function ContactRow({
         />
         <span className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
           <span
-            className="block min-w-0 truncate text-base sm:text-body"
+            className="block min-w-0 truncate text-name"
             title={unnamed ? t("contact_unnamed") : display}
           >
             {nameValue}
@@ -461,7 +465,7 @@ function ContactRow({
           {trailing && <span className="leader hidden sm:block" aria-hidden="true" />}
           {trailing &&
             (trailing.kind === "tel" ? (
-              <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-body sm:text-foreground">
+              <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-foreground">
                 <TelMarked value={trailing.value} query={query} />
               </span>
             ) : (

@@ -955,7 +955,13 @@ function ContactFiche({
   // ---------------------------------------------------------------------------
 
   return (
-    <article aria-labelledby="fiche-title" data-mode={edit ? "edit" : "view"}>
+    // In edit mode the page fills the screen, so the bottom bar sits at its foot
+    // even when the form is short.
+    <article
+      aria-labelledby="fiche-title"
+      data-mode={edit ? "edit" : "view"}
+      className={edit ? "flex min-h-dvh flex-col lg:min-h-full" : undefined}
+    >
       {edit ? (
         <MobileTopBar label={isNew ? t("new_contact") : t("edit_label")} />
       ) : (

@@ -7,6 +7,7 @@
 import { useI18n } from "@/i18n/react";
 import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
+import { InfoIcon } from "./icons";
 
 export function DemoMark({ className }: { className?: string }) {
   const { t } = useI18n();
@@ -29,6 +30,7 @@ export function DemoNotice() {
   if (!IS_DEMO) return null;
   return (
     <p className="border-b px-4 py-1.5 text-center text-caption text-muted-foreground lg:px-6">
+      <InfoIcon className="mr-1.5 inline size-3.5 -translate-y-px text-foreground" />
       {t("demo_notice")}
     </p>
   );

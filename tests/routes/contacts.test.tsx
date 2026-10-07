@@ -565,10 +565,10 @@ describe("book switcher", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Layout and sync
+// Layout
 // ---------------------------------------------------------------------------
 
-describe("layout and sync status", () => {
+describe("layout", () => {
   it("uses the desktop grid classes and hides the list on mobile while a contact is open", async () => {
     await renderLoggedIn();
     const user = userEvent.setup();
@@ -588,11 +588,117 @@ describe("layout and sync status", () => {
     // The header is hidden on mobile while a contact fills the screen.
     expect(document.getElementById("app-header")?.className).toContain("max-lg:hidden");
   });
+});
 
-  it("shows the sync line once the contacts query has data", async () => {
-    await renderLoggedIn();
-    expect(await screen.findByText("Synchronisé à l’instant")).toBeTruthy();
-  });
+// ---------------------------------------------------------------------------
+// Sync
+// ---------------------------------------------------------------------------
+
+describe("sync", () => {
+  /** The book loaded; a failed reload shows after the query's two retries. */
+  async function renderLoaded(path = "/contacts") {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadBook(bookAContacts());
+    const queryClient = createQueryClient();
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: [path] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("link", { name: /Lightshield Jarvan/ });
+    return { queryClient, router };
+  }
+
+  it("warns only when the book can't be reloaded, explains it, and tries again", async () => {
+    const { queryClient } = await renderLoaded();
+    expect(screen.queryByRole("button", { name: "Synchronisation impossible" })).toBeNull();
+
+    mockListContacts.mockRejectedValue(new DavError("down", "NETWORK"));
+    void queryClient.refetchQueries();
+    const warning = await screen.findByRole(
+      "button",
+      { name: "Synchronisation impossible" },
+      { timeout: 8000 },
+    );
+    // The contacts already shown stay.
+    expect(screen.getByRole("link", { name: /Lightshield Jarvan/ })).toBeTruthy();
+
+    // A tap opens the explanation, its action focused.
+    const user = userEvent.setup();
+    await user.click(warning);
+    expect(warning.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText(/ne sont peut-être plus à jour/)).toBeTruthy();
+    const retry = screen.getByRole("button", { name: "Réessayer" });
+    expect(document.activeElement).toBe(retry);
+
+    // Escape closes it and gives the warning the focus back.
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
+    expect(document.activeElement).toBe(warning);
+
+    // While it reloads, the action stays focusable but does nothing.
+    let finish: () => void = () => {};
+    mockListContacts.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve(bookAContacts().map((c) => ({ href: c.href, etag: c.etag })));
+        }),
+    );
+    mockListContacts.mockClear();
+    await user.click(warning);
+    await user.click(screen.getByRole("button", { name: "Réessayer" }));
+    const syncing = await screen.findByRole("button", { name: "Synchronisation…" });
+    expect(syncing.getAttribute("aria-disabled")).toBe("true");
+    await user.click(syncing);
+    expect(mockListContacts).toHaveBeenCalledTimes(1);
+
+    finish();
+    expect(await screen.findByText("Contacts à jour")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Synchronisation impossible" })).toBeNull();
+    // The focus moves on rather than falling back to the page.
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Paramètres" }));
+  }, 15000);
+
+  it("closes the panel on a click outside, and Escape in it doesn't cancel an edit", async () => {
+    const { queryClient } = await renderLoaded("/contacts/jarvan?edit=true");
+    await screen.findByRole("button", { name: "Enregistrer" });
+
+    mockListContacts.mockRejectedValue(new DavError("down", "NETWORK"));
+    void queryClient.refetchQueries();
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Synchronisation impossible" }, { timeout: 8000 }),
+    );
+    await user.click(document.body);
+    expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Synchronisation impossible" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+  }, 15000);
+
+  it("offers to sign in again when the session expired since the book loaded", async () => {
+    const { queryClient, router } = await renderLoaded();
+
+    mockListContacts.mockRejectedValue(new DavError("expired", "AUTH"));
+    void queryClient.refetchQueries();
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Votre session a expiré" }, { timeout: 8000 }),
+    );
+    await user.click(screen.getByRole("button", { name: "Se reconnecter" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  }, 15000);
 });
 
 // ---------------------------------------------------------------------------
@@ -607,7 +713,7 @@ describe("logout", () => {
     const queryClient = createQueryClient();
     const router = createRouter({
       routeTree,
-      history: createMemoryHistory({ initialEntries: ["/contacts"] }),
+      history: createMemoryHistory({ initialEntries: ["/contacts/settings"] }),
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -655,6 +761,8 @@ describe("while the book loads, fails or is empty", () => {
     expect(
       await screen.findByText("Impossible de charger les contacts", {}, { timeout: 8000 }),
     ).toBeTruthy();
+    // The list says it; the header doesn't warn about a book never shown.
+    expect(screen.queryByRole("button", { name: "Synchronisation impossible" })).toBeNull();
     loadBook(bookAContacts());
     await user.click(screen.getByRole("button", { name: "Réessayer" }));
     expect(await screen.findByRole("link", { name: /Lightshield Jarvan/ })).toBeTruthy();
@@ -666,9 +774,8 @@ describe("while the book loads, fails or is empty", () => {
     renderApp("/contacts");
 
     expect(await screen.findByText("Votre session a expiré", {}, { timeout: 8000 })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Se reconnecter" }).getAttribute("href")).toBe(
-      "/logout",
-    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Se reconnecter" }));
+    expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
   }, 15000);
 
   it("offers a first contact and an import on an empty book", async () => {

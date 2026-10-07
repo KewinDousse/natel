@@ -1197,13 +1197,13 @@ describe("edit mode — Écraser keeps changes made elsewhere", () => {
   });
 });
 
-describe("edit mode — logout with unsaved changes", () => {
+describe("edit mode — leaving for the settings, where signing out is, with unsaved changes", () => {
   it("asks first, and keeping the edit keeps the session", async () => {
     const { router } = await renderEditView("editable");
     const user = userEvent.setup();
     await user.type(screen.getByDisplayValue("John"), "x");
 
-    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    await user.click(screen.getByRole("link", { name: "Paramètres" }));
     expect(await screen.findByRole("heading", { name: /Abandonner/ })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Continuer l’édition" }));
@@ -1217,8 +1217,9 @@ describe("edit mode — logout with unsaved changes", () => {
     const user = userEvent.setup();
     await user.type(screen.getByDisplayValue("John"), "x");
 
-    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    await user.click(screen.getByRole("link", { name: "Paramètres" }));
     await user.click(await screen.findByRole("button", { name: "Abandonner" }));
+    await user.click(await screen.findByRole("button", { name: "Se déconnecter" }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
     expect(useSessionStore.getState().auth).toBeNull();

@@ -23,13 +23,20 @@ test.beforeEach(async () => {
   }
 });
 
-test("puts the sorted part of the name first", async ({ page }) => {
+test("puts the sorted part of the name first", async ({ page, isMobile }) => {
   await signIn(page);
   const row = page.getByRole("link", { name: /Aardin/ });
   // By first name unless the settings say otherwise.
   await expect(row.locator("b")).toHaveText("Alain");
   await expect(row).toContainText("Alain Aardin");
-  await page.getByRole("button", { name: "Last name" }).click();
+  // Phones offer the sort in the settings only.
+  if (isMobile) {
+    await page.getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("combobox", { name: "Sort by" }).selectOption("family");
+    await page.getByRole("link", { name: "Back to contacts" }).click();
+  } else {
+    await page.getByRole("button", { name: "Last name" }).click();
+  }
   await expect(row.locator("b")).toHaveText("Aardin");
   await expect(row).toContainText("Aardin Alain");
 });

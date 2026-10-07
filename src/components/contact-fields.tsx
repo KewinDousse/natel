@@ -64,7 +64,7 @@ export function TypeSelect({
 }
 
 /**
- * A section of the contact page: a rule, a 44px title line with an action on
+ * A section of the contact page: a light rule, a 40px title line with an action on
  * its right (the reading view's pencil, the form's "+ Ajouter"), the rows.
  */
 export function Section({
@@ -84,11 +84,8 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section
-      id={id}
-      className={cn("group/section border-t border-foreground/80 pt-1.5", className)}
-    >
-      <div className="flex h-11 items-center justify-between gap-2">
+    <section id={id} className={cn("group/section border-t pt-1", className)}>
+      <div className="flex h-10 items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-bold">
           <span aria-hidden="true" className="text-muted-foreground">
             {icon}

@@ -463,14 +463,10 @@ describe("avatar and special sections", () => {
   it("writes the name and the initials in the order the list sorts by", async () => {
     await renderLoggedIn("/contacts/full");
     const article = await screen.findByRole("article");
-    const grey = within(article).getByText("Katarina");
-    expect(grey.className).toContain("text-muted-foreground");
-    expect(grey.parentElement?.textContent).toBe("Du Couteau Katarina");
+    expect(within(article).getByText("Du Couteau Katarina", { selector: "p" })).toBeTruthy();
 
     act(() => usePreferences.setState({ sortBy: "given" }));
-    const second = within(article).getByText("Du Couteau");
-    expect(second.className).toContain("text-muted-foreground");
-    expect(second.parentElement?.textContent).toBe("Katarina Du Couteau");
+    expect(within(article).getByText("Katarina Du Couteau", { selector: "p" })).toBeTruthy();
     expect(within(article).getByText("KD")).toBeTruthy();
   });
 

@@ -174,18 +174,18 @@
 @theme {
   --text-caption: 0.75rem;
   --text-caption--line-height: 1rem;
-  --text-index: 3.5rem;
-  --text-index--line-height: 0.8; /* lettres A, B, C de la liste */
   --text-small: 0.8125rem;
   --text-small--line-height: 1.125rem; /* lettres de l'index, onglets */
   --text-body: 0.9375rem;
   --text-body--line-height: 1.5rem; /* texte courant à partir de lg */
+  --text-name: 1.0625rem;
+  --text-name--line-height: 1.5rem; /* noms de la liste */
   --text-wordmark: 2rem;
   --text-wordmark--line-height: 1; /* « Natel » dans l'en-tête */
   --text-title-sm: 2.25rem;
-  --text-title-sm--line-height: 1;
+  --text-title-sm--line-height: 1; /* titres d'écran sur mobile, lettres de la liste */
   --text-title: 2.75rem;
-  --text-title--line-height: 0.95; /* titres d'écran, lettres de la liste sur sm */
+  --text-title--line-height: 0.95; /* titres d'écran à partir de sm */
   --text-person: 3.5rem;
   --text-person--line-height: 0.95; /* titres d'écran à partir de lg */
 

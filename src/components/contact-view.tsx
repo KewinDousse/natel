@@ -8,7 +8,13 @@
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import { isWebUrl, valueHref } from "@/lib/contact-edit";
-import { isOrgCard, isUnnamed, namePartsOf, primaryNumberOf } from "@/lib/contact-list";
+import {
+  isOrgCard,
+  isUnnamed,
+  namePartsOf,
+  orderedNameOf,
+  primaryNumberOf,
+} from "@/lib/contact-list";
 import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { cn } from "@/lib/utils";
@@ -132,7 +138,7 @@ export function ContactView({
         </div>
       )}
 
-      <div className="mt-8 space-y-6">
+      <div className="mt-8 space-y-4">
         {contact.fields.tel.length > 0 && (
           <Section
             id="sec-tel"
@@ -295,9 +301,10 @@ export function ContactView({
 }
 
 /**
- * One value of a section: type, value and action on one line. On phones the
- * value goes under its type when they don't fit side by side, and a touch
- * screen has no copy button: a long press on a link already offers to copy.
+ * One value of a section: type, value and action on one line, the action
+ * right after the value. On phones the value goes under its type when they
+ * don't fit side by side, and a touch screen has no copy button: a long press
+ * on a link already offers to copy.
  */
 function Row({
   label,
@@ -309,14 +316,14 @@ function Row({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-11 items-center gap-x-3 py-1.5">
-      <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
+    <div className="flex min-h-11 items-center gap-x-2 py-1.5">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
         {label !== undefined && (
           <div className="w-[5.5rem] shrink-0 text-sm text-muted-foreground sm:w-[7.5rem]">
             {label}
           </div>
         )}
-        <div className="min-w-0 max-w-full flex-[1_0_auto] sm:flex-1">{children}</div>
+        <div className="min-w-0 max-w-full">{children}</div>
       </div>
       {action !== undefined && (
         <div className="shrink-0 max-sm:[@media(hover:none)]:hidden">{action}</div>
@@ -354,11 +361,7 @@ export function addressLinesOf(address: VCardAddress): string[] {
 
 const NAME_CLASS = "mt-5 text-3xl font-bold leading-tight tracking-tight text-balance sm:text-4xl";
 
-/**
- * The contact's name, large, in the text face, in the order the list sorts
- * by: the first part in ink, the second in grey. One part only (a first name
- * alone, a company) is in ink.
- */
+/** The contact's name, large, in the text face, in the order the list sorts by. */
 function ContactName({ contact, unnamed }: { contact: Contact; unnamed: boolean }) {
   const { t } = useI18n();
   const sortBy = usePreferences((state) => state.sortBy);
@@ -371,17 +374,9 @@ function ContactName({ contact, unnamed }: { contact: Contact; unnamed: boolean 
       </p>
     );
   }
-  if (!family || !given) {
-    return (
-      <p aria-hidden="true" className={NAME_CLASS}>
-        {display || contact.fields.org}
-      </p>
-    );
-  }
-  const [first, second] = sortBy === "given" ? [given, family] : [family, given];
   return (
     <p aria-hidden="true" className={NAME_CLASS}>
-      {first} <span className="text-muted-foreground">{second}</span>
+      {family && given ? orderedNameOf(contact, sortBy).display : display || contact.fields.org}
     </p>
   );
 }

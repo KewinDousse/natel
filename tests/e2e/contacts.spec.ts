@@ -78,8 +78,19 @@ test("signs in, opens a contact and signs out", async ({ page }) => {
   if (test.info().project.name === "mobile") {
     await page.getByRole("link", { name: "Back to contacts" }).filter({ visible: true }).click();
   }
-  await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
+  await page.getByRole("link", { name: "Settings" }).filter({ visible: true }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+});
+
+test("keeps the edit bar at the foot of the screen when the form is short", async ({ page }) => {
+  // Taller than the form, so the bar has nothing to stick to.
+  await page.setViewportSize({ width: page.viewportSize()?.width ?? 1280, height: 1600 });
+  await signIn(page);
+  await openAda(page);
+  await startEditing(page);
+  const save = await page.getByRole("button", { name: "Save" }).boundingBox();
+  expect(save && 1600 - (save.y + save.height)).toBeLessThan(32);
 });
 
 test("edits a phone number and keeps unknown properties", async ({ page }) => {

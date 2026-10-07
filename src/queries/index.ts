@@ -23,6 +23,7 @@ export { useCreateContact } from "./useCreateContact";
 export { useDeleteContact } from "./useDeleteContact";
 export { useLogin } from "./useLogin";
 export { useRefetchCard } from "./useRefetchCard";
+export { useSignOut } from "./useSignOut";
 export { useUpdateContact } from "./useUpdateContact";
 export { exportVcf, IncompleteExportError } from "./vcfExport";
 export {

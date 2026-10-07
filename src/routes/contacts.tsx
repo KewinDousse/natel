@@ -18,6 +18,7 @@ import { ContactDetailPane } from "@/components/contact-detail";
 import { ContactList, type ListLoad } from "@/components/contact-list";
 import { ImportDialog, type ImportState } from "@/components/import-dialog";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
+import type { SyncState } from "@/components/sync-warning";
 import { ToastProvider, useToast } from "@/components/toast";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,17 @@ function ContactsScreen() {
   // says so, anything else, a retry included, is still on its way.
   const loadError = booksQuery.error ?? contactsQuery.error;
   const retrying = booksQuery.isFetching || contactsQuery.isFetching;
+  // Only for contacts already shown: a book that never loaded says so in the list.
+  const reloadFailed =
+    contacts !== undefined &&
+    (contactsQuery.isRefetchError || contactsQuery.fetchStatus === "paused");
+  const syncState: SyncState = !reloadFailed
+    ? "ok"
+    : contactsQuery.error instanceof DavError && contactsQuery.error.code === "AUTH"
+      ? "expired"
+      : contactsQuery.isFetching || contactsQuery.fetchStatus === "paused"
+        ? "retrying"
+        : "failed";
   const listLoad: ListLoad =
     loadError === null || retrying
       ? { kind: "loading" }
@@ -192,7 +204,16 @@ function ContactsScreen() {
           onImport={importFile}
           query={query}
           onQueryChange={setQuery}
+          sync={syncState}
           syncedAt={contactsQuery.dataUpdatedAt}
+          onRetrySync={() => {
+            void contactsQuery.refetch().then((result) => {
+              if (result.isSuccess) showToast(t("synced"));
+              // An expired session changes the warning itself, which says so.
+              else if (!(result.error instanceof DavError && result.error.code === "AUTH"))
+                showToast(t("sync_failed_again"));
+            });
+          }}
           hiddenOnMobile={hasContact}
         />
         <main className="lg:grid lg:min-h-0 lg:grid-cols-[minmax(26rem,34rem)_1fr]">

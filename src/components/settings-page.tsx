@@ -10,6 +10,7 @@ import { type ReactNode, useEffect } from "react";
 import { useI18n } from "@/i18n/react";
 import type { SortBy } from "@/lib/contact-list";
 import type { Theme } from "@/lib/theme";
+import { useSignOut } from "@/queries";
 import { usePreferences } from "@/store/preferences";
 import { useAuth } from "@/store/session";
 import { buttonClass, fieldClass } from "./button";
@@ -23,6 +24,7 @@ const SYSTEM = "system";
 export function SettingsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const signOut = useSignOut();
   const auth = useAuth();
   const { sortBy, setSortBy, theme, setTheme } = usePreferences();
 
@@ -89,7 +91,7 @@ export function SettingsPage() {
           )}
           <button
             type="button"
-            onClick={() => void navigate({ to: "/logout" })}
+            onClick={() => void signOut()}
             className={buttonClass({ variant: "outline" }, "pl-3")}
           >
             <LogoutIcon className="size-4" />

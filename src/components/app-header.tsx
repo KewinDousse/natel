@@ -1,6 +1,8 @@
 /**
  * AppHeader — brand band + bar (wordmark, book switcher, settings, new
- * contact, logout, xl-only sync status) + search row, per DESIGN.md "Header".
+ * contact, and a sync warning only when the book couldn't be reloaded) +
+ * search row, per DESIGN.md "Header". Signing out is in the settings, so the
+ * bar keeps its room for the book's name.
  *
  * `--header-h` (defined in src/index.css :root) is the mobile header height
  * used by sticky group letters (`top-[var(--header-h)]`): band 0.375rem +
@@ -10,7 +12,7 @@
  */
 
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useI18n } from "@/i18n/react";
 import { isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
@@ -18,8 +20,8 @@ import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
 import { buttonClass } from "./button";
 import { DemoMark, DemoNotice } from "./demo-notice";
-import { CheckIcon, GearIcon, PlusIcon, SearchIcon, XIcon } from "./icons";
-import { LogoutButton } from "./logout-button";
+import { GearIcon, PlusIcon, SearchIcon, XIcon } from "./icons";
+import { type SyncState, SyncWarning } from "./sync-warning";
 
 type AppHeaderProps = {
   books: DavAddressBook[] | undefined;
@@ -33,8 +35,11 @@ type AppHeaderProps = {
   onImport: (file: File) => void;
   query: string;
   onQueryChange: (query: string) => void;
-  /** Contacts-query dataUpdatedAt (ms); 0 while nothing is loaded yet. */
+  /** How the last reload of the shown contacts went. */
+  sync: SyncState;
+  /** When the contacts shown were last loaded (ms). */
   syncedAt: number;
+  onRetrySync: () => void;
   /** Hide the whole header on mobile while a contact fills the screen. */
   hiddenOnMobile: boolean;
 };
@@ -49,11 +54,14 @@ export function AppHeader({
   onImport,
   query,
   onQueryChange,
+  sync,
   syncedAt,
+  onRetrySync,
   hiddenOnMobile,
 }: AppHeaderProps) {
   const { t } = useI18n();
   const searchRef = useRef<HTMLInputElement>(null);
+  const settingsRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -153,9 +161,15 @@ export function AppHeader({
         </search>
 
         <div className="order-2 ml-auto flex shrink-0 items-center gap-2 lg:order-3 lg:gap-3">
-          {syncedAt > 0 && <SyncStatus at={syncedAt} />}
+          <SyncWarning
+            sync={sync}
+            syncedAt={syncedAt}
+            onRetry={onRetrySync}
+            focusAfter={settingsRef}
+          />
           {/* A link, so an unsaved edit gets the discard dialog first. */}
           <Link
+            ref={settingsRef}
             to="/contacts/settings"
             aria-label={t("settings")}
             title={t("settings")}
@@ -177,37 +191,9 @@ export function AppHeader({
               </span>
             </Link>
           )}
-          <LogoutButton />
         </div>
       </div>
       <DemoNotice />
     </header>
-  );
-}
-
-/**
- * Xl-only sync line, from the contacts query's dataUpdatedAt. Re-renders when
- * a focus refetch updates the timestamp, and once a minute so the label does
- * not go stale while the app stays open.
- */
-function SyncStatus({ at }: { at: number }) {
-  const { t } = useI18n();
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const minutes = Math.max(0, Math.floor((now - at) / 60_000));
-  const label = minutes < 1 ? t("synced_just_now") : t("synced_ago", { n: String(minutes) });
-
-  return (
-    <p className="hidden items-center gap-1.5 whitespace-nowrap text-sm text-muted-foreground xl:inline-flex">
-      <span className="text-success">
-        <CheckIcon className="size-3.5" />
-      </span>
-      <span className="tabular">{label}</span>
-    </p>
   );
 }
