@@ -2,14 +2,15 @@
  * Turns a chosen file into the photo a card stores (ADR 023). An uncropped
  * JPEG, PNG, GIF or WebP that is already small keeps its image data byte for
  * byte, only its hidden metadata filtered. Anything else (a crop, a large
- * photo, a format not every client reads) is drawn on a canvas, scaled down
- * to MAX_SIDE, and encoded as a JPEG, or a PNG when it has transparency or
- * comes out smaller. Every way a browser can fail silently there is
- * checked, so a blank image never replaces the user's photo.
+ * photo, a rotated one, a format not every client reads) is drawn on a
+ * canvas, scaled down to MAX_SIDE, and encoded as a JPEG, or a PNG when it
+ * has transparency or comes out smaller. Every way a browser can fail
+ * silently there is checked, so a blank image never replaces the user's
+ * photo.
  */
 
 import type { Rect, Size } from "./photo-crop";
-import { formatOf, type StrippedImage, stripMetadata } from "./photo-metadata";
+import { formatOf, orientationOf, type StrippedImage, stripMetadata } from "./photo-metadata";
 
 export type PreparedPhoto = {
   mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
@@ -94,9 +95,12 @@ export async function preparePhoto(
   }
 }
 
-/** The file without its hidden metadata, when it is small enough to keep as it is. */
+/**
+ * The file without its hidden metadata, when it is small enough to keep as it
+ * is and shows upright without its EXIF orientation, which Android ignores.
+ */
 export function keptWhole(bytes: Uint8Array, image: Size): StrippedImage | null {
-  if (Math.max(image.width, image.height) > MAX_SIDE) return null;
+  if (Math.max(image.width, image.height) > MAX_SIDE || orientationOf(bytes) !== 1) return null;
   const stripped = stripMetadata(bytes);
   return stripped && stripped.bytes.length <= MAX_KEPT_BYTES ? stripped : null;
 }

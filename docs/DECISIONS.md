@@ -638,7 +638,8 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   square every client shows of a non-square photo; the final crop rectangle
   is compared by value, so a frame moved and brought back counts as
   unchanged), an image at most 1024 px on its longest side whose kept data
-  is at most 512 KB is kept whole:
+  is at most 512 KB, and whose EXIF orientation is 1 or absent, is kept
+  whole:
   - A JPEG, PNG, GIF or WebP file keeps its image data byte for byte, at
     its size and resolution, with no re-encoding. Only its metadata is
     filtered, by copying the file's segments or chunks verbatim, in their
@@ -668,56 +669,52 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
       Control Extensions (frame delay, disposal, transparency), image
       descriptors and data, the loop block (`NETSCAPE2.0` or
       `ANIMEXTS1.0`), trailer.
-    - The EXIF orientation, in all three formats that carry it, is written
-      back as a minimal EXIF block when it isn't 1: `Exif\0\0` (JPEG only),
-      a TIFF header in the source's byte order, then IFD0 with one entry
-      (0x0112, SHORT, count 1) and a next-IFD offset of 0. In a JPEG it
-      takes the original `APP1`'s place, after `APP0` `JFIF`; in a PNG it is
-      an `eXIf` chunk before the first `IDAT`; in a WebP an `EXIF` chunk,
-      with the E flag set. With orientation 1 or none, there is no block.
+    - The EXIF block is dropped in all three formats that carry it,
+      orientation included, and the WebP E flag with it: a file kept whole
+      has orientation 1 or none.
     The filter is `src/lib/photo-metadata.ts`, with no dependency, tested in
-    `tests/lib/`: the image data comes out unchanged; the orientation still
-    applies, for a JPEG, a PNG `eXIf` and a WebP; a PNG with `tRNS` keeps
-    its transparency; an APNG and an animated GIF and WebP keep every
-    frame; an Ultra HDR JPEG and an ISO 21496-1 one keep their gain map;
-    and fixtures with GPS, XMP, `COM` and `tEXt` come out without them.
-    Apple, Android through
-    DAVx⁵, Thunderbird and Nextcloud are expected to show all four (WebP
-    since iOS 14 and macOS 11); the maintainer's device check confirms
-    WebP on Apple and GIF and WebP through DAVx⁵. An animated GIF or WebP
-    stays animated where the client supports it; Android re-encodes what it
-    stores, so it doesn't.
-  - A rotated phone photo keeps its orientation tag rather than having the
-    rotation baked in, so it isn't re-encoded. Android's decoder may ignore
-    EXIF and show it sideways: the maintainer's device check settles it,
-    and if it does, rotated photos go through the canvas as below.
+    `tests/lib/`: the image data comes out unchanged; the orientation is
+    read (`orientationOf`) from a JPEG, a PNG `eXIf` and a WebP, and dropped
+    with the rest of the EXIF block; a PNG with `tRNS` keeps its
+    transparency; an APNG and an animated GIF and WebP keep every frame; an
+    Ultra HDR JPEG and an ISO 21496-1 one keep their gain map; and fixtures
+    with GPS, XMP, `COM` and `tEXt` come out without them. Apple, Android
+    through DAVx⁵, Thunderbird and Nextcloud are expected to show all four
+    (WebP since iOS 14 and macOS 11). The device check showed all
+    four through DAVx⁵ and Google Contacts on Android 16; Apple is not
+    checked, for want of a device. An animated GIF or WebP stays animated
+    where the client supports it; Android re-encodes what it stores, so it
+    doesn't.
+  - A rotated phone photo, whose EXIF orientation isn't 1, goes through the
+    canvas as below, the rotation baked in: Google Contacts, through
+    DAVx⁵, ignores the tag and shows the photo sideways (device check).
   - Any other format the browser decodes (AVIF, BMP, TIFF…), which not
     every client reads, and any larger image go through the canvas, as for
     a crop below.
-- Writing, when the frame is moved or zoomed, for an uncommon format, or
-  for a larger image: the square (or, uncropped, the whole image) is drawn
-  on a canvas, scaled down so its longest side is at most 1024 px (never
-  up). 1024 px is past what any client shows a contact photo at (Android
-  keeps 720 px) and leaves a sharp avatar on a high-density screen. The
-  scaling halves the image step by step with `imageSmoothingQuality:
-  "high"`, then lands on the target: one large step aliases in browsers
-  whose smoothing reads few source pixels per output pixel. The result is
-  a JPEG at quality 0.9, where the loss doesn't show at avatar sizes for a
-  third of quality 1's weight. A source that isn't a JPEG is checked for
-  transparency, and kept as a PNG if it has some and the PNG is at most
-  512 KB; a heavier one (a cut-out photo) is flattened on white and
-  becomes a JPEG, since a card that size is what servers refuse. A PNG,
-  GIF or WebP source without transparency is also encoded as a PNG, and
-  the lighter is kept, so a flat graphic stays a crisp PNG and a photo
-  becomes a JPEG. A browser that hands back another type than
-  asked for fails the photo. It costs something: the result loses its
-  colour profile and all metadata, the rotation is baked in (which settles
-  Android's EXIF question for these), an HDR photo loses its gain map, a
-  16-bit or HDR source drops to 8 bits, and an animated GIF or WebP keeps
-  only its first frame. A photo of at most 1024 px and 512 KB, uncropped,
-  avoids all of it. The canvas is `display-p3` where the browser supports
-  it (`getContext("2d", { colorSpace: "display-p3" })`), sRGB elsewhere,
-  where a Display-P3 photo loses the colours outside sRGB.
+- Writing, when the frame is moved or zoomed, for an uncommon format, for a
+  rotated photo, or for a larger image: the square (or, uncropped, the whole
+  image) is drawn on a canvas, scaled down so its longest side is at most
+  1024 px (never up). 1024 px is past what any client shows a contact photo
+  at (Android keeps 720 px) and leaves a sharp avatar on a high-density
+  screen. The scaling halves the image step by step with
+  `imageSmoothingQuality: "high"`, then lands on the target: one large step
+  aliases in browsers whose smoothing reads few source pixels per output
+  pixel. The result is a JPEG at quality 0.9, where the loss doesn't show at
+  avatar sizes for a third of quality 1's weight. A source that isn't a JPEG
+  is checked for transparency, and kept as a PNG if it has some and the PNG
+  is at most 512 KB; a heavier one (a cut-out photo) is flattened on white
+  and becomes a JPEG, since a card that size is what servers refuse. A PNG,
+  GIF or WebP source without transparency is also encoded as a PNG, and the
+  lighter is kept, so a flat graphic stays a crisp PNG and a photo becomes a
+  JPEG. A browser that hands back another type than asked for fails the
+  photo. It costs something: the result loses all metadata and takes the
+  canvas's colour space (a `display-p3` canvas writes a Display P3 profile,
+  as the device check found), the rotation is baked in, an HDR photo loses its gain map,
+  a 16-bit or HDR source drops to 8 bits, and an animated GIF or WebP keeps
+  only its first frame. An upright photo of at most 1024 px and 512 KB,
+  uncropped, avoids all of it. The canvas is `display-p3` where the browser
+  supports it (`getContext("2d", { colorSpace: "display-p3" })`), sRGB
+  elsewhere, where a Display-P3 photo loses the colours outside sRGB.
 - Considered: a lossless JPEG crop and rotation (jpegtran compiled to
   WebAssembly), which keeps the colour profile and adds no JPEG loss, but crops only on
   the 8 or 16 px block grid and adds a dependency of a few hundred KB, which
@@ -809,24 +806,24 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   `fixtures/public/` when provided. Round-trip tests check that a card keeps
   its photo byte for byte when another field is edited, except that a 4.0
   data URI in `PHOTO` or `LOGO` read with `,` or `\;` is written with `\,`
-  and `;`; and that an uncropped JPEG, PNG, GIF or WebP within 1024 px
-  and 512 KB lands in the card with its image data byte for byte and only
-  the kept metadata.
+  and `;`; and that an uncropped, upright JPEG, PNG, GIF or WebP within
+  1024 px and 512 KB lands in the card with its image data byte for byte
+  and only the kept metadata.
 
-**Consequences.** Photos set in Natel show on Android and Apple devices. A
-small photo stays as the user chose it; a large one is scaled down to
-1024 px, so the card stays within a few hundred KB: it fits a stock
-server's request limit, and every client downloads it on each sync and
-Natel with the book at sign-in without strain. DAVx⁵ keeps only a
-scaled-down copy on the phone, and writes that copy back if the contact
-is later edited there. A crop, an uncommon format or a large photo
-re-encodes the image (and a small rotated photo, if the device check
-requires it). A photo
-set in Natel carries no GPS location, camera or date: nothing that doesn't
-show leaves the device. Apple photos show uncropped, filling their square,
-until `X-ABCROP-RECTANGLE` is applied. The maintainer checks on real devices that
-a 3 to 5 MB photo, a rotated phone photo (a 24 MP iPhone one included), a
-WebP and a GIF set in Natel show right through DAVx⁵ and on iOS.
+**Consequences.** Photos set in Natel show on Android, and are expected to
+show on Apple devices. A small photo stays as the user chose it; a large one
+is scaled down to 1024 px, so the card stays within a few hundred KB: it
+fits a stock server's request limit, and every client downloads it on each
+sync and Natel with the book at sign-in without strain. DAVx⁵ keeps only a
+scaled-down copy on the phone, and writes that copy back if the contact is
+later edited there. A crop, an uncommon format, a rotated photo or a large
+photo re-encodes the image. A photo set in Natel carries no GPS location,
+camera or date: nothing that doesn't show leaves the device. Apple photos
+show uncropped, filling their square, until `X-ABCROP-RECTANGLE` is applied.
+The device check showed a JPEG, a PNG, a GIF, a WebP and a 3000 × 2000
+photo set in Natel right through DAVx⁵ on Android, and a rotated one
+sideways, hence the canvas for it. iOS, and a 24 MP iPhone photo, are still
+to check on a device.
 
 ## 024 — The escaped semicolon in text values is read as a semicolon
 

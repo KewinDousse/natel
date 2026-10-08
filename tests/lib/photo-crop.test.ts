@@ -144,6 +144,26 @@ describe("keptWhole", () => {
     expect(stripMetadata(large)?.bytes.length).toBeGreaterThan(MAX_KEPT_BYTES);
     expect(keptWhole(large, { width: 8, height: 6 })).toBeNull();
   });
+
+  it("re-encodes a file with an EXIF orientation, which Android ignores", () => {
+    // IHDR, then an eXIf chunk whose TIFF block says orientation 6.
+    const tiff = new Uint8Array(26);
+    const view = new DataView(tiff.buffer);
+    tiff.set([0x4d, 0x4d]); // "MM", big-endian
+    view.setUint16(2, 42);
+    view.setUint32(4, 8); // IFD0
+    view.setUint16(8, 1); // one entry:
+    view.setUint16(10, 0x0112); // orientation,
+    view.setUint16(12, 3); // a SHORT,
+    view.setUint32(14, 1); // count 1,
+    view.setUint16(18, 6); // value 6
+    const chunk = new Uint8Array(12 + tiff.length);
+    new DataView(chunk.buffer).setUint32(0, tiff.length);
+    chunk.set([0x65, 0x58, 0x49, 0x66], 4);
+    chunk.set(tiff, 8);
+    const rotated = new Uint8Array([...bytes.subarray(0, 33), ...chunk, ...bytes.subarray(33)]);
+    expect(keptWhole(rotated, { width: 8, height: 6 })).toBeNull();
+  });
 });
 
 describe("toBase64", () => {

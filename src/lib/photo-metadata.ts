@@ -2,8 +2,9 @@
  * Strips from an image file what doesn't change how it shows (ADR 023), by
  * copying its segments or chunks verbatim, in order: the image data is never
  * re-encoded. Each format keeps an allowlist; everything else (GPS, camera,
- * dates, thumbnails, comments, XMP) goes. A non-default EXIF orientation is
- * written back as a minimal EXIF block. No dependency.
+ * dates, thumbnails, comments, XMP) goes, the EXIF block included: a photo
+ * whose orientation matters goes through the canvas instead (`orientationOf`).
+ * No dependency.
  */
 
 export type ImageFormat = "jpeg" | "png" | "gif" | "webp";
@@ -21,6 +22,28 @@ export function stripMetadata(file: Uint8Array): StrippedImage | null {
   const strip = { jpeg: stripJpeg, png: stripPng, gif: stripGif, webp: stripWebp }[format];
   const bytes = strip(file);
   return bytes === null ? null : { format, bytes };
+}
+
+/**
+ * The EXIF orientation a JPEG, PNG or WebP carries, 1 when it has none or
+ * isn't one of those. Android ignores it, so a file with another one can't
+ * be kept as it is.
+ */
+export function orientationOf(file: Uint8Array): number {
+  const format = formatOf(file);
+  if (format === "jpeg") {
+    const exif = jpegSegments(file)?.find(
+      (s) => s.marker === 0xe1 && ascii(s.payload, 0, EXIF_ID.length) === EXIF_ID,
+    );
+    return exif ? readOrientation(exif.payload.subarray(EXIF_ID.length)) : 1;
+  }
+  const exif =
+    format === "png"
+      ? pngChunks(file).find((c) => c.type === "eXIf")
+      : format === "webp"
+        ? webpChunks(file).find((c) => c.type === "EXIF")
+        : undefined;
+  return exif ? chunkOrientation(exif.data) : 1;
 }
 
 export function formatOf(file: Uint8Array): ImageFormat | null {
@@ -58,14 +81,6 @@ const u32le = (b: Uint8Array, at: number) =>
 function be16(value: number): Uint8Array {
   return Uint8Array.of((value >> 8) & 0xff, value & 0xff);
 }
-function be32(value: number): Uint8Array {
-  return Uint8Array.of(
-    (value >>> 24) & 0xff,
-    (value >> 16) & 0xff,
-    (value >> 8) & 0xff,
-    value & 0xff,
-  );
-}
 function le32(value: number): Uint8Array {
   return Uint8Array.of(
     value & 0xff,
@@ -82,12 +97,10 @@ const latin1 = (text: string) => Uint8Array.from(text, (char) => char.charCodeAt
 
 const EXIF_ID = "Exif\0\0";
 
-type Tiff = { littleEndian: boolean; orientation: number };
-
 /** The orientation in a TIFF block (EXIF without its `Exif\0\0` prefix); 1 when absent. */
-function readOrientation(tiff: Uint8Array): Tiff | null {
+function readOrientation(tiff: Uint8Array): number {
   const order = ascii(tiff, 0, 2);
-  if (order !== "II" && order !== "MM") return null;
+  if (order !== "II" && order !== "MM") return 1;
   const le = order === "II";
   const view = new DataView(tiff.buffer, tiff.byteOffset, tiff.byteLength);
   try {
@@ -97,38 +110,21 @@ function readOrientation(tiff: Uint8Array): Tiff | null {
       const entry = ifd + 2 + i * 12;
       if (view.getUint16(entry, le) !== 0x0112) continue;
       const isShort = view.getUint16(entry + 2, le) === 3 && view.getUint32(entry + 4, le) === 1;
-      return { littleEndian: le, orientation: isShort ? view.getUint16(entry + 8, le) : 1 };
+      const value = isShort ? view.getUint16(entry + 8, le) : 1;
+      // Only 2 to 8 turn or flip the image; any other value shows it as stored.
+      return value >= 2 && value <= 8 ? value : 1;
     }
   } catch {
-    return null;
+    return 1;
   }
-  return { littleEndian: le, orientation: 1 };
+  return 1;
 }
 
-/** IFD0 with the one orientation entry, in the source's byte order. */
-function minimalTiff({ littleEndian: le, orientation }: Tiff): Uint8Array {
-  const out = new Uint8Array(26);
-  const view = new DataView(out.buffer);
-  out.set(latin1(le ? "II" : "MM"), 0);
-  view.setUint16(2, 42, le);
-  view.setUint32(4, 8, le);
-  view.setUint16(8, 1, le);
-  view.setUint16(10, 0x0112, le);
-  view.setUint16(12, 3, le);
-  view.setUint32(14, 1, le);
-  view.setUint16(18, orientation, le);
-  view.setUint32(22, 0, le);
-  return out;
-}
-
-/** The TIFF block of a PNG `eXIf` or WebP `EXIF` chunk, which some writers prefix with `Exif\0\0`. */
-const tiffOf = (data: Uint8Array) =>
+/** The orientation in a PNG `eXIf` or WebP `EXIF` chunk, which some writers prefix with `Exif\0\0`. */
+const chunkOrientation = (data: Uint8Array) =>
   readOrientation(
     ascii(data, 0, EXIF_ID.length) === EXIF_ID ? data.subarray(EXIF_ID.length) : data,
   );
-
-const keepsOrientation = (tiff: Tiff | null): tiff is Tiff =>
-  tiff !== null && tiff.orientation >= 2 && tiff.orientation <= 8;
 
 // ---------------------------------------------------------------------------
 // JPEG
@@ -200,7 +196,6 @@ function stripJpeg(file: Uint8Array): Uint8Array | null {
   );
 
   const parts: Uint8Array[] = [Uint8Array.of(0xff, 0xd8)];
-  let exifSeen = false;
   let mpf: { partIndex: number; payload: Uint8Array; start: number } | null = null;
   for (const s of segments) {
     const isApp = s.marker >= 0xe0 && s.marker <= 0xef;
@@ -214,13 +209,6 @@ function stripJpeg(file: Uint8Array): Uint8Array | null {
       jfif[12] = 0;
       jfif[13] = 0;
       parts.push(segment(0xe0, jfif));
-    } else if (s.marker === 0xe1 && id.startsWith(EXIF_ID)) {
-      if (exifSeen) continue;
-      exifSeen = true;
-      const tiff = readOrientation(s.payload.subarray(EXIF_ID.length));
-      if (keepsOrientation(tiff)) {
-        parts.push(segment(0xe1, concat([latin1(EXIF_ID), minimalTiff(tiff)])));
-      }
     } else if (s.marker === 0xe2 && id.startsWith("ICC_PROFILE\0")) {
       parts.push(file.subarray(s.start, s.end));
     } else if (s.marker === 0xe2 && id.startsWith("MPF\0") && hdr) {
@@ -317,29 +305,10 @@ const PNG_KEEP = new Set([
   "sBIT",
 ]);
 
-const CRC_TABLE = (() => {
-  const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n += 1) {
-    let c = n;
-    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    table[n] = c >>> 0;
-  }
-  return table;
-})();
+type Chunk = { type: string; start: number; end: number; data: Uint8Array };
 
-function crc32(bytes: Uint8Array): number {
-  let c = 0xffffffff;
-  for (const byte of bytes) c = (CRC_TABLE[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
-
-function pngChunk(type: string, data: Uint8Array): Uint8Array {
-  const typed = concat([latin1(type), data]);
-  return concat([be32(data.length), typed, be32(crc32(typed))]);
-}
-
-function stripPng(file: Uint8Array): Uint8Array {
-  const chunks: { type: string; start: number; end: number; data: Uint8Array }[] = [];
+function pngChunks(file: Uint8Array): Chunk[] {
+  const chunks: Chunk[] = [];
   let at = 8;
   while (at + 12 <= file.length) {
     const length = u32be(file, at);
@@ -349,15 +318,12 @@ function stripPng(file: Uint8Array): Uint8Array {
     at = end;
     if (type === "IEND") break;
   }
-  const exif = chunks.find((c) => c.type === "eXIf");
-  const tiff = exif ? tiffOf(exif.data) : null;
+  return chunks;
+}
+
+function stripPng(file: Uint8Array): Uint8Array {
   const parts: Uint8Array[] = [file.subarray(0, 8)];
-  let placed = false;
-  for (const chunk of chunks) {
-    if (chunk.type === "IDAT" && !placed) {
-      placed = true;
-      if (keepsOrientation(tiff)) parts.push(pngChunk("eXIf", minimalTiff(tiff)));
-    }
+  for (const chunk of pngChunks(file)) {
     if (PNG_KEEP.has(chunk.type)) parts.push(file.subarray(chunk.start, chunk.end));
   }
   return concat(parts);
@@ -374,8 +340,8 @@ function webpChunk(type: string, data: Uint8Array): Uint8Array {
   return concat([latin1(type), le32(data.length), data, pad]);
 }
 
-function stripWebp(file: Uint8Array): Uint8Array {
-  const chunks: { type: string; start: number; end: number; data: Uint8Array }[] = [];
+function webpChunks(file: Uint8Array): Chunk[] {
+  const chunks: Chunk[] = [];
   // Bytes past the RIFF size aren't part of the image.
   const riffEnd = Math.min(file.length, 8 + u32le(file, 4));
   let at = 12;
@@ -387,21 +353,22 @@ function stripWebp(file: Uint8Array): Uint8Array {
     chunks.push({ type, start: at, end, data });
     at = end;
   }
+  return chunks;
+}
+
+function stripWebp(file: Uint8Array): Uint8Array {
+  const chunks = webpChunks(file);
   if (chunks[0]?.type !== "VP8X") return file.slice();
 
-  const exif = chunks.find((c) => c.type === "EXIF");
-  const tiff = exif ? tiffOf(exif.data) : null;
-  const keepExif = keepsOrientation(tiff);
   const hasIcc = chunks.some((c) => c.type === "ICCP");
 
   const body: Uint8Array[] = [];
   for (const chunk of chunks) {
     if (chunk.type === "VP8X") {
       const header = chunk.data.slice();
-      // I (ICC), E (EXIF) and X (XMP) follow what is kept; A and L stay.
+      // I (ICC) follows what is kept; E (EXIF) and X (XMP) go; A and L stay.
       let flags = (header[0] ?? 0) & ~(0x20 | 0x08 | 0x04);
       if (hasIcc) flags |= 0x20;
-      if (keepExif) flags |= 0x08;
       header[0] = flags;
       body.push(webpChunk("VP8X", header));
     } else if (WEBP_KEEP.has(chunk.type)) {
@@ -410,7 +377,6 @@ function stripWebp(file: Uint8Array): Uint8Array {
       if ((chunk.end - chunk.start) % 2 === 1) body.push(Uint8Array.of(0));
     }
   }
-  if (keepExif) body.push(webpChunk("EXIF", minimalTiff(tiff)));
   const content = concat(body);
   return concat([latin1("RIFF"), le32(content.length + 4), latin1("WEBP"), content]);
 }

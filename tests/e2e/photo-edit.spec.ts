@@ -231,15 +231,31 @@ test("keeps a cropped photo with transparency as a PNG", async ({ page }) => {
   expect(Math.abs(alpha - 128)).toBeLessThanOrEqual(2);
 });
 
-test("applies the EXIF orientation of a rotated photo in the frame", async ({ page }) => {
+test("applies the EXIF orientation of a rotated photo in the frame and in the card", async ({
+  page,
+}) => {
   // Tagged orientation 6: shown turned a quarter, 6 × 8.
   const rotated = jpegWithExif(6);
   await signIn(page);
   await editContact(page, /Lovelace/);
   await choosePhoto(page, rotated);
-  const image = page.getByRole("dialog").locator("img");
-  const box = await image.boundingBox();
+  const dialog = page.getByRole("dialog");
+  const box = await dialog.locator("img").boundingBox();
   expect((box?.height ?? 0) / (box?.width ?? 1)).toBeCloseTo(8 / 6, 1);
+  await dialog.getByRole("button", { name: "Use photo" }).click();
+  await expect(dialog).toBeHidden();
+
+  // Android ignores the tag, so the card gets the image turned, without it.
+  const [line] = await savedPhoto(page, "ada");
+  expect(line).toMatch(/^PHOTO;ENCODING=b;TYPE=JPEG:/);
+  const data = line?.slice(line.indexOf(":") + 1) ?? "";
+  expect(Buffer.from(data, "base64").includes("Exif")).toBe(false);
+  const size = await page.evaluate(async (data) => {
+    const blob = new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))]);
+    const bitmap = await createImageBitmap(blob, { imageOrientation: "none" });
+    return [bitmap.width, bitmap.height];
+  }, data);
+  expect(size).toEqual([6, 8]);
 });
 
 test("moves the photo the way the arrow keys point", async ({ page }) => {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { stripMetadata } from "../../src/lib/photo-metadata";
+import { orientationOf, stripMetadata } from "../../src/lib/photo-metadata";
 
 test.skip(({ isMobile }) => isMobile, "decoding doesn't depend on the viewport");
 
@@ -79,21 +79,21 @@ const sizeIn = (page: Page, data: Uint8Array, type: string) =>
     { data: [...data], type },
   );
 
-test("keeps the orientation working once the metadata is gone", async ({ page }) => {
+test("strips the EXIF block, orientation included, and the image still decodes", async ({
+  page,
+}) => {
   await page.goto("/");
   for (const [type, file] of [
     ["image/jpeg", rotatedJpeg()],
     ["image/png", rotatedPng()],
     ["image/webp", rotatedWebp()],
   ] as const) {
+    expect(orientationOf(file), type).toBe(6);
     const stripped = stripMetadata(file)?.bytes ?? new Uint8Array();
     expect(stripped.length, type).toBeLessThan(file.length);
-    // Shown as the source is: the 8 × 6 image turned a quarter, except that
-    // Chromium ignores the orientation of a WebP, source included. For a
-    // WebP this only shows the file still decodes; the unit tests read its
-    // orientation back.
-    const expected = type === "image/webp" ? [8, 6] : [6, 8];
-    expect(await sizeIn(page, file, type), type).toEqual(expected);
-    expect(await sizeIn(page, stripped, type), type).toEqual(expected);
+    expect(orientationOf(stripped), type).toBe(1);
+    // The 8 × 6 image, no longer turned: a rotated photo goes through the
+    // canvas, never kept with its tag.
+    expect(await sizeIn(page, stripped, type), type).toEqual([8, 6]);
   }
 });

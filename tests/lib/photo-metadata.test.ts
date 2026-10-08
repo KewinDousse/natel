@@ -3,7 +3,7 @@
  * Chromium-encoded images with metadata added around their image data.
  */
 import { describe, expect, it } from "vitest";
-import { formatOf, stripMetadata } from "@/lib/photo-metadata";
+import { formatOf, orientationOf, stripMetadata } from "@/lib/photo-metadata";
 import photos from "../vcard/photo-bytes.json";
 
 const decode = (base64: string) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -43,15 +43,6 @@ function tiff(orientation: number, le: boolean): Uint8Array {
   return out;
 }
 
-function readOrientation(block: Uint8Array): number | null {
-  const le = text(block.subarray(0, 2)) === "II";
-  const view = new DataView(block.buffer, block.byteOffset, block.byteLength);
-  const ifd = view.getUint32(4, le);
-  expect(view.getUint16(ifd, le)).toBe(1);
-  expect(view.getUint16(ifd + 2, le)).toBe(0x0112);
-  return view.getUint16(ifd + 10, le);
-}
-
 // ---------------------------------------------------------------------------
 // JPEG
 // ---------------------------------------------------------------------------
@@ -80,7 +71,7 @@ describe("JPEG", () => {
   const xmp = latin1("http://ns.adobe.com/xap/1.0/\0<x:xmpmeta>GPSLatitude</x:xmpmeta>");
   const exif = (o: number, le = false) => seg(0xe1, concat(latin1("Exif\0\0"), tiff(o, le)));
 
-  it("keeps the image data and drops EXIF extras, XMP, comments and the JFIF thumbnail", () => {
+  it("keeps the image data and drops EXIF, XMP, comments and the JFIF thumbnail", () => {
     const source = jpegWith(
       exif(6),
       seg(0xe1, xmp),
@@ -92,32 +83,37 @@ describe("JPEG", () => {
     expect(result?.format).toBe("jpeg");
     const out = result?.bytes ?? new Uint8Array();
     expect(imageData(out)).toEqual(imageData(jpeg));
-    for (const gone of ["GPSLatitude", "taken by a camera", "IPTC", "JFXX"]) {
+    for (const gone of ["Exif", "GPSLatitude", "taken by a camera", "IPTC", "JFXX"]) {
       expect(has(out, gone)).toBe(false);
     }
     // JFIF stays, with a 0 × 0 thumbnail.
     expect(text(out.subarray(6, 11))).toBe("JFIF\0");
     expect([out[18], out[19]]).toEqual([0, 0]);
     expect((out[4] ?? 0) * 256 + (out[5] ?? 0)).toBe(16);
-    // A minimal EXIF right after it, orientation kept, byte order kept.
-    expect([out[20], out[21]]).toEqual([0xff, 0xe1]);
-    expect(text(out.subarray(24, 30))).toBe("Exif\0\0");
-    expect(text(out.subarray(30, 32))).toBe("MM");
-    expect(readOrientation(out.subarray(30))).toBe(6);
+    expect(orientationOf(source)).toBe(6);
   });
 
-  it("keeps a little-endian orientation little-endian, and drops orientation 1", () => {
-    const le = stripMetadata(jpegWith(exif(8, true)))?.bytes ?? new Uint8Array();
-    expect(text(le.subarray(30, 32))).toBe("II");
-    expect(readOrientation(le.subarray(30))).toBe(8);
-    const upright = stripMetadata(jpegWith(exif(1)))?.bytes ?? new Uint8Array();
-    expect(has(upright, "Exif")).toBe(false);
+  it("reads the orientation in either byte order, and 1 without one", () => {
+    expect(orientationOf(jpegWith(exif(8, true)))).toBe(8);
+    expect(orientationOf(jpegWith(exif(1)))).toBe(1);
+    expect(orientationOf(jpegWith())).toBe(1);
   });
 
-  it("writes one orientation block when the file has two EXIF segments", () => {
-    const out = stripMetadata(jpegWith(exif(6), exif(8)))?.bytes ?? new Uint8Array();
-    expect(text(out).split("Exif\0\0")).toHaveLength(2);
-    expect(readOrientation(out.subarray(30))).toBe(6);
+  it("reads the first of two EXIF segments", () => {
+    expect(orientationOf(jpegWith(exif(6), exif(8)))).toBe(6);
+  });
+
+  it("reads 1 from a value that neither turns nor flips the image", () => {
+    expect(orientationOf(jpegWith(exif(0)))).toBe(1);
+    expect(orientationOf(jpegWith(exif(9)))).toBe(1);
+  });
+
+  it("reads 1 from a TIFF block cut short or with a wrong byte order", () => {
+    const cut = concat(latin1("Exif\0\0"), tiff(6, false).subarray(0, 12));
+    expect(orientationOf(jpegWith(seg(0xe1, cut)))).toBe(1);
+    const block = tiff(6, false);
+    block.set(latin1("XX"));
+    expect(orientationOf(jpegWith(seg(0xe1, concat(latin1("Exif\0\0"), block))))).toBe(1);
   });
 
   it("keeps ICC profiles and Adobe, drops what follows EOI", () => {
@@ -207,8 +203,7 @@ describe("JPEG", () => {
   it("reads no orientation from an entry that isn't one SHORT", () => {
     const block = tiff(6, false);
     new DataView(block.buffer).setUint16(12, 4);
-    const out = stripMetadata(jpegWith(seg(0xe1, concat(latin1("Exif\0\0"), block))));
-    expect(has(out?.bytes ?? new Uint8Array(), "Exif")).toBe(false);
+    expect(orientationOf(jpegWith(seg(0xe1, concat(latin1("Exif\0\0"), block))))).toBe(1);
   });
 
   it("gives up on a JPEG it can't walk from SOI to EOI", () => {
@@ -289,7 +284,7 @@ const IDATS = chunks(png)
   .map((c) => c.type);
 
 describe("PNG", () => {
-  it("keeps image and colour chunks, drops text, and writes the orientation back", () => {
+  it("keeps image and colour chunks, and drops text and EXIF", () => {
     const source = pngWith(
       [
         chunk("tEXt", latin1("Comment\0made on a phone")),
@@ -302,23 +297,19 @@ describe("PNG", () => {
     );
     const out = stripMetadata(source)?.bytes ?? new Uint8Array();
     const types = chunks(out).map((c) => c.type);
-    expect(types).toEqual(["IHDR", "tRNS", "gAMA", "iCCP", "cICP", "eXIf", ...IDATS, "IEND"]);
+    expect(types).toEqual(["IHDR", "tRNS", "gAMA", "iCCP", "cICP", ...IDATS, "IEND"]);
     for (const c of chunks(out)) expect(c.crc).toBe(crc32(concat(latin1(c.type), c.data)));
     const idat = (file: Uint8Array) =>
       chunks(file)
         .filter((c) => c.type === "IDAT")
         .map((c) => c.data);
     expect(idat(out)).toEqual(idat(png));
-    expect(
-      readOrientation(chunks(out).find((c) => c.type === "eXIf")?.data ?? new Uint8Array()),
-    ).toBe(6);
+    expect(orientationOf(source)).toBe(6);
   });
 
   it("reads an orientation behind an Exif prefix", () => {
     const source = pngWith([], [chunk("eXIf", concat(latin1("Exif\0\0"), tiff(3, false)))]);
-    const out = stripMetadata(source)?.bytes ?? new Uint8Array();
-    const exif = chunks(out).find((c) => c.type === "eXIf")?.data ?? new Uint8Array();
-    expect(readOrientation(exif)).toBe(3);
+    expect(orientationOf(source)).toBe(3);
   });
 
   it("keeps every APNG frame", () => {
@@ -366,7 +357,7 @@ function webpOf(parts: Uint8Array[], flags: number): Uint8Array {
 describe("WebP", () => {
   const image = riffChunks(webp).filter((c) => c.type !== "VP8X");
 
-  it("drops XMP, writes the orientation back, and sets the flags to match", () => {
+  it("drops EXIF and XMP, and sets the flags to match", () => {
     const source = webpOf(
       [
         ...image.map((c) => riff(c.type, c.data)),
@@ -377,13 +368,21 @@ describe("WebP", () => {
     );
     const out = stripMetadata(source)?.bytes ?? new Uint8Array();
     const kept = riffChunks(out);
-    expect(kept.map((c) => c.type)).toEqual(["VP8X", ...image.map((c) => c.type), "EXIF"]);
-    expect((kept[0]?.data[0] ?? 0) & 0x2c).toBe(0x20 | 0x08);
-    expect(readOrientation(kept.at(-1)?.data ?? new Uint8Array())).toBe(6);
+    expect(kept.map((c) => c.type)).toEqual(["VP8X", ...image.map((c) => c.type)]);
+    expect((kept[0]?.data[0] ?? 0) & 0x2c).toBe(0x20);
+    expect(orientationOf(source)).toBe(6);
     expect(new DataView(out.buffer, out.byteOffset).getUint32(4, true)).toBe(out.length - 8);
     for (const c of image) {
       expect(kept.find((k) => k.type === c.type)?.data).toEqual(c.data);
     }
+  });
+
+  it("reads an orientation without an Exif prefix", () => {
+    const source = webpOf(
+      [...image.map((c) => riff(c.type, c.data)), riff("EXIF", tiff(8, true))],
+      0x08,
+    );
+    expect(orientationOf(source)).toBe(8);
   });
 
   it("keeps an animation's chunks, and the A flag", () => {
