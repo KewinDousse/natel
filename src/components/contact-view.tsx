@@ -15,7 +15,7 @@ import {
   orderedNameOf,
   primaryNumberOf,
 } from "@/lib/contact-list";
-import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
+import { birthdayCopyText, birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
@@ -234,7 +234,12 @@ export function ContactView({
             action={<SectionEditButton label={t("edit_bday")} onClick={() => onEdit("sec-bday")} />}
           >
             <Row
-              action={<CopyButton label={t("copy_bday")} onCopy={() => onCopy(birthday.source)} />}
+              action={
+                <CopyButton
+                  label={t("copy_bday")}
+                  onCopy={() => onCopy(birthdayCopyText(birthday))}
+                />
+              }
             >
               <time dateTime={birthdayDateTime(birthday)} className="lg:text-body">
                 {formatBirthday(birthday, locale)}

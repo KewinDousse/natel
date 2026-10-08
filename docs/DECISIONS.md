@@ -1020,3 +1020,27 @@ something.
 characters belong to their publishers; the demo uses their names only, with
 no artwork.
 
+## 028 — Apple's year-less birthday: year 1604 with `X-APPLE-OMIT-YEAR`
+
+**Context.** The real-device test (ADR 023): a birthday saved without a year on
+iCloud comes as `BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14`, since
+vCard 3.0 (RFC 2426) has no date without a year. Natel showed it as
+"14 juillet 1604", while Google Contacts through DAVx⁵ showed "14 juillet".
+vCard 4.0 has a standard form, `--0714` (RFC 6350 §4.3.1).
+
+**Decision.** A workaround for Apple (invariant 6), in `src/vcard/`:
+- `appleOmittedYear` reads a birthday's year as absent when its
+  `X-APPLE-OMIT-YEAR` parameter names that year; the reading view and the
+  form then show no year.
+- On a vCard 3.0 card, a birthday with a day and a month but no year is
+  written in Apple's form, year 1604 with `X-APPLE-OMIT-YEAR=1604`
+  (`writesAppleYearless`), which Apple and DAVx⁵ read back as year-less. A
+  birthday with a year drops the parameter. A 4.0 card keeps `--MMDD`; any
+  other card (3.0, 2.1, no `VERSION`) is written as 3.0 is.
+- A birthday whose parts don't change is left as it is, as ADR 012 says.
+- Only a day and month lose the placeholder year: a year and month keep it.
+  "Copier la date" copies a day and month as `--MM-DD`, without it.
+
+**Consequences.** Apple's year-less birthdays show as such, and stay so
+through a save. A 3.0 card that had `--MMDD` gets Apple's form once its
+birthday is edited; one that isn't edited keeps its form.

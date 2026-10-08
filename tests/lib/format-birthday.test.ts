@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
+import { birthdayCopyText, birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import type { Birthday } from "@/vcard";
 
 const bday = (overrides: Partial<Birthday>): Birthday => ({
@@ -45,5 +45,21 @@ describe("birthdayDateTime", () => {
     expect(birthdayDateTime(bday({ year: 1987, month: 3, day: 14 }))).toBe("1987-03-14");
     expect(birthdayDateTime(bday({ year: null, month: 3, day: 14 }))).toBe("--03-14");
     expect(birthdayDateTime(bday({ year: 1987, month: null, day: null }))).toBe("1987");
+  });
+});
+
+describe("birthdayCopyText", () => {
+  it("copies the stored value", () => {
+    expect(birthdayCopyText(bday({ source: "1987-03-14", year: 1987, month: 3, day: 14 }))).toBe(
+      "1987-03-14",
+    );
+  });
+
+  it("copies any day and month without a year in the extended form", () => {
+    expect(birthdayCopyText(bday({ source: "--0314", month: 3, day: 14 }))).toBe("--03-14");
+  });
+
+  it("copies a day and month without the year Apple stores in its place", () => {
+    expect(birthdayCopyText(bday({ source: "1604-07-14", month: 7, day: 14 }))).toBe("--07-14");
   });
 });

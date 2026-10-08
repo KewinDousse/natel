@@ -57,3 +57,13 @@ export function birthdayDateTime(birthday: Birthday): string {
   if (year !== null) return String(year);
   return birthday.source;
 }
+
+/**
+ * The text "Copier la date" puts on the clipboard: the stored value, except
+ * that a day and month without a year come as `--MM-DD`, so the placeholder
+ * year Apple stores (`X-APPLE-OMIT-YEAR`, ADR 028) isn't copied.
+ */
+export function birthdayCopyText(birthday: Birthday): string {
+  const { year, month, day, source } = birthday;
+  return year === null && month !== null && day !== null ? birthdayDateTime(birthday) : source;
+}
