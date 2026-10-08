@@ -1010,9 +1010,17 @@ export function newGroupCard(name: string, memberUid: string): Contact {
   return parse(card.raw.toString());
 }
 
-/** A card's text as ical.js writes its component, fields untouched. */
+/** A card's text, fields untouched, ended as RFC 6350 requires. */
 export function serialiseRaw(contact: Contact): string {
-  return contact.raw.toString();
+  return cardText(contact.raw);
+}
+
+/**
+ * The component's text with the line break after `END:VCARD` that RFC 6350
+ * §3.3 requires, which ical.js leaves out.
+ */
+function cardText(raw: RawComponent): string {
+  return `${raw.toString()}\r\n`;
 }
 
 /** Gives a contact without a UID a fresh one (ADR 022). Mutates `raw`. */
@@ -1200,5 +1208,5 @@ export function serialise(contact: Contact): string {
   // --- Update PHOTO, only when replaced or removed ---
   updatePhotoProperty(raw, fields.photo);
 
-  return raw.toString();
+  return cardText(raw);
 }

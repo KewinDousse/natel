@@ -4,7 +4,7 @@
  */
 import ICAL from "ical.js";
 import { describe, expect, it } from "vitest";
-import { parse, serialise } from "../../src/vcard";
+import { parse, serialise, serialiseRaw } from "../../src/vcard";
 
 describe("serialise", () => {
   it("creates FN when the card has none", () => {
@@ -95,5 +95,33 @@ describe("serialise", () => {
     const jcal = tel.toJSON() as [string, Record<string, string | string[]>, string, unknown];
     const params = jcal[1] ?? {};
     expect(params.type).toBe("WORK");
+  });
+});
+
+describe("card text ending", () => {
+  const card = [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    "UID:end@example.com",
+    "FN:End",
+    "END:VCARD",
+    "",
+  ].join("\r\n");
+
+  it("ends the card with a line break after END:VCARD, as RFC 6350 §3.3 requires", () => {
+    expect(serialise(parse(card))).toMatch(/\r\nEND:VCARD\r\n$/);
+  });
+
+  it("ends an edited card with exactly one", () => {
+    const contact = parse(card);
+    contact.fields.fn = "Edited";
+    const text = serialise(contact);
+    expect(text).toContain("\r\nFN:Edited\r\n");
+    expect(text).toMatch(/\r\nEND:VCARD\r\n$/);
+    expect(text).not.toMatch(/\r\n\r\n$/);
+  });
+
+  it("ends a card written untouched with one too", () => {
+    expect(serialiseRaw(parse(card))).toMatch(/\r\nEND:VCARD\r\n$/);
   });
 });

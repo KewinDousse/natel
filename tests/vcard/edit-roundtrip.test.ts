@@ -646,9 +646,9 @@ function bdayCard(bdayLine: string, version = "3.0"): string {
   ].join("\r\n");
 }
 
-/** What ical.js emits for the card when nothing is edited. */
+/** What ical.js emits for the card when nothing is edited, ended as serialise() ends it. */
 function untouched(text: string): string {
-  return new ICAL.Component(ICAL.parse(text)).toString();
+  return `${new ICAL.Component(ICAL.parse(text)).toString()}\r\n`;
 }
 
 function bdayLineOf(text: string): string | undefined {
