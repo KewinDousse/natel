@@ -1,0 +1,26 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Pommé-Test;Bob;;;
+FN:Bob Pommé-Test
+X-PHONETIC-FIRST-NAME:Bobe
+ORG:Vergers Fictifs SA;Qualité
+NICKNAME:Bobby
+BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14
+TITLE:Chef de test
+NOTE:Ligne 1 : accents éàüç\nLigne 2 : emoji 🍏
+item1.ADR;TYPE=HOME;TYPE=pref:;;Rue du Verger 12;Lausanne;;1003;Suisse
+item1.X-ABADR:ch
+TEL;TYPE=CELL;TYPE=pref;TYPE=VOICE:+41790000001
+TEL;TYPE=WORK;TYPE=VOICE:+41 21 000 00 02
+item2.TEL:+41 27 000 00 03
+item2.X-ABLABEL:Chalet
+item3.X-ABRELATEDNAMES;TYPE=pref:Marguerite Pommé
+item3.X-ABLABEL:_$!<Mother>!$_
+item4.URL;TYPE=pref:https://example.com/bob
+item4.X-ABLABEL:_$!<HomePage>!$_
+EMAIL;TYPE=HOME;TYPE=pref;TYPE=INTERNET:bob@example.com
+EMAIL;TYPE=WORK;TYPE=INTERNET:b.pomme@example.org
+PRODID:-//Apple Inc.//iCloud Web Address Book 2636B19//EN
+REV:2026-10-07T21:17:12Z
+UID:9b5af46e-dfea-44f4-bc1b-1c0ed6aa9e43
+END:VCARD

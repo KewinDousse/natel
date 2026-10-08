@@ -90,7 +90,10 @@ function normalise(s: string): string {
   });
   // Normalise date values (ical.js may drop or add dashes in dates)
   result = result.replace(/(?<=:)\d{4}[- ]\d{2}[- ]\d{2}/g, (match) => match.replace(/[- ]/g, ""));
-  return result;
+  // ical.js writes a date-time's time in the basic form (`T211712Z` for `T21:17:12Z`)
+  result = result.replace(/(?<=:\d{8}T)(\d{2}):(\d{2}):(\d{2})/g, "$1$2$3");
+  // A card stored by a server ends with a line break; serialise() leaves the last one out
+  return result.replace(/\n+$/, "");
 }
 
 // ---------------------------------------------------------------------------
