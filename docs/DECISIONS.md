@@ -1045,6 +1045,27 @@ vCard 4.0 has a standard form, `--0714` (RFC 6350 §4.3.1).
 through a save. A 3.0 card that had `--MMDD` gets Apple's form once its
 birthday is edited; one that isn't edited keeps its form.
 
+## 029 — `REV` moves to the time of each save
+
+**Context.** The real-device test (ADR 023): after an edit in Natel, Bob's card
+kept the `REV` iCloud wrote, and Alice's the one DAVx⁵ wrote, while DAVx⁵
+moves it at each change. RFC 6350 §6.7.4 makes `REV` the card's revision,
+so the client that writes the card sets it. The clients tested sync on the
+ETag and saw no difference, but one that orders two versions by `REV`, or shows "modified
+on", would see a wrong date.
+
+**Decision.** `stampRevision` in `src/vcard/` sets the card's `REV` to the
+time of the save, in UTC and to the second (`20261008T161205Z`), before a
+contact is updated and before a group card is rewritten. A card without
+`REV` gets none: Natel adds nothing a card doesn't have. A new card has
+none either. The value takes the type RFC 6350 and RFC 2426 give `REV`,
+with no `VALUE` parameter; its other parameters stay.
+
+**Consequences.** A card saved in Natel says when. An "Écraser avec ma
+version" save moves it too, as any write does. A card moved to another book
+keeps its `REV`, since its text goes over as it is (ADR 021). An imported
+card keeps its `REV` too, since import sends its text unchanged (ADR 020).
+
 ## 030 — Display grouped `X-ABLABEL` values and replace them with an explicit type
 
 **Context.** The real-device test (ADR 023) found the phone labels "Chalet"

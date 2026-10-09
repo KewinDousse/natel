@@ -8,7 +8,15 @@
 import { cardHref, createCard, fetchCard, updateCard } from "@/dav";
 import type { DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
-import { addMember, groupCardOf, newGroupCard, parse, removeMember, serialiseRaw } from "@/vcard";
+import {
+  addMember,
+  groupCardOf,
+  newGroupCard,
+  parse,
+  removeMember,
+  serialiseRaw,
+  stampRevision,
+} from "@/vcard";
 
 export type GroupDelta = { added: string[]; removed: string[] };
 
@@ -54,6 +62,7 @@ function copyOf(card: Contact): Contact {
 }
 
 async function put(auth: DavAuth, card: Contact): Promise<Contact> {
+  stampRevision(card);
   const text = serialiseRaw(card);
   const { etag } = await updateCard(auth, card.href, card.etag, text);
   return parse(text, card.href, etag);

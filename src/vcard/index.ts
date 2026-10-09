@@ -1106,6 +1106,18 @@ function cardText(raw: RawComponent): string {
   return `${raw.toString()}\r\n`;
 }
 
+/**
+ * Moves the card's `REV` to `now` before it is written, as RFC 6350 §6.7.4
+ * has the writer do; a card without one gets none. Mutates `raw`.
+ */
+export function stampRevision(contact: Contact, now: Date = new Date()): void {
+  const rev = contact.raw.getFirstProperty("rev");
+  if (!rev) return;
+  // A timestamp has no VALUE parameter to write; to the second, as clients write it.
+  rev.resetType(contact.raw.getFirstPropertyValue("version") === "4.0" ? "timestamp" : "date-time");
+  rev.setValue(now.toISOString().replace(/\.\d+Z$/, "Z"));
+}
+
 /** Gives a contact without a UID a fresh one (ADR 022). Mutates `raw`. */
 export function ensureUid(contact: Contact): Contact {
   if (contact.uid.trim().length > 0) return contact;

@@ -10,7 +10,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateCard } from "@/dav";
 import type { DavAuth } from "@/dav/types";
 import type { Contact } from "@/model/contact";
-import { serialise } from "@/vcard";
+import { serialise, stampRevision } from "@/vcard";
 import { contactsAuthPrefix } from "./keys";
 import type { LoadFullBookResult } from "./useContacts";
 
@@ -19,6 +19,7 @@ export function useUpdateContact(auth: DavAuth) {
 
   return useMutation({
     mutationFn: async (contact: Contact) => {
+      stampRevision(contact);
       const vcardText = serialise(contact);
       return await updateCard(auth, contact.href, contact.etag, vcardText);
     },

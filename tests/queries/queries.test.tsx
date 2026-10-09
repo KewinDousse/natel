@@ -29,6 +29,7 @@ const {
   mockDeleteCard,
   mockParse,
   mockSerialise,
+  mockStampRevision,
 } = vi.hoisted(() => ({
   mockDiscoverAddressBooks: vi.fn<(auth: DavAuth) => Promise<DavAddressBook[]>>(),
   mockListContacts:
@@ -70,6 +71,7 @@ const {
   mockDeleteCard: vi.fn<(auth: DavAuth, href: string, etag: string) => Promise<void>>(),
   mockParse: vi.fn<(text: string, href?: string, etag?: string) => Contact>(),
   mockSerialise: vi.fn<(contact: Contact) => string>(),
+  mockStampRevision: vi.fn<(contact: Contact) => void>(),
 }));
 
 vi.mock("@/dav", async () => ({
@@ -88,6 +90,7 @@ vi.mock("@/vcard", () => ({
   parse: mockParse,
   isGroupCard: () => false,
   serialise: mockSerialise,
+  stampRevision: mockStampRevision,
 }));
 
 // ---------------------------------------------------------------------------
@@ -467,6 +470,12 @@ describe("useUpdateContact", () => {
     ])?.contacts;
     expect(cached).toHaveLength(1);
     expect(cached![0]!.etag).toBe('"new-etag"');
+
+    // REV moved to the save's time before the card was serialised.
+    expect(mockStampRevision).toHaveBeenCalledWith(updatedContact);
+    expect(mockStampRevision.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSerialise.mock.invocationCallOrder[0] ?? 0,
+    );
 
     // The serialised vcard and the original etag were passed to updateCard.
     expect(mockUpdateCard).toHaveBeenCalledWith(

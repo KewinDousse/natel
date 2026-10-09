@@ -2,7 +2,7 @@
  * Tests for src/queries/groupChanges.ts (ADR 022), with src/dav mocked and
  * the real vCard helpers.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DavError } from "@/dav/types";
 import { groupDelta, overwriteGroupChange, writeGroupChanges } from "@/queries";
 import { groupCardOf, parse } from "@/vcard";
@@ -40,10 +40,14 @@ const group = (href: string, name: string, members: string[], extra: string[] = 
   );
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-09T12:34:56Z"));
   vi.clearAllMocks();
   mockUpdateCard.mockImplementation(async (_a, href: string) => ({ href, etag: '"new"' }));
   mockCreateCard.mockImplementation(async (_a, href: string) => ({ href, etag: '"created"' }));
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("groupDelta", () => {
   it("lists added and removed names", () => {
@@ -68,6 +72,13 @@ describe("writeGroupChanges", () => {
     expect([href, etag]).toEqual([`${BOOK}a.vcf`, '"a"']);
     expect(text).toContain("X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:ada");
     expect(written.map((c) => [c.href, c.etag])).toEqual([[`${BOOK}a.vcf`, '"new"']]);
+  });
+
+  it("moves the REV of a group card it writes to the save's time", async () => {
+    const a = group("a", "Famille", [], ["REV:2026-10-07T21:17:12Z"]);
+    await writeGroupChanges(AUTH, BOOK, "ada", { added: ["Famille"], removed: [] }, [a]);
+    const [, , , text] = mockUpdateCard.mock.calls[0] ?? [];
+    expect(text).toContain("\r\nREV:20261009T123456Z\r\n");
   });
 
   it("creates a group card when none has the name", async () => {
@@ -147,7 +158,7 @@ describe("overwriteGroupChange", () => {
     mockFetchCard.mockResolvedValue({
       href: `${BOOK}a.vcf`,
       etag: '"fresh"',
-      vcardText: group("a", "F", ["carl"]).raw.toString(),
+      vcardText: group("a", "F", ["carl"], ["REV:2026-10-07T21:17:12Z"]).raw.toString(),
     });
     const card = await overwriteGroupChange(AUTH, `${BOOK}a.vcf`, "ada", "add");
     expect(mockUpdateCard).toHaveBeenCalledWith(
@@ -157,5 +168,6 @@ describe("overwriteGroupChange", () => {
       expect.stringContaining("urn:uuid:carl"),
     );
     expect(groupCardOf(card).members).toEqual(["carl", "ada"]);
+    expect(mockUpdateCard.mock.calls[0]?.[3]).toContain("\r\nREV:20261009T123456Z\r\n");
   });
 });
