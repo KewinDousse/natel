@@ -129,10 +129,6 @@ aiosignal==1.4.0 \
     --hash=sha256:053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e \
     --hash=sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7
     # via aiohttp
-async-timeout==5.0.1 ; python_full_version < '3.11' \
-    --hash=sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c \
-    --hash=sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3
-    # via aiohttp
 attrs==26.1.0 \
     --hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309 \
     --hash=sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32
@@ -968,15 +964,6 @@ six==1.17.0 \
     # via
     #   python-dateutil
     #   vobject
-typing-extensions==4.16.0 ; python_full_version < '3.13' \
-    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
-    --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
-    # via
-    #   aiohttp
-    #   aiosignal
-    #   dulwich
-    #   icalendar
-    #   multidict
 tzdata==2026.4 \
     --hash=sha256:c2169a8b0a7a5e9674da5a135ccdfb2b3e671b333ed9fed17b41f73c34476e81 \
     --hash=sha256:f1b8bd365d8d210c55353f4d7f8d6d8561c0ba50d704b700d195a9424bba0d79
@@ -993,9 +980,9 @@ vobject==0.9.9 \
     # via
     #   radicale
     #   xandikos
-xandikos==0.4.7 \
-    --hash=sha256:5467a8e2ff71809b0f7b8dd0e3bdbe4fe74e17d74b5a39d8b7a8bd3c34cdae15 \
-    --hash=sha256:7b74806fdc8cf2809638271dd4a48bbf4fa59d3d021361b09042b1a44394905c
+xandikos==0.4.8 \
+    --hash=sha256:386f631007597148694aa327a8b338f60ceeb01951cc919b6115e12eab2d670e \
+    --hash=sha256:c0078b73c53142a6460491f6e08ff2a54daca4ad3ced17c32544390bba9bba94
     # via -r requirements.in
 yarl==1.25.1 \
     --hash=sha256:0136d640dfa9b0523853e411430a99f8a91eca85774c6420285a33b755bc6de3 \
