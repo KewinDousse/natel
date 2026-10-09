@@ -43,6 +43,10 @@ export type ContactField = {
   type?: string;
   /** Parameters, including "group" when present. */
   params?: Record<string, string | string[]>;
+  /** The `X-ABLABEL` of the property's group (ADR 030), read-only. */
+  label?: string;
+  /** Set when the user picks a type instead of the label: the save drops that `X-ABLABEL`. */
+  dropLabel?: true;
 };
 
 /** The subset of vCard properties the UI can edit. */
@@ -63,6 +67,8 @@ export type EditableFields = {
   org: string;
   title: string;
   url: string;
+  /** Metadata of the first URL, preserved when its value is edited. */
+  urlField?: ContactField;
   note: string;
   photo: PhotoEdit;
 };
@@ -93,6 +99,10 @@ export type VCardAddressField = {
   /** Any extra components beyond the standard 7 (some clients add a
    *  formatted-address component). These are preserved as-is. */
   extraParts: string[];
+  /** The `X-ABLABEL` of the property's group (ADR 030), read-only. */
+  label?: string;
+  /** Set when the user picks a type instead of the label: the save drops that `X-ABLABEL`. */
+  dropLabel?: true;
 };
 
 /** A single BDAY property as stored in EditableFields. */

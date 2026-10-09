@@ -57,6 +57,39 @@ function propertyToField(prop: RawProperty): ContactField {
   return { value, type, params };
 }
 
+function groupOf(prop: RawProperty): string | undefined {
+  const params = (prop.toJSON() as [string, Record<string, string | string[]>])[1];
+  const group = params.group ?? params.GROUP;
+  return typeof group === "string" && group.length > 0 ? group.toLowerCase() : undefined;
+}
+
+function appleLabelProperty(raw: RawComponent, prop: RawProperty): RawProperty | undefined {
+  const group = groupOf(prop);
+  if (group === undefined) return undefined;
+  return raw.getAllProperties("x-ablabel").find((label) => {
+    const value = label.getFirstValue();
+    return groupOf(label) === group && typeof value === "string" && value.length > 0;
+  });
+}
+
+function appleLabelOf(raw: RawComponent, prop: RawProperty): string | undefined {
+  const value = appleLabelProperty(raw, prop)?.getFirstValue();
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function labelledField(raw: RawComponent, prop: RawProperty): ContactField {
+  const field = propertyToField(prop);
+  const label = appleLabelOf(raw, prop);
+  return label === undefined ? field : { ...field, label };
+}
+
+function dropAppleLabel(raw: RawComponent, group: string | string[] | undefined): void {
+  if (typeof group !== "string" || group.length === 0) return;
+  for (const prop of raw.getAllProperties("x-ablabel")) {
+    if (groupOf(prop) === group.toLowerCase()) raw.removeProperty(prop);
+  }
+}
+
 /** Rebuild a RawProperty from a ContactField. */
 function fieldToProperty(name: string, field: ContactField): RawProperty {
   const prop = new ICAL.Property(name);
@@ -505,6 +538,7 @@ export type VCardAddress = {
   /** Extra components beyond the standard 7 (e.g. formatted-address in
    *  some vCard 3.0 exports). These are always preserved as-is. */
   extraParts: string[];
+  label?: string;
 };
 
 /** ADR parts of the first ADR property, or null when the card has none. */
@@ -537,6 +571,7 @@ function readAddress(raw: RawComponent): VCardAddress | null {
     country: rawParts[6] ?? "",
     extraParts: rawParts.slice(7),
     type,
+    ...(appleLabelOf(raw, prop) === undefined ? {} : { label: appleLabelOf(raw, prop) }),
   };
 }
 
@@ -903,11 +938,11 @@ export function parse(text: string, href = "", etag = ""): Contact {
 
   // --- TEL ---
   const telProps = raw.getAllProperties("tel");
-  const tel = telProps.map(propertyToField);
+  const tel = telProps.map((prop) => labelledField(raw, prop));
 
   // --- EMAIL ---
   const emailProps = raw.getAllProperties("email");
-  const email = emailProps.map(propertyToField);
+  const email = emailProps.map((prop) => labelledField(raw, prop));
 
   const fields: EditableFields = {
     fn,
@@ -920,6 +955,9 @@ export function parse(text: string, href = "", etag = ""): Contact {
     org: readOrg(raw),
     title: readTitle(raw),
     url: String(raw.getFirstPropertyValue("url") ?? ""),
+    ...(raw.getFirstProperty("url")
+      ? { urlField: labelledField(raw, raw.getFirstProperty("url") as RawProperty) }
+      : {}),
     note: readNote(raw),
     photo: { kind: "unchanged" },
   };
@@ -950,10 +988,20 @@ const SHOWN_FIRST = new Set(["fn", "n", "nickname", "adr", "bday", "org", "title
  */
 export function unshownPropertiesOf(contact: Contact): string[] {
   const seen = new Set<string>();
+  const labels = new Set<RawProperty>();
+  for (const name of ["tel", "email", "adr", "url"]) {
+    const properties = contact.raw.getAllProperties(name);
+    for (const prop of name === "tel" || name === "email" ? properties : properties.slice(0, 1)) {
+      if (appleLabelOf(contact.raw, prop) === undefined) continue;
+      const label = appleLabelProperty(contact.raw, prop);
+      if (label) labels.add(label);
+    }
+  }
   return (contact.raw as unknown as ICAL.Component)
     .getAllProperties()
     .filter((prop) => {
       const name = prop.name.toLowerCase();
+      if (labels.has(prop)) return false;
       if (SHOWN_ALL.has(name)) return false;
       if (!SHOWN_FIRST.has(name) || seen.has(name)) return true;
       seen.add(name);
@@ -1189,6 +1237,18 @@ export function newUid(): string {
 export function serialise(contact: Contact): string {
   const { raw, fields } = contact;
 
+  for (const field of [...fields.tel, ...fields.email]) {
+    if (field.dropLabel) dropAppleLabel(raw, field.params?.group ?? field.params?.GROUP);
+  }
+  if (fields.adr?.dropLabel) {
+    const prop = raw.getFirstProperty("adr");
+    if (prop) dropAppleLabel(raw, groupOf(prop));
+  }
+  if (fields.urlField?.dropLabel) {
+    const prop = raw.getFirstProperty("url");
+    if (prop) dropAppleLabel(raw, groupOf(prop));
+  }
+
   // --- Update FN ---
   let fnProp = raw.getFirstProperty("fn");
   if (!fnProp) {
@@ -1235,13 +1295,36 @@ export function serialise(contact: Contact): string {
   updateStringProperty(raw, "title", fields.title);
 
   // --- Update URL (first property only) ---
+  const url = raw.getFirstProperty("url");
   updateFirstStringProperty(raw, "url", fields.url);
+  const editedUrl = url
+    ? raw.getAllProperties("url").includes(url)
+      ? url
+      : null
+    : raw.getFirstProperty("url");
+  if (editedUrl && fields.urlField) {
+    const params = fields.urlField.params ?? {};
+    const type = params.type ?? params.TYPE;
+    const current = propertyToField(editedUrl).params ?? {};
+    if (JSON.stringify(type) !== JSON.stringify(current.type ?? current.TYPE)) {
+      for (const key of ["type", "TYPE"]) editedUrl.removeParameter(key);
+      if (type !== undefined) editedUrl.setParameter("type", type);
+    }
+  }
 
   // --- Update NOTE (first property only) ---
   updateFirstStringProperty(raw, "note", fields.note);
 
   // --- Update PHOTO, only when replaced or removed ---
   updatePhotoProperty(raw, fields.photo);
+
+  // The saved Contact is also the query cache's value.
+  fields.tel = raw.getAllProperties("tel").map((prop) => labelledField(raw, prop));
+  fields.email = raw.getAllProperties("email").map((prop) => labelledField(raw, prop));
+  fields.adr = readAddress(raw);
+  const savedUrl = raw.getFirstProperty("url");
+  fields.urlField = savedUrl ? labelledField(raw, savedUrl) : undefined;
+  fields.url = String(raw.getFirstPropertyValue("url") ?? "");
 
   return cardText(raw);
 }

@@ -4,7 +4,7 @@
  */
 
 import type { PhotoEdit } from "@/model/contact";
-import { type ContactDraft, type Kind, nextId, withKind } from "./contact-edit";
+import { type ContactDraft, type FieldKind, nextId, withKind } from "./contact-edit";
 
 export type DraftAction =
   | { type: "REBUILD"; draft: ContactDraft }
@@ -13,13 +13,13 @@ export type DraftAction =
   | { type: "SET_FAMILY"; value: string }
   | { type: "SET_GIVEN"; value: string }
   | { type: "SET_TEL"; index: number; value: string }
-  | { type: "SET_TEL_TYPE"; index: number; value: Kind }
+  | { type: "SET_TEL_TYPE"; index: number; value: FieldKind }
   | { type: "REMOVE_TEL"; index: number }
   | { type: "SET_EMAIL"; index: number; value: string }
-  | { type: "SET_EMAIL_TYPE"; index: number; value: Kind }
+  | { type: "SET_EMAIL_TYPE"; index: number; value: FieldKind }
   | { type: "REMOVE_EMAIL"; index: number }
   | { type: "SET_NICKNAME"; value: string }
-  | { type: "SET_ADR_TYPE"; value: Kind }
+  | { type: "SET_ADR_TYPE"; value: FieldKind }
   | { type: "SET_ADR_STREET"; value: string }
   | { type: "SET_ADR_POSTAL_CODE"; value: string }
   | { type: "SET_ADR_LOCALITY"; value: string }
@@ -32,6 +32,7 @@ export type DraftAction =
   | { type: "SET_ORG"; value: string }
   | { type: "SET_TITLE"; value: string }
   | { type: "SET_URL"; value: string }
+  | { type: "SET_URL_TYPE"; value: FieldKind }
   | { type: "SET_NOTE"; value: string }
   | { type: "SET_PHOTO"; value: PhotoEdit };
 
@@ -89,7 +90,14 @@ export function draftReducer(state: ContactDraft, action: DraftAction): ContactD
       if (!state.adr) return state;
       return {
         ...state,
-        adr: { ...state.adr, type: withKind(state.adr.type, action.value) },
+        adr:
+          action.value === "label"
+            ? { ...state.adr, type: state.adrLabelType ?? state.adr.type, dropLabel: undefined }
+            : {
+                ...state.adr,
+                type: withKind(state.adr.type, action.value),
+                dropLabel: state.adr.label === undefined ? undefined : true,
+              },
       };
     case "SET_ADR_STREET":
       return { ...state, adr: state.adr ? { ...state.adr, street: action.value } : null };
@@ -133,6 +141,8 @@ export function draftReducer(state: ContactDraft, action: DraftAction): ContactD
       return { ...state, title: action.value };
     case "SET_URL":
       return { ...state, url: action.value };
+    case "SET_URL_TYPE":
+      return { ...state, urlType: action.value };
     case "SET_NOTE":
       return { ...state, note: action.value };
     case "SET_PHOTO":

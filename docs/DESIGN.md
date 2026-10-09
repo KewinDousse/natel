@@ -195,6 +195,21 @@ Dotted leaders are used in the list only, not on the contact page: they need rig
 
 Fields follow the form-field recipe; mobile inputs stay at 16px.
 
+### Grouped contact labels (`X-ABLABEL`)
+
+For a phone, e-mail, the first address and the first website, a non-empty
+`X-ABLABEL` in the same vCard group replaces the row's type. Apple built-in
+labels are translated; unknown built-ins show without their wrapper. Custom
+labels show as stored and wrap like other labels.
+
+The row's type menu offers its label first, selected, then the usual types.
+A website has Domicile, Travail and Autre. Choosing a type removes the
+group's `X-ABLABEL` on save, even when that type matches the underlying
+`TYPE`. Reselecting the label cancels that change. Editing a value keeps
+the label. Natel does not create custom labels. Displayed label properties
+are excluded from the information-not-shown dialog; labels for other
+properties stay there.
+
 ### Switching
 - Enter: "Modifier", the `E` key, a section's pencil, or `?edit` in the URL. Same route on mobile (`/contacts/:id` and `/contacts/:id?edit`).
 - A pencil opens the form with that section where its title was on screen, and focuses its first field. Otherwise the top of the page stays in place.

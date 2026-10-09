@@ -14,7 +14,14 @@ import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { usePreferences } from "@/store/preferences";
 import { buttonClass, fieldClass } from "./button";
-import { AddPill, kindLabelKey, RemoveButton, Section, TypeSelect } from "./contact-fields";
+import {
+  AddPill,
+  appleLabelText,
+  kindLabelKey,
+  RemoveButton,
+  Section,
+  TypeSelect,
+} from "./contact-fields";
 import {
   ArrowRightIcon,
   CakeIcon,
@@ -267,6 +274,7 @@ export function ContactEditor({
                     field="tel"
                     aria-label={t("label_tel_type")}
                     value={field.type}
+                    label={field._orig.label}
                     onChange={(value) => dispatch({ type: "SET_TEL_TYPE", index: i, value })}
                   />
                 }
@@ -281,7 +289,7 @@ export function ContactEditor({
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
-                  aria-label={`${t("label_tel")} (${t(kindLabelKey(field.type))})`}
+                  aria-label={`${t("label_tel")} (${field.type === "label" ? appleLabelText(field._orig.label ?? "", t) : t(kindLabelKey(field.type))})`}
                   value={field.value}
                   onChange={(e) => dispatch({ type: "SET_TEL", index: i, value: e.target.value })}
                   className={fieldClass("h-11 tabular")}
@@ -312,6 +320,7 @@ export function ContactEditor({
                       field="email"
                       aria-label={t("label_email_type")}
                       value={field.type}
+                      label={field._orig.label}
                       onChange={(value) => dispatch({ type: "SET_EMAIL_TYPE", index: i, value })}
                     />
                   }
@@ -331,7 +340,7 @@ export function ContactEditor({
                     type="email"
                     inputMode="email"
                     autoComplete="email"
-                    aria-label={`${t("label_email")} (${t(kindLabelKey(field.type))})`}
+                    aria-label={`${t("label_email")} (${field.type === "label" ? appleLabelText(field._orig.label ?? "", t) : t(kindLabelKey(field.type))})`}
                     value={field.value}
                     onChange={(e) =>
                       dispatch({ type: "SET_EMAIL", index: i, value: e.target.value })
@@ -359,7 +368,12 @@ export function ContactEditor({
                 <TypeSelect
                   field="adr"
                   aria-label={t("label_adr_type")}
-                  value={kindOf(draft.adr.type)}
+                  value={
+                    draft.adr.label !== undefined && !draft.adr.dropLabel
+                      ? "label"
+                      : kindOf(draft.adr.type)
+                  }
+                  label={draft.adr.label}
                   onChange={(value) => dispatch({ type: "SET_ADR_TYPE", value })}
                 />
               }
@@ -455,18 +469,30 @@ export function ContactEditor({
 
         {shown("url") && (
           <Section id="sec-url" icon={<GlobeIcon />} title={t("s_url")}>
-            <input
-              type="url"
-              inputMode="url"
-              autoComplete="url"
-              aria-label={t("label_url")}
-              value={draft.url}
-              onChange={(e) => dispatch({ type: "SET_URL", value: e.target.value })}
-              onBlur={onBlurValidate}
-              aria-invalid={errors.url !== undefined || undefined}
-              aria-describedby={errors.url ? "err-url" : undefined}
-              className={fieldClass("h-11")}
-            />
+            <EditRow
+              type={
+                <TypeSelect
+                  field="url"
+                  aria-label={t("label_url_type")}
+                  value={draft.urlType ?? ""}
+                  label={contact.fields.urlField?.label}
+                  onChange={(value) => dispatch({ type: "SET_URL_TYPE", value })}
+                />
+              }
+            >
+              <input
+                type="url"
+                inputMode="url"
+                autoComplete="url"
+                aria-label={t("label_url")}
+                value={draft.url}
+                onChange={(e) => dispatch({ type: "SET_URL", value: e.target.value })}
+                onBlur={onBlurValidate}
+                aria-invalid={errors.url !== undefined || undefined}
+                aria-describedby={errors.url ? "err-url" : undefined}
+                className={fieldClass("h-11")}
+              />
+            </EditRow>
             {errors.url && <ErrorText id="err-url">{t(errors.url as TranslationKey)}</ErrorText>}
           </Section>
         )}

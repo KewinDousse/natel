@@ -6,7 +6,7 @@
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
-import { type Kind, kindOf } from "@/lib/contact-edit";
+import { type FieldKind, type Kind, kindOf } from "@/lib/contact-edit";
 import { cn } from "@/lib/utils";
 import { buttonClass, FOCUS_RING, fieldClass } from "./button";
 import { CopyIcon, PencilIcon, PlusIcon, TrashIcon } from "./icons";
@@ -23,9 +23,42 @@ export function kindLabelKey(kind: Kind): TranslationKey {
 }
 
 /** The label a row's TYPE values read as. */
-export function TypeLabel({ types }: { types: readonly string[] }) {
+export function TypeLabel({ types, label }: { types: readonly string[]; label?: string }) {
   const { t } = useI18n();
-  return <>{t(kindLabelKey(kindOf(types)))}</>;
+  return <>{label === undefined ? t(kindLabelKey(kindOf(types))) : appleLabelText(label, t)}</>;
+}
+
+const APPLE_LABELS: Record<string, TranslationKey> = {
+  home: "t_home",
+  work: "t_work",
+  other: "t_other",
+  mobile: "t_cell",
+  iphone: "ab_iphone",
+  main: "ab_main",
+  homefax: "ab_home_fax",
+  workfax: "ab_work_fax",
+  otherfax: "ab_other_fax",
+  pager: "ab_pager",
+  homepage: "ab_homepage",
+  mother: "ab_mother",
+  father: "ab_father",
+  parent: "ab_parent",
+  brother: "ab_brother",
+  sister: "ab_sister",
+  child: "ab_child",
+  friend: "ab_friend",
+  spouse: "ab_spouse",
+  partner: "ab_partner",
+  assistant: "ab_assistant",
+  manager: "ab_manager",
+};
+
+export function appleLabelText(label: string, t: (key: TranslationKey) => string): string {
+  const builtIn = /^_\$!<(.*)>!\$_$/.exec(label)?.[1];
+  if (builtIn === undefined) return label;
+  const name = builtIn.toLowerCase();
+  const key = Object.hasOwn(APPLE_LABELS, name) ? APPLE_LABELS[name] : undefined;
+  return key === undefined ? builtIn : t(key);
 }
 
 /** What a phone can be, and what an e-mail or an address can be. */
@@ -35,25 +68,28 @@ const PLACE_KINDS: Kind[] = ["home", "work", ""];
 export function TypeSelect({
   field,
   value,
+  label,
   onChange,
   "aria-label": ariaLabel,
 }: {
-  field: "tel" | "email" | "adr";
-  value: Kind;
-  onChange: (kind: Kind) => void;
+  field: "tel" | "email" | "adr" | "url";
+  value: FieldKind;
+  label?: string;
+  onChange: (kind: FieldKind) => void;
   "aria-label": string;
 }) {
   const { t } = useI18n();
   const kinds = field === "tel" ? PHONE_KINDS : PLACE_KINDS;
   // A kind the menu doesn't offer for this field still shows as it is.
-  const options = kinds.includes(value) ? kinds : [value, ...kinds];
+  const options = value === "label" || kinds.includes(value) ? kinds : [value, ...kinds];
   return (
     <select
       aria-label={ariaLabel}
       value={value}
-      onChange={(event) => onChange(event.target.value as Kind)}
+      onChange={(event) => onChange(event.target.value as FieldKind)}
       className={fieldClass("h-11 px-2.5 text-sm text-muted-foreground lg:text-sm")}
     >
+      {label !== undefined && <option value="label">{appleLabelText(label, t)}</option>}
       {options.map((kind) => (
         <option key={kind} value={kind}>
           {t(kindLabelKey(kind))}

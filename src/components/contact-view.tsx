@@ -154,7 +154,7 @@ export function ContactView({
             {keyed(contact.fields.tel, fieldKey).map(([key, field]) => (
               <Row
                 key={key}
-                label={<TypeLabel types={typeValuesOf(field)} />}
+                label={<TypeLabel types={typeValuesOf(field)} label={field.label} />}
                 action={<CopyButton label={t("copy_tel")} onCopy={() => onCopy(field.value)} />}
               >
                 <a
@@ -186,7 +186,7 @@ export function ContactView({
             {keyed(contact.fields.email, fieldKey).map(([key, field]) => (
               <Row
                 key={key}
-                label={<TypeLabel types={typeValuesOf(field)} />}
+                label={<TypeLabel types={typeValuesOf(field)} label={field.label} />}
                 action={<CopyButton label={t("copy_email")} onCopy={() => onCopy(field.value)} />}
               >
                 <a
@@ -210,7 +210,7 @@ export function ContactView({
             }
           >
             <Row
-              label={<TypeLabel types={address.type} />}
+              label={<TypeLabel types={address.type} label={address.label} />}
               action={
                 <CopyButton label={t("copy_adr")} onCopy={() => onCopy(addressLines.join(", "))} />
               }
@@ -270,7 +270,16 @@ export function ContactView({
             title={t("s_url")}
             action={<SectionEditButton label={t("edit_url")} onClick={() => onEdit("sec-url")} />}
           >
-            <Row>
+            <Row
+              label={
+                contact.fields.urlField?.label === undefined ? undefined : (
+                  <TypeLabel
+                    types={typeValuesOf(contact.fields.urlField)}
+                    label={contact.fields.urlField.label}
+                  />
+                )
+              }
+            >
               {/* Another scheme could open a local application. */}
               {isWebUrl(contact.fields.url) ? (
                 <a

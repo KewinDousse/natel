@@ -1044,3 +1044,25 @@ vCard 4.0 has a standard form, `--0714` (RFC 6350 §4.3.1).
 **Consequences.** Apple's year-less birthdays show as such, and stay so
 through a save. A 3.0 card that had `--MMDD` gets Apple's form once its
 birthday is edited; one that isn't edited keeps its form.
+
+## 030 — Display grouped `X-ABLABEL` values and replace them with an explicit type
+
+**Context.** The real-device test (ADR 023) found the phone labels "Chalet"
+and "Bateau" in Apple and DAVx⁵ cards, grouped with their `TEL` properties.
+The maintainer approved displaying existing labels and replacing them when
+another type is selected. ADR 029 covers the independent `REV` change.
+
+**Decision.** `appleLabelOf` in `src/vcard/` associates the first non-empty
+`X-ABLABEL` with a property by its non-empty, case-insensitive group name.
+The UI shows labels for every telephone and e-mail and the first address
+and website. It translates recognised Apple built-ins (`_$!<HomePage>!$_`
+and others), shows unknown built-ins without their wrapper, and keeps
+custom labels verbatim. The type menu offers the label first. Choosing a
+type writes `TYPE` and removes that group's `X-ABLABEL` properties via
+`dropAppleLabel`; reselecting the label restores the original type.
+Changing only a value preserves its label. Creating custom labels is out
+of scope.
+
+**Consequences.** Displayed labels leave the information-not-shown dialog.
+Other labels, properties and parameters survive each save. The mapping is
+isolated in vCard code; UI code works with plain field metadata.

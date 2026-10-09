@@ -26,11 +26,13 @@ export type ContactDraft = {
   nickname: string;
   /** null when the card has no address; may have partial content. */
   adr: VCardAddressField | null;
+  adrLabelType?: string[];
   /** null when the card has no birthday. */
   bday: DraftBirthday | null;
   org: string;
   title: string;
   url: string;
+  urlType?: FieldKind;
   note: string;
   photo: PhotoEdit;
 };
@@ -53,7 +55,7 @@ export type DraftField = {
   id: string;
   value: string;
   /** The kind the row's type menu shows and edits. */
-  type: Kind;
+  type: FieldKind;
   /** Original ContactField — preserved for round-trip fidelity.
    *  Only value/type are mutated in place; all params, groups and the value
    *  type are written back unchanged. */
@@ -108,10 +110,12 @@ export function buildDraft(contact: Contact): ContactDraft {
     email: contact.fields.email.map(toDraftField),
     nickname: contact.fields.nickname,
     adr: contact.fields.adr ? { ...contact.fields.adr } : null,
+    adrLabelType: contact.fields.adr?.label === undefined ? undefined : contact.fields.adr.type,
     bday: contact.fields.bday ? toDraftBirthday(contact.fields.bday) : null,
     org: contact.fields.org,
     title: contact.fields.title,
     url: contact.fields.url,
+    urlType: contact.fields.urlField ? fieldKind(contact.fields.urlField) : "",
     note: contact.fields.note,
     photo: contact.fields.photo,
   };
@@ -151,7 +155,11 @@ function typesOf(field: ContactField): string[] {
 }
 
 function toDraftField(field: ContactField): DraftField {
-  return { id: nextId(), value: field.value, type: kindOf(typesOf(field)), _orig: field };
+  return { id: nextId(), value: field.value, type: fieldKind(field), _orig: field };
+}
+
+function fieldKind(field: ContactField): FieldKind {
+  return field.label === undefined ? kindOf(typesOf(field)) : "label";
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +194,7 @@ export function dirtyDiff(contact: Contact, draft: ContactDraft): DirtyFields {
     bday: birthdaysDiffer(f.bday, draft.bday),
     org: draft.org !== f.org,
     title: draft.title !== f.title,
-    url: draft.url !== f.url,
+    url: draft.url !== f.url || (draft.urlType ?? "") !== (f.urlField ? fieldKind(f.urlField) : ""),
     note: draft.note !== f.note,
     photo: photosDiffer(f.photo, draft.photo),
   };
@@ -197,7 +205,7 @@ function fieldsDiffer(originals: ContactField[], drafts: DraftField[]): boolean 
   return originals.some((orig, i) => {
     const draft = drafts[i];
     if (!draft) return true;
-    return orig.value !== draft.value || kindOf(typesOf(orig)) !== draft.type;
+    return orig.value !== draft.value || fieldKind(orig) !== draft.type;
   });
 }
 
@@ -221,7 +229,8 @@ function addressesDiffer(orig: VCardAddressField | null, draft: VCardAddressFiel
     orig.region !== draft.region ||
     orig.postalCode !== draft.postalCode ||
     orig.country !== draft.country ||
-    JSON.stringify(orig.type) !== JSON.stringify(draft.type)
+    JSON.stringify(orig.type) !== JSON.stringify(draft.type) ||
+    !!orig.dropLabel !== !!draft.dropLabel
   );
 }
 
@@ -401,7 +410,15 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
     }
   }
   if (take("title")) f.title = draft.title;
-  if (take("url")) f.url = draft.url;
+  if (take("url")) {
+    f.url = draft.url;
+    f.urlField = fromDraftField({
+      id: "url",
+      value: draft.url,
+      type: draft.urlType ?? "",
+      _orig: f.urlField ?? { value: f.url },
+    });
+  }
   if (take("note")) f.note = draft.note;
   if (take("photo")) f.photo = draft.photo;
   return contact;
@@ -487,7 +504,7 @@ function fromDraftField(field: DraftField): ContactField {
   const origTypeValues = typesOf(field._orig);
 
   // Only update TYPE if the user explicitly changed it
-  if (field.type !== kindOf(origTypeValues)) {
+  if (field.type !== "label" && field.type !== fieldKind(field._orig)) {
     const types = withKind(origTypeValues, field.type);
 
     // Remove BOTH casings of the type param before writing the new one
@@ -508,12 +525,15 @@ function fromDraftField(field: DraftField): ContactField {
     value: field.value,
     type: field._orig.type,
     params: Object.keys(params).length > 0 ? params : undefined,
+    ...(field.type === "label" ? { label: field._orig.label } : {}),
+    ...(field._orig.label !== undefined && field.type !== "label" ? { dropLabel: true } : {}),
   };
 }
 
 /** The kinds a row's type menu offers; any other TYPE value reads as "Autre". */
 export const KINDS = ["cell", "work", "home"] as const;
 export type Kind = (typeof KINDS)[number] | "";
+export type FieldKind = Kind | "label";
 
 function isKind(type: string): boolean {
   return (KINDS as readonly string[]).includes(type.toLowerCase());
