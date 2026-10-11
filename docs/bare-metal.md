@@ -39,6 +39,15 @@ The package runs Caddy as its own `caddy` user under systemd, allowed to
 bind ports 80 and 443 without being root. Don't start Caddy as root by hand:
 a flaw in it or in what it parses would then run as root.
 
+### Security updates
+
+The minimum version above is for Caddyfile compatibility. Install security
+updates for Caddy and its compiled Go dependencies from the package's
+maintainer, and keep the operating system updated. A current Caddy version
+can still have been built with vulnerable dependencies: check the package's
+security notices too. If you build Caddy yourself, use a supported Go
+toolchain with its security patches.
+
 ## Install
 
 Copy `dist/` alone into a folder of its own. Caddy serves every file in that

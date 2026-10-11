@@ -3,17 +3,21 @@
 # runs once, natively, and each platform's image copies it.
 FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS builder
 WORKDIR /app
+# Corepack and pnpm handle installs; the bundled npm is not needed.
+RUN apk add --no-cache zlib=1.3.2-r1 \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 RUN corepack enable && pnpm install --frozen-lockfile
 COPY . .
 RUN corepack enable && pnpm build
 
 # Runtime stage
-FROM caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
 # Caddy runs as an unprivileged user, owning what it writes: certificates in
 # /data, the autosaved config in /config. Unprivileged ports follow, so the
 # binary needs no capability: with one, `cap_drop: ALL` would refuse to run it.
-RUN addgroup -S -g 10001 natel && adduser -S -D -H -u 10001 -G natel -s /sbin/nologin natel \
+RUN apk add --no-cache zlib=1.3.2-r1 \
+  && addgroup -S -g 10001 natel && adduser -S -D -H -u 10001 -G natel -s /sbin/nologin natel \
   && chown -R natel:natel /data /config \
   && setcap -r /usr/bin/caddy
 COPY --from=builder /app/dist /usr/share/caddy
