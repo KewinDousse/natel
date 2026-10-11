@@ -357,6 +357,27 @@ function webpOf(parts: Uint8Array[], flags: number): Uint8Array {
 describe("WebP", () => {
   const image = riffChunks(webp).filter((c) => c.type !== "VP8X");
 
+  it.each(["VP8 ", "VP8L"])("cleans a simple %s file without VP8X", (type) => {
+    const pixels = riff(type, latin1("image data"));
+    const body = concat(
+      pixels,
+      riff("EXIF", concat(latin1("Exif\0\0"), tiff(1, false))),
+      riff("XMP ", latin1("GPSLatitude")),
+      riff("note", latin1("camera owner")),
+    );
+    const source = concat(latin1("RIFF"), le32(body.length + 4), latin1("WEBP"), body);
+    const out = stripMetadata(source)?.bytes ?? new Uint8Array();
+    const expected = concat(latin1("RIFF"), le32(pixels.length + 4), latin1("WEBP"), pixels);
+    expect(out).toEqual(expected);
+  });
+
+  it.each(["VP8 ", "VP8L"])("drops bytes beyond a simple %s file's RIFF size", (type) => {
+    const pixels = riff(type, latin1("image data"));
+    const source = concat(latin1("RIFF"), le32(pixels.length + 4), latin1("WEBP"), pixels);
+    const out = stripMetadata(concat(source, latin1("GPSLatitude camera owner")))?.bytes;
+    expect(out).toEqual(source);
+  });
+
   it("drops EXIF and XMP, and sets the flags to match", () => {
     const source = webpOf(
       [

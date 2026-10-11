@@ -97,3 +97,35 @@ test("strips the EXIF block, orientation included, and the image still decodes",
     expect(await sizeIn(page, stripped, type), type).toEqual([8, 6]);
   }
 });
+
+function simpleWebp(): Uint8Array {
+  const webp = bytes(photos.webp ?? "");
+  for (let at = 12; at + 8 <= webp.length; ) {
+    const length = new DataView(webp.buffer, webp.byteOffset + at + 4).getUint32(0, true);
+    if (Buffer.from(webp.subarray(at, at + 4)).toString("latin1") === "VP8 ") {
+      const pixels = webp.subarray(at, at + 8 + length + (length % 2));
+      return concat(latin1("RIFF"), le32(pixels.length + 4), latin1("WEBP"), pixels);
+    }
+    at += 8 + length + (length % 2);
+  }
+  throw new Error("The WebP fixture needs a VP8 image");
+}
+
+test("cleans metadata and trailing bytes from a simple WebP that still decodes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const clean = simpleWebp();
+  const payload = latin1("GPSLatitude camera owner");
+  const xmp = concat(latin1("XMP "), le32(payload.length), payload);
+  const body = concat(clean.subarray(12), xmp);
+  for (const source of [
+    concat(clean, payload),
+    concat(latin1("RIFF"), le32(body.length + 4), latin1("WEBP"), body),
+  ]) {
+    expect(await sizeIn(page, source, "image/webp")).toEqual([8, 6]);
+    const stripped = stripMetadata(source)?.bytes ?? new Uint8Array();
+    expect(stripped).toEqual(clean);
+    expect(await sizeIn(page, stripped, "image/webp")).toEqual([8, 6]);
+  }
+});

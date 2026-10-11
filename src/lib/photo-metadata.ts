@@ -358,7 +358,6 @@ function webpChunks(file: Uint8Array): Chunk[] {
 
 function stripWebp(file: Uint8Array): Uint8Array {
   const chunks = webpChunks(file);
-  if (chunks[0]?.type !== "VP8X") return file.slice();
 
   const hasIcc = chunks.some((c) => c.type === "ICCP");
 
