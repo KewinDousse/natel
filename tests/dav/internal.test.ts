@@ -1153,3 +1153,43 @@ describe("deleteCard", () => {
     expect(davId).not.toHaveBeenCalled();
   });
 });
+
+describe("write ETag validation", () => {
+  it.each([
+    "*",
+    '"old", "new"',
+    'W/"weak"',
+    "unquoted",
+    ' "spaced" ',
+    '"line\nbreak"',
+    '"wide\u0100"',
+  ])("refuses %j before PUT or DELETE", async (etag) => {
+    const client = mockClient();
+    mockCreateDAVClient.mockResolvedValue(client);
+    const session = await createDavSession(AUTH);
+    const href = "http://localhost:3000/dav/books/default/1.vcf";
+    await expect(session.updateCard(href, etag, "VCARD")).rejects.toMatchObject({
+      code: "UNEXPECTED",
+    });
+    await expect(session.deleteCard(href, etag)).rejects.toMatchObject({ code: "UNEXPECTED" });
+    expect(client.davRequest).not.toHaveBeenCalled();
+  });
+
+  it.each(['""', '"*"', '"opaque,tag"', '"opaque\\tag"', '"latin-\u00e9"'])(
+    "keeps a single strong tag %j verbatim",
+    async (etag) => {
+      const propfind = vi
+        .fn()
+        .mockResolvedValue([davResp({ href: "/books/default/1.vcf", props: { getetag: etag } })]);
+      const client = mockClient({ propfind, davRequest: vi.fn().mockResolvedValue([davResp({})]) });
+      mockCreateDAVClient.mockResolvedValue(client);
+      const session = await createDavSession(AUTH);
+      const href = "http://localhost:3000/dav/books/default/1.vcf";
+      await session.updateCard(href, etag, "VCARD");
+      await session.deleteCard(href, etag);
+      expect(
+        client.davRequest.mock.calls.map(([request]) => request.init.headers["If-Match"]),
+      ).toEqual([etag, etag]);
+    },
+  );
+});

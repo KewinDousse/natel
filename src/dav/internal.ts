@@ -256,6 +256,17 @@ function byteLength(text: string): number {
 /** A body past which a proxy's default request limit is likely (a stock nginx stops at 1 MB). */
 const LARGE_BODY_BYTES = 1024 * 1024;
 
+/** If-Match must identify one version, never merely an existing resource. */
+function assertWriteEtag(etag: string, href: string): void {
+  if (!etag) {
+    throw new DavError(`Cannot write ${href}: missing or empty ETag`, "UNEXPECTED");
+  }
+  // RFC 9110 entity-tag syntax; If-Match uses strong comparison.
+  if (!/^"[\x21\x23-\x7e\x80-\xff]*"$/.test(etag)) {
+    throw new DavError(`Cannot write ${href}: invalid strong ETag`, "UNEXPECTED");
+  }
+}
+
 /**
  * PUT a card. A proxy often answers a body over its limit by closing the
  * connection rather than with a 413, so a network failure on a large card
@@ -706,16 +717,7 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
 
     async updateCard(href: string, etag: string, vcardText: string) {
       return withAuthEviction(async () => {
-        // Guards: a falsy/empty etag would be silently stripped by tsdav's
-        // cleanupFalsy (tsdav@2.3.1, src/util.ts), making the PUT unconditional and
-        // violating the lost-update invariant (AGENTS.md §5). Throw before any
-        // davRequest call as a safety net.
-        if (!etag) {
-          throw new DavError(
-            `Cannot update ${href}: missing or empty ETag — conditional write impossible`,
-            "UNEXPECTED",
-          );
-        }
+        assertWriteEtag(etag, href);
         await putCard(client, href, vcardText, { "If-Match": etag }, `updating card ${href}`);
         const newEtag = await fetchFreshEtag(client, href);
         return { href, etag: newEtag };
@@ -732,16 +734,7 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
 
     async deleteCard(href: string, etag: string) {
       return withAuthEviction(async () => {
-        // Guards: a falsy/empty etag would be silently stripped by tsdav's
-        // cleanupFalsy (tsdav@2.3.1, src/util.ts), making the DELETE unconditional and
-        // violating the lost-update invariant (AGENTS.md §5). Throw before any
-        // davRequest call as a safety net.
-        if (!etag) {
-          throw new DavError(
-            `Cannot delete ${href}: missing or empty ETag — conditional write impossible`,
-            "UNEXPECTED",
-          );
-        }
+        assertWriteEtag(etag, href);
         const responses = await wrap(
           () =>
             client.davRequest({
