@@ -106,6 +106,7 @@ describe("createDavSession", () => {
       serverUrl: "http://localhost:3000/dav/",
       credentials: { username: "alice", password: "secret" },
       authMethod: "Basic",
+      fetchOptions: { mode: "same-origin" },
     });
   });
 });
@@ -370,6 +371,89 @@ describe("session cache", () => {
 // ---------------------------------------------------------------------------
 // listMembers — PROPFIND
 // ---------------------------------------------------------------------------
+
+describe("DAV operation URL boundaries", () => {
+  const unsafe = [
+    "https://outside.example/dav/books/default/1.vcf",
+    "http://localhost:3001/dav/books/default/1.vcf",
+    "http://localhost:3000/settings",
+    "http://localhost:3000/davious/1.vcf",
+    "http://localhost:3000/dav/books/../../../settings",
+    "http://user:pass@localhost:3000/dav/books/default/1.vcf",
+    "not a URL",
+  ];
+  const operations = [
+    "listMembers",
+    "fetchCard",
+    "fetchCards",
+    "updateCard",
+    "createCard",
+    "deleteCard",
+  ] as const;
+  it.each(operations)("rejects unsafe input before I/O in %s", async (operation) => {
+    for (const href of unsafe) {
+      const client = mockClient({
+        propfind: vi
+          .fn()
+          .mockResolvedValue([
+            davResp({ href: "/books/default/1.vcf", props: { getetag: '"etag"' } }),
+          ]),
+        addressBookMultiGet: vi.fn().mockResolvedValue([
+          davResp({
+            href: "/books/default/1.vcf",
+            props: { getetag: '"etag"', addressData: "VCARD" },
+          }),
+        ]),
+        davRequest: vi.fn().mockResolvedValue([davResp({})]),
+      });
+      internalTesting.clearSessionCache();
+      mockCreateDAVClient.mockResolvedValue(client);
+      const session = await createDavSession(AUTH);
+      client.propfind.mockClear();
+      const request =
+        operation === "fetchCards"
+          ? session.fetchCards([href])
+          : operation === "updateCard"
+            ? session.updateCard(href, '"etag"', "VCARD")
+            : operation === "deleteCard"
+              ? session.deleteCard(href, '"etag"')
+              : operation === "createCard"
+                ? session.createCard(href, "VCARD")
+                : session[operation](href);
+      await expect(request, href).rejects.toMatchObject({ code: "UNEXPECTED" });
+      expect(client.propfind, href).not.toHaveBeenCalled();
+      expect(client.addressBookMultiGet, href).not.toHaveBeenCalled();
+      expect(client.davRequest, href).not.toHaveBeenCalled();
+    }
+  });
+
+  it("validates every href of a batch before sending it", async () => {
+    const client = mockClient();
+    mockCreateDAVClient.mockResolvedValue(client);
+    const session = await createDavSession(AUTH);
+    await expect(
+      session.fetchCards([
+        "http://localhost:3000/dav/books/default/1.vcf",
+        "https://outside.example/dav/books/default/2.vcf",
+      ]),
+    ).rejects.toMatchObject({ code: "UNEXPECTED" });
+    expect(client.addressBookMultiGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("DAV derived collection boundaries", () => {
+  it.each(["http://localhost:3000/dav/", "http://localhost:3000/dav/card.vcf/../"])(
+    "refuses a card whose parent is outside the proxy: %s",
+    async (href) => {
+      const client = mockClient();
+      mockCreateDAVClient.mockResolvedValue(client);
+      const session = await createDavSession(AUTH);
+      await expect(session.fetchCard(href)).rejects.toMatchObject({ code: "UNEXPECTED" });
+      await expect(session.fetchCards([href])).rejects.toMatchObject({ code: "UNEXPECTED" });
+      expect(client.addressBookMultiGet).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe("listMembers", () => {
   it("calls propfind with the member props literal and depth 1", async () => {

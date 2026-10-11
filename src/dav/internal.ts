@@ -365,6 +365,19 @@ function proxyRoot(): string {
   return new URL(`${PROXY_PREFIX}/`, globalThis.location.href).href;
 }
 
+/** Credentials may only be sent to the app's DAV proxy. */
+function assertProxyHref(href: string): void {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    throw new DavError(`Invalid DAV href: ${href}`, "UNEXPECTED");
+  }
+  if (!url.href.startsWith(proxyRoot()) || url.username || url.password) {
+    throw new DavError(`CardDAV href outside the proxy: ${href}`, "UNEXPECTED");
+  }
+}
+
 /**
  * Map an href from a server response into proxy space.
  *
@@ -393,10 +406,8 @@ function fromServerHref(href: string, requestUrl: string): string {
 
 /** Server-space path of a proxy URL, for hrefs sent inside a request body. */
 function toServerPath(href: string): string {
+  assertProxyHref(href);
   const url = new URL(href);
-  if (!url.pathname.startsWith(`${PROXY_PREFIX}/`)) {
-    throw new DavError(`CardDAV href outside the proxy: ${href}`, "UNEXPECTED");
-  }
   return `${url.pathname.slice(PROXY_PREFIX.length)}${url.search}`;
 }
 
@@ -551,6 +562,7 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
         serverUrl: proxyRoot(),
         credentials: { username: auth.username, password: auth.password },
         authMethod: "Basic",
+        fetchOptions: { mode: "same-origin" },
       }),
     "creating session",
   );
@@ -596,6 +608,7 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
 
     async listMembers(bookHref: string) {
       return withAuthEviction(async () => {
+        assertProxyHref(bookHref);
         const responses = await wrap(
           () =>
             client.propfind({
@@ -634,9 +647,11 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
 
     async fetchCard(href: string) {
       return withAuthEviction(async () => {
+        assertProxyHref(href);
         // The multiget must run against the parent address book collection;
         // derive it from href by stripping the last path segment.
         const bookUrl = deriveBookUrl(href);
+        assertProxyHref(bookUrl);
 
         const responses = await wrap(
           () =>
@@ -679,12 +694,14 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
     async fetchCards(hrefs: string[]) {
       return withAuthEviction(async () => {
         if (hrefs.length === 0) return [];
+        for (const href of hrefs) assertProxyHref(href);
 
         const first = hrefs[0];
         if (first === undefined) return [];
 
         // All hrefs must share the same parent book URL.
         const bookUrl = deriveBookUrl(first);
+        assertProxyHref(bookUrl);
 
         const responses = await wrap(
           () =>
@@ -717,6 +734,7 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
 
     async updateCard(href: string, etag: string, vcardText: string) {
       return withAuthEviction(async () => {
+        assertProxyHref(href);
         assertWriteEtag(etag, href);
         await putCard(client, href, vcardText, { "If-Match": etag }, `updating card ${href}`);
         const newEtag = await fetchFreshEtag(client, href);
@@ -726,6 +744,7 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
 
     async createCard(href: string, vcardText: string) {
       return withAuthEviction(async () => {
+        assertProxyHref(href);
         await putCard(client, href, vcardText, { "If-None-Match": "*" }, `creating card ${href}`);
         const newEtag = await fetchFreshEtag(client, href);
         return { href, etag: newEtag };
@@ -734,6 +753,7 @@ async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession
 
     async deleteCard(href: string, etag: string) {
       return withAuthEviction(async () => {
+        assertProxyHref(href);
         assertWriteEtag(etag, href);
         const responses = await wrap(
           () =>
