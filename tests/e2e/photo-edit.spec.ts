@@ -42,6 +42,24 @@ function jpegWithExif(orientation: number): Buffer {
 }
 const jpegWithGps = jpegWithExif(1);
 
+function jpegWithHdr(kind: "xmp" | "iso"): Buffer {
+  const payload = Buffer.from(
+    kind === "xmp"
+      ? 'http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" xmlns:exif="http://ns.adobe.com/exif/1.0/" exif:GPSLatitude="46,30N"/>'
+      : "urn:iso:std:iso:ts:21496:-1\0",
+    "latin1",
+  );
+  const length = Buffer.alloc(2);
+  length.writeUInt16BE(payload.length + 2);
+  return Buffer.concat([
+    jpegWithGps.subarray(0, 2),
+    Buffer.from([0xff, kind === "xmp" ? 0xe1 : 0xe2]),
+    length,
+    payload,
+    jpegWithGps.subarray(2),
+  ]);
+}
+
 /**
  * A PNG whose red grows with x and green with y, so a pixel tells where it
  * came from; with `alpha`, every pixel has that opacity.
@@ -157,6 +175,50 @@ test("keeps an uncropped JPEG byte for byte, without its GPS location", async ({
   expect(await savedPhoto(page, "ada")).toEqual([`PHOTO;ENCODING=b;TYPE=JPEG:${expected}`]);
   expect(Buffer.from(expected, "base64").includes("GPSLatitude")).toBe(false);
   expect(jpegWithGps.includes("GPSLatitude")).toBe(true);
+});
+
+for (const kind of ["xmp", "iso"] as const) {
+  test(`re-encodes an uncropped ${kind} HDR JPEG without private metadata`, async ({ page }) => {
+    await signIn(page);
+    await editContact(page, /Lovelace/);
+    await choosePhoto(page, jpegWithHdr(kind));
+    const dialog = page.getByRole("dialog", { name: "Crop photo" });
+    await dialog.getByRole("button", { name: "Use photo" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator("article img")).toHaveCount(1);
+
+    const [line] = await savedPhoto(page, "ada");
+    expect(line).toMatch(/^PHOTO;ENCODING=b;TYPE=JPEG:/);
+    const base64 = line?.slice(line.indexOf(":") + 1) ?? "";
+    const output = Buffer.from(base64, "base64");
+    for (const metadata of ["GPSLatitude", "Exif", "hdr-gain-map", "21496:-1"]) {
+      expect(output.includes(metadata), metadata).toBe(false);
+    }
+    const size = await page.evaluate(async (data) => {
+      const bitmap = await createImageBitmap(
+        new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))]),
+      );
+      return [bitmap.width, bitmap.height];
+    }, base64);
+    expect(size).toEqual([8, 6]);
+  });
+}
+
+test("preserves an existing HDR photo when another field is saved", async ({ page }) => {
+  await putCard(
+    "ada",
+    vcard([
+      "UID:ada",
+      "FN:Ada Lovelace",
+      "N:Lovelace;Ada;;;",
+      `PHOTO;ENCODING=b;TYPE=JPEG:${jpegWithHdr("xmp").toString("base64")}`,
+    ]),
+  );
+  const stored = photoLines(await getCard("ada"));
+  await signIn(page);
+  await editContact(page, /Lovelace/);
+  await page.getByLabel("First name", { exact: true }).fill("Augusta Ada");
+  expect(decoded(await savedPhoto(page, "ada"))).toEqual(decoded(stored));
 });
 
 test("crops the square the frame shows, at the source's resolution when it fits", async ({

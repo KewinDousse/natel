@@ -162,40 +162,40 @@ describe("JPEG", () => {
       primary = jpegWith(noise, marker, mpfFor(le, primary.length, offset));
       return concat(primary, gainMap);
     }
-    function expectGainMapKept(out: Uint8Array, le: boolean): void {
-      const base = text(out).indexOf("MPF\0") + 4;
-      const view = new DataView(out.buffer, out.byteOffset + base);
-      const primarySize = view.getUint32(26 + 4, le);
-      const offset = view.getUint32(26 + 16 + 8, le);
-      expect(out[primarySize - 1]).toBe(0xd9);
-      expect(out.subarray(base + offset, base + offset + gainMap.length)).toEqual(gainMap);
-      expect(out.length).toBe(base + offset + gainMap.length);
-    }
+    it("requires re-encoding when HDR XMP also carries private data", () => {
+      const mixed = seg(
+        0xe1,
+        latin1(
+          'http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" xmlns:exif="http://ns.adobe.com/exif/1.0/" exif:GPSLatitude="46,30N"/>',
+        ),
+      );
+      expect(stripMetadata(hdrJpeg(false, mixed))).toBeNull();
+    });
 
-    it("keeps an Ultra HDR gain map, its XMP and MPF, with the offsets recomputed", () => {
+    it("requires re-encoding when an HDR secondary image carries private data", () => {
       const source = hdrJpeg(false, hdrXmp);
-      const out = stripMetadata(source)?.bytes ?? new Uint8Array();
-      expect(out.length).toBeLessThan(source.length);
-      expect(has(out, "hdr-gain-map")).toBe(true);
-      expectGainMapKept(out, false);
+      const primary = source.slice(0, source.length - gainMap.length);
+      const secondary = jpegWith(exif(1), seg(0xfe, latin1("GPSLatitude camera owner")));
+      const base = text(primary).indexOf("MPF\0") + 4;
+      new DataView(primary.buffer).setUint32(base + 26 + 16 + 4, secondary.length);
+      expect(stripMetadata(concat(primary, secondary))).toBeNull();
     });
 
-    it("reads and writes a little-endian MPF little-endian", () => {
-      expectGainMapKept(stripMetadata(hdrJpeg(true, hdrXmp))?.bytes ?? new Uint8Array(), true);
+    it("requires re-encoding for an Ultra HDR JPEG", () => {
+      expect(stripMetadata(hdrJpeg(false, hdrXmp))).toBeNull();
     });
 
-    it("keeps an ISO 21496-1 gain map, as Apple's adaptive HDR has it", () => {
-      const out = stripMetadata(hdrJpeg(false, isoGainMap))?.bytes ?? new Uint8Array();
-      expect(has(out, "urn:iso:std:iso:ts:21496:-1")).toBe(true);
-      expectGainMapKept(out, false);
+    it("requires re-encoding for a little-endian MPF", () => {
+      expect(stripMetadata(hdrJpeg(true, hdrXmp))).toBeNull();
     });
 
-    it("drops MPF and the gain map when the index points outside what follows EOI", () => {
+    it("requires re-encoding for an ISO 21496-1 JPEG", () => {
+      expect(stripMetadata(hdrJpeg(false, isoGainMap))).toBeNull();
+    });
+
+    it("requires re-encoding even when an HDR MPF index is invalid", () => {
       for (const offset of [1 << 30, 8]) {
-        const out = stripMetadata(hdrJpeg(false, hdrXmp, offset))?.bytes ?? new Uint8Array();
-        expect(has(out, "MPF\0"), String(offset)).toBe(false);
-        expect(out[out.length - 1]).toBe(0xd9);
-        expect(imageData(out)).toEqual(imageData(jpeg));
+        expect(stripMetadata(hdrJpeg(false, hdrXmp, offset)), String(offset)).toBeNull();
       }
     });
   });

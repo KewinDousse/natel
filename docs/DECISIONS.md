@@ -649,14 +649,7 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
     - JPEG: SOI and every marker that isn't an `APPn` or `COM` (DQT, DHT,
       SOFn, DRI, SOS and its data, RSTn, EOI); `APP0` `JFIF`, rewritten
       with a 0 × 0 thumbnail (`JFXX` is dropped); every `APP2`
-      `ICC_PROFILE` chunk, in order; `APP14` `Adobe`. For an HDR photo
-      (Ultra HDR, or Apple's adaptive HDR: a JPEG with the `hdrgm` XMP
-      packet or the ISO 21496-1 segment), the gain map also changes how it
-      shows on an HDR screen, so `APP2` `MPF`, the `APP1` XMP packet that
-      declares the `hdrgm` namespace, the `APP2` ISO 21496-1 gain map
-      metadata (`urn:iso:std:iso:ts:21496:-1`, as Apple's adaptive HDR writes
-      it), and the images the MPF index points to after EOI are kept, with
-      the MPF offsets recomputed. Any other bytes after EOI (a Motion
+      `ICC_PROFILE` chunk, in order; `APP14` `Adobe`. Any other bytes after EOI (a Motion
       Photo's video, for one) are dropped.
     - PNG: `IHDR`, `PLTE`, `tRNS`, `IDAT`, `IEND`, `acTL`, `fcTL`, `fdAT`
       (APNG frames), `iCCP`, `sRGB`, `gAMA`, `cHRM`, `cICP`, `mDCv`, `cLLi`,
@@ -676,8 +669,7 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
     `tests/lib/`: the image data comes out unchanged; the orientation is
     read (`orientationOf`) from a JPEG, a PNG `eXIf` and a WebP, and dropped
     with the rest of the EXIF block; a PNG with `tRNS` keeps its
-    transparency; an APNG and an animated GIF and WebP keep every frame; an
-    Ultra HDR JPEG and an ISO 21496-1 one keep their gain map; and fixtures
+    transparency; an APNG and an animated GIF and WebP keep every frame; fixtures
     with GPS, XMP, `COM` and `tEXt` come out without them. Apple, Android
     through DAVx⁵, Thunderbird and Nextcloud are expected to show all four
     (WebP since iOS 14 and macOS 11). The device check showed all
@@ -711,8 +703,8 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   canvas's colour space (a `display-p3` canvas writes a Display P3 profile,
   as the device check found), the rotation is baked in, an HDR photo loses its gain map,
   a 16-bit or HDR source drops to 8 bits, and an animated GIF or WebP keeps
-  only its first frame. An upright photo of at most 1024 px and 512 KB,
-  uncropped, avoids all of it. The canvas is `display-p3` where the browser
+  only its first frame. A sufficiently small, upright, uncropped file accepted by the lossless
+  metadata filter avoids the canvas. The canvas is `display-p3` where the browser
   supports it (`getContext("2d", { colorSpace: "display-p3" })`), sRGB
   elsewhere, where a Display-P3 photo loses the colours outside sRGB.
 - Considered: a lossless JPEG crop and rotation (jpegtran compiled to
@@ -824,6 +816,20 @@ The device check showed a JPEG, a PNG, a GIF, a WebP and a 3000 × 2000
 photo set in Natel right through DAVx⁵ on Android, and a rotated one
 sideways, hence the canvas for it. iOS, and a 24 MP iPhone photo, are still
 to check on a device.
+
+### JPEG HDR photo uploads
+
+For new photos, a JPEG carrying an Ultra HDR XMP namespace or an ISO 21496-1
+marker goes through the canvas, even when it is small, upright and uncropped.
+HDR packets and MPF secondary images can contain private data that the
+lossless filter cannot safely remove. This follows the maintainer's choice
+on HDR photos: loss of the HDR gain map and JPEG recompression are accepted.
+The encoded image keeps its dimensions unless it needs scaling or cropping.
+Existing photos are preserved when the UI does not edit them.
+
+Tests cover HDR XMP mixed with GPS, private data in secondary images,
+both MPF byte orders and malformed indexes. Browser tests check that new
+photos decode without private metadata and untouched photos stay unchanged.
 
 ## 024 — The escaped semicolon in text values is read as a semicolon
 

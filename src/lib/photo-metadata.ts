@@ -13,8 +13,7 @@ export type StrippedImage = { format: ImageFormat; bytes: Uint8Array };
 
 /**
  * The file without its hidden metadata, or null when it isn't a JPEG, PNG,
- * GIF or WebP, or is a JPEG or GIF this can't walk to its end: copying only
- * the blocks read before the fault would lose the image.
+ * GIF or WebP, or cannot be safely sanitized without re-encoding.
  */
 export function stripMetadata(file: Uint8Array): StrippedImage | null {
   const format = formatOf(file);
@@ -195,8 +194,10 @@ function stripJpeg(file: Uint8Array): Uint8Array | null {
       (s.marker === 0xe2 && ascii(s.payload, 0, ISO_GAIN_MAP.length) === ISO_GAIN_MAP),
   );
 
+  // HDR packets and secondary images can contain private data.
+  if (hdr) return null;
+
   const parts: Uint8Array[] = [Uint8Array.of(0xff, 0xd8)];
-  let mpf: { partIndex: number; payload: Uint8Array; start: number } | null = null;
   for (const s of segments) {
     const isApp = s.marker >= 0xe0 && s.marker <= 0xef;
     if (!isApp && s.marker !== 0xfe) {
@@ -211,75 +212,11 @@ function stripJpeg(file: Uint8Array): Uint8Array | null {
       parts.push(segment(0xe0, jfif));
     } else if (s.marker === 0xe2 && id.startsWith("ICC_PROFILE\0")) {
       parts.push(file.subarray(s.start, s.end));
-    } else if (s.marker === 0xe2 && id.startsWith("MPF\0") && hdr) {
-      mpf = { partIndex: parts.length, payload: s.payload.slice(), start: s.start };
-      parts.push(new Uint8Array());
-    } else if (hdr && (isXmp(s) || (s.marker === 0xe2 && id.startsWith(ISO_GAIN_MAP)))) {
-      if (!isXmp(s) || ascii(s.payload, 0, s.payload.length).includes(HDRGM)) {
-        parts.push(file.subarray(s.start, s.end));
-      }
     } else if (s.marker === 0xee && id.startsWith("Adobe")) {
       parts.push(file.subarray(s.start, s.end));
     }
   }
-  if (mpf === null) return concat(parts);
-  return withMpfImages(file, parts, { ...mpf, primaryEnd: segments.at(-1)?.end ?? file.length });
-}
-
-/**
- * Puts the MPF segment back, with the images its index points to appended
- * after EOI and their offsets recomputed for the smaller primary image.
- * MPF offsets count from the segment's TIFF header, just after `MPF\0`.
- */
-function withMpfImages(
-  file: Uint8Array,
-  parts: Uint8Array[],
-  mpf: { partIndex: number; payload: Uint8Array; start: number; primaryEnd: number },
-): Uint8Array {
-  const payload = mpf.payload;
-  const tiff = 4;
-  const le = ascii(payload, tiff, tiff + 2) === "II";
-  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
-  const withoutMpf = () => concat(parts.filter((_, i) => i !== mpf.partIndex));
-  try {
-    const ifd = tiff + view.getUint32(tiff + 4, le);
-    let entries = -1;
-    let entryCount = 0;
-    for (let i = 0; i < view.getUint16(ifd, le); i += 1) {
-      const at = ifd + 2 + i * 12;
-      if (view.getUint16(at, le) === 0xb002) {
-        entryCount = view.getUint32(at + 4, le) / 16;
-        entries = tiff + view.getUint32(at + 8, le);
-      }
-    }
-    if (entries < 0) return withoutMpf();
-    const oldBase = mpf.start + 4 + tiff;
-    const images: { entry: number; bytes: Uint8Array }[] = [];
-    for (let i = 1; i < entryCount; i += 1) {
-      const entry = entries + i * 16;
-      const size = view.getUint32(entry + 4, le);
-      const offset = view.getUint32(entry + 8, le);
-      // An index that points nowhere would point at the wrong bytes once rewritten.
-      const from = oldBase + offset;
-      if (offset === 0 || from < mpf.primaryEnd || from + size > file.length) return withoutMpf();
-      images.push({ entry, bytes: file.subarray(oldBase + offset, oldBase + offset + size) });
-    }
-    // The segment keeps its size: only offsets in its payload change.
-    const mpfLength = payload.length + 4;
-    const before = parts.slice(0, mpf.partIndex).reduce((total, part) => total + part.length, 0);
-    const newBase = before + 4 + tiff;
-    const primaryLength = parts.reduce((total, part) => total + part.length, 0) + mpfLength;
-    view.setUint32(entries + 4, primaryLength, le);
-    let at = primaryLength;
-    for (const image of images) {
-      view.setUint32(image.entry + 8, at - newBase, le);
-      at += image.bytes.length;
-    }
-    parts[mpf.partIndex] = segment(0xe2, payload);
-    return concat([...parts, ...images.map((image) => image.bytes)]);
-  } catch {
-    return withoutMpf();
-  }
+  return concat(parts);
 }
 
 // ---------------------------------------------------------------------------
