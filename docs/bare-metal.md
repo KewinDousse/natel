@@ -22,18 +22,14 @@ with them.
 
 ## Caddy
 
-Install Caddy 2.9 or later from a package
+Install Caddy 2.11.7 or later from a package
 ([caddyserver.com/docs/install](https://caddyserver.com/docs/install)), and
-check with `caddy version`. Debian 12 and 13, Ubuntu 24.04 to 26.04 and the
-distributions based on them ship Caddy 2.6, which lacks years of fixes and
-refuses this Caddyfile:
-`unrecognized servers option 'trusted_proxies'`.
-On those, add Caddy's
-[stable repository](https://caddyserver.com/docs/install#debian-ubuntu-raspbian),
-or on Debian 13 install it from `trixie-backports`. Don't get an older Caddy
-to start by deleting the lines it refuses: `NATEL_BIND` and
-`NATEL_TRUSTED_PROXIES` (see the README) would then do nothing, and Natel
-would listen on every interface.
+check with `caddy version`. Distribution packages, including backports, may
+be older than this minimum. On Debian and Ubuntu, use Caddy's
+[stable repository](https://caddyserver.com/docs/install#debian-ubuntu-raspbian)
+if the distribution's package is too old. Don't get an older Caddy to start
+by deleting the lines it refuses: the network restrictions and HTTP read
+deadlines must stay active.
 
 The package runs Caddy as its own `caddy` user under systemd, allowed to
 bind ports 80 and 443 without being root. Don't start Caddy as root by hand:
@@ -47,6 +43,22 @@ maintainer, and keep the operating system updated. A current Caddy version
 can still have been built with vulnerable dependencies: check the package's
 security notices too. If you build Caddy yourself, use a supported Go
 toolchain with its security patches.
+
+### HTTP read timeouts
+
+The Caddyfile allows one minute to read request headers and one minute of
+inactivity while reading an upload. Caddy 2.11.7 supports both settings.
+The idle deadline resets when data arrives, so a slow or large upload can
+continue while it makes progress. There is no total upload deadline or
+minimum transfer rate. Keep these settings when integrating the site into
+an existing Caddy configuration.
+
+### HTTP/1.1 stalled uploads with keep-alive
+
+With Caddy 2.11.7, an incomplete HTTP/1.1 upload using keep-alive can remain
+open past the configured body idle deadline. An upload with `Connection:
+close` is terminated as expected. For direct exposure, the configured Caddy deadlines alone
+do not cover it; a front proxy needs its own stalled-upload protection.
 
 ## Install
 

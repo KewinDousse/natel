@@ -5,6 +5,10 @@
   # X-Forwarded-* headers are dropped.
   servers {
     trusted_proxies static {$NATEL_TRUSTED_PROXIES}
+    timeouts {
+      read_header 1m
+      read_body_idle 1m
+    }
   }
   # Caddy's admin API reconfigures it without authentication, for anyone on
   # the machine: off when NATEL_ADMIN is unset or `off`, on at the address it
