@@ -75,7 +75,7 @@ in development. Both need to reach the CardDAV server's paths (e.g.
 (`scheme://host[:port]`, no path) — Caddy `reverse_proxy` upstreams cannot
 contain paths. The app mirrors full CardDAV server paths under `/dav`:
 a request to `/dav/dav.php/…` is proxied to the origin at `/dav.php/…`.
-Caddy's `handle_path /dav/*` strips the `/dav` prefix before proxying;
+Caddy matches the escaped `/dav/` prefix and strips only `/dav` before proxying;
 Vite's dev proxy has an equivalent `rewrite` that strips `/^\/dav/`.
 
 **Consequences.** Same app URLs work in dev and prod without URL
@@ -219,7 +219,7 @@ REPORT body. And redirects (`Location: /dav.php/`, or an absolute URL on the
 server's origin) lead the browser out of `/dav` too.
 
 **Decision.** The proxy rewrites the `Location` of upstream responses under
-`/dav` (Caddy `header_down`, the same rule in Vite's dev proxy), and sends the
+`/dav` (Caddy response handling, the same rule in Vite's dev proxy), and sends the
 upstream's own `Host`. `src/dav/internal.ts` does discovery itself (RFC 6764,
 RFC 6352 §7.1): PROPFIND `current-user-principal` on a context root, letting
 the browser follow a redirect, then `addressbook-home-set` on the principal,
@@ -236,6 +236,27 @@ not fix the password.
 well-known URL. Without that redirect, only a root or `/dav.php/` server is
 found, at the cost of one or two extra PROPFINDs at sign-in. Caddy and Vite
 must keep the same `Location` rule.
+
+### Authenticated redirects stay under /dav
+
+Authenticated redirects are confined under `/dav`, while discovery redirects are preserved. Resolve
+relative paths and dot segments in the server's URL space before prepending
+`/dav`. Absolute and protocol-relative URLs contribute their path and query,
+never their origin. Query-only redirects keep the requested resource; escaped
+path separators, repeated query keys and literal dollar signs remain intact.
+Fragments do not reach the server.
+
+Requests to `/dav/` are also routed on the escaped URI before static
+handlers, with only the literal prefix stripped. This preserves encoded
+separators and empty segments on requests too.
+
+Vite uses URL resolution. Caddy uses its built-in response, rewrite and URI
+handlers, with no extra module. Its response handler preserves the escaped
+path in a temporary request header while normalising dot segments. This header
+is created after the upstream response and removed before copying it. Cookies
+and authentication challenges remain stripped on redirected responses.
+Browser tests exercise both proxies with synthetic credentials and verify
+that every followed request stays under `/dav/`.
 
 ## 016 — New cards are named after their UID; a 412 on create is shown
 

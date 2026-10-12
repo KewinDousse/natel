@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { proxyLocation } from "./src/dav/proxy-location.ts";
 
 // The app's security headers, read from the Caddyfile so the e2e suite runs
 // the production bundle under the headers users get.
@@ -54,6 +55,7 @@ function demoStaticHost(): Plugin {
 
 /** What the /dav proxy relays: the methods the app sends, as in the Caddyfile. */
 const DAV_METHODS = ["PROPFIND", "REPORT", "PUT", "DELETE"];
+const davOrigin = process.env.VITE_DAV_URL;
 
 export default defineConfig({
   base,
@@ -77,12 +79,12 @@ export default defineConfig({
   server: {
     // VITE_DAV_URL must be origin-only (scheme://host[:port], no path).
     // When set, requests to /dav/* are proxied to the CardDAV server.
-    // The rewrite strips /dav prefix to match prod Caddy handle_path /dav/*
-    // semantics: /dav/dav.php/... reaches {$BAIKAL_URL}/dav.php/...
-    proxy: process.env.VITE_DAV_URL
+    // The same escaped-path prefix removal as the production Caddyfile:
+    // /dav/dav.php/... reaches {$BAIKAL_URL}/dav.php/...
+    proxy: davOrigin
       ? {
           "/dav": {
-            target: process.env.VITE_DAV_URL,
+            target: davOrigin,
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/dav/, ""),
             // Same as the Caddyfile: only the methods the app sends.
@@ -100,10 +102,17 @@ export default defineConfig({
               proxy.on("proxyReq", (proxyReq) => {
                 proxyReq.removeHeader("cookie");
               });
-              proxy.on("proxyRes", (res) => {
+              proxy.on("proxyRes", (res, req) => {
                 const location = res.headers.location;
-                if (location)
-                  res.headers.location = location.replace(/^(https?:\/\/[^/]+)?\//, "/dav/");
+                if (location !== undefined) {
+                  const mapped = proxyLocation(location, req.url ?? "/", davOrigin);
+                  if (mapped === null) {
+                    res.statusCode = 502;
+                    delete res.headers.location;
+                  } else {
+                    res.headers.location = mapped;
+                  }
+                }
                 delete res.headers["www-authenticate"];
                 delete res.headers["set-cookie"];
                 delete res.headers.server;

@@ -9,6 +9,7 @@ dist-demo/
 # node config declaration artifacts (from tsc -b with composite)
 vite.config.d.ts
 vitest.config.d.ts
+src/dav/proxy-location.d.ts
 
 # env
 .env

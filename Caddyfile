@@ -59,7 +59,10 @@
   # ---------------------------------------------------------------
   # The app mirrors full server paths under /dav: e.g. a request to
   # /dav/dav.php/… reaches {$BAIKAL_URL}/dav.php/… (prefix stripped).
-  handle_path /dav/* {
+  # Match escaped paths before the static handlers normalise them.
+  @dav expression `{http.request.uri}.startsWith("/dav/")`
+  handle @dav {
+    uri path_regexp "^/dav" ""
     # Only the methods the app sends. Every path of the server is reachable
     # from here, so any other, a GET or a POST, would reach whatever else it
     # runs, such as Baïkal's admin and its installer. Vite's proxy does the same.
@@ -71,7 +74,55 @@
       header_up Host {upstream_hostport}
       # Redirects (e.g. /.well-known/carddav) point into the server's URL
       # space; put them back under /dav so the browser can follow them.
-      header_down Location "^(https?://[^/]+)?/" "/dav/"
+      @redirect header Location *
+      handle_response @redirect {
+        route {
+          map {rp.header.Location} {dav_location} {
+            ~^(?i:https?:)?//+[^/?#]+(/.*)$ ${1}
+            ~^(?i:https?:)?//+[^/?#]+([?#].*)?$ /${1}
+            default {rp.header.Location}
+          }
+          vars dav_location {dav_location}
+          @fragment expression `{vars.dav_location}.startsWith('#')`
+          vars @fragment dav_location ""
+          @relative expression `!{vars.dav_location}.startsWith('/') && !{vars.dav_location}.startsWith('?') && !{vars.dav_location}.startsWith('#') && {vars.dav_location} != ''`
+          uri @relative path_regexp "[^/]*$" ""
+          @path expression `!{vars.dav_location}.startsWith('?') && !{vars.dav_location}.startsWith('#') && {vars.dav_location} != ''`
+          route {
+            rewrite @path ?
+          }
+          map {uri} {dav_base} {
+            ~^([^?]*).* ${1}
+          }
+          map {vars.dav_location} {dav_target} {
+            "" {uri}
+            ~^(/.*)$ ${1}
+            default {dav_base}{vars.dav_location}
+          }
+          vars dav_target {dav_target}
+          map {vars.dav_target} {dav_target_path} {
+            ~^([^?#]*).* ${1}
+          }
+          # Keep the escaped path across rewrite, whose query handling avoids placeholder injection.
+          request_header Natel-Redirect-Path {dav_target_path}
+          request_header Natel-Redirect-Path "[$]" "$$$$"
+          route {
+            rewrite {vars.dav_target}
+          }
+          uri path_regexp "^.*$" {http.request.header.Natel-Redirect-Path}
+          # Only whole dot segments are decoded; an escaped slash stays in its segment.
+          uri path_regexp "(?i)(^|/)(%2e(%2e|[.])|[.]%2e)(/|$)" "$1..$4"
+          uri path_regexp "(?i)(^|/)(%2e(%2e|[.])|[.]%2e)(/|$)" "$1..$4"
+          uri path_regexp "(?i)(^|/)%2e(/|$)" "$1.$2"
+          uri path_regexp "(?i)(^|/)%2e(/|$)" "$1.$2"
+          uri path_regexp "((^|/)[.]{1,2})$" "$1/"
+          # An identity replacement cleans dot segments without merging empty segments.
+          uri replace // //
+          request_header -Natel-Redirect-Path
+          header >Location /dav{uri}
+          copy_response
+        }
+      }
       # A 401 carrying WWW-Authenticate makes the browser open its own login
       # prompt over the app. The app sends credentials itself and reports a
       # rejected login on its own, so the challenge is dropped.
