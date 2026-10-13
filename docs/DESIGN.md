@@ -173,6 +173,28 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 
 Back, or `Esc` on desktop, returns to `/contacts`. The tab title is "Paramètres · Natel".
 
+### App information and help
+
+In settings, an "À propos et aide" section shows a small muted version line
+and the available source revision. An internal "Guide utilisateur (anglais)" link
+opens `/contacts/settings/help` without reloading or leaving the instance. Setup
+Discussions and the bug form remain external, with `noopener noreferrer`.
+
+### Embedded user guide
+
+`/contacts/settings/help` uses the contact page's column, mobile top bar and heading
+scale. An internal "Retour aux paramètres" link precedes the heading;
+Arrow keys keep their native scrolling behaviour here; contact navigation
+shortcuts apply only to the list and contact routes. `Esc` is not a
+navigation shortcut on this reading page. The heading takes
+focus on arrival so the screen reader announces the new page. The content is English only, marked `lang="en"`, and imported from
+`docs/user-guide.md` at build time. Only the surrounding navigation is
+translated. The guide renderer supports h1/h2 headings, paragraphs, bold,
+inline code and links as React elements; unsupported syntax fails the
+checks. Relative links resolve to the public documentation on GitHub.
+No external fetch, HTML sink or new dependency is needed. The server
+operator's deployment documentation stays in `docs/`.
+
 ### New contact
 `/contacts/new` is the form on a blank vCard 3.0 card, with no reading view to go back to. The top-right label (mobile top bar, desktop label slot) reads "Nouveau contact", and the avatar shows the initials as they are typed. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page, read; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
 

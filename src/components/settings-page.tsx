@@ -5,21 +5,26 @@
  * on desktop, returns to the list.
  */
 
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { useI18n } from "@/i18n/react";
+import { APP_REVISION, APP_VERSION } from "@/lib/app-info";
 import type { SortBy } from "@/lib/contact-list";
 import type { Theme } from "@/lib/theme";
 import { useSignOut } from "@/queries";
 import { usePreferences } from "@/store/preferences";
 import { useAuth } from "@/store/session";
-import { buttonClass, fieldClass } from "./button";
+import { buttonClass, FOCUS_RING, fieldClass } from "./button";
 import { MobileTopBar } from "./contact-page";
 import { LogoutIcon } from "./icons";
 import { openShortcuts } from "./keyboard-shortcuts";
 import { LanguageSelect } from "./language-select";
 
 const SYSTEM = "system";
+const HELP_LINKS = [
+  ["help_questions", "https://github.com/KewinDousse/natel/discussions"],
+  ["help_bug", "https://github.com/KewinDousse/natel/issues/new/choose"],
+] as const;
 
 export function SettingsPage() {
   const { t } = useI18n();
@@ -97,6 +102,40 @@ export function SettingsPage() {
             <LogoutIcon className="size-4" />
             {t("logout")}
           </button>
+        </SettingsSection>
+
+        <SettingsSection title={t("settings_about")}>
+          <p className="text-sm text-muted-foreground">
+            {t("app_version", { version: APP_VERSION })}
+            {APP_REVISION && (
+              <>
+                {" "}
+                <span className="break-all">({APP_REVISION})</span>
+              </>
+            )}
+          </p>
+          <ul className="space-y-3 text-sm">
+            <li>
+              <Link
+                to="/contacts/settings/help"
+                className={`inline-flex min-h-10 items-center rounded-sm font-bold underline decoration-leader underline-offset-2 hover:decoration-foreground ${FOCUS_RING}`}
+              >
+                {t("help_guide")}
+              </Link>
+            </li>
+            {HELP_LINKS.map(([label, href]) => (
+              <li key={label}>
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex min-h-10 items-center rounded-sm font-bold underline decoration-leader underline-offset-2 hover:decoration-foreground ${FOCUS_RING}`}
+                >
+                  {t(label)}
+                </a>
+              </li>
+            ))}
+          </ul>
         </SettingsSection>
 
         {/* Keys are for a keyboard: from lg, like the rest of the hints. */}

@@ -92,6 +92,15 @@ pre-release suffix) publishes it to the repository's GitHub Pages site. The
 normal build, and so the image, never contains it, which the `check` job
 verifies.
 
+## Build identification
+
+The settings page shows `package.json`'s version and an optional source
+revision. Vite reads `NATEL_REVISION` at build time, or uses `git describe
+--always --dirty` in a source checkout. Without Git or an explicit revision,
+only the version is shown. CI supplies the commit SHA through the builder's
+`NATEL_REVISION` argument and to the demo build. No Git executable is added
+to the runtime image.
+
 ## Source layout
 
 ```

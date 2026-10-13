@@ -281,6 +281,8 @@ function useArrowNavigation(groups: ContactGroup[]) {
       if (event.shiftKey) return;
       if (isTyping(event.target) || isInMenu(event.target) || isDialogOpen() || !isDesktop())
         return;
+      const leafRoute = router.state.matches.at(-1)?.routeId;
+      if (leafRoute !== "/contacts" && leafRoute !== "/contacts/$id") return;
       const ids = groups.flatMap((group) => group.contacts.map(contactIdOf));
       if (ids.length === 0) return;
       // The latest location, not the rendered one: a key pressed right after

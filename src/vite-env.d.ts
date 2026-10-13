@@ -4,4 +4,5 @@
 interface ImportMetaEnv {
   /** "1" in the demo build (ADR 025). */
   readonly VITE_DEMO?: string;
+  readonly VITE_BUILD_REVISION?: string;
 }

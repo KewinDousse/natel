@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
@@ -21,6 +22,19 @@ if (!csp) throw new Error("No Content-Security-Policy in the Caddyfile's securit
 // subpath (VITE_BASE, such as /natel/ for GitHub Pages).
 const demo = process.env.VITE_DEMO === "1";
 const base = process.env.VITE_BASE ?? "/";
+
+export function buildRevision(): string {
+  if (process.env.NATEL_REVISION) return process.env.NATEL_REVISION;
+  try {
+    return execFileSync("git", ["describe", "--always", "--dirty"], {
+      cwd: import.meta.dirname,
+      stdio: ["ignore", "pipe", "ignore"],
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return "";
+  }
+}
 
 /**
  * What a static host can't send as headers: the CSP as a meta tag (without
@@ -60,7 +74,10 @@ const davOrigin = process.env.VITE_DAV_URL;
 export default defineConfig({
   base,
   // The demo reminders follow the same switch as the alias, never a .env file.
-  define: { "import.meta.env.VITE_DEMO": JSON.stringify(demo ? "1" : "") },
+  define: {
+    "import.meta.env.VITE_DEMO": JSON.stringify(demo ? "1" : ""),
+    "import.meta.env.VITE_BUILD_REVISION": JSON.stringify(buildRevision()),
+  },
   plugins: [
     TanStackRouterVite({ target: "react", autoCodeSplitting: true }),
     react(),

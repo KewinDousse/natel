@@ -1,6 +1,10 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import packageInfo from "../../package.json" with { type: "json" };
 import { putCard, resetBook, vcard } from "./dav";
 import { PASSWORD, USER } from "./env";
+
+const { version } = packageInfo;
 
 async function signIn(page: Page): Promise<void> {
   await page.goto("/");
@@ -74,4 +78,78 @@ test("picks the language on the sign-in screen", async ({ page }) => {
     .filter({ visible: true })
     .selectOption("fr");
   await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
+});
+
+test("shows the running version and safe links to help", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByText(`Version ${version}`, { exact: false })).toBeVisible();
+  for (const [name, href] of [
+    ["Setup questions", "https://github.com/KewinDousse/natel/discussions"],
+    ["Report a bug", "https://github.com/KewinDousse/natel/issues/new/choose"],
+  ] as const) {
+    const link = page.getByRole("link", { name, exact: true });
+    await expect(link).toHaveAttribute("href", href);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  }
+  const guide = page.getByRole("link", { name: "User guide (English)", exact: true });
+  await expect(guide).toHaveAttribute("href", "/contacts/settings/help");
+  await expect(guide).not.toHaveAttribute("target", "_blank");
+  await guide.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Using Natel" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowUp");
+  await expect(page).toHaveURL(/\/contacts\/settings\/help$/);
+  await expect(page).toHaveTitle("User guide · Natel");
+  await expect(page.getByRole("heading", { name: "Concurrent edits" })).toBeVisible();
+  await expect(page.getByText("Your password stays in memory", { exact: false })).toBeVisible();
+  await page.getByRole("link", { name: "Back to settings" }).click();
+  await expect(page.getByText("alice", { exact: true })).toBeVisible();
+  await page.getByRole("combobox", { name: "Language" }).selectOption("fr");
+  await expect(page.getByRole("heading", { name: "À propos et aide" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Guide utilisateur (anglais)" })).toBeVisible();
+});
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`reads the English Markdown guide with French navigation, ${colorScheme}`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await signIn(page);
+    await page.getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("combobox", { name: "Language" }).selectOption("fr");
+    await page.getByRole("link", { name: "Guide utilisateur (anglais)" }).click();
+    await expect(page).toHaveURL(/\/contacts\/settings\/help$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Using Natel" })).toBeFocused();
+    await expect(page.getByRole("heading", { name: "Sign in and sign out" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Concurrent edits" })).toBeVisible();
+    await expect(page.getByRole("article")).toHaveAttribute("lang", "en");
+    await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+    await expect(page.getByRole("link", { name: "Retour aux paramètres" })).toBeVisible();
+    const troubleshooting = page.getByRole("link", { name: "troubleshooting", exact: true });
+    await expect(troubleshooting).toHaveAttribute(
+      "href",
+      "https://github.com/KewinDousse/natel/blob/main/docs/troubleshooting.md#photos-and-large-cards",
+    );
+    await expect(troubleshooting).toHaveAttribute("target", "_blank");
+    await expect(troubleshooting).toHaveAttribute("rel", "noopener noreferrer");
+    const { violations } = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Using Natel" })).toHaveCount(0);
+  });
+}
+
+test("opens contacts whose UID is help", async ({ page }) => {
+  await putCard("help", vcard(["UID:help", "FN:Help Example", "N:Example;Help;;;"]));
+  await signIn(page);
+  await page.getByRole("link", { name: /Help Example/ }).click();
+  await expect(page).toHaveURL(/\/contacts\/help$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Help Example" })).toBeVisible();
+  await page.getByRole("button", { name: /^Edit/ }).first().click();
+  await expect(page.getByLabel("Last name", { exact: true })).toHaveValue("Example");
 });
