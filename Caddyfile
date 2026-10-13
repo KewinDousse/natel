@@ -5,9 +5,13 @@
   # X-Forwarded-* headers are dropped.
   servers {
     trusted_proxies static {$NATEL_TRUSTED_PROXIES}
+    # Caddy's total read budget is not enforced on HTTP/3.
+    protocols h1 h2
     timeouts {
       read_header 1m
-      read_body_idle 1m
+      read_body 10m
+      # The idle reader can leave HTTP/1.1 uploads blocked.
+      read_body_idle -1s
     }
   }
   # Caddy's admin API reconfigures it without authentication, for anyone on

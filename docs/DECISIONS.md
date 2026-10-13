@@ -1113,3 +1113,28 @@ of scope.
 **Consequences.** Displayed labels leave the information-not-shown dialog.
 Other labels, properties and parameters survive each save. The mapping is
 isolated in vCard code; UI code works with plain field metadata.
+
+## 031 — Bound upload reads with a total budget in the official Caddy image
+
+**Context.** A reproduction shows incomplete HTTP/1.1 keep-alive uploads
+that survive Caddy 2.11.7's body idle deadline and retain upstream
+connections. The maintainer chooses option B: a total read budget of ten
+minutes with the body idle reader disabled, while keeping the official
+image, and approves restricting Caddy to HTTP/1.1 and HTTP/2.
+
+**Decision.** Configure `protocols h1 h2`, `read_header 1m`, `read_body 10m` and
+`read_body_idle -1s` in the shared Caddyfile. The negative idle timeout
+disables Caddy's default body idle reader. The read budget is not extended
+by progress. HTTP/1.1 counts headers within it; HTTP/2 starts the body
+budget after the request headers. Normal keep-alive remains enabled.
+
+**Consequences.** Stalled and trickling uploads have a fixed bound, in
+Docker and bare metal. An upload that exceeds its read budget fails; an
+import can run longer if each PUT fits the budget. A pause has
+no separate one-minute limit. There is no payload-size cap or minimum
+transfer rate. Tests adapt the production Caddyfile, verify its actual
+budgets, then reduce the clock to check client and upstream closure and
+reuse of connections after completed uploads. HTTP/3 is disabled because
+Caddy 2.11.7 does not enforce its native total read timeout on that
+protocol when the idle reader is disabled. HTTPS and HTTP/2 remain
+available; QUIC to this Caddy instance is unavailable.

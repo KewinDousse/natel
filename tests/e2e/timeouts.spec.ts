@@ -40,6 +40,6 @@ test("bounds stalled headers and an upload with Connection close", async ({ isMo
   ]);
   expect(headersElapsed).toBeGreaterThanOrEqual(55_000);
   expect(headersElapsed).toBeLessThan(75_000);
-  // The upstream can reject an incomplete upload before Caddy's idle deadline.
+  // The upstream can reject an incomplete upload before Caddy's read budget.
   expect(uploadElapsed).toBeLessThan(75_000);
 });

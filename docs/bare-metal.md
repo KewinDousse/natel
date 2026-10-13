@@ -51,19 +51,31 @@ toolchain with its security patches.
 
 ### HTTP read timeouts
 
-The Caddyfile allows one minute to read request headers and one minute of
-inactivity while reading an upload. Caddy 2.11.7 supports both settings.
-The idle deadline resets when data arrives, so a slow or large upload can
-continue while it makes progress. There is no total upload deadline or
-minimum transfer rate. Keep these settings when integrating the site into
-an existing Caddy configuration.
+The Caddyfile allows one minute to read request headers and ten minutes to
+read each request body. The read budget does not reset when more data
+arrives. HTTP/1.1 counts the headers within it; HTTP/2 starts the body
+budget after the request headers. An upload that exceeds it fails. An import can take longer overall, provided each PUT
+fits within that budget. Caddy 2.11.7 supports these settings. Keep them when
+integrating the site into an existing Caddy configuration.
+
+### HTTP protocols
+
+The Caddyfile enables HTTP/1.1 and HTTP/2. With Caddy 2.11.7, disabling the
+body idle reader also removes HTTP/3's body read deadline: the native total
+read timeout does not cover that protocol. Keep `protocols h1 h2` alongside
+the read timeouts when integrating Natel into an existing configuration.
+Browsers still use HTTPS and HTTP/2, but cannot use QUIC to this Caddy
+instance. A reverse proxy in front of Natel may offer HTTP/3 independently,
+with its own read limits.
 
 ### HTTP/1.1 stalled uploads with keep-alive
 
-With Caddy 2.11.7, an incomplete HTTP/1.1 upload using keep-alive can remain
-open past the configured body idle deadline. An upload with `Connection:
-close` is terminated as expected. For direct exposure, the configured Caddy deadlines alone
-do not cover it; a front proxy needs its own stalled-upload protection.
+Caddy 2.11.7's body idle reader can leave an incomplete HTTP/1.1 upload open
+after its deadline. The Caddyfile disables this reader with
+`read_body_idle -1s` and uses the total read budget instead. This bounds
+stalled and trickling uploads while keeping keep-alive for completed
+requests. A pause may last until the total budget expires; there is no
+separate body inactivity limit or minimum transfer rate.
 
 ## Install
 
