@@ -224,6 +224,9 @@ function ContactsScreen() {
           <div className={cn("relative lg:min-h-0 lg:border-r", hasContact && "max-lg:hidden")}>
             <ContactList
               contacts={contacts}
+              skippedCount={book?.skipped.length ?? 0}
+              retrying={contactsQuery.isFetching}
+              onRetryCards={() => void contactsQuery.refetch()}
               noBooks={books !== undefined && books.length === 0}
               load={listLoad}
               onRetry={() => {

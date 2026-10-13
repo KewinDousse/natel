@@ -110,6 +110,20 @@ One size, `text-sm`: count (`text-muted-foreground`, `aria-live="polite"`) on th
 - No book on the server, an empty group and no search result use the same state block, title and hint only.
 - The detail pane with no contact open shows the wordmark (`data-logotype`), and on desktop the keys `N` nouveau contact · `?` raccourcis clavier.
 
+### Incomplete address book
+
+A successful fetch can still leave cards unreadable or missing. Above the
+list toolbar, show a compact warning box (`mx-2 mt-3 rounded-lg border
+border-warning/40 bg-warning/5 p-3 text-sm`), with an alert icon, the number
+of cards not displayed, and a hint to retry or check another CardDAV client.
+An outline small "Réessayer" button reloads the book; while running, it says
+"Synchronisation…" and stays focusable with `aria-disabled`. The message
+lives in a persistent polite status region, clears on recovery or a book
+switch, and remains visible while searching or filtering. If every card
+failed, do not show the empty-book state. On recovery, focus held by the
+retry action moves to the list. This message does not claim the cards were
+deleted or that Natel knows why they could not be loaded.
+
 ### Group filter
 Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time; contacts without a group aren't a choice.
 - Trigger: "Tous les groupes" + chevron, the address-book switcher's pill (`h-8 rounded-full px-2.5 text-sm font-bold text-muted-foreground hover:bg-muted`); its accessible name is "Filtrer par groupe : <choice>".

@@ -16,6 +16,7 @@ import { type DavAddressBook, type DavAuth, DavError } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import type { Contact, RawComponent } from "@/model/contact";
 import { createQueryClient } from "@/queries";
+import { addressBooksKey } from "@/queries/keys";
 import { routeTree } from "@/routeTree.gen";
 import { usePreferences } from "@/store/preferences";
 import { useSessionStore } from "@/store/session";
@@ -593,6 +594,122 @@ describe("layout", () => {
 // ---------------------------------------------------------------------------
 // Sync
 // ---------------------------------------------------------------------------
+
+describe("incomplete address books", () => {
+  it("keeps the live region mounted from loading to an incomplete result", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: BOOK_A });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadBook(bookAContacts().slice(0, 1));
+    let finish: ((cards: []) => void) | undefined;
+    mockFetchCards.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    renderApp("/contacts");
+    await waitFor(() => expect(finish).toBeDefined());
+    const live = document.querySelector("[data-incomplete-book]");
+    expect(live).not.toBeNull();
+    expect(live?.textContent).toBe("");
+    finish?.([]);
+    await screen.findByRole("status", { name: "Liste incomplète" });
+    expect(document.querySelector("[data-incomplete-book]")).toBe(live);
+  });
+
+  it("retries the cards when background discovery has failed", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: BOOK_A });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadBook(bookAContacts().slice(0, 1));
+    mockFetchCards.mockResolvedValue([]);
+    const queryClient = createQueryClient();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ["/contacts"] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <RouterProvider router={router} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const warning = await screen.findByRole("status", { name: "Liste incomplète" });
+    mockDiscoverAddressBooks.mockRejectedValue(
+      new DavError("Synthetic discovery failure", "NETWORK"),
+    );
+    await queryClient.refetchQueries({ queryKey: addressBooksKey(AUTH) });
+    loadBook(bookAContacts().slice(0, 1));
+    await userEvent.setup().click(within(warning).getByRole("button", { name: "Réessayer" }));
+    await screen.findByRole("link", { name: /Lightshield Jarvan/ });
+    expect(screen.queryByRole("status", { name: "Liste incomplète" })).toBeNull();
+  });
+
+  it("reports missing and unreadable cards while keeping readable contacts visible", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A, BOOK_B]);
+    const contacts = bookAContacts().slice(0, 3);
+    loadBook(contacts);
+    mockFetchCards.mockResolvedValue(
+      contacts.slice(0, 2).map((contact) => ({
+        href: contact.href,
+        etag: contact.etag,
+        vcardText: contact.href,
+      })),
+    );
+    const parse = mockParse.getMockImplementation()!;
+    mockParse.mockImplementation((text, href, etag) => {
+      if (href === contacts[1]!.href) throw new Error("Invalid synthetic card");
+      return parse(text, href, etag);
+    });
+    renderApp("/contacts");
+
+    const warning = await screen.findByRole("status", { name: "Liste incomplète" });
+    expect(warning.textContent).toContain("2 fiches n’ont pas pu être affichées.");
+    expect(await screen.findByRole("link", { name: /Lightshield Jarvan/ })).toBeTruthy();
+
+    loadBook(contacts);
+    await userEvent.setup().click(within(warning).getByRole("button", { name: "Réessayer" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("status", { name: "Liste incomplète" })).toBeNull(),
+    );
+    expect(await screen.findByText("3 contacts")).toBeTruthy();
+  });
+
+  it("does not call a book empty when every listed card failed to load", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadBook(bookAContacts().slice(0, 1));
+    mockFetchCards.mockResolvedValue([]);
+    renderApp("/contacts");
+
+    const warning = await screen.findByRole("status", { name: "Liste incomplète" });
+    expect(warning.textContent).toContain("1 fiche n’a pas pu être affichée.");
+    expect(screen.queryByText("Ce carnet est vide")).toBeNull();
+  });
+
+  it("clears the warning on switching to a different book", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A, BOOK_B]);
+    loadBook(bookAContacts().slice(0, 1));
+    mockFetchCards.mockResolvedValue([]);
+    renderApp("/contacts");
+    await screen.findByRole("status", { name: "Liste incomplète" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Carnet d/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Pro" }));
+    await screen.findByText("Ce carnet est vide");
+    expect(screen.queryByRole("status", { name: "Liste incomplète" })).toBeNull();
+  });
+
+  it("shows no warning after a complete load", async () => {
+    await renderLoggedIn();
+    await screen.findByText("5 contacts");
+    expect(screen.queryByRole("status", { name: "Liste incomplète" })).toBeNull();
+  });
+});
 
 describe("sync", () => {
   /** The book loaded; a failed reload shows after the query's two retries. */

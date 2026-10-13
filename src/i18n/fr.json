@@ -270,5 +270,9 @@
   "edit_phones_1": "Modifier le téléphone",
   "edit_emails_1": "Modifier l’e\u2060-\u2060mail",
   "nickname_quoted": "«\u00a0{nickname}\u00a0»",
-  "unshown_lines": "Lignes de la carte"
+  "unshown_lines": "Lignes de la carte",
+  "book_incomplete": "Liste incomplète",
+  "book_skipped_1": "1 fiche n’a pas pu être affichée.",
+  "book_skipped_n": "{n} fiches n’ont pas pu être affichées.",
+  "book_incomplete_body": "La liste est incomplète. Réessayez ou vérifiez les fiches avec un autre client CardDAV."
 }

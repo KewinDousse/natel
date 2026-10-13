@@ -32,7 +32,7 @@ import type { Contact } from "@/model/contact";
 import { useSignOut } from "@/queries";
 import { buttonClass, FOCUS_RING } from "./button";
 import { GroupFilter } from "./group-filter";
-import { PlusIcon, RefreshIcon, UploadIcon } from "./icons";
+import { AlertIcon, PlusIcon, RefreshIcon, UploadIcon } from "./icons";
 import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
 
 /** Why the book shows no list: still loading, or a load that failed. */
@@ -46,6 +46,7 @@ type ContactListProps = {
   /** While `contacts` is undefined: loading, or why it failed. */
   load: ListLoad;
   onRetry: () => void;
+  onRetryCards?: () => void;
   /** Present once the book can take new contacts, for the empty book's actions. */
   onImport?: (file: File) => void;
   query: string;
@@ -56,6 +57,8 @@ type ContactListProps = {
   /** The group the list is filtered on, or null for every contact. */
   groupFilter: string | null;
   onGroupFilter: (name: string | null) => void;
+  skippedCount?: number;
+  retrying?: boolean;
 };
 
 export function ContactList({
@@ -63,6 +66,7 @@ export function ContactList({
   noBooks,
   load,
   onRetry,
+  onRetryCards,
   onImport,
   query,
   sortBy,
@@ -70,6 +74,8 @@ export function ContactList({
   groupCards,
   groupFilter,
   onGroupFilter,
+  skippedCount = 0,
+  retrying = false,
 }: ContactListProps) {
   const { t } = useI18n();
   const bookGroupList = useMemo(
@@ -97,17 +103,24 @@ export function ContactList({
   const shown = groups.reduce((total, group) => total + group.contacts.length, 0);
   const searching = query.trim().length > 0;
   useArrowNavigation(groups);
+  const warning = (
+    <IncompleteBookWarning
+      count={contacts === undefined ? 0 : skippedCount}
+      retrying={retrying}
+      onRetry={onRetryCards ?? onRetry}
+    />
+  );
 
   if (noBooks) {
     return (
-      <ListShell>
+      <ListShell warning={warning}>
         <StateBox title={t("no_books")} />
       </ListShell>
     );
   }
   if (contacts === undefined) {
     return (
-      <ListShell busy={load.kind === "loading"}>
+      <ListShell warning={warning} busy={load.kind === "loading"}>
         {load.kind === "loading" ? (
           <ListSkeleton />
         ) : load.expired ? (
@@ -140,12 +153,13 @@ export function ContactList({
         ? t("count_1")
         : t("count", { n: String(contacts.length) });
 
-  const showEmptyBook = !searching && contacts.length === 0;
+  const showIncompleteBook = contacts.length === 0 && skippedCount > 0;
+  const showEmptyBook = !searching && contacts.length === 0 && !showIncompleteBook;
   const showEmptyGroup = !searching && !showEmptyBook && listed.length === 0;
   const showNoResults = searching && shown === 0;
 
   return (
-    <ListShell>
+    <ListShell warning={warning}>
       {/* The sort is a setting too: on phones the toolbar keeps the count and the filter. */}
       <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-1 pt-3 text-sm">
         <p className="mr-auto text-muted-foreground" aria-live="polite">
@@ -177,7 +191,7 @@ export function ContactList({
         </fieldset>
       </div>
 
-      {showEmptyBook ? (
+      {showIncompleteBook ? null : showEmptyBook ? (
         <EmptyBook onImport={onImport} />
       ) : showEmptyGroup ? (
         <StateBox title={t("group_empty")} />
@@ -195,6 +209,59 @@ export function ContactList({
         </>
       )}
     </ListShell>
+  );
+}
+
+function IncompleteBookWarning({
+  count,
+  retrying,
+  onRetry,
+}: {
+  count: number;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  const { t } = useI18n();
+  const hadFocus = useRef(false);
+  useEffect(() => {
+    if (count === 0 && hadFocus.current) {
+      document.getElementById("list")?.focus();
+      hadFocus.current = false;
+    }
+  }, [count]);
+  return (
+    <div aria-live="polite" data-incomplete-book>
+      {count > 0 && (
+        <div
+          role="status"
+          aria-label={t("book_incomplete")}
+          className="mx-2 mt-3 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm"
+        >
+          <p className="tabular flex gap-2 font-bold">
+            <AlertIcon className="mt-0.5 size-4 text-warning" />
+            {t(count === 1 ? "book_skipped_1" : "book_skipped_n", { n: String(count) })}
+          </p>
+          <p className="mt-1 text-muted-foreground">{t("book_incomplete_body")}</p>
+          <button
+            type="button"
+            aria-disabled={retrying || undefined}
+            onFocus={() => {
+              hadFocus.current = true;
+            }}
+            onBlur={() => {
+              hadFocus.current = false;
+            }}
+            onClick={() => {
+              if (!retrying) onRetry();
+            }}
+            className={buttonClass({ variant: "outline", size: "sm" }, "mt-2")}
+          >
+            <RefreshIcon />
+            {t(retrying ? "syncing" : "retry")}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -247,7 +314,15 @@ function useArrowNavigation(groups: ContactGroup[]) {
   }, [groups, router]);
 }
 
-function ListShell({ children, busy = false }: { children: ReactNode; busy?: boolean }) {
+function ListShell({
+  children,
+  warning,
+  busy = false,
+}: {
+  children: ReactNode;
+  warning: ReactNode;
+  busy?: boolean;
+}) {
   const { t } = useI18n();
   // From lg the list scrolls itself; its right margin keeps the scrollbar
   // clear of the rail, which sits outside it.
@@ -256,8 +331,10 @@ function ListShell({ children, busy = false }: { children: ReactNode; busy?: boo
       id="list"
       aria-label={t("list_label")}
       aria-busy={busy || undefined}
+      tabIndex={-1}
       className="pb-24 pl-2 pr-7 lg:mr-8 lg:h-full lg:overflow-y-auto lg:pb-10 lg:pr-2"
     >
+      {warning}
       {children}
     </nav>
   );

@@ -270,5 +270,9 @@
   "edit_phones_1": "Edit phone number",
   "edit_emails_1": "Edit email address",
   "nickname_quoted": "“{nickname}”",
-  "unshown_lines": "Card lines"
+  "unshown_lines": "Card lines",
+  "book_incomplete": "Incomplete list",
+  "book_skipped_1": "1 card could not be displayed.",
+  "book_skipped_n": "{n} cards could not be displayed.",
+  "book_incomplete_body": "The list is incomplete. Retry or check the cards with another CardDAV client."
 }
