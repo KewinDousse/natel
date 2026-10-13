@@ -35,6 +35,51 @@ server. Do not assume that a network failure means a size rejection.
 Photo display also depends on the synced client; see
 [compatibility](compatibility.md#synced-clients).
 
+## Container logs
+
+Follow the container's logs with:
+
+```sh
+docker compose logs -f --tail=100 natel
+```
+
+Caddy writes JSON logs to standard output at the `INFO` level: startup,
+warnings and errors, plus access logs for `/dav/` requests. Access logs
+include the HTTP method, status and duration in seconds. Static file
+requests and the container's healthcheck do not produce access logs.
+
+A `401` means authentication was rejected; a `412` means a conditional
+write conflicted with the server's version. A `502` can indicate that the
+proxy cannot reach the CardDAV server or received an invalid response.
+Check `BAIKAL_URL`, connectivity from the container and the CardDAV
+server's own logs.
+A `207` is a normal WebDAV multi-status response; individual results
+inside its body may still report failures.
+
+Request URLs, headers, client addresses and TLS details, response headers
+and authenticated user IDs are omitted from access logs. Request and
+response bodies are not logged. Caddy's detailed HTTP error and reverse
+proxy messages are suppressed because they can quote private data from
+malformed responses; HTTP error statuses remain in access logs.
+Runtime diagnostics can contain configured server addresses; review logs
+before sharing them.
+
+The supplied `compose.yaml` uses Docker's `local` logging driver with three
+files of 10 MB each, rotated and compressed by Docker. Applying this setting
+to an existing container requires recreating it with `docker compose up -d`.
+If you use another deployment configuration, configure rotation there too.
+
+Browser errors, including vCard parsing warnings, stay in the browser's
+developer console. They do not appear in the container logs.
+
+### Interrupted responses
+
+If an upstream response is interrupted after its headers have been sent,
+the access log can retain a successful status, such as `200`, and report a
+zero duration. A successful status alone does not prove that the browser
+received the complete response; check the browser and the CardDAV server
+when diagnosing an interrupted transfer.
+
 ## Get help or report a bug
 
 Use [Discussions](https://github.com/KewinDousse/natel/discussions) for setup

@@ -27,7 +27,24 @@
   # behind a proxy on the same machine out of reach around it.
   default_bind {$NATEL_BIND}
   log {
-    level error
+    level INFO
+    output stdout
+    # Free-form HTTP errors can quote private upstream bytes; access logs keep their status.
+    exclude http.log.error http.handlers.reverse_proxy
+    format filter {
+      wrap json
+      fields {
+        request>uri delete
+        request>headers delete
+        request>host delete
+        request>remote_ip delete
+        request>remote_port delete
+        request>client_ip delete
+        request>tls delete
+        resp_headers delete
+        user_id delete
+      }
+    }
   }
 }
 
@@ -58,6 +75,11 @@
 }
 
 {$SITE_ADDRESS:http://} {
+  # Use the global logger's privacy filter for access logs.
+  log
+  @not_dav expression `!{http.request.uri}.startsWith("/dav/")`
+  log_skip @not_dav
+
   # ---------------------------------------------------------------
   # CardDAV proxy — forward /dav/* to the user's CardDAV server
   # ---------------------------------------------------------------

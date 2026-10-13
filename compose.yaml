@@ -6,3 +6,8 @@ services:
       BAIKAL_URL: https://dav.example.com
     ports:
       - "127.0.0.1:8080:8080"
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
