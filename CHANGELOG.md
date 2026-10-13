@@ -34,6 +34,33 @@ Notable changes to Natel. The format follows
   out lighter. A smaller photo is still kept as it is. A large photo no
   longer stops on the "too large to crop" error.
 
+### Fixed
+
+- Apple birthdays without a year display without the placeholder year.
+- Custom phone, email, address and website labels from Apple/DAVx⁵ are shown;
+  changing a label's type removes that custom label.
+- A saved vCard ends with CRLF, and an existing `REV` advances on save.
+- Rotated photo uploads have their orientation applied for synced clients.
+
+### Security
+
+- Authenticated DAV requests and redirects stay under the configured proxy;
+  resource paths preserve their escaped segments.
+- Updates and deletions require a single strong ETag, refusing weak tags,
+  wildcard tags and multiple tags.
+- Photo uploads strip hidden metadata from simple WebP files and JPEG HDR
+  gain maps. Existing photos are preserved when another field is edited.
+- The proxy only forwards the DAV methods the app uses, drops cookies and
+  upstream browser authentication challenges, and isolates upstream error pages.
+- The app uses Trusted Types and encodes contact action links so contact data
+  cannot add URL parameters.
+- Docker build dependencies and Caddy/Alpine dependencies are updated.
+  Caddy's official image still has compiled dependency findings under review;
+  these updates do not establish that every finding is exploitable or resolved.
+- Direct deployments have explicit HTTP read deadlines and require Caddy
+  2.11.7 or later. A stalled HTTP/1.1 keep-alive upload can still outlive the
+  body idle deadline; see [bare-metal deployment](docs/bare-metal.md#http11-stalled-uploads-with-keep-alive).
+
 ## [0.2.0] - 2026-10-01
 
 ### Added
@@ -46,7 +73,7 @@ Notable changes to Natel. The format follows
 - Groups: a contact's groups are read from group cards (Apple, DAVx⁵) and
   `CATEGORIES`, and can be added and removed on an existing contact; Natel
   writes them as group cards, which Nextcloud's web app and DAVx⁵ in
-  categories mode don't show (see Compatibility in the README).
+  categories mode don't show (see [group compatibility](docs/compatibility.md#groups)).
 - Move a contact to another address book.
 - Export the selected address book as a `.vcf` file, and import one into it,
   skipping cards already there.

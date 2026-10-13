@@ -7,7 +7,7 @@ Format: context → decision → consequences.
 
 **Context.** InfCloud bundles CalDAV and CardDAV. The author doesn't use the
 calendar, and calendar UIs are an order of magnitude more work.
-**Decision.** No calendar, ever. It's in the README non-goals and AGENTS.md invariants.
+**Decision.** No calendar, ever. It's in the README scope and AGENTS.md invariants.
 **Consequences.** Smaller scope, clearer positioning, a smaller audience by design.
 
 ## 002 — Static SPA + Caddy, no backend
@@ -611,8 +611,7 @@ read both and write one.
 phones in their default setup. Nextcloud's web app and DAVx⁵ in categories
 mode don't show them, though groups those clients made still show in Natel
 and can be left from it. That can decide whether Natel suits someone, so the
-README says it where people choose, in a "Compatibility" section next to the
-quick start, when groups ship. Saving a contact can write several cards, so a
+README links to the [group compatibility guide](compatibility.md#groups). Saving a contact can write several cards, so a
 save can partly fail; the bottom bar then says what was not saved and how
 to finish it. Loading a book now sorts group cards from contacts.
 

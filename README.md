@@ -5,240 +5,107 @@
   </picture>
 </h1>
 
-A modern, lightweight web UI to browse and edit your contacts on a CardDAV server.
-Built for [Baïkal](https://sabre.io/baikal/), works with any RFC 6352 server.
+A lightweight web app to browse and edit the contacts on your CardDAV server.
+Built for Baïkal, tested against Baïkal, Radicale and Xandikos.
 
-> **Status:** alpha. Browsing, creating, editing and deleting contacts
-> work. See [ROADMAP.md](ROADMAP.md).
+**You need an existing CardDAV server and account.** Natel edits the same
+contacts your phone and desktop clients use; it does not host a new address book.
 
-**[Try the demo](https://kewindousse.github.io/natel/)**: made-up contacts,
-in your browser only. Any username and password work, and nothing is saved.
+> **Status:** alpha. The app supports contact editing, photos, groups and
+> import/export. See the [roadmap](ROADMAP.md) for remaining validation and
+> the [changelog](CHANGELOG.md) for released and unreleased changes.
+
+A [hosted demo](https://kewindousse.github.io/natel/) is planned for the public
+launch. Until it is published, [run the demo locally](CONTRIBUTING.md#setup).
+It uses made-up contacts; edits stay in the tab and reset on reload.
 
 <p>
   <img alt="The contact list and a contact's page, on a desktop screen." src="docs/screenshots/desktop.png" width="74%">
   <img alt="A contact's page on a phone." src="docs/screenshots/mobile.png" width="23%">
 </p>
 
+## What you can do
+
+- Search contacts, browse several address books, and move a contact between them.
+- Create, edit and delete contacts; add photos and crop them.
+- Filter by group and edit group membership (see [compatibility](docs/compatibility.md)).
+- Import and export `.vcf` files.
+- Use the app on a phone or desktop, in English or French, with light/dark mode
+  and keyboard shortcuts. Install it as an app; an internet connection is required.
+
 ## Why
 
-Self-hosting contacts with Baïkal is easy. Editing them from a browser is not:
-the only dedicated open-source web client, InfCloud, had its last release in 2015,
-is painful to deploy, and looks like it. Every other option is a full groupware
-suite (Nextcloud, SOGo, Kurrier) or a native client.
+A CardDAV server keeps your contacts in sync across devices, but it may have
+no contact editor in the browser. Natel provides that interface without
+requiring a groupware suite: contacts only, one container, one server URL.
 
-Natel fills that gap: one container, one URL to configure, a UI that
-feels like it was made this decade. Contacts only.
+## How it handles your data
 
-## Principles
-
-1. **Never lose data.** Any vCard property the UI doesn't understand is preserved
-   byte-for-byte on save. Concurrent edits (e.g. from your phone) are detected via
-   ETags and never silently overwritten.
-2. **Tiny footprint.** A static SPA served by Caddy, which also proxies CardDAV
-   requests to your server. No Node runtime, no database, no state. Target: under
-   20 MB RAM at rest.
-3. **Baïkal-first, not Baïkal-only.** Baïkal is the documented target. CI runs
-   the end-to-end tests against Baïkal, Radicale and Xandikos; Nextcloud is
-   expected to work but isn't tested.
-4. **Zero-knowledge proxy.** Your credentials go from the browser to your CardDAV
-   server through the proxy, unchanged. The proxy stores nothing.
+- **Preserve unedited data.** Properties, parameters and groups the editor
+  does not change are kept. vCard serialisation can normalise formatting;
+  the file is not guaranteed to stay byte-identical. Round-trip tests cover
+  preservation, and concurrent changes are detected through ETags.
+- **Small runtime.** Static files served by Caddy, which also proxies CardDAV.
+  No Node runtime or database. The runtime measured about 12 MB RAM at rest
+  on amd64 in September 2026; see [architecture](docs/ARCHITECTURE.md#build).
+- **Credentials in memory.** Natel holds your password in the browser for
+  the session and sends it through its proxy to the configured CardDAV server.
+  It does not save credentials; display preferences are saved on this browser.
 
 ## Quick start
 
+These instructions build the **current source** locally. The image changes
+in [Unreleased](CHANGELOG.md#unreleased), including container port 8080, are
+not in `0.2.0`. A public image containing them is still to be released.
+
+From the root of your checkout, edit [compose.yaml](compose.yaml), replacing
+`BAIKAL_URL` with your server's origin (`scheme://host[:port]`, without a path).
+
 ```yaml
-# docker-compose.yml
 services:
-  contacts:
-    image: ghcr.io/kewindousse/natel:latest
+  natel:
+    build: .
+    image: ${NATEL_IMAGE:-natel:local}
     environment:
-      BAIKAL_URL: https://dav.example.com           # your CardDAV server origin
+      BAIKAL_URL: https://dav.example.com
     ports:
-      - "127.0.0.1:8080:8080"                       # this machine only
+      - "127.0.0.1:8080:8080"
 ```
 
-Open `http://localhost:8080`, log in with your CardDAV credentials.
-
-Your browser sends those credentials with every request, so anywhere but on
-your own machine, serve Natel over HTTPS: behind a reverse proxy (below), or
-let its Caddy get a certificate itself. That's why the port above is
-published on `127.0.0.1` only: `"8080:8080"` would open it, in plain HTTP,
-to every network the machine is on, and a firewall such as ufw or firewalld
-wouldn't close it, since Docker's own rules let it through.
-
-## Compatibility
-
-Natel reads and writes plain vCards, so any CardDAV client sees the same
-contacts. Groups are the exception, because clients store them in two ways:
-
-- **Groups made in Natel** are separate group cards, the form Apple
-  Contacts, iCloud and DAVx⁵ (in its default setup) use. They show on
-  iPhones, Macs and those Android phones.
-- **Nextcloud's web app, and DAVx⁵ set to "groups are per-contact
-  categories"**, store groups as `CATEGORIES` on each contact instead, and
-  don't show groups made in Natel. Their groups do show in Natel, and a
-  contact can be taken out of them there.
-
-## Configuration
-
-| Variable | Default | |
-|---|---|---|
-| `BAIKAL_URL` | (required) | Origin of your CardDAV server, `scheme://host[:port]`, no path. Reached from inside the container: `http://baikal` works when Baïkal is a service of the same Compose file. |
-| `SITE_ADDRESS` | `http://` (port 8080) | What Caddy serves. Set it to your domain (`contacts.example.com`), publish the host's ports 80 and 443 to the container's 8080 and 8443 (`"80:8080"`, `"443:8443"`) and keep `/data` in a volume, and Caddy fetches and renews the certificate itself. |
-| `NATEL_TRUSTED_PROXIES` | (none) | The reverse proxies in front of Natel, as addresses or ranges separated by spaces (`172.16.0.0/12`), or `private_ranges` if nothing on those networks reaches Natel directly. The CardDAV server then sees each client's own address instead of the proxy's (see below). Only list your proxies: an address listed here can claim to be any client. |
-| `NATEL_ADMIN` | `127.0.0.1:2019` | Caddy's admin API, which reconfigures it without authentication and which the image's healthcheck reads. Set it to `"off"` when the container shares its network namespace (see below): only `"off"` turns it off; an empty value keeps it on at `localhost:2019`. |
-
-The container runs as an unprivileged user, UID 10001. A new named volume on
-`/data` needs nothing; a host directory mounted there, or a volume created by
-an earlier version, must belong to that user (`chown -R 10001:10001`).
-
-### Password guessing
-
-Natel adds no protection against password guessing: every sign-in attempt
-goes to the CardDAV server, which accepts or refuses it. Use strong
-passwords. For the server, or a fail2ban reading its logs, to block an
-attacker, it needs the client's address. Behind a reverse proxy, set
-`NATEL_TRUSTED_PROXIES`; then have the web server in front of Baïkal read
-`X-Forwarded-For` from Natel, with nginx for example:
-
-```nginx
-set_real_ip_from 172.20.0.5;   # Natel
-set_real_ip_from 172.20.0.2;   # the reverse proxy in front of Natel
-real_ip_header X-Forwarded-For;
-real_ip_recursive on;
+```sh
+docker compose up -d --build
 ```
 
-List those two exact addresses (pin them in your Compose file, or give the
-network a subnet only they share), never a whole range: any address
-`set_real_ip_from` covers can claim to be any client, and so dodge a ban or
-get someone else banned. With Apache, `RemoteIPHeader X-Forwarded-For` and one
-`RemoteIPInternalProxy` line per address do the same.
+On the machine running Docker, open `http://localhost:8080` and sign in with
+your CardDAV account. This example is local only: the port is bound to
+`127.0.0.1`. For access from another machine, use HTTPS and the
+[deployment guide](docs/deployment.md), which includes Traefik, SWAG and
+Nginx Proxy Manager examples. Natel can also [run without Docker](docs/bare-metal.md).
 
-### Finding your address books
+For a published image, follow the [version-specific installation notes](docs/deployment.md#published-images).
+Use an explicit tag for a repeatable installation and read the release notes
+before upgrading: the default ports and volume ownership can change.
 
-Natel looks for the server's address books under `/.well-known/carddav`, then
-at the root of `BAIKAL_URL`, then under `/dav.php/`. Baïkal at the root of its
-domain is found without any setup. Baïkal under a path
-(`https://example.com/baikal/html/`, with `BAIKAL_URL=https://example.com`)
-needs the `.well-known` redirect on that origin, for example with nginx:
+## Documentation and help
 
-```nginx
-location = /.well-known/carddav {
-    return 301 /baikal/html/dav.php;
-}
-```
+- [User guide](docs/user-guide.md): contacts, photos, groups, conflicts and sign-out.
+- [Compatibility](docs/compatibility.md): tested servers and clients, group formats,
+  browsers and known limits.
+- [Deployment](docs/deployment.md) and [updates](docs/updating.md).
+- [Troubleshooting](docs/troubleshooting.md): sign-in, discovery, photos and support.
+- [Discussions](https://github.com/KewinDousse/natel/discussions) for setup questions;
+  [issues](https://github.com/KewinDousse/natel/issues/new/choose) for bugs and feature requests.
+- [Security](SECURITY.md): report vulnerabilities privately.
 
-### Behind a reverse proxy
+## Scope
 
-Natel listens on port 8080 in the container; the proxy terminates HTTPS and
-forwards everything, `Authorization` header included.
-
-**Traefik**, with Docker labels. `websecure` and `letsencrypt` stand for the
-entrypoint and certificate resolver of your Traefik configuration, and the
-container must share a network with Traefik:
-
-```yaml
-services:
-  natel:
-    image: ghcr.io/kewindousse/natel:latest
-    environment:
-      BAIKAL_URL: https://dav.example.com
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.natel.rule=Host(`contacts.example.com`)
-      - traefik.http.routers.natel.entrypoints=websecure
-      - traefik.http.routers.natel.tls.certresolver=letsencrypt
-      - traefik.http.services.natel.loadbalancer.server.port=8080
-```
-
-**SWAG**, in `/config/nginx/proxy-confs/natel.subdomain.conf`, with the
-container named `natel` on SWAG's network and `contacts` in SWAG's
-`SUBDOMAINS` (or a wildcard certificate):
-
-```nginx
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name contacts.*;
-    include /config/nginx/ssl.conf;
-    client_max_body_size 0;
-
-    location / {
-        include /config/nginx/proxy.conf;
-        include /config/nginx/resolver.conf;
-        set $upstream_app natel;
-        set $upstream_port 8080;
-        set $upstream_proto http;
-        proxy_pass $upstream_proto://$upstream_app:$upstream_port;
-    }
-}
-```
-
-**Nginx Proxy Manager**: add a proxy host for your domain with scheme `http`,
-forward hostname `natel` (the container, on the same Docker network) and port
-`8080`. In the SSL tab, request a certificate and turn on "Force SSL".
-
-### Host network, sidecars and pods
-
-The admin API listens on the container's own `127.0.0.1`. With
-`network_mode: host`, `network_mode: service:…` or `container:…` (a VPN or
-Tailscale sidecar, say), or in a Kubernetes pod, that address is shared:
-any user or process on the host, or any container sharing the namespace
-(the sidecar, the pod's other containers), could reconfigure Caddy, for
-example point `/dav` at a server of theirs and collect passwords. A port
-2019 already in use, by another Caddy for instance, also keeps Natel from
-starting.
-
-In those setups, turn the API off, and the healthcheck with it, since it
-reads the API and would then fail:
-
-```yaml
-services:
-  natel:
-    image: ghcr.io/kewindousse/natel:latest
-    network_mode: host
-    environment:
-      BAIKAL_URL: https://dav.example.com
-      NATEL_ADMIN: "off"
-    healthcheck:
-      disable: true
-```
-
-On the host's network, Natel also listens in plain HTTP on port 8080 of
-every interface, and no `ports:` mapping can keep it to `127.0.0.1`. With a
-reverse proxy on the same machine, set `NATEL_BIND: 127.0.0.1` (see
-[docs/bare-metal.md](docs/bare-metal.md)); otherwise, open 8080 in the
-host's firewall to your proxy alone, which works here, unlike for a
-published port.
-
-Kubernetes doesn't run the image's healthcheck: `NATEL_ADMIN` alone is
-enough there. A Docker network shared with a reverse proxy, as in the
-Traefik example above, needs none of this.
-
-### Without Docker
-
-Natel is static files and a Caddyfile, so it runs on any machine with Caddy.
-[docs/bare-metal.md](docs/bare-metal.md) covers the build, the settings, and
-the defaults to change for it to stay safe.
-
-## Non-goals
-
-- Calendars, tasks, mail. This is a contacts app.
-- A backend. If a feature needs server-side state, it doesn't belong here.
-- Replacing your CardDAV server. This is a client.
-- Full vCard 4.0 coverage. A useful subset is edited in the UI; everything else
-  is preserved, not edited.
+Natel is a contacts client. Calendars, tasks, mail and a server-side database
+are outside its scope. The UI edits a subset of vCard fields and preserves
+others. Offline use, duplicate merging and delegated authentication are not
+implemented.
 
 ## Development
 
-See [AGENTS.md](AGENTS.md) for the working conventions (they apply to humans too)
-and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the pieces fit together.
-
-```sh
-pnpm install
-pnpm dev        # SPA on :5173, expects a CardDAV server at VITE_DAV_URL
-pnpm check      # typecheck + lint + tests — must be green before any PR
-```
-
-[CONTRIBUTING.md](CONTRIBUTING.md) covers the end-to-end tests and pull
-requests, [SECURITY.md](SECURITY.md) how to report a vulnerability, and
-[CHANGELOG.md](CHANGELOG.md) what changed between releases.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers setup, checks and pull requests.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the app fits together.
+Natel is available under the [MIT license](LICENSE).

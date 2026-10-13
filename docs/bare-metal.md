@@ -12,13 +12,18 @@ You need Node 24 with pnpm (`corepack enable`). Build from a release tag:
 ```sh
 git clone https://github.com/KewinDousse/natel.git
 cd natel
-git checkout v0.3.0        # or later: older Caddyfiles lack these settings
+git checkout vX.Y.Z       # replace with the chosen published release tag
 pnpm install --frozen-lockfile
 pnpm build                 # writes dist/
 ```
 
 `pnpm dev` and `pnpm preview` are development servers. Don't serve Natel
 with them.
+
+The settings below describe the current source. Its deployment hardening
+is still in [Unreleased](../CHANGELOG.md#unreleased), not in `0.2.0`. Use a
+release containing these settings once it is published; do not apply this
+Caddyfile to an older release without checking its requirements.
 
 ## Caddy
 
@@ -92,14 +97,14 @@ Environment=NATEL_HTTP_PORT=8080
 then `sudo systemctl restart caddy`. That example serves Natel on
 `127.0.0.1:8080`, for a reverse proxy on the same machine.
 
-| Variable | Default | |
-|---|---|---|
-| `BAIKAL_URL` | (required) | Origin of your CardDAV server. Use `https://` unless the server runs on the same machine: Natel sends your password to it with every request. Caddy starts without it, but `/dav` then answers 503 and the sign-in reports that the server can't be reached. |
-| `SITE_ADDRESS` | `http://` | What Caddy serves. Exposed directly, your domain (`contacts.example.com`): Caddy gets and renews the certificate itself, on ports 80 and 443. |
-| `NATEL_BIND` | (all interfaces) | The interface Caddy listens on. Behind a reverse proxy on the same machine, `127.0.0.1`, so Natel can't be reached around the proxy in plain HTTP. A host in `SITE_ADDRESS` doesn't do that: Caddy still listens everywhere and only matches the `Host` header, which the client chooses. |
-| `NATEL_ROOT` | `/usr/share/caddy` | The folder holding the contents of `dist/`, and nothing else. |
-| `NATEL_ADMIN` | (off) | Caddy's admin API, which reconfigures Caddy without authentication for anyone on the machine. Leave it unset, or set it to `off`: an empty value (`Environment=NATEL_ADMIN=`) turns it on at `localhost:2019`. It is what `caddy reload` talks to, so `systemctl reload caddy` fails: use `systemctl restart caddy`. |
-| `NATEL_HTTP_PORT`, `NATEL_HTTPS_PORT` | 80, 443 | The ports Caddy uses for HTTP and HTTPS when `SITE_ADDRESS` names none. |
+| Variable                              | Default            |                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BAIKAL_URL`                          | (required)         | Origin of your CardDAV server. Use `https://` unless the server runs on the same machine: Natel sends your password to it with every request. Caddy starts without it, but `/dav` then answers 503 and the sign-in reports that the server can't be reached.                                                         |
+| `SITE_ADDRESS`                        | `http://`          | What Caddy serves. Exposed directly, your domain (`contacts.example.com`): Caddy gets and renews the certificate itself, on ports 80 and 443.                                                                                                                                                                        |
+| `NATEL_BIND`                          | (all interfaces)   | The interface Caddy listens on. Behind a reverse proxy on the same machine, `127.0.0.1`, so Natel can't be reached around the proxy in plain HTTP. A host in `SITE_ADDRESS` doesn't do that: Caddy still listens everywhere and only matches the `Host` header, which the client chooses.                            |
+| `NATEL_ROOT`                          | `/usr/share/caddy` | The folder holding the contents of `dist/`, and nothing else.                                                                                                                                                                                                                                                        |
+| `NATEL_ADMIN`                         | (off)              | Caddy's admin API, which reconfigures Caddy without authentication for anyone on the machine. Leave it unset, or set it to `off`: an empty value (`Environment=NATEL_ADMIN=`) turns it on at `localhost:2019`. It is what `caddy reload` talks to, so `systemctl reload caddy` fails: use `systemctl restart caddy`. |
+| `NATEL_HTTP_PORT`, `NATEL_HTTPS_PORT` | 80, 443            | The ports Caddy uses for HTTP and HTTPS when `SITE_ADDRESS` names none.                                                                                                                                                                                                                                              |
 
 ## Update
 

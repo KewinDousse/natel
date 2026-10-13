@@ -64,17 +64,17 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] i18n en + fr
 - [x] Docker image published on tag, compose example in README
       — CI publishes the image it tested to `ghcr.io/kewindousse/natel` on
-        a `vX.Y.Z` tag; `v0.1.0` is the first.
+      a `vX.Y.Z` tag; `v0.1.0` is the first.
 - [x] Tag `v0.1.0`
 
 ## Phase 3 — v0.2, usable by others ✅ when: someone who isn't the author runs it daily
 
 - [x] Photos: upload, crop, encoding compatible with Android and Apple clients
-      — The check on real Apple and Android devices is still to come.
+      — Android/DAVx⁵ and iCloud-export checks are documented. Native iPhone
+      and Mac photo checks remain to be completed.
 - [x] Multiple address books, move contact between books
 - [x] Groups: read both `CATEGORIES` and `KIND:group`; write one (decide in DECISIONS.md)
-      — Written as group cards (ADR 022); the group filter in the list is to
-        come.
+      — Written as group cards (ADR 022); the list also filters by group.
 - [x] Import / export `.vcf`
 - [x] PWA (installable, no offline yet)
 - [x] Dark mode, keyboard shortcuts
@@ -82,13 +82,15 @@ its checklist is ticked. Later phases are intentions, not commitments.
       — Nextcloud is left out, too slow to set up per job (ADR 018).
 - [x] Playwright e2e against Radicale in Docker
       — Radicale runs from pip rather than Docker (ADR 017); Baïkal runs from
-        Docker in CI (ADR 018).
+      Docker in CI (ADR 018).
 - [x] `v0.2.0`
 
 ## Phase 4 — Community (if it takes off)
 
-- Public demo instance (read-only Radicale, reset nightly)
-- CONTRIBUTING, issue templates, public roadmap
+- [x] Static demo build with made-up contacts in memory (ADR 025)
+- [ ] Publish the demo on GitHub Pages
+- [x] CONTRIBUTING, security policy, issue templates, public roadmap
+- [ ] Validate an installation and daily use by someone other than the author
 - Announce: r/selfhosted, Baïkal issue tracker, awesome-selfhosted, Show HN
 - Incremental sync via `sync-token`, IndexedDB cache, offline mode
 - Duplicate detection and merge
