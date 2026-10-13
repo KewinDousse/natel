@@ -72,7 +72,6 @@ function mockClient(overrides: Partial<MockClient> = {}): MockClient {
 
 const AUTH = {
   username: "alice",
-  password: "secret",
 };
 
 function davResp(overrides: Partial<DAVResponse>): DAVResponse {
@@ -104,10 +103,21 @@ describe("createDavSession", () => {
 
     expect(mockCreateDAVClient).toHaveBeenCalledWith({
       serverUrl: "http://localhost:3000/dav/",
-      credentials: { username: "alice", password: "secret" },
-      authMethod: "Basic",
+      credentials: {},
+      authMethod: "Custom",
+      authFunction: expect.any(Function),
       fetchOptions: { mode: "same-origin" },
     });
+  });
+
+  // The session cookie authenticates each request at the proxy (ADR 032).
+  it("adds no Authorization header of its own", async () => {
+    mockCreateDAVClient.mockResolvedValue(mockClient());
+
+    await createDavSession(AUTH);
+
+    const { authFunction } = mockCreateDAVClient.mock.calls[0]?.[0] ?? {};
+    expect(await authFunction({})).toEqual({});
   });
 });
 
@@ -281,7 +291,7 @@ describe("session cache", () => {
     expect(s2).toBeDefined();
   });
 
-  it("evicts on creation rejection so a corrected password gets a fresh session", async () => {
+  it("evicts on creation rejection so the next call retries", async () => {
     mockCreateDAVClient.mockReset();
     mockCreateDAVClient.mockRejectedValueOnce(new Error("Connection refused"));
     await expect(createDavSession(AUTH)).rejects.toThrow();
@@ -315,38 +325,6 @@ describe("session cache", () => {
     // createDAVClient was called again because the AUTH eviction cleared the cache.
     expect(mockCreateDAVClient).toHaveBeenCalledTimes(2);
     expect(session2).toBeDefined();
-  });
-
-  it("checks another password against the server rather than reusing the open session", async () => {
-    await createDavSession(AUTH);
-
-    const rejecting = mockClient();
-    rejecting.propfind.mockRejectedValue(new Error("Invalid credentials: PROPFIND returned 401"));
-    mockCreateDAVClient.mockResolvedValueOnce(rejecting);
-
-    await expect(createDavSession({ ...AUTH, password: "wrong" })).rejects.toMatchObject({
-      code: "AUTH",
-    });
-    expect(mockCreateDAVClient).toHaveBeenLastCalledWith(
-      expect.objectContaining({ credentials: { username: "alice", password: "wrong" } }),
-    );
-  });
-
-  it("leaves a newer session in place when an older one for the same user fails", async () => {
-    let failWrong: (err: Error) => void = () => {};
-    mockCreateDAVClient.mockReturnValueOnce(
-      new Promise((_resolve, reject) => {
-        failWrong = reject;
-      }),
-    );
-    const wrong = createDavSession({ ...AUTH, password: "wrong" });
-    const right = await createDavSession(AUTH);
-
-    failWrong(new Error("Invalid credentials: PROPFIND returned 401"));
-    await expect(wrong).rejects.toThrow();
-
-    expect(await createDavSession(AUTH)).toBe(right);
-    expect(mockCreateDAVClient).toHaveBeenCalledTimes(2);
   });
 
   it("leaves the session opened after a logout when one from before it fails", async () => {

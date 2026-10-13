@@ -3,7 +3,7 @@
  *
  * Renders the real router (routeTree + memory history) so the beforeLoad
  * guards are exercised too. `@/dav` is mocked (real DavError kept) so the
- * credential check never hits the network.
+ * session and the credential check never hit the network.
  */
 
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,22 +12,30 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DavError } from "@/dav";
-import type { DavAddressBook, DavAuth } from "@/dav/types";
+import type { DavAddressBook, DavAuth, DavCredentials } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
 import { useSessionStore } from "@/store/session";
 
-const { mockDiscoverAddressBooks } = vi.hoisted(() => ({
+const { mockDiscoverAddressBooks, mockOpenSession, mockCloseSession } = vi.hoisted(() => ({
   mockDiscoverAddressBooks: vi.fn<(auth: DavAuth) => Promise<DavAddressBook[]>>(),
+  mockOpenSession: vi.fn<(credentials: DavCredentials) => Promise<DavAuth>>(),
+  mockCloseSession: vi.fn<() => Promise<boolean>>(),
 }));
 
 vi.mock("@/dav", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/dav")>();
-  return { ...actual, discoverAddressBooks: mockDiscoverAddressBooks };
+  return {
+    ...actual,
+    discoverAddressBooks: mockDiscoverAddressBooks,
+    openSession: mockOpenSession,
+    closeSession: mockCloseSession,
+  };
 });
 
-const AUTH = { username: "alice", password: "secret" };
+const CREDENTIALS = { username: "alice", password: "secret" };
+const AUTH = { username: "alice" };
 
 function setLanguage(lang: string) {
   Object.defineProperty(window.navigator, "language", {
@@ -56,7 +64,7 @@ function renderApp(path: string) {
 }
 
 /** Fill both fields and submit the (French) form. */
-async function submitLogin(overrides: Partial<typeof AUTH> = {}) {
+async function submitLogin(overrides: Partial<typeof CREDENTIALS> = {}) {
   const user = userEvent.setup();
   const { username = "alice", password = "secret" } = overrides;
   await user.type(screen.getByLabelText("Nom d’utilisateur"), username);
@@ -70,6 +78,8 @@ beforeEach(() => {
   localStorage.clear();
   useSessionStore.setState({ auth: null, selectedBook: null });
   vi.clearAllMocks();
+  mockOpenSession.mockImplementation(async ({ username }) => ({ username }));
+  mockCloseSession.mockResolvedValue(true);
 });
 
 // ---------------------------------------------------------------------------
@@ -178,8 +188,8 @@ describe("validation", () => {
 // ---------------------------------------------------------------------------
 
 describe("submit", () => {
-  it("shows the connection error box when discovery fails", async () => {
-    mockDiscoverAddressBooks.mockRejectedValue(new DavError("boom", "NETWORK"));
+  it("shows the connection error box when the server can't be reached", async () => {
+    mockOpenSession.mockRejectedValue(new DavError("boom", "NETWORK"));
     renderApp("/login");
     await screen.findByRole("heading", { name: "Ouvrir le carnet" });
 
@@ -188,10 +198,11 @@ describe("submit", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Impossible de joindre le serveur de contacts.");
     expect(alert.textContent).not.toContain("CORS");
+    expect(mockDiscoverAddressBooks).not.toHaveBeenCalled();
   });
 
   it("shows an invalid-credentials message on auth failure", async () => {
-    mockDiscoverAddressBooks.mockRejectedValue(new DavError("bad credentials", "AUTH"));
+    mockOpenSession.mockRejectedValue(new DavError("bad credentials", "AUTH"));
     renderApp("/login");
     await screen.findByRole("heading", { name: "Ouvrir le carnet" });
 
@@ -201,7 +212,20 @@ describe("submit", () => {
     expect(alert.textContent).toContain("Nom d’utilisateur ou mot de passe incorrect.");
   });
 
-  it("stores credentials and navigates to /contacts on success", async () => {
+  // A reload would otherwise restore a session the sign-in reported as failed.
+  it("ends the session when discovery fails after it opened", async () => {
+    mockDiscoverAddressBooks.mockRejectedValue(new DavError("boom", "NETWORK"));
+    renderApp("/login");
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
+
+    await submitLogin();
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(mockCloseSession).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().auth).toBeNull();
+  });
+
+  it("stores the user and navigates to /contacts on success", async () => {
     mockDiscoverAddressBooks.mockResolvedValue([]);
     const router = renderApp("/login");
     await screen.findByRole("heading", { name: "Ouvrir le carnet" });
@@ -214,6 +238,7 @@ describe("submit", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/contacts");
     });
+    expect(mockOpenSession).toHaveBeenCalledWith(CREDENTIALS);
     expect(mockDiscoverAddressBooks).toHaveBeenCalledWith(AUTH);
     expect(localStorage.length).toBe(0);
   });
@@ -232,8 +257,8 @@ describe("submit", () => {
     expect(Object.keys(localStorage)).toEqual(["natel.preferences"]);
     expect(JSON.parse(localStorage.getItem("natel.preferences") ?? "")).toEqual({ locale: "fr" });
     for (const value of Object.values(localStorage)) {
-      expect(value).not.toContain(AUTH.username);
-      expect(value).not.toContain(AUTH.password);
+      expect(value).not.toContain(CREDENTIALS.username);
+      expect(value).not.toContain(CREDENTIALS.password);
     }
   });
 

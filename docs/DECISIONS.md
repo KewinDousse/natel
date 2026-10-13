@@ -1138,3 +1138,147 @@ reuse of connections after completed uploads. HTTP/3 is disabled because
 Caddy 2.11.7 does not enforce its native total read timeout on that
 protocol when the idle reader is disabled. HTTPS and HTTP/2 remain
 available; QUIC to this Caddy instance is unavailable.
+
+## 032 — Server-side sessions in a session process next to Caddy
+
+**Context.** A reload signs the user out (ADR 007), so every time the app
+is opened, in a tab, after a browser restart, or as an installed app the
+system reloaded, the user signs in again. That is the main friction left in
+daily use. Every way to keep the session after a reload has a cost:
+
+- The browser's password manager fills the form, but the user still signs
+  in each time.
+- The Credential Management API signs in silently, but only in Chromium,
+  over HTTPS.
+- `sessionStorage` works everywhere, but any script running on the origin
+  can read the password.
+- A session cookie keeps the password out of page scripts, but needs state
+  on the server, and Caddy has none (ADR 002).
+
+Staying signed in has a large impact on the experience, so Natel accepts
+running its own server process for it. That process does one thing, holds
+sessions, and stays as small as it can while being secure. This amends
+ADR 002 and ADR 007, and invariants 2 and 3 in `AGENTS.md`.
+
+**Decision.** A Go binary, `natel-session` (`session/`, standard library
+only), ships in the image next to Caddy. The image stays `caddy:2-alpine`
+with its official Caddy binary (ADR 031); the session binary is added
+like `dist/` and the `Caddyfile`. One container, two processes.
+
+*Sessions.* `natel-session` listens on `NATEL_SESSION_ADDR`
+(`127.0.0.1:2020`), on the loopback only. Caddy reaches it with
+`reverse_proxy` for `/session` and `forward_auth` for `/dav/*`; `/auth` and
+`/healthz` are not reachable from outside.
+
+- `POST /session` takes the username and password as JSON and checks them
+  with a `PROPFIND` (`Depth: 0`) on the context roots the app's discovery
+  tries, following redirects within the server's URL space as the proxy
+  maps them. A 207 accepts the credentials; a 401 or 403 rejects them with
+  a 401; no answer gives a 502. The check carries the client's
+  `X-Forwarded-For`, so the server, or a fail2ban, still sees who signs in.
+  The whole check has 30 seconds. On success it stores `Authorization`
+  under the SHA-256 of a random 32-byte token and sets
+  `natel_session=<token>; HttpOnly; SameSite=Strict; Path=/;
+  Max-Age=604800`. When Caddy saw HTTPS, or else the page's `Origin` is
+  HTTPS, the cookie is `Secure` and named `__Host-natel_session`, which a
+  sibling subdomain can't set. Behind a reverse proxy that terminates TLS,
+  only `NATEL_TRUSTED_PROXIES` lets Caddy see HTTPS: without it, a client
+  claiming an `http` origin gets a plain cookie it could slip into another
+  browser from a sibling subdomain. A token opens its session only under
+  the name it was issued under, and two cookies of the same name open
+  nothing.
+- A sign-in or sign-out must come from Natel's own page: `Sec-Fetch-Site:
+  same-origin`, which a browser sets whatever `Host` a reverse proxy passes
+  on, or, from a browser without it, an `Origin` naming the host Natel is
+  reached at. The app's requests use their own `same-origin` referrer
+  policy, since under the page's `no-referrer` Firefox and Safari send
+  `Origin: null`. A body that isn't JSON within 4 KB is refused.
+- `GET /session` returns the signed-in username, or 401. The app reads it
+  before its first route, so a reload stays signed in.
+- `DELETE /session` removes the session and expires the cookie.
+- On `/dav/*`, after the 405 for the methods the app never sends, Caddy
+  asks `/auth`, with a secret `natel-session` puts in Caddy's environment
+  (`NATEL_SESSION_SECRET`). Apart from Caddy's admin API, which can read the
+  secret but can already reconfigure Caddy, nothing else on the loopback
+  can trade a session cookie for the password. A `caddy reload` from
+  outside `natel-session` drops the secret: `/auth` then refuses Caddy, logs
+  it, and every `/dav` request fails until a restart. A live session
+  answers with its `Authorization`, which Caddy copies onto the request
+  (`copy_headers`), replacing any the client sent. Otherwise Caddy returns
+  the 401. Caddy removes `Cookie` before the CardDAV server and still drops
+  its `Set-Cookie`.
+- A session expires after 12 hours without a request, and 7 days after
+  sign-in in any case. An account, its name compared without case or
+  surrounding spaces as many servers do, holds at most 20 sessions, its
+  least recently used one closing for a new one, and at most 10,000 are
+  open: past that, a sign-in gets a 429. Nothing is written to disk: a restart
+  signs everyone out.
+
+The app keeps only the username in its store. `dav/` sends no
+`Authorization`; the same-origin cookie goes with every request. A
+sign-in whose book discovery then fails ends the session again.
+
+*Processes.* `natel-session` is the container's entrypoint and PID 1. It
+runs the command it is given, `caddy run`, as its child:
+
+- `SIGTERM`, `SIGINT` and `SIGQUIT` are forwarded to Caddy.
+  `natel-session` waits for Caddy to stop, then stops itself. `SIGHUP`,
+  `SIGUSR1` and `SIGUSR2` are forwarded too, and stop nothing. On a
+  terminal (`docker run -it`), Ctrl-C and `Ctrl-\` already reach Caddy, which
+  shares the terminal and its input: they aren't sent twice.
+- `NATEL_SESSION_ADDR` must be a loopback address with a port; any other
+  stops the container at startup.
+- `BAIKAL_URL` is read as Caddy reads it: `host:port` without a scheme is
+  plain HTTP, port 443 included. One that isn't an origin stops the
+  container at startup.
+- If Caddy exits, `natel-session` exits with Caddy's exit code. If the
+  session server fails, `natel-session` stops Caddy, killing it after ten
+  seconds, and exits non-zero. Either way the container stops and Docker's
+  restart policy restarts it whole. One process never keeps running
+  without the other.
+- As PID 1, it reaps every child that exits, Caddy's orphans included.
+- A panic in a request handler is recovered and answered with a 500; it
+  never takes the process down.
+
+*Logs.* Caddy's output goes to the container's, unchanged.
+`natel-session` writes JSON lines to stdout with Caddy's keys (`level`,
+`ts`, `logger: "natel-session"`, `msg`), so one `docker logs` stream reads
+as one format. It logs startup, shutdown, Caddy's exit code, rejected and
+failed sign-ins without the username, and unexpected errors. It never logs
+a password, an `Authorization` header, a cookie, a session token, a
+username, a client address or the server's address.
+
+*Errors.* The sign-in tells wrong credentials (401) from a server it can't
+reach (502, or 503 when `BAIKAL_URL` is unset) and from the session limit
+(429). A refused origin is logged. When `natel-session` can't
+be reached, `forward_auth` fails with a 502, which the app reports as the
+server being unreachable, not as a signed-out session.
+
+*Health.* `natel-session` answers `GET /healthz`. The `HEALTHCHECK` checks
+it and Caddy's admin API.
+
+*Dev.* Vite's dev and preview servers mirror the contract with a plugin
+(`dev-session.ts`), so dev, the local e2e suite and the image keep one
+`/dav` contract (ADR 009). The demo (ADR 025) signs in without a session,
+and a reload signs it out as it resets the books.
+
+**Consequences.**
+
+- A reload, or reopening the browser, keeps the session, in every browser.
+  The password never reaches page scripts after sign-in: an XSS can act as
+  the user until logout, but can't read the password.
+- No credentials at rest, on disk or in the browser. The password sits in
+  the container's memory for the session's lifetime, not only in the tab.
+- Logout revokes the session on the server. If its request fails, the user
+  stays signed in and is told so: the cookie is out of the app's reach, and
+  a sign-out the server didn't see would let the next visitor back in.
+- Over plain HTTP, the cookie travels in clear like the password does
+  already; the sign-in screen's warning covers both.
+- Caddy stays the official binary, updated with the base image. Caddy and
+  `natel-session` don't depend on each other's internals; they only speak
+  HTTP. Each `/dav` request costs one extra round trip on the loopback.
+- The repository gains Go code, its tests, and their own CI job. Session and
+  process handling are security code: a review before release is required.
+- Bare-metal installs run `natel-session` too, as the service that starts
+  Caddy.
+- `natel-session` is the natural place for sign-in rate limiting.

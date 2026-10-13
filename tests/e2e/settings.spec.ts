@@ -28,12 +28,16 @@ test("changes the language at once and remembers it on the next visit", async ({
   await select.selectOption("fr");
   await expect(page.getByRole("heading", { level: 1, name: "Paramètres" })).toBeVisible();
 
-  // A reload signs out; the sign-in screen comes back in French.
+  // A reload keeps the session; the page comes back in French.
   await page.reload();
-  await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Paramètres" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("natel.preferences"))).toBe(
     '{"locale":"fr"}',
   );
+
+  // Signed out, the sign-in screen is in French too.
+  await page.goto("/logout");
+  await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
 
   await signIn(page);
   await page.getByRole("link", { name: "Paramètres" }).click();
@@ -103,7 +107,9 @@ test("shows the running version and safe links to help", async ({ page }) => {
   await expect(page).toHaveURL(/\/contacts\/settings\/help$/);
   await expect(page).toHaveTitle("User guide · Natel");
   await expect(page.getByRole("heading", { name: "Concurrent edits" })).toBeVisible();
-  await expect(page.getByText("Your password stays in memory", { exact: false })).toBeVisible();
+  await expect(
+    page.getByText("Your password stays on the server running Natel", { exact: false }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Back to settings" }).click();
   await expect(page.getByText("alice", { exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Language" }).selectOption("fr");
@@ -138,6 +144,8 @@ for (const colorScheme of ["light", "dark"] as const) {
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
     expect(violations.map((v) => v.id)).toEqual([]);
+    // Without a session, the guide is behind the sign-in.
+    await page.context().clearCookies();
     await page.reload();
     await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Using Natel" })).toHaveCount(0);

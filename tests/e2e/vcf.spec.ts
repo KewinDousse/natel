@@ -90,10 +90,8 @@ test("round-trips a book through export and import", async ({ page }) => {
   const exported = await readFile((await (await download).path()) ?? "", "utf8");
 
   await resetBook();
+  // A reload keeps the session and loads the emptied book.
   await page.reload();
-  await page.getByLabel("Username").fill(USER);
-  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
   // Import waits for the book to load.
   await expect(page.getByText("This address book is empty")).toBeVisible();
   await openBookMenu(page);

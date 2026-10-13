@@ -5,14 +5,19 @@
 ```
 Browser ──HTTPS──▶ Caddy (single container)
                     ├── /            static SPA (Vite build output)
-                    └── /dav/*       reverse_proxy {$BAIKAL_URL}
+                    ├── /session     reverse_proxy natel-session (loopback)
+                    └── /dav/*       forward_auth natel-session, then
+                                     reverse_proxy {$BAIKAL_URL}
                                        └──▶ CardDAV server (Baïkal, Radicale, …)
 ```
 
-- One process: Caddy. No Node at runtime.
-- The proxy forwards the `Authorization` header untouched and keeps no state.
-  It exists only to make the CardDAV server same-origin (servers send no CORS
-  headers) and to give users one URL to configure.
+- Two processes: `natel-session`, the container's entrypoint, runs Caddy as
+  its child (ADR 032). No Node at runtime.
+- `natel-session` holds sign-in sessions in memory and nothing else. The
+  proxy asks it for each `/dav` request's `Authorization`, from the session
+  cookie, and replaces any the client sent. The proxy exists to make the
+  CardDAV server same-origin (servers send no CORS headers) and to give
+  users one URL to configure.
 - The proxy sends the upstream's own `Host` and maps redirect `Location`s
   under `/dav`. It rewrites no bodies: `dav/` maps hrefs between the server's
   URL space and `/dav` in both directions, and does discovery itself
@@ -20,9 +25,10 @@ Browser ──HTTPS──▶ Caddy (single container)
 - It drops `WWW-Authenticate` from responses: that challenge makes the browser
   open its own Basic auth prompt over the app, which reports a rejected login
   itself.
-- It lets no cookie through, `Cookie` up or `Set-Cookie` down: the session
-  cookie a server sets (Baïkal opens a PHP session on every request) would
-  stay in the browser after logout (invariant 3).
+- It lets no cookie through to the server, `Cookie` up or `Set-Cookie` down:
+  Natel's session cookie is for `natel-session` only, and the session cookie
+  a server sets (Baïkal opens a PHP session on every request) would stay in
+  the browser after logout.
 - It drops the server's `Server` and `X-Powered-By`, which tell anyone what
   runs behind it and in which version, and in Caddy the server's own
   `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy`,
@@ -34,9 +40,11 @@ Browser ──HTTPS──▶ Caddy (single container)
 - It passes the client's address on in `X-Forwarded-For`, keeping the one a
   reverse proxy listed in `NATEL_TRUSTED_PROXIES` sends and dropping any
   other, so the server, or a fail2ban, can block password guessing per
-  client; Natel itself doesn't.
-- `BAIKAL_URL` is the only required environment variable. The Caddyfile reads it
-  directly (`{$BAIKAL_URL}`), no entrypoint templating. Outside the image,
+  client; Natel itself doesn't. `natel-session`'s sign-in check carries it
+  too.
+- `BAIKAL_URL` is the only required environment variable. The Caddyfile and
+  `natel-session` read it directly (`{$BAIKAL_URL}`), no templating.
+  `NATEL_SESSION_ADDR` (`127.0.0.1:2020`) is where they meet. Outside the image,
   `NATEL_ROOT` points Caddy at the build output and `NATEL_BIND` at one
   interface (docs/bare-metal.md).
 - Users are expected to put this behind their own reverse proxy (SWAG, Traefik,
@@ -46,11 +54,15 @@ Browser ──HTTPS──▶ Caddy (single container)
 
 Multi-stage Dockerfile:
 1. `node:alpine` — `pnpm install --frozen-lockfile && pnpm build` → `dist/`
-2. `caddy:alpine` — copy `dist/` and `Caddyfile`
+2. `golang:alpine` — `go build` → a static `natel-session`
+3. `caddy:alpine` — copy `dist/`, `Caddyfile` and `natel-session`, the entrypoint
 
 Measured on 2026-09-29 (linux/amd64): a 24 MB download, 66 MB unpacked, of
 which the app is 1 MB; 12 MB of RAM at rest in a fresh container, about
-16 MB after a few hundred requests.
+16 MB after a few hundred requests. That was before `natel-session`
+(ADR 032). Measured on 2026-10-13 against `main` built the same way, it
+adds about 3 MB to the compressed image and 7 MB unpacked; a fresh
+container uses 16 MB of RAM, about 28 MB after the e2e suite.
 
 Caddy sends a strict Content-Security-Policy (everything from the same
 origin, photos as `data:` or `blob:` URLs, and Trusted Types, so no string
@@ -112,7 +124,8 @@ src/
                  the contact page is contact-page.tsx (state, saves, dialogs)
                  over contact-view.tsx (reading) and contact-editor.tsx (form)
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.
-                 The ONLY module that imports tsdav. demo.ts and demo-seed.ts
+                 The ONLY module that imports tsdav. session.ts opens, reads
+                 and ends the sign-in session. demo.ts and demo-seed.ts
                  stand in for it in the demo build (ADR 025).
   vcard/         Parse/serialise vCard ↔ Contact model. Wraps ical.js.
                  The ONLY module that imports ical.js.
@@ -120,7 +133,7 @@ src/
                  edit drafts, dirty tracking and validation; display formatting;
                  the theme, which public/theme.js applies before the first paint.
   model/         Contact type, address book type. Plain data, no I/O.
-  store/         Zustand: session (credentials, selected book), memory only;
+  store/         Zustand: session (signed-in user, selected book), memory only;
                  preferences (sort, theme), stored like the language (ADR 026).
   queries/       TanStack Query hooks; the bridge between dav/ and routes/.
   i18n/          en.json, fr.json, setup, stored display preferences (ADR 019)
@@ -131,6 +144,9 @@ tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, componen
                  Baïkal (Docker) or Xandikos with `E2E_SERVER`
   e2e-demo/      Playwright against the demo build under /natel/
                  (`pnpm e2e:demo`)
+session/         natel-session (Go, standard library only): sign-in sessions,
+                 forward_auth for /dav, Caddy's supervisor (ADR 032)
+dev-session.ts   the same session contract on Vite's dev and preview servers
 fixtures/
   public/        synthetic vCards, committed
   private/       real vCards, gitignored
@@ -179,9 +195,14 @@ library allows it.
 
 Basic Auth. The sign-in screen asks only for username and password; the
 CardDAV server is configuration (`BAIKAL_URL`), never user input (ADR 014).
-Credentials are held in the Zustand session store and attached to
-every request by `dav/`. Reload = logged out. This is a feature until a
-security-reviewed alternative exists (see ROADMAP phase 4, delegated auth).
+The password goes once to `POST /session`: `natel-session` checks it
+against the CardDAV server and answers with an HttpOnly, `SameSite=Strict`
+cookie. Every `/dav` request carries the cookie, and the proxy gets its
+`Authorization` from `natel-session` (ADR 032). The Zustand store holds only
+the username. At startup the app asks `GET /session`, so a reload stays
+signed in; a session ends after 12 hours idle, 7 days after sign-in, on
+sign-out (`DELETE /session`) or when the container restarts. Delegated auth
+remains on the roadmap (phase 4).
 
 ## Search
 

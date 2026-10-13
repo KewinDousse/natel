@@ -520,48 +520,44 @@ export interface DavSession {
 
 /**
  * Session cache keyed on the username to avoid redundant discovery across
- * concurrent hook mounts. An entry serves only the password it was opened
- * with: another password gets a session of its own, which the server checks,
- * so an open session never vouches for a wrong password. Memory only
- * (AGENTS.md invariant 3).
+ * concurrent hook mounts. Memory only.
  * If a session creation fails, the cache entry is evicted so the next caller
  * retries rather than getting a stale rejected promise.
  */
-const sessionCache = new Map<string, { password: string; session: Promise<DavSession> }>();
+const sessionCache = new Map<string, Promise<DavSession>>();
 
 /**
- * Create (or reuse) a tsdav client session for the given credentials.
+ * Create (or reuse) a tsdav client session for the signed-in user.
  *
- * Credentials are held in the local client object and never stored externally.
+ * Requests carry no credentials of their own: the same-origin session
+ * cookie gets them theirs at the proxy (ADR 032).
  */
 export async function createDavSession(auth: DavAuth): Promise<DavSession> {
   const key = auth.username;
   const cached = sessionCache.get(key);
-  if (cached?.password === auth.password) return cached.session;
+  if (cached) return cached;
   // Only this entry goes: a newer session for the same user may have replaced it.
   const evict = () => {
     if (sessionCache.get(key) === entry) sessionCache.delete(key);
   };
-  const entry = {
-    password: auth.password,
-    session: makeSession(auth, evict).catch((err) => {
-      evict();
-      throw err;
-    }),
-  };
+  const entry = makeSession(evict).catch((err) => {
+    evict();
+    throw err;
+  });
   sessionCache.set(key, entry);
-  return entry.session;
+  return entry;
 }
 
-async function makeSession(auth: DavAuth, evict: () => void): Promise<DavSession> {
+async function makeSession(evict: () => void): Promise<DavSession> {
   // No defaultAccountType: tsdav's own discovery starts from the origin root
   // and resolves server hrefs outside /dav, so discoverHomeUrl does it instead.
   const client = await wrap(
     () =>
       createDAVClient({
         serverUrl: proxyRoot(),
-        credentials: { username: auth.username, password: auth.password },
-        authMethod: "Basic",
+        credentials: {},
+        authMethod: "Custom",
+        authFunction: async () => ({}),
         fetchOptions: { mode: "same-origin" },
       }),
     "creating session",

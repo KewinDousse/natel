@@ -89,12 +89,26 @@
   @dav expression `{http.request.uri}.startsWith("/dav/")`
   handle @dav {
     uri path_regexp "^/dav" ""
-    # Only the methods the app sends. Every path of the server is reachable
-    # from here, so any other, a GET or a POST, would reach whatever else it
-    # runs, such as Baïkal's admin and its installer. Vite's proxy does the same.
-    @unused not method PROPFIND REPORT PUT DELETE
-    header @unused Allow "PROPFIND, REPORT, PUT, DELETE"
-    respond @unused 405
+    # In order: forward_auth would otherwise run before respond.
+    route {
+      # Only the methods the app sends. Every path of the server is reachable
+      # from here, so any other, a GET or a POST, would reach whatever else it
+      # runs, such as Baïkal's admin and its installer. Vite's proxy does the same.
+      @unused not method PROPFIND REPORT PUT DELETE
+      header @unused Allow "PROPFIND, REPORT, PUT, DELETE"
+      respond @unused 405
+      # The session cookie gets the request its credentials from natel-session
+      # (ADR 032), replacing any Authorization the client sent. Without a
+      # live session, its 401 goes back to the client.
+      forward_auth {$NATEL_SESSION_ADDR:127.0.0.1:2020} {
+        uri /auth
+        # natel-session gives Caddy the secret, so nothing else on the
+        # loopback but the admin API can trade a session cookie for the
+        # password. A caddy reload from outside natel-session drops it.
+        header_up Natel-Session-Secret {$NATEL_SESSION_SECRET}
+        copy_headers Authorization
+      }
+    }
     reverse_proxy {$BAIKAL_URL} {
       # The upstream's own name, so a virtual host in front of it matches.
       header_up Host {upstream_hostport}
@@ -150,12 +164,12 @@
         }
       }
       # A 401 carrying WWW-Authenticate makes the browser open its own login
-      # prompt over the app. The app sends credentials itself and reports a
+      # prompt over the app. Natel sends credentials itself and reports a
       # rejected login on its own, so the challenge is dropped.
       header_down -WWW-Authenticate
-      # The app authenticates every request itself. A session cookie the
-      # server sets (Baïkal and Nextcloud do, even for Basic auth) would
-      # outlive the logout in the browser, against "no credentials at rest".
+      # Natel's session cookie is for natel-session only. A session cookie
+      # the server sets (Baïkal and Nextcloud do, even for Basic auth) would
+      # outlive the logout in the browser.
       header_up -Cookie
       header_down -Set-Cookie
       # The server's own copies of the headers set below would add to them,
@@ -171,6 +185,15 @@
     header Content-Security-Policy "sandbox; default-src 'none'; frame-ancestors 'none'"
     header X-Content-Type-Options "nosniff"
     header Referrer-Policy "no-referrer"
+  }
+
+  # ---------------------------------------------------------------
+  # Sessions — sign-in and sign-out, held by natel-session (ADR 032)
+  # ---------------------------------------------------------------
+  # Its other routes, /auth and /healthz, stay on the loopback.
+  handle /session {
+    reverse_proxy {$NATEL_SESSION_ADDR:127.0.0.1:2020}
+    import security_headers
   }
 
   # ---------------------------------------------------------------

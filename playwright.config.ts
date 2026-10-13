@@ -1,4 +1,5 @@
-import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs";
+import { defineConfig, devices, firefox } from "@playwright/test";
 import { APP_URL, DAV_PORT, DAV_URL, PASSWORD, SERVER, USER } from "./tests/e2e/env";
 
 export default defineConfig({
@@ -23,6 +24,31 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    // Sign-in alone, in Firefox, whose session requests differ from
+    // Chromium's under the page's no-referrer policy (ADR 032). It runs
+    // against dev-session.ts, which reads Sec-Fetch-Site first as
+    // natel-session does: the Origin fallback and the app's own referrer
+    // policy are covered by unit tests. Skipped where Playwright's own
+    // Firefox isn't installed, as in Claude Code's web sandbox or CI's
+    // image job.
+    ...(existsSync(firefox.executablePath())
+      ? [
+          {
+            name: "firefox",
+            use: {
+              ...devices["Desktop Firefox"],
+              // Without the Chromium executable set above for every project.
+              // Under Playwright, the Cross-Origin-Opener-Policy the app sends
+              // sometimes loses a navigation's events in Firefox, so a goto
+              // never returns; the pref turns COOP off in this Firefox only.
+              launchOptions: {
+                firefoxUserPrefs: { "browser.tabs.remote.useCrossOriginOpenerPolicy": false },
+              },
+            },
+            testMatch: "login.spec.ts",
+          },
+        ]
+      : []),
   ],
   webServer: [
     {

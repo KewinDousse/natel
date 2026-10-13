@@ -1,25 +1,33 @@
 /**
- * useLogin — mutation hook that verifies credentials via discoverAddressBooks.
+ * useLogin — mutation hook that opens a session, then discovers the books.
  *
- * The mutationFn directly wraps the CardDAV discovery call and throws DavError
- * on auth or network failure. On success the books it found seed the
- * address-books query, so the directory does not discover them a second time.
- * The caller handles the rest (store + navigate).
+ * natel-session checks the credentials against the CardDAV server when the
+ * session opens and throws DavError on auth or network failure. On success
+ * the books found seed the address-books query, so the directory does not
+ * discover them a second time. The caller handles the rest (store + navigate).
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { discoverAddressBooks } from "@/dav";
-import type { DavAddressBook, DavAuth } from "@/dav/types";
+import { closeSession, discoverAddressBooks, openSession } from "@/dav";
+import type { DavAddressBook, DavAuth, DavCredentials } from "@/dav/types";
 import { addressBooksKey } from "./keys";
 
 export function useLogin() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (auth: DavAuth): Promise<DavAddressBook[]> => {
-      // The credential check: discovering address books requires valid auth.
-      return await discoverAddressBooks(auth);
+    mutationFn: async (
+      credentials: DavCredentials,
+    ): Promise<{ auth: DavAuth; books: DavAddressBook[] }> => {
+      const auth = await openSession(credentials);
+      try {
+        return { auth, books: await discoverAddressBooks(auth) };
+      } catch (err) {
+        // A failed sign-in leaves no session behind for a reload to restore.
+        await closeSession();
+        throw err;
+      }
     },
-    onSuccess: (books, auth) => {
+    onSuccess: ({ auth, books }) => {
       queryClient.setQueryData(addressBooksKey(auth), books);
     },
   });

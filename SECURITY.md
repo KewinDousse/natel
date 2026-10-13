@@ -7,7 +7,8 @@ Please report vulnerabilities privately, through
 not in a public issue.
 
 Useful reports include, for example: credentials leaving the browser other
-than to the configured CardDAV server, a way to make the proxy reach another
+than to the configured CardDAV server, a session cookie that opens another
+user's session or outlives its sign-out, a way to make the proxy reach another
 host, script injection through vCard content, or a save that loses data.
 
 ## Supported versions

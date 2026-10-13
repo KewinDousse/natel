@@ -1,14 +1,17 @@
 /**
- * Zustand session store — credentials and UI state, in memory only.
+ * Zustand session store — the signed-in user and UI state, in memory only.
  *
- * Invariant 3: nothing here is ever written to localStorage, sessionStorage,
- * cookies, or IndexedDB. A reload logs the user out.
+ * Invariant 3: the password is never held here, nor written to
+ * localStorage, sessionStorage, cookies, or IndexedDB. natel-session keeps
+ * it on the server side of the session cookie (ADR 032); a reload restores
+ * the user from that session.
  *
  * On logout the in-memory DAV session cache is also cleared via
- * `clearCachedDavSessions()`, exported from `@/dav`.
+ * `clearCachedDavSessions()`, exported from `@/dav`, and the session ends on
+ * the server.
  */
 import { create } from "zustand";
-import { clearCachedDavSessions } from "@/dav";
+import { clearCachedDavSessions, closeSession, currentSession } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 
 // ---------------------------------------------------------------------------
@@ -16,10 +19,12 @@ import type { DavAddressBook, DavAuth } from "@/dav/types";
 // ---------------------------------------------------------------------------
 
 export interface SessionState {
-  /** Current credentials, or null when logged out. */
+  /** The signed-in user, or null when logged out. */
   auth: DavAuth | null;
   /** Currently selected address book, or null when none selected. */
   selectedBook: DavAddressBook | null;
+  /** The last sign-out wasn't confirmed by the server: the user is still signed in. */
+  signOutFailed: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -27,10 +32,16 @@ export interface SessionState {
 // ---------------------------------------------------------------------------
 
 export interface SessionActions {
-  /** Store credentials in memory. */
+  /** Sign the user in, once their session is open. */
   login: (auth: DavAuth) => void;
-  /** Clear credentials, selected book, and the DAV in-memory session cache. */
-  logout: () => void;
+  /** Sign in from the session this browser already has, if any. */
+  restore: () => Promise<void>;
+  /**
+   * End the session, then clear the user, selected book and DAV session
+   * cache. When the server doesn't confirm it, nothing is cleared, since a
+   * reload would sign the user back in: false, and signOutFailed is set.
+   */
+  logout: () => Promise<boolean>;
   /** Select or deselect the active address book. */
   selectBook: (book: DavAddressBook | null) => void;
 }
@@ -41,17 +52,28 @@ export interface SessionActions {
 
 export type SessionStore = SessionState & SessionActions;
 
-export const useSessionStore = create<SessionStore>((set) => ({
+export const useSessionStore = create<SessionStore>((set, get) => ({
   auth: null,
   selectedBook: null,
+  signOutFailed: false,
 
   login: (auth: DavAuth) => {
     set({ auth, selectedBook: null });
   },
 
-  logout: () => {
+  restore: async () => {
+    const auth = await currentSession();
+    if (auth) get().login(auth);
+  },
+
+  logout: async () => {
+    if (!(await closeSession())) {
+      set({ signOutFailed: true });
+      return false;
+    }
     clearCachedDavSessions();
-    set({ auth: null, selectedBook: null });
+    set({ auth: null, selectedBook: null, signOutFailed: false });
+    return true;
   },
 
   selectBook: (book: DavAddressBook | null) => {

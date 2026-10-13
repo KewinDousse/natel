@@ -20,7 +20,7 @@ vi.mock("@/dav", () => ({
   fetchCard: mockFetchCard,
 }));
 
-const AUTH = { username: "u", password: "p" };
+const AUTH = { username: "u" };
 const BOOK = "/b/";
 const group = (href: string, name: string, members: string[], extra: string[] = []) =>
   parse(

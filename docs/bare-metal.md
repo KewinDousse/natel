@@ -1,13 +1,15 @@
 # Running Natel without Docker
 
-Natel is a folder of static files and a Caddyfile: Caddy serves the files and
-proxies `/dav` to your CardDAV server. The Docker image is that, set up for
-you. Without it, these are the steps, and the places where a default would
-leave a hole.
+Natel is a folder of static files, a Caddyfile and `natel-session`: Caddy
+serves the files and proxies `/dav` to your CardDAV server, and
+`natel-session` holds sign-in sessions and runs Caddy as its child. The
+Docker image is that, set up for you. Without it, these are the steps, and
+the places where a default would leave a hole.
 
 ## Build
 
-You need Node 24 with pnpm (`corepack enable`). Build from a release tag:
+You need Node 24 with pnpm (`corepack enable`) and Go 1.27. Build from a
+release tag:
 
 ```sh
 git clone https://github.com/KewinDousse/natel.git
@@ -15,6 +17,7 @@ cd natel
 git checkout vX.Y.Z       # replace with the chosen published release tag
 pnpm install --frozen-lockfile
 pnpm build                 # writes dist/
+(cd session && CGO_ENABLED=0 go build -trimpath -o ../natel-session .)
 ```
 
 `pnpm dev` and `pnpm preview` are development servers. Don't serve Natel
@@ -87,39 +90,57 @@ point it at the repository: everything else in it would be served too.
 sudo mkdir -p /usr/share/natel
 sudo cp -r dist/. /usr/share/natel/
 sudo cp Caddyfile /etc/caddy/Caddyfile
+sudo install -m 755 natel-session /usr/local/bin/natel-session
 ```
 
 If this Caddy already serves other sites, copy the `(security_headers)`
 snippet and the site block into your own Caddyfile instead, and keep your
 global options. The admin API then follows them: Caddy turns it on by
-default, so add `admin off` there unless you need it.
+default, so add `admin off` there unless you need it. Run that Caddy under
+`natel-session` too, as below, and restart it rather than reload it: a
+`caddy reload` (`systemctl reload caddy`) drops the secret Caddy gets from
+`natel-session`, and every request to the address book fails until the next
+restart.
 
 ## Configure
 
-Set the environment in the service, with `sudo systemctl edit caddy`:
+Run Caddy under `natel-session` and set the environment in the service,
+with `sudo systemctl edit caddy`:
 
 ```ini
 [Service]
+ExecStart=
+ExecStart=/usr/local/bin/natel-session /usr/bin/caddy run --config /etc/caddy/Caddyfile
+NotifyAccess=all
 Environment=BAIKAL_URL=https://dav.example.com
 Environment=NATEL_ROOT=/usr/share/natel
 Environment=NATEL_BIND=127.0.0.1
+Environment=NATEL_TRUSTED_PROXIES=127.0.0.1
 Environment=NATEL_HTTP_PORT=8080
 ```
 
 then `sudo systemctl restart caddy`. That example serves Natel on
-`127.0.0.1:8080`, for a reverse proxy on the same machine.
+`127.0.0.1:8080`, for a reverse proxy on the same machine, which
+`NATEL_TRUSTED_PROXIES` trusts: Natel then knows the browser used HTTPS and
+gives it a session cookie a sibling subdomain can't replace. The package's
+unit waits for Caddy to report itself ready, which it now does as
+`natel-session`'s child: `NotifyAccess=all` lets systemd hear it. The
+package's `--environ` is left out: it writes the environment to the journal.
+Without `natel-session`, every sign-in fails with "server can't be reached".
 
 | Variable                              | Default            |                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BAIKAL_URL`                          | (required)         | Origin of your CardDAV server. Use `https://` unless the server runs on the same machine: Natel sends your password to it with every request. Caddy starts without it, but `/dav` then answers 503 and the sign-in reports that the server can't be reached.                                                         |
+| `BAIKAL_URL`                          | (required)         | Origin of your CardDAV server. Use `https://` unless the server runs on the same machine: Natel sends your password to it with every request. Natel starts without it, but the sign-in then reports that the server can't be reached.                                                                               |
 | `SITE_ADDRESS`                        | `http://`          | What Caddy serves. Exposed directly, your domain (`contacts.example.com`): Caddy gets and renews the certificate itself, on ports 80 and 443.                                                                                                                                                                        |
 | `NATEL_BIND`                          | (all interfaces)   | The interface Caddy listens on. Behind a reverse proxy on the same machine, `127.0.0.1`, so Natel can't be reached around the proxy in plain HTTP. A host in `SITE_ADDRESS` doesn't do that: Caddy still listens everywhere and only matches the `Host` header, which the client chooses.                            |
 | `NATEL_ROOT`                          | `/usr/share/caddy` | The folder holding the contents of `dist/`, and nothing else.                                                                                                                                                                                                                                                        |
 | `NATEL_ADMIN`                         | (off)              | Caddy's admin API, which reconfigures Caddy without authentication for anyone on the machine. Leave it unset, or set it to `off`: an empty value (`Environment=NATEL_ADMIN=`) turns it on at `localhost:2019`. It is what `caddy reload` talks to, so `systemctl reload caddy` fails: use `systemctl restart caddy`. |
 | `NATEL_HTTP_PORT`, `NATEL_HTTPS_PORT` | 80, 443            | The ports Caddy uses for HTTP and HTTPS when `SITE_ADDRESS` names none.                                                                                                                                                                                                                                              |
+| `NATEL_SESSION_ADDR`                  | `127.0.0.1:2020`   | Where `natel-session` listens for Caddy: a loopback address and a port. Change the port only if another service uses it.                                                                                                                                                                                                           |
 
 ## Update
 
 Build the new tag, replace the contents of `/usr/share/natel` with the new
-`dist/`, and copy the new Caddyfile if it changed (the release notes say so).
-Then `sudo systemctl restart caddy`.
+`dist/` and `/usr/local/bin/natel-session` with the new binary, and copy the
+new Caddyfile if it changed (the release notes say so). Then
+`sudo systemctl restart caddy`, which signs everyone out.

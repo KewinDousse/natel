@@ -44,6 +44,7 @@ replace `X.Y.Z` with that published tag, and run `docker compose up -d --no-buil
 | `SITE_ADDRESS`          | `http://` (port 8080) | What Caddy serves. Set it to your domain (`contacts.example.com`), publish the host's ports 80 and 443 to the container's 8080 and 8443 (`"80:8080"`, `"443:8443"`) and keep `/data` in a volume, and Caddy fetches and renews the certificate itself.                                                                                              |
 | `NATEL_TRUSTED_PROXIES` | (none)                | The reverse proxies in front of Natel, as addresses or ranges separated by spaces (`172.16.0.0/12`), or `private_ranges` if nothing on those networks reaches Natel directly. The CardDAV server then sees each client's own address instead of the proxy's (see below). Only list your proxies: an address listed here can claim to be any client. |
 | `NATEL_ADMIN`           | `127.0.0.1:2019`      | Caddy's admin API, which reconfigures it without authentication and which the image's healthcheck reads. Set it to `"off"` when the container shares its network namespace (see below): only `"off"` turns it off; an empty value keeps it on at `localhost:2019`.                                                                                  |
+| `NATEL_SESSION_ADDR`    | `127.0.0.1:2020`      | Where `natel-session`, which holds sign-in sessions, listens for Caddy. Change the port only when the container shares its network namespace and another service uses it (see below).                                                                                                                                                              |
 
 The container runs as an unprivileged user, UID 10001. A new named volume on
 `/data` needs nothing; a host directory mounted there, or a volume created by
@@ -88,7 +89,10 @@ location = /.well-known/carddav {
 ### Behind a reverse proxy
 
 Natel listens on port 8080 in the container; the proxy terminates HTTPS and
-forwards everything, `Authorization` header included.
+forwards everything, the session cookie included. Set
+`NATEL_TRUSTED_PROXIES` to the proxy's address: Natel then knows the browser
+used HTTPS, and every session cookie is one a sibling subdomain can't
+replace.
 
 **Traefik**, with Docker labels. `websecure` and `letsencrypt` stand for the
 entrypoint and certificate resolver of your Traefik configuration, and the
@@ -100,6 +104,8 @@ services:
     image: natel:local
     environment:
       BAIKAL_URL: https://dav.example.com
+      # Only Traefik reaches Natel, on their shared network: no port is published.
+      NATEL_TRUSTED_PROXIES: private_ranges
     labels:
       - traefik.enable=true
       - traefik.http.routers.natel.rule=Host(`contacts.example.com`)
@@ -146,6 +152,12 @@ example point `/dav` at a server of theirs and collect passwords. A port
 2019 already in use, by another Caddy for instance, also keeps Natel from
 starting.
 
+`natel-session` listens on that shared `127.0.0.1` too, on port 2020. It
+gives credentials only to Caddy, which holds a secret from it, but Caddy's
+admin API can read that secret: one more reason to turn it off. A port 2020
+already in use keeps Natel from starting: set `NATEL_SESSION_ADDR` to a
+free port then.
+
 In those setups, turn the API off, and the healthcheck with it, since it
 reads the API and would then fail:
 
@@ -174,6 +186,7 @@ Traefik example above, needs none of this.
 
 ### Without Docker
 
-Natel is static files and a Caddyfile, so it runs on any machine with Caddy.
+Natel is static files, a Caddyfile and a small Go binary, so it runs on any
+machine with Caddy.
 [bare-metal.md](bare-metal.md) covers the build, the settings, and
 the defaults to change for it to stay safe.

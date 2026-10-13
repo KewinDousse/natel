@@ -3,6 +3,8 @@ import { createServer, type Server } from "node:http";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
+import { freePort } from "./ports";
+import { openSession } from "./session";
 
 const run = promisify(execFile);
 const root = resolve(import.meta.dirname, "../..");
@@ -66,6 +68,8 @@ test("logs DAV status and timing without private request or response data", asyn
     const upstreamPort = await listen(backend);
     const port = await listen(reservation);
     await new Promise<void>((resolve) => reservation.close(() => resolve()));
+    // The CI's app container holds natel-session's default port on the host network.
+    const sessionPort = await freePort();
     const origin = `http://127.0.0.1:${port}`;
     await run("docker", [
       "run",
@@ -88,6 +92,8 @@ test("logs DAV status and timing without private request or response data", asyn
       "-e",
       `SITE_ADDRESS=${origin}`,
       "-e",
+      `NATEL_SESSION_ADDR=127.0.0.1:${sessionPort}`,
+      "-e",
       `BAIKAL_URL=http://127.0.0.1:${upstreamPort}`,
       process.env.E2E_PROXY_IMAGE ?? "natel:ci",
     ]);
@@ -103,10 +109,13 @@ test("logs DAV status and timing without private request or response data", asyn
       .toBe(200);
     // Static successes and failures must not create access records.
     await fetch(`${origin}/assets/${secrets.contact}.js`);
+    // The backend's 207 to natel-session's check accepts the sign-in.
+    const sessionCookie = await openSession(origin, secrets.username, secrets.password);
+    const sessionToken = sessionCookie.slice(sessionCookie.indexOf("=") + 1);
     const url = `${origin}/dav/${secrets.username}/${secrets.contact}.vcf?token=${secrets.query}`;
     const headers = {
       Authorization: authorization,
-      Cookie: `session=${secrets.cookie}`,
+      Cookie: `${sessionCookie}; session=${secrets.cookie}`,
       "X-Private": secrets.header,
       Referer: `${origin}/${secrets.contact}`,
       "If-Match": `"${secrets.etag}"`,
@@ -172,7 +181,7 @@ test("logs DAV status and timing without private request or response data", asyn
       expect(entry).not.toHaveProperty("resp_headers");
       expect(entry).not.toHaveProperty("user_id");
     }
-    for (const secret of [...Object.values(secrets), authorization, body]) {
+    for (const secret of [...Object.values(secrets), authorization, sessionToken, body]) {
       expect(output).not.toContain(secret);
     }
   } finally {

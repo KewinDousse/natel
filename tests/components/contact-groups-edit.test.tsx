@@ -33,7 +33,7 @@ vi.mock("@/dav", async (importOriginal) => ({
   ...mocks,
 }));
 
-const AUTH: DavAuth = { username: "alice", password: "secret" };
+const AUTH: DavAuth = { username: "alice" };
 const BOOK: DavAddressBook = { href: "https://dav.example.org/books/a/", displayName: "Perso" };
 
 const card = (lines: string[]) =>

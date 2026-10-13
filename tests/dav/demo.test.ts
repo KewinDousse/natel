@@ -11,7 +11,7 @@ import { groupCardOf, isGroupCard, parse } from "@/vcard";
 const api: typeof Real = demo;
 void api;
 
-const AUTH = { username: "anyone", password: "anything" };
+const AUTH = { username: "anyone" };
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });

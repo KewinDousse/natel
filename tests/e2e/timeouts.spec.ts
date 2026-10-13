@@ -2,6 +2,7 @@ import { createConnection } from "node:net";
 import { expect, test } from "@playwright/test";
 import { BOOK_PATH, resetBook } from "./dav";
 import { APP_URL, PASSWORD, USER } from "./env";
+import { openSession } from "./session";
 
 function stalledRequest(request: string): Promise<number> {
   const app = new URL(APP_URL);
@@ -31,11 +32,11 @@ test("bounds stalled headers and an upload with Connection close", async ({ isMo
   test.setTimeout(90_000);
   await resetBook();
   const host = new URL(APP_URL).host;
-  const authorization = Buffer.from(`${USER}:${PASSWORD}`).toString("base64");
+  const cookie = await openSession(APP_URL, USER, PASSWORD);
   const [headersElapsed, uploadElapsed] = await Promise.all([
     stalledRequest(`PROPFIND /dav/ HTTP/1.1\r\nHost: ${host}\r\nX-Stalled: `),
     stalledRequest(
-      `PUT /dav${BOOK_PATH}stalled-upload.vcf HTTP/1.1\r\nHost: ${host}\r\nAuthorization: Basic ${authorization}\r\nConnection: close\r\nIf-None-Match: *\r\nContent-Length: 1000\r\n\r\nBEGIN:VCARD`,
+      `PUT /dav${BOOK_PATH}stalled-upload.vcf HTTP/1.1\r\nHost: ${host}\r\nCookie: ${cookie}\r\nConnection: close\r\nIf-None-Match: *\r\nContent-Length: 1000\r\n\r\nBEGIN:VCARD`,
     ),
   ]);
   expect(headersElapsed).toBeGreaterThanOrEqual(55_000);

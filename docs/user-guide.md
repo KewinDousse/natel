@@ -6,11 +6,11 @@ Use the credentials of the CardDAV server configured by the person running
 Natel. There is no Natel registration or password reset. If your server
 requires an application password, use it here.
 
-Your password stays in memory for this session. Reloading signs you out;
-there is no automatic inactivity timeout. On a shared computer, use
-**Settings → Sign out** before leaving: going to another site and back can
-restore the session from browser memory. A password manager can fill the
-sign-in form for you.
+You stay signed in on this browser, across reloads and restarts, until you
+sign out, for 7 days at most, or 12 hours without using Natel. Your
+password stays on the server running Natel, in memory, never in your
+browser. On a shared computer, use **Settings → Sign out** before leaving.
+A password manager can fill the sign-in form for you.
 
 ## Find a contact
 

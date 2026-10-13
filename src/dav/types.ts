@@ -5,13 +5,18 @@
  */
 
 /**
- * Credentials for Basic auth with the CardDAV server. The server itself is
- * operator configuration behind the /dav proxy (ADR 014).
+ * The signed-in user. The password stays with natel-session, which gives
+ * each /dav request its credentials from the session cookie (ADR 032). The
+ * server itself is operator configuration behind the /dav proxy (ADR 014).
  */
 export interface DavAuth {
   /** Basic auth username. */
   username: string;
-  /** Basic auth password. */
+}
+
+/** What the sign-in form sends to open a session. */
+export interface DavCredentials {
+  username: string;
   password: string;
 }
 

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PASSWORD, USER } from "./env";
+import { signIn } from "./session";
 
 // These headers come from the image's Caddyfile, which only the CI image job
 // puts in front of the suite.
@@ -38,7 +39,9 @@ test("sends the security and cache headers", async ({ request }) => {
 
   // An answer from the server carries these, and only these: Radicale sends
   // its own (tests/e2e/radicale.sh), which would add to them.
+  await signIn(request);
   const answer = await request.fetch("/dav/", { method: "PROPFIND", headers: { Depth: "0" } });
+  expect(answer.status()).toBe(207);
   const values = (name: string) =>
     answer
       .headersArray()

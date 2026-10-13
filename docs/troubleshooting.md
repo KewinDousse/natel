@@ -8,8 +8,14 @@ application passwords, create one there. Natel has no password reset.
 If the server cannot be reached, check `BAIKAL_URL`: it is an origin,
 `scheme://host[:port]`, without a path, and must be reachable from inside
 the Natel container. `localhost` inside that container refers to the
-container itself. Check that your reverse proxy forwards `Authorization`
-and all requests, including `/dav/`.
+container itself. Check that your reverse proxy forwards the session cookie
+and all requests, including `/session` and `/dav/`.
+
+If every user is told the session expired, and signing in again reports
+wrong credentials, Caddy lost the secret it shares with `natel-session`:
+`natel-session` logs "credentials refused: the request doesn't carry
+Caddy's secret". That follows a `caddy reload` run outside the container's
+own processes. Restart Natel.
 
 If a Baïkal installation is under a path, configure its
 [`.well-known/carddav` redirect](deployment.md#finding-your-address-books).
@@ -19,7 +25,9 @@ Address books are created on the CardDAV server, not in Natel.
 
 Select the expected address book and clear the search and group filter.
 If a sync warning appears, open it and retry; a rejected session asks you
-to sign in again. A reload asks for credentials again and fetches the book.
+to sign in again. A session ends after 12 hours without use, 7 days after
+sign-in, or when the container restarts. A reload keeps the session and
+fetches the book.
 
 A card that cannot be fetched or parsed is not displayed, but Natel does
 not delete it. Compare with another client or inspect it on your CardDAV

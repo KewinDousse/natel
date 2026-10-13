@@ -6,7 +6,8 @@ first for a new feature, dependency or behaviour decision.
 
 ## Rules
 
-- Contacts only, static SPA, no runtime backend or credentials at rest.
+- Contacts only, static SPA, no runtime backend beyond sign-in sessions,
+  no credentials at rest.
 - Preserve properties, parameters and groups the editor does not change.
 - Writes are conditional; show a conflict rather than retrying blindly.
 - Keep CardDAV I/O in `src/dav/` and parsing in `src/vcard/`.
@@ -43,14 +44,33 @@ The regular build requires a server; `pnpm dev` is for development only.
 pnpm check       # typecheck, Biome lint/format, unit tests
 ```
 
+`natel-session`, the image's entrypoint and session process, is Go with no
+dependency. Changes under `session/` need its checks, with Go 1.27 from
+`session/`:
+
+```sh
+gofmt -l . && go vet ./... && go test ./...
+```
+
+or with Docker, from the repository's root:
+
+```sh
+docker run --rm -v "$PWD/session":/src -w /src golang:1.27-alpine \
+  sh -c 'test -z "$(gofmt -l .)" && go vet ./... && go test ./...'
+```
+
+`pnpm dev` and the end-to-end suite don't need Go: Vite mirrors the session
+contract (`dev-session.ts`).
+
 The main end-to-end suite starts a throwaway CardDAV server and serves the
-production build. It needs Python 3 and Playwright's Chromium:
+production build. It needs Python 3, and Playwright's Chromium and Firefox
+(Firefox runs the sign-in tests only):
 
 ```sh
 python3 -m venv ~/.cache/natel-e2e
 ~/.cache/natel-e2e/bin/pip install -r tests/e2e/requirements.txt
 export PATH="$HOME/.cache/natel-e2e/bin:$PATH"
-pnpm exec playwright install --with-deps chromium
+pnpm exec playwright install --with-deps chromium firefox
 pnpm e2e:demo
 pnpm e2e
 E2E_SERVER=xandikos pnpm e2e

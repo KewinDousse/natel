@@ -16,6 +16,8 @@ async function pickLanguage(page: Page, lang: "en" | "fr"): Promise<void> {
 }
 
 async function signIn(page: Page): Promise<void> {
+  // The session from an earlier sign-in in the same test would skip the form.
+  await page.context().clearCookies();
   await page.goto("/");
   await page.getByLabel(/^(Username|Nom d’utilisateur)$/).fill(USER);
   await page.getByLabel(/^(Password|Mot de passe)$/).fill(PASSWORD);
@@ -88,6 +90,7 @@ test("never scrolls sideways on the sign-in, list and contact screens", async ({
         .click();
       await expect(page.getByRole("button", { name: /^(Save|Enregistrer)$/ })).toBeVisible();
       expect(await horizontalOverflow(page), `${at} edit`).toBe(0);
+      await page.context().clearCookies();
       await page.goto("/");
       await expect(page.getByRole("button", { name: /^(Sign in|Se connecter)$/ })).toBeVisible();
       expect(await horizontalOverflow(page), `${at} sign-in`).toBe(0);

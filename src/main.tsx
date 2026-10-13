@@ -6,6 +6,7 @@ import { I18nProvider } from "./i18n/react";
 import { applyTheme, storedTheme } from "./lib/theme";
 import { createQueryClient } from "./queries/client";
 import { routeTree } from "./routeTree.gen";
+import { useSessionStore } from "./store/session";
 import "./index.css";
 
 // The demo build can be served under a subpath (ADR 025).
@@ -20,6 +21,9 @@ applyTheme(storedTheme());
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element not found");
+
+// Before the first route's guard runs, so a reload stays signed in.
+await useSessionStore.getState().restore();
 
 createRoot(root).render(
   <StrictMode>

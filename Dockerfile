@@ -12,6 +12,14 @@ COPY . .
 ARG NATEL_REVISION
 RUN corepack enable && NATEL_REVISION="$NATEL_REVISION" pnpm build
 
+# The session process (ADR 032): a static binary, cross-compiled natively
+# for each platform like the build stage above.
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS session
+WORKDIR /src
+COPY session/ ./
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /natel-session .
+
 # Runtime stage
 FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
 # Caddy runs as an unprivileged user, owning what it writes: certificates in
@@ -23,10 +31,17 @@ RUN apk add --no-cache zlib=1.3.2-r1 \
   && setcap -r /usr/bin/caddy
 COPY --from=builder /app/dist /usr/share/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
-ENV NATEL_HTTP_PORT=8080 NATEL_HTTPS_PORT=8443 NATEL_ADMIN=127.0.0.1:2019
+COPY --from=session /natel-session /usr/bin/natel-session
+ENV NATEL_HTTP_PORT=8080 NATEL_HTTPS_PORT=8443 NATEL_ADMIN=127.0.0.1:2019 \
+  NATEL_SESSION_ADDR=127.0.0.1:2020
 USER natel
 EXPOSE 8080 8443
+# natel-session is PID 1 and runs Caddy as its child: either one exiting
+# stops the container.
+ENTRYPOINT ["/usr/bin/natel-session"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
 # Caddy's admin API answers once the config is loaded, whatever SITE_ADDRESS
-# the site listens on. The port isn't published.
+# the site listens on. Neither port is published.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-  CMD wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1
+  CMD wget -q -O /dev/null http://127.0.0.1:2019/config/ \
+  && wget -q -O /dev/null "http://$NATEL_SESSION_ADDR/healthz" || exit 1

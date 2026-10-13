@@ -40,7 +40,7 @@ vi.mock("@/dav", async (importOriginal) => {
   };
 });
 
-const AUTH: DavAuth = { username: "alice", password: "secret" };
+const AUTH: DavAuth = { username: "alice" };
 const BOOK: DavAddressBook = { href: "http://localhost:3000/dav/books/a/", displayName: "Perso" };
 
 function setLanguage(lang: string) {

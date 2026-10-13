@@ -9,7 +9,13 @@
  */
 
 import { DEMO_BOOKS } from "./demo-seed";
-import type { DavAddressBook, DavAuth, DavContactDetail, DavContactSummary } from "./types";
+import type {
+  DavAddressBook,
+  DavAuth,
+  DavContactDetail,
+  DavContactSummary,
+  DavCredentials,
+} from "./types";
 import { DavError } from "./types";
 
 // Only the demo bundle holds this origin: CI checks the normal build doesn't.
@@ -124,6 +130,21 @@ export async function deleteCard(_auth: DavAuth, href: string, etag: string): Pr
   bookOf(href)?.cards.delete(href);
 }
 
+/** Any credentials sign in. Nothing reaches a server. */
+export async function openSession({ username }: DavCredentials): Promise<DavAuth> {
+  await wait();
+  return { username };
+}
+
+/** A reload signs out, as it brings the seed back. */
+export async function currentSession(): Promise<DavAuth | null> {
+  return null;
+}
+
+export async function closeSession(): Promise<boolean> {
+  return true;
+}
+
 /** Nothing to clear: the books stay as edited until the page reloads. */
 export function clearCachedDavSessions(): void {}
 
@@ -132,5 +153,11 @@ export function resetDemoBooks(): void {
   books = null;
 }
 
-export type { DavAddressBook, DavAuth, DavContactDetail, DavContactSummary } from "./types";
+export type {
+  DavAddressBook,
+  DavAuth,
+  DavContactDetail,
+  DavContactSummary,
+  DavCredentials,
+} from "./types";
 export { DavError };

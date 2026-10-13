@@ -20,7 +20,7 @@ vi.mock("@/dav", () => ({
   deleteCard: mockDeleteCard,
 }));
 
-const AUTH = { username: "u", password: "p" };
+const AUTH = { username: "u" };
 const SOURCE = "/dav/u/home/ada.vcf";
 const TARGET = "/dav/u/work/";
 const TEXT = "BEGIN:VCARD\nVERSION:3.0\nUID:ada\nFN:Ada\nX-KEEP:yes\nEND:VCARD\n";

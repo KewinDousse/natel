@@ -120,7 +120,6 @@ beforeEach(() => {
 
 const MOCK_AUTH: DavAuth = {
   username: "alice",
-  password: "secret",
 };
 
 const MOCK_BOOK: DavAddressBook = {

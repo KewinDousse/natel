@@ -19,7 +19,7 @@ vi.mock("@/dav", () => ({
   fetchCards: mockFetchCards,
 }));
 
-const AUTH = { username: "u", password: "p" };
+const AUTH = { username: "u" };
 const BOOK = "/dav/u/contacts/";
 
 function card(lines: string[]): string {

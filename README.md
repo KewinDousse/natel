@@ -45,12 +45,14 @@ requiring a groupware suite: contacts only, one container, one server URL.
   does not change are kept. vCard serialisation can normalise formatting;
   the file is not guaranteed to stay byte-identical. Round-trip tests cover
   preservation, and concurrent changes are detected through ETags.
-- **Small runtime.** Static files served by Caddy, which also proxies CardDAV.
-  No Node runtime or database. The runtime measured about 12 MB RAM at rest
-  on amd64 in September 2026; see [architecture](docs/ARCHITECTURE.md#build).
-- **Credentials in memory.** Natel holds your password in the browser for
-  the session and sends it through its proxy to the configured CardDAV server.
-  It does not save credentials; display preferences are saved on this browser.
+- **Small runtime.** Static files served by Caddy, which also proxies CardDAV,
+  and a small session process. No Node runtime or database; see
+  [architecture](docs/ARCHITECTURE.md#build).
+- **Sessions in memory.** At sign-in, Natel checks your password against the
+  configured CardDAV server and keeps it in the container's memory for the
+  session, up to 7 days, never on disk. Your browser keeps only a session
+  cookie that page scripts can't read, so a reload keeps you signed in.
+  Display preferences are saved on this browser.
 
 ## Quick start
 

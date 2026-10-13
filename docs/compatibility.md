@@ -43,9 +43,9 @@ Safari or Firefox compatibility. Use a current browser and report issues
 with its version and device.
 
 The app has an installable manifest. Installation depends on the browser's
-support and normally requires HTTPS; it adds no offline mode. Reloading asks
-for credentials again. An open session has no inactivity timeout, and going
-back to the page can restore it from the browser's memory.
+support and normally requires HTTPS; it adds no offline mode. A session
+lasts across reloads and browser restarts, up to 7 days, or 12 hours
+without use.
 
 ## vCards and book size
 

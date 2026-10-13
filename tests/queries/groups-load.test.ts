@@ -27,7 +27,7 @@ vi.mock("@/dav", () => ({
 
 describe("loadFullBook", () => {
   it("sorts group cards from contacts", async () => {
-    const book = await loadFullBook({ username: "u", password: "p" }, "/b/");
+    const book = await loadFullBook({ username: "u" }, "/b/");
     expect(book.contacts.map((c) => c.uid)).toEqual(["ada"]);
     expect(book.groups.map((c) => c.uid)).toEqual(["g"]);
     expect(book.skipped).toEqual([]);

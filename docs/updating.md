@@ -29,9 +29,9 @@ docker compose pull
 docker compose up -d --no-build
 ```
 
-Reload Natel and sign in again. Check that the selected book loads and try
-an edit on a made-up contact. Display preferences stay in this browser;
-credentials do not.
+The new container starts without sessions: reload Natel and sign in again.
+Check that the selected book loads and try an edit on a made-up contact.
+Display preferences stay in this browser.
 
 To return to a previous image, restore its tag and run the same commands.
 Check its release notes for compatibility with your deployment. Changing

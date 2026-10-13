@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { Agent, createServer, request as httpRequest, type Server } from "node:http";
 import { type ClientHttp2Session, connect as http2Connect } from "node:http2";
@@ -7,10 +8,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
+import { freePort } from "./ports";
+import { openSession } from "./session";
 
 const run = promisify(execFile);
 const root = resolve(import.meta.dirname, "../..");
-const authorization = `Basic ${Buffer.from("synthetic:password").toString("base64")}`;
+// The session cookie that gets each /dav request through (ADR 032), set once signed in.
+let cookie = "";
 
 type CaddyServer = {
   protocols?: string[];
@@ -41,7 +45,7 @@ function interruptedUpload(origin: string, path: string, trickle: boolean): Prom
     let progress: NodeJS.Timeout | undefined;
     const socket = createConnection({ host: url.hostname, port: Number(url.port) }, () => {
       socket.write(
-        `PUT /dav/${path} HTTP/1.1\r\nHost: ${url.host}\r\nAuthorization: ${authorization}\r\nIf-None-Match: *\r\nContent-Length: 1000\r\n\r\nBEGIN:VCARD`,
+        `PUT /dav/${path} HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${cookie}\r\nIf-None-Match: *\r\nContent-Length: 1000\r\n\r\nBEGIN:VCARD`,
       );
       if (trickle) progress = setInterval(() => socket.write("x"), 200);
     });
@@ -72,7 +76,7 @@ function completeUpload(origin: string, agent: Agent): Promise<Socket | undefine
       {
         method: "PUT",
         agent,
-        headers: { Authorization: authorization, "If-None-Match": "*" },
+        headers: { Cookie: cookie, "If-None-Match": "*" },
       },
       (response) => {
         response.resume();
@@ -101,7 +105,7 @@ function http2Upload(
     const stream = session.request({
       ":method": "PUT",
       ":path": `/dav/${path}`,
-      authorization,
+      cookie,
       "if-none-match": "*",
     });
     let status: number | undefined;
@@ -140,7 +144,11 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
   const backend = createServer((request, response) => {
     request.on("aborted", () => aborted.push(request.url ?? ""));
     request.on("error", () => {});
-    request.on("end", () => response.end("ok"));
+    request.on("end", () => {
+      // natel-session's sign-in check is a PROPFIND: a 207 accepts it.
+      if (request.method === "PROPFIND") response.statusCode = 207;
+      response.end("ok");
+    });
     request.resume();
   });
   const portReservation = createServer();
@@ -155,6 +163,9 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
     await new Promise<void>((resolve) => portReservation.close(() => resolve()));
     const tlsPort = await listen(portReservation);
     await new Promise<void>((resolve) => portReservation.close(() => resolve()));
+    // The CI's app container holds natel-session's default port on the host network.
+    const sessionAddress = `127.0.0.1:${await freePort()}`;
+    const sessionSecret = randomBytes(32).toString("base64url");
     const origin = `http://127.0.0.1:${port}`;
     const tlsOrigin = `https://localhost:${tlsPort}`;
     const image = process.env.E2E_PROXY_IMAGE ?? "natel:ci";
@@ -171,6 +182,11 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
       `SITE_ADDRESS=${origin}, ${tlsOrigin}`,
       "-e",
       `BAIKAL_URL=http://127.0.0.1:${upstreamPort}`,
+      "-e",
+      `NATEL_SESSION_ADDR=${sessionAddress}`,
+      // The adapted config holds it: natel-session must use the same one.
+      "-e",
+      `NATEL_SESSION_SECRET=${sessionSecret}`,
       image,
       "adapt",
       "--config",
@@ -210,11 +226,16 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
       "--tmpfs",
       "/data:uid=10001,gid=10001,mode=0700",
       "--no-healthcheck",
-      "--entrypoint",
-      "caddy",
       "-v",
       `${configPath}:/etc/caddy/caddy.json:ro`,
+      "-e",
+      `BAIKAL_URL=http://127.0.0.1:${upstreamPort}`,
+      "-e",
+      `NATEL_SESSION_ADDR=${sessionAddress}`,
+      "-e",
+      `NATEL_SESSION_SECRET=${sessionSecret}`,
       image,
+      "caddy",
       "run",
       "--config",
       "/etc/caddy/caddy.json",
@@ -229,6 +250,7 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
         }
       })
       .toBe(200);
+    cookie = await openSession(origin, "synthetic", "password");
     const elapsed = await Promise.all([
       interruptedUpload(origin, "stalled.vcf", false),
       interruptedUpload(origin, "trickling.vcf", true),

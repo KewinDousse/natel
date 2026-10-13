@@ -7,8 +7,8 @@ Read AGENTS.md and docs/ARCHITECTURE.md, then `git diff origin/main...HEAD` (or 
 branch you are given). Review the diff for the task you are given.
 
 Check, in this order:
-1. Violations of AGENTS.md invariants (contacts only, no backend, no credentials
-   at rest, vCard preservation, conditional writes).
+1. Violations of AGENTS.md invariants (contacts only, no backend beyond
+   sessions, no credentials at rest, vCard preservation, conditional writes).
 2. Deviations from docs/ARCHITECTURE.md (layout, dependency direction,
    modules importing tsdav or ical.js outside src/dav and src/vcard).
 3. Dependencies or configuration outside the allowed stack.

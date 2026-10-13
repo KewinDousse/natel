@@ -168,7 +168,7 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 ### Settings
 `/contacts/settings` (ADR 019), a child of the contacts layout like the new contact. Desktop: in the detail pane, in the contact page's column. Mobile: its own screen, with the contact page's top bar (back "Contacts" left, "Paramètres" right). A `font-display` title (`text-title-sm sm:text-title lg:text-person`), then sections opened like the contact page's:
 - **Affichage**: "Langue" ("Langue du navigateur", then each language by its own name), "Apparence" (Comme le système, Clair, Sombre) and "Trier par" (Prénom, Nom), each a labelled `<select>` in the form-field recipe (`max-w-sm`). A change applies at once; there is no save button.
-- **Compte**: "Session ouverte avec le compte **alice**", and an outline "Se déconnecter" (log-out icon).
+- **Compte**: "Session ouverte avec le compte **alice**", and an outline "Se déconnecter" (log-out icon). When the server doesn't confirm the sign-out, the user stays on the page, still signed in, and a toast says "Déconnexion impossible : vérifiez la connexion et réessayez."
 - **Raccourcis clavier**, desktop only: an outline button that opens the shortcuts dialog.
 
 Back, or `Esc` on desktop, returns to `/contacts`. The tab title is "Paramètres · Natel".

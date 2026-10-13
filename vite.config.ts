@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { devSession } from "./dev-session.ts";
 import { proxyLocation } from "./src/dav/proxy-location.ts";
 
 // The app's security headers, read from the Caddyfile so the e2e suite runs
@@ -82,7 +83,7 @@ export default defineConfig({
     TanStackRouterVite({ target: "react", autoCodeSplitting: true }),
     react(),
     tailwindcss(),
-    demo && demoStaticHost(),
+    demo ? demoStaticHost() : devSession(davOrigin, DAV_METHODS),
   ],
   resolve: {
     alias: [

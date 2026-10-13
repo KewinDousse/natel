@@ -68,6 +68,7 @@ test("rejects a wrong password", async ({ page }) => {
   test.skip(!SERVER.checksPassword, "the server leaves authentication to a proxy");
   await signIn(page, "wrong-password");
   await expect(page.getByText("Invalid username or password.")).toBeVisible();
+  expect(await page.context().cookies()).toEqual([]);
 });
 
 test("signs in, opens a contact and signs out", async ({ page }) => {

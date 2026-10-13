@@ -5,8 +5,8 @@
  * to make CardDAV requests. Returns raw vCard text + href + ETag; parsing is
  * the caller's job (src/vcard).
  *
- * All functions take credentials as explicit arguments (no ambient state).
- * Credentials are never stored outside the function scope.
+ * All functions take the signed-in user as an explicit argument. Requests
+ * carry the session cookie, never the password (src/dav/session.ts).
  *
  * All write operations are conditional (If-Match / If-None-Match: *) and throw
  * DavError with code CONFLICT on HTTP 412. The queries layer handles the
@@ -114,5 +114,12 @@ export async function deleteCard(auth: DavAuth, href: string, etag: string): Pro
   return await session.deleteCard(href, etag);
 }
 
-export type { DavAddressBook, DavAuth, DavContactDetail, DavContactSummary } from "./types";
+export { closeSession, currentSession, openSession } from "./session";
+export type {
+  DavAddressBook,
+  DavAuth,
+  DavContactDetail,
+  DavContactSummary,
+  DavCredentials,
+} from "./types";
 export { clearCachedDavSessions, DavError };

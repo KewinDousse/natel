@@ -51,7 +51,6 @@ vi.mock("@/dav", async (importOriginal) => {
 
 const AUTH: DavAuth = {
   username: "alice",
-  password: "secret",
 };
 
 const BOOK_A: DavAddressBook = {

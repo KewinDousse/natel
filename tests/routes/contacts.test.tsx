@@ -48,6 +48,8 @@ vi.mock("@/dav", async (importOriginal) => {
     discoverAddressBooks: mockDiscoverAddressBooks,
     listContacts: mockListContacts,
     fetchCards: mockFetchCards,
+    // Sign-outs the server confirms.
+    closeSession: async () => true,
   };
 });
 
@@ -62,7 +64,6 @@ vi.mock("@/vcard", async (importOriginal) => {
 
 const AUTH: DavAuth = {
   username: "alice",
-  password: "secret",
 };
 
 const BOOK_A: DavAddressBook = {

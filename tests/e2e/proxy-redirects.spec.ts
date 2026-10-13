@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 import { type PreviewServer, preview } from "vite";
+import { freePort } from "./ports";
 
 const run = promisify(execFile);
 const root = resolve(import.meta.dirname, "../..");
@@ -18,19 +19,14 @@ let received: { url: string; authorization: string | undefined; internalHeader: 
 
 test.skip(({ isMobile }) => isMobile, "proxy redirects don't depend on the viewport");
 
-async function freePort(): Promise<number> {
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve())),
-  );
-  if (!address || typeof address === "string") throw new Error("Expected a TCP port");
-  return address.port;
-}
-
 test.beforeAll(async () => {
   backend = createServer((request, response) => {
+    // natel-session's sign-in check starts there; the redirects tested never do.
+    if (request.url === "/.well-known/carddav") {
+      response.statusCode = 207;
+      response.end();
+      return;
+    }
     received.push({
       url: request.url ?? "/",
       authorization: request.headers.authorization,
@@ -72,6 +68,8 @@ test.beforeAll(async () => {
         "NATEL_ADMIN=off",
         "-e",
         `SITE_ADDRESS=:${port}`,
+        "-e",
+        `NATEL_SESSION_ADDR=127.0.0.1:${await freePort()}`,
         "-e",
         `BAIKAL_URL=${upstream}`,
         "-e",
@@ -127,6 +125,15 @@ test("confines relative and absolute DAV redirects without changing their target
   context,
 }) => {
   await page.goto(origin);
+  const signIn = await page.evaluate(async () => {
+    const response = await fetch("/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "synthetic", password: "password" }),
+    });
+    return response.status;
+  });
+  expect(signIn).toBe(200);
   const requested: string[] = [];
   const responses: Promise<Record<string, string>>[] = [];
   page.on("response", (response) => {
@@ -175,18 +182,11 @@ test("confines relative and absolute DAV redirects without changing their target
     received = [];
     requested.length = 0;
     responses.length = 0;
-    const result = await page.evaluate(
-      async ({ url, authorization }) => {
-        const response = await fetch(url, {
-          method: "PROPFIND",
-          mode: "same-origin",
-          headers: { Authorization: authorization },
-        });
-        await response.text();
-        return { url: response.url, status: response.status };
-      },
-      { url: `${origin}/dav/a/b/redirect?old=1`, authorization },
-    );
+    const result = await page.evaluate(async (url) => {
+      const response = await fetch(url, { method: "PROPFIND", mode: "same-origin" });
+      await response.text();
+      return { url: response.url, status: response.status };
+    }, `${origin}/dav/a/b/redirect?old=1`);
     expect(result.status, redirect).toBe(200);
     if (redirect.includes("{env.")) {
       const actual = new URL(result.url);
@@ -200,7 +200,10 @@ test("confines relative and absolute DAV redirects without changing their target
       expect(headers["set-cookie"], redirect).toBeUndefined();
       expect(headers["www-authenticate"], redirect).toBeUndefined();
     }
-    expect(await context.cookies(), redirect).toEqual([]);
+    expect(
+      (await context.cookies()).map((cookie) => cookie.name),
+      redirect,
+    ).toEqual(["natel_session"]);
     expect(requested, redirect).toHaveLength(2);
     if (!redirect.includes("{env.")) {
       expect(

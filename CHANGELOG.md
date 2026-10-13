@@ -8,12 +8,25 @@ Notable changes to Natel. The format follows
 
 ### Added
 
+- Sign-in sessions: a reload, or reopening the browser, keeps you signed
+  in, up to 7 days, or 12 hours without use. `natel-session`, a small
+  process in the image, checks the password against the CardDAV server and
+  keeps it in memory, never on disk; the browser holds only a session cookie
+  that page scripts can't read. Restarting the container signs everyone
+  out. Without Docker, run Caddy under `natel-session`
+  ([bare-metal.md](docs/bare-metal.md)).
 - `NATEL_TRUSTED_PROXIES`: behind a reverse proxy, the CardDAV server sees
   each client's own address, so it or a fail2ban can block password
   guessing.
 
 ### Changed
 
+- The image's entrypoint is `natel-session`, which runs Caddy as its child
+  and listens on `127.0.0.1:2020`. Sharing the host's network, set
+  `NATEL_SESSION_ADDR` if that port is taken. A command given to
+  `docker run` still runs, under `natel-session`. Without Docker, build and
+  install `natel-session` and run Caddy under it
+  ([bare-metal.md](docs/bare-metal.md)).
 - The image runs Caddy as an unprivileged user (UID 10001) and listens on
   port 8080, and 8443 for HTTPS: publish the container's port 8080 instead
   of 80, and point a reverse proxy at port 8080. A `/data` volume from an earlier

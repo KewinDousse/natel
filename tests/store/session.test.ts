@@ -1,8 +1,8 @@
 /**
  * Tests for src/store/session.ts — Zustand session store.
  *
- * The DAV session cache clear is tested by mocking `@/dav`'s
- * `clearCachedDavSessions`.
+ * `@/dav` is mocked: the DAV session cache clear and the calls to
+ * natel-session's /session are asserted on the mocks.
  */
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -11,14 +11,15 @@ import type { DavAddressBook, DavAuth } from "@/dav/types";
 // Mock the dav module before importing the store.
 vi.mock("@/dav", () => {
   const clearCachedDavSessions = vi.fn();
-  return { clearCachedDavSessions, __esModule: true };
+  const closeSession = vi.fn(async () => true);
+  const currentSession = vi.fn(async (): Promise<DavAuth | null> => null);
+  return { clearCachedDavSessions, closeSession, currentSession, __esModule: true };
 });
 
 import { useAuth, useIsLoggedIn, useSelectedBook, useSessionStore } from "@/store/session";
 
 const mockAuth: DavAuth = {
   username: "alice",
-  password: "secret",
 };
 
 const mockBook: DavAddressBook = {
@@ -26,8 +27,8 @@ const mockBook: DavAddressBook = {
   displayName: "Default Address Book",
 };
 
-// Grab the mocked dav module so we can assert on clearCachedDavSessions.
-const { clearCachedDavSessions } = await import("@/dav");
+// Grab the mocked dav module so we can assert on its calls.
+const { clearCachedDavSessions, closeSession, currentSession } = await import("@/dav");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,7 +36,7 @@ const { clearCachedDavSessions } = await import("@/dav");
 
 /** Reset store state between tests. */
 function resetStore(): void {
-  useSessionStore.setState({ auth: null, selectedBook: null });
+  useSessionStore.setState({ auth: null, selectedBook: null, signOutFailed: false });
   vi.clearAllMocks();
 }
 
@@ -73,32 +74,79 @@ describe("login", () => {
 // ---------------------------------------------------------------------------
 
 describe("logout", () => {
-  it("clears auth and selectedBook", () => {
+  it("clears auth and selectedBook", async () => {
     resetStore();
     useSessionStore.getState().login(mockAuth);
     useSessionStore.getState().selectBook(mockBook);
 
-    useSessionStore.getState().logout();
+    await useSessionStore.getState().logout();
 
     const state = useSessionStore.getState();
     expect(state.auth).toBeNull();
     expect(state.selectedBook).toBeNull();
   });
 
-  it("calls clearCachedDavSessions on the dav module", () => {
+  it("calls clearCachedDavSessions on the dav module", async () => {
     resetStore();
     useSessionStore.getState().login(mockAuth);
 
-    useSessionStore.getState().logout();
+    await useSessionStore.getState().logout();
 
     expect(clearCachedDavSessions).toHaveBeenCalledTimes(1);
   });
 
-  it("is safe to call when already logged out", () => {
+  it("ends the session on the server", async () => {
+    resetStore();
+    useSessionStore.getState().login(mockAuth);
+
+    await useSessionStore.getState().logout();
+
+    expect(closeSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("is safe to call when already logged out", async () => {
     resetStore();
 
-    // Should not throw.
-    expect(() => useSessionStore.getState().logout()).not.toThrow();
+    await expect(useSessionStore.getState().logout()).resolves.toBe(true);
+  });
+
+  // A reload would sign the user back in: the app must not look signed out.
+  it("keeps the user signed in when the server doesn't confirm it", async () => {
+    resetStore();
+    useSessionStore.getState().login(mockAuth);
+    useSessionStore.getState().selectBook(mockBook);
+    vi.mocked(closeSession).mockResolvedValueOnce(false);
+
+    expect(await useSessionStore.getState().logout()).toBe(false);
+
+    const state = useSessionStore.getState();
+    expect(state.auth).toEqual(mockAuth);
+    expect(state.selectedBook).toEqual(mockBook);
+    expect(state.signOutFailed).toBe(true);
+    expect(clearCachedDavSessions).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// restore
+// ---------------------------------------------------------------------------
+
+describe("restore", () => {
+  it("signs in from the browser's session", async () => {
+    resetStore();
+    vi.mocked(currentSession).mockResolvedValueOnce(mockAuth);
+
+    await useSessionStore.getState().restore();
+
+    expect(useSessionStore.getState().auth).toEqual(mockAuth);
+  });
+
+  it("stays signed out without a session", async () => {
+    resetStore();
+
+    await useSessionStore.getState().restore();
+
+    expect(useSessionStore.getState().auth).toBeNull();
   });
 });
 
@@ -165,7 +213,7 @@ describe("useAuth", () => {
     expect(result.current).toBeNull();
   });
 
-  it("returns the current credentials", () => {
+  it("returns the signed-in user", () => {
     resetStore();
     useSessionStore.setState({ auth: mockAuth });
 

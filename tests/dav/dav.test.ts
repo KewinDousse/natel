@@ -38,7 +38,6 @@ const { createDavSession } = await import("@/dav/internal");
 
 const mockAuth: DavAuth = {
   username: "alice",
-  password: "secret",
 };
 
 function mockSession(overrides: Partial<DavSession> = {}): DavSession {

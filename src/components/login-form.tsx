@@ -12,7 +12,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
-import { type DavAuth, DavError, useLogin } from "@/queries";
+import { DavError, useLogin } from "@/queries";
 import { useSessionStore } from "@/store/session";
 import { buttonClass, FOCUS_RING, fieldClass } from "./button";
 import { AlertIcon, EyeIcon, LockIcon, SpinnerIcon } from "./icons";
@@ -69,9 +69,8 @@ export function LoginForm() {
     setFormError(null);
     if (nextErrors.username || nextErrors.password) return;
 
-    const auth: DavAuth = { username: username.trim(), password };
     try {
-      await loginMutation.mutateAsync(auth);
+      const { auth } = await loginMutation.mutateAsync({ username: username.trim(), password });
       login(auth);
       await navigate({ to: "/contacts" });
     } catch (err) {
@@ -83,8 +82,8 @@ export function LoginForm() {
 
   return (
     <>
-      {/* Basic auth sends the password with every request: over plain HTTP,
-          anyone on the network reads it. localhost counts as secure. */}
+      {/* Over plain HTTP, anyone on the network reads the password at
+          sign-in, and the session cookie after. localhost counts as secure. */}
       {globalThis.isSecureContext === false && (
         <p className="mt-6 flex gap-2.5 text-sm leading-snug text-warning">
           <LockIcon open className="mt-0.5 size-4" />
