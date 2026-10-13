@@ -34,7 +34,7 @@ Rules:
 | File | Use |
 |---|---|
 | `logo/natel-wordmark-ink.svg` | Text-like contexts on light backgrounds (docs, README body) |
-| `logo/natel-wordmark-red.svg` | Hero use on white (landing, README banner) |
+| `logo/natel-wordmark-red.svg` | Hero use on white (landing) |
 | `logo/natel-wordmark-white.svg` | On red or ink |
 | `logo/natel-lockup-light.svg` / `-dark.svg` | Mark + wordmark, for places that need both (about dialog, docs header). Use when the mark renders ≥ 48 px; smaller, place `icon/natel-mark-small.svg` next to the wordmark yourself |
 
@@ -63,20 +63,30 @@ Then paste `head-snippet.html` into `index.html`. PWA icons are full-bleed squar
 | File | Size | Use |
 |---|---|---|
 | `social/github-social-preview.png` | 1280×640 | GitHub → Settings → Social preview |
-| `social/og-image-en.png` / `-fr.png` | 1200×630 | `og:image` of the project page / demo |
+| `social/og-image-en.png` | 1200×630 | `og:image` of the project page / demo |
 | `social/avatar-500.png` | 500×500 | Org / project avatar (full bleed; the platform crops it). Tiny avatars (< 48 px) are rendered by the platform — acceptable, but `icon/natel-mark-small.svg` exists if a site lets you upload a separate small one |
-| `readme/banner-{light,dark}-{en,fr}.png` | 1280×320 | Top of the README |
+| `readme/banner-{light,dark}-en.png` | 1280×320 | Top of the README |
 
 README header that follows GitHub's light/dark theme:
 
 ```html
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/brand/readme/banner-dark-en.png">
-  <img alt="Natel — a directory for your contacts, on your own server." src="docs/brand/readme/banner-light-en.png">
+  <img alt="Natel: the contact editor your CardDAV server is missing." src="docs/brand/readme/banner-light-en.png">
 </picture>
 ```
 
-The social images take up the sign-in panel: the red, the thumb-index tabs on the right edge (N–P stands out), the tagline and the giant wordmark, with no contact on them. The README banners show fictional names, with zeroed numbers (`079 000 00 01`), like the demo's (ADR 025).
+The social images and the README banners take up the sign-in panel: the red, the thumb-index tabs on the right edge (N–P stands out), the tagline and the giant wordmark, with no contact on them. The dark banners use the dark-mode red (`#A11F18`), as the sign-in panel does, so they don't glare.
+
+## Tagline
+| | |
+|---|---|
+| Headline | The contact editor your CardDAV server is missing. |
+| Subline | A directory for your contacts, on your own server. |
+
+The headline says what Natel is and who it is for, people who already run a CardDAV server. The subline is the app's own `tagline` (`src/i18n/`), so the images and the sign-in panel say the same thing; the app shows only that line, since whoever reads it already uses Natel. Headline in Work Sans Bold, subline in Work Sans Regular at 85 % white.
 
 ## Regenerating
-The PNGs are rendered from the SVGs in this folder. To change a colour or a line of text, edit the SVG and re-export at the same pixel size.
+The README banners and the social images (not the avatar) are rendered by `pnpm brand:images` (`scripts/brand-images.ts`), with Playwright: the text is set live in Work Sans, the mark and the wordmark come from `icon/` and `logo/`. The headline is in that script and the subline is read from `src/i18n/`, so new wording needs no redrawing. A language given a headline there gets its own banners and `og:image`; GitHub's social preview stays in English, like the README.
+
+The other PNGs are rendered from the SVGs in this folder: after editing an SVG, re-export it at the same pixel size.

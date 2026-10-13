@@ -1,7 +1,7 @@
 <h1>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/readme/banner-dark-en.png">
-    <img alt="Natel: a directory for your contacts, on your own server." src="docs/brand/readme/banner-light-en.png">
+    <img alt="Natel: the contact editor your CardDAV server is missing." src="docs/brand/readme/banner-light-en.png">
   </picture>
 </h1>
 

@@ -151,6 +151,7 @@ fixtures/
   public/        synthetic vCards, committed
   private/       real vCards, gitignored
 scripts/
+  brand-images.ts  renders the brand images that carry text (`pnpm brand:images`)
   spike.ts       phase-1 exploration script, kept as documentation
 ```
 
