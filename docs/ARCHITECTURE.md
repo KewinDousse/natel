@@ -55,14 +55,13 @@ Browser ──HTTPS──▶ Caddy (single container)
 Multi-stage Dockerfile:
 1. `node:alpine` — `pnpm install --frozen-lockfile && pnpm build` → `dist/`
 2. `golang:alpine` — `go build` → a static `natel-session`
-3. `caddy:alpine` — copy `dist/`, `Caddyfile` and `natel-session`, the entrypoint
+3. `caddy:alpine` — the official Caddy binary, without its file capability
+4. `alpine` — copy the Caddy binary, `dist/`, `Caddyfile` and `natel-session`,
+   the entrypoint (ADR 033)
 
-Measured on 2026-09-29 (linux/amd64): a 24 MB download, 66 MB unpacked, of
-which the app is 1 MB; 12 MB of RAM at rest in a fresh container, about
-16 MB after a few hundred requests. That was before `natel-session`
-(ADR 032). Measured on 2026-10-13 against `main` built the same way, it
-adds about 3 MB to the compressed image and 7 MB unpacked; a fresh
-container uses 16 MB of RAM, about 28 MB after the e2e suite.
+Measured on 2026-10-15 (linux/amd64): 26 MB compressed (gzip of `docker
+save`), 70 MB unpacked, of which the app is 1 MB and `natel-session` 7 MB;
+about 16 MB of RAM at rest in a fresh container.
 
 Caddy sends a strict Content-Security-Policy (everything from the same
 origin, photos as `data:` or `blob:` URLs, and Trusted Types, so no string

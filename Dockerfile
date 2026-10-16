@@ -20,20 +20,31 @@ COPY session/ ./
 ARG TARGETOS TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /natel-session .
 
-# Runtime stage
-FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+# The official Caddy binary (ADR 033). Caddy listens on unprivileged ports,
+# so it needs no capability: with one, `cap_drop: ALL` would refuse to run
+# it. It is removed in its own stage because changing the binary in the
+# runtime stage would store it twice.
+FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS caddy
+RUN setcap -r /usr/bin/caddy
+
+# Runtime stage: what the official image adds to Alpine, minus curl and
+# libcap, which nothing here runs.
+FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
 # Caddy runs as an unprivileged user, owning what it writes: certificates in
-# /data, the autosaved config in /config. Unprivileged ports follow, so the
-# binary needs no capability: with one, `cap_drop: ALL` would refuse to run it.
-RUN apk add --no-cache zlib=1.3.2-r1 \
+# /data, the autosaved config in /config.
+RUN apk add --no-cache ca-certificates mailcap zlib=1.3.2-r1 \
   && addgroup -S -g 10001 natel && adduser -S -D -H -u 10001 -G natel -s /sbin/nologin natel \
-  && chown -R natel:natel /data /config \
-  && setcap -r /usr/bin/caddy
+  && mkdir -p /config/caddy /data/caddy /etc/caddy /usr/share/caddy \
+  && chmod 1777 /config/caddy /data/caddy \
+  && chown -R natel:natel /data /config
+COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 COPY --from=builder /app/dist /usr/share/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=session /natel-session /usr/bin/natel-session
-ENV NATEL_HTTP_PORT=8080 NATEL_HTTPS_PORT=8443 NATEL_ADMIN=127.0.0.1:2019 \
+ENV XDG_CONFIG_HOME=/config XDG_DATA_HOME=/data \
+  NATEL_HTTP_PORT=8080 NATEL_HTTPS_PORT=8443 NATEL_ADMIN=127.0.0.1:2019 \
   NATEL_SESSION_ADDR=127.0.0.1:2020
+WORKDIR /srv
 USER natel
 EXPOSE 8080 8443
 # natel-session is PID 1 and runs Caddy as its child: either one exiting

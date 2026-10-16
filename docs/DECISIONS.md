@@ -1283,3 +1283,31 @@ and a reload signs it out as it resets the books.
 - Bare-metal installs run `natel-session` too, as the service that starts
   Caddy.
 - `natel-session` is the natural place for sign-in rate limiting.
+
+## 033 — The official Caddy binary on a plain Alpine base
+
+**Context.** The image runs Caddy unprivileged, on unprivileged ports, and
+must start under `cap_drop: ALL`, so the runtime stage removed the file
+capability that `caddy:2-alpine` sets on `/usr/bin/caddy`. Changing a file
+in a later layer copies it whole: the image carried the 52 MB binary twice,
+127 MB unpacked and 46 MB compressed (gzip of `docker save`, measured on
+2026-10-15, linux/amd64).
+ADR 031 and ADR 032 keep the official Caddy build rather than a custom one.
+
+**Decision.** A `caddy` stage starts from the pinned `caddy:2-alpine` and
+removes the capability; the runtime stage starts from the pinned `alpine`
+the official image is built on, and copies the binary from that stage. It
+adds what the official image adds and Natel uses: `ca-certificates`,
+`mailcap` (the MIME types `file_server` relies on), the `/config`, `/data`,
+`/etc/caddy` and `/usr/share/caddy` directories (`/config/caddy` and
+`/data/caddy` in mode 1777, as there), `XDG_CONFIG_HOME`, `XDG_DATA_HOME`
+and `WORKDIR /srv`. It leaves out `curl` and `libcap`, which nothing in the
+image runs. This amends ADR 032's "the image stays `caddy:2-alpine`".
+
+**Consequences.** The binary is still the one the Caddy project builds and
+checks, so ADR 031's reasoning holds. The image drops to 70 MB unpacked
+and 26 MB compressed, with the same RAM at rest (about 16 MB). Dependabot
+moves two pinned bases instead of one, in the same weekly group; it leaves
+the Alpine minor release alone, which is moved by hand to the one the
+official image uses. A change to the official image's Dockerfile, such as
+a new package or directory, no longer reaches Natel by itself.

@@ -29,6 +29,10 @@ updates:
     ignore:
       - dependency-name: node
         update-types: ["version-update:semver-major"]
+      # The runtime base follows the Alpine minor that caddy:2-alpine is
+      # built on (ADR 033), moved by hand when the official image moves.
+      - dependency-name: alpine
+        update-types: ["version-update:semver-minor"]
 
   - package-ecosystem: npm
     directory: /
