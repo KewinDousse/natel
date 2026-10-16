@@ -6,7 +6,7 @@
  * contact. A failure leaves the other groups written.
  */
 import { cardHref, createCard, fetchCard, updateCard } from "@/dav";
-import type { DavAuth } from "@/dav/types";
+import { type DavAuth, DavError } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 import {
   addMember,
@@ -144,4 +144,38 @@ export async function overwriteGroupChange(
   const card = parse(fresh.vcardText, href, fresh.etag);
   const changed = kind === "add" ? addMember(card, uid) : removeMember(card, uid);
   return changed ? await put(auth, card) : card;
+}
+
+/**
+ * Writes again the group changes a save left failed (ADR 022, as ADR 013).
+ * A group card that couldn't be created is created again at the same href:
+ * a 412 then means an earlier try landed, and that card only needs this
+ * contact as member. A created card leaves `retries`.
+ */
+export async function retryGroupFailures(
+  auth: DavAuth,
+  failures: GroupFailure[],
+  uid: string,
+  retries: Map<string, Contact>,
+): Promise<{ written: Contact[]; remaining: GroupFailure[] }> {
+  const written: Contact[] = [];
+  const remaining: GroupFailure[] = [];
+  for (const failure of failures) {
+    try {
+      if (failure.newCard) {
+        try {
+          written.push(await createGroupCard(auth, failure.newCard));
+        } catch (err) {
+          if (!(err instanceof DavError && err.code === "CONFLICT")) throw err;
+          written.push(await overwriteGroupChange(auth, failure.cardHref, uid, failure.kind));
+        }
+        retries.delete(failure.name);
+      } else {
+        written.push(await overwriteGroupChange(auth, failure.cardHref, uid, failure.kind));
+      }
+    } catch (error) {
+      remaining.push({ ...failure, error });
+    }
+  }
+  return { written, remaining };
 }

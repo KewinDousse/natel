@@ -15,10 +15,10 @@ import { useSignOut } from "@/queries";
 import { usePreferences } from "@/store/preferences";
 import { useAuth } from "@/store/session";
 import { buttonClass, FOCUS_RING, fieldClass } from "./button";
-import { MobileTopBar } from "./contact-page";
 import { LogoutIcon } from "./icons";
 import { openShortcuts } from "./keyboard-shortcuts";
 import { LanguageSelect } from "./language-select";
+import { MobileTopBar } from "./mobile-top-bar";
 
 const SYSTEM = "system";
 const HELP_LINKS = [

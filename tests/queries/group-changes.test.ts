@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DavError } from "@/dav/types";
-import { groupDelta, overwriteGroupChange, writeGroupChanges } from "@/queries";
+import { groupDelta, overwriteGroupChange, retryGroupFailures, writeGroupChanges } from "@/queries";
 import { groupCardOf, parse } from "@/vcard";
 
 const { mockUpdateCard, mockCreateCard, mockFetchCard } = vi.hoisted(() => ({
@@ -169,5 +169,45 @@ describe("overwriteGroupChange", () => {
     );
     expect(groupCardOf(card).members).toEqual(["carl", "ada"]);
     expect(mockUpdateCard.mock.calls[0]?.[3]).toContain("\r\nREV:20261009T123456Z\r\n");
+  });
+});
+
+describe("retryGroupFailures", () => {
+  it("adds the contact to a group card whose earlier create landed", async () => {
+    const newCard = group("g", "Famille", ["ada"]);
+    const retries = new Map([["Famille", newCard]]);
+    mockCreateCard.mockRejectedValueOnce(new DavError("412", "CONFLICT"));
+    mockFetchCard.mockResolvedValue({
+      href: `${BOOK}g.vcf`,
+      etag: '"fresh"',
+      vcardText: group("g", "Famille", []).raw.toString(),
+    });
+    const { written, remaining } = await retryGroupFailures(
+      AUTH,
+      [{ name: "Famille", kind: "add", cardHref: `${BOOK}g.vcf`, newCard, error: null }],
+      "ada",
+      retries,
+    );
+    expect(remaining).toEqual([]);
+    expect(written.map((c) => groupCardOf(c).members)).toEqual([["ada"]]);
+    expect(retries.has("Famille")).toBe(false);
+  });
+
+  it("keeps a change that fails again, with its new error", async () => {
+    const newCard = group("g", "Famille", ["ada"]);
+    const retries = new Map([["Famille", newCard]]);
+    const error = new DavError("offline", "NETWORK");
+    mockCreateCard.mockRejectedValueOnce(error);
+    const failure = {
+      name: "Famille",
+      kind: "add" as const,
+      cardHref: `${BOOK}g.vcf`,
+      newCard,
+      error: null,
+    };
+    const { written, remaining } = await retryGroupFailures(AUTH, [failure], "ada", retries);
+    expect(written).toEqual([]);
+    expect(remaining).toEqual([{ ...failure, error }]);
+    expect(retries.get("Famille")).toBe(newCard);
   });
 });

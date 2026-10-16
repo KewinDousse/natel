@@ -7,10 +7,9 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useBlocker, useRouter } from "@tanstack/react-router";
+import { useBlocker, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type I18nContextValue, useI18n } from "@/i18n/react";
-import type { TranslationKey } from "@/i18n/setup";
+import { useI18n } from "@/i18n/react";
 import {
   applyDraft,
   buildDraft,
@@ -25,13 +24,9 @@ import {
 import { bookGroupNames, contactGroupNames } from "@/lib/contact-groups";
 import { contactById, contactIdOf, namePartsOf } from "@/lib/contact-list";
 import { draftReducer } from "@/lib/draft-reducer";
-import { formatMegabytes } from "@/lib/format-size";
-import { decodeImage, PhotoError } from "@/lib/photo-prepare";
-import { isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 import { bookName } from "@/lib/vcf-file";
 import type { Contact } from "@/model/contact";
 import {
-  createGroupCard,
   type DavAddressBook,
   type DavAuth,
   DavError,
@@ -40,7 +35,7 @@ import {
   hasGroupChanges,
   type LoadFullBookResult,
   moveContact,
-  overwriteGroupChange,
+  retryGroupFailures,
   useAddressBooks,
   useCreateContact,
   useDeleteContact,
@@ -61,16 +56,18 @@ import {
   removeCategory,
   unshownPropertiesOf,
 } from "@/vcard";
-import { buttonClass } from "./button";
 import { ConfirmDialog, UnshownPropertiesDialog } from "./contact-dialogs";
 import { ContactEditBar } from "./contact-edit-bar";
 import { ContactEditor } from "./contact-editor";
 import { ContactView } from "./contact-view";
-import { DemoMark } from "./demo-notice";
-import { ArrowLeftIcon, SpinnerIcon, TrashIcon } from "./icons";
+import { SpinnerIcon, TrashIcon } from "./icons";
+import { MobileTopBar } from "./mobile-top-bar";
 import { MoveDialog } from "./move-dialog";
-import { type ChosenPhoto, PhotoCropDialog } from "./photo-crop-dialog";
+import { PhotoCropDialog } from "./photo-crop-dialog";
 import { useToast } from "./toast";
+import { useEditShortcuts } from "./use-edit-shortcuts";
+import { usePhotoChoice } from "./use-photo-choice";
+import { writeErrorText } from "./write-error";
 
 type ContactPageProps = {
   /** Contacts of the selected book; undefined while the book is loading. */
@@ -139,48 +136,6 @@ function NewContactFiche({ auth, bookHref }: { auth: DavAuth; bookHref: string }
       edit
       onCreate={createContact.mutateAsync}
     />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Mobile top bar
-// ---------------------------------------------------------------------------
-
-/**
- * Mobile-only top bar: back to the list on the left; on the right, the
- * "Modifier" pill with `onEdit`, else `label` ("Modification", "Paramètres").
- */
-export function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: string }) {
-  const { t } = useI18n();
-  return (
-    <div className="sticky top-0 z-20 flex h-14 items-center border-b bg-muted/95 px-2 backdrop-blur lg:hidden">
-      <Link
-        to="/contacts"
-        activeOptions={{ exact: true }}
-        aria-label={t("back_to_list")}
-        className={buttonClass(
-          { variant: "ghost" },
-          "h-10 gap-1.5 pl-2 pr-3 text-foreground hover:bg-background focus-visible:ring-offset-muted",
-        )}
-      >
-        <ArrowLeftIcon />
-        <span>{t("list_label")}</span>
-      </Link>
-      <DemoMark className="ml-1" />
-      {onEdit !== undefined ? (
-        <button
-          type="button"
-          onClick={onEdit}
-          className={buttonClass({ size: "sm" }, "ml-auto mr-1 px-4")}
-        >
-          {t("edit")}
-        </button>
-      ) : (
-        label !== undefined && (
-          <span className="ml-auto mr-3 text-sm font-bold text-muted-foreground">{label}</span>
-        )
-      )}
-    </div>
   );
 }
 
@@ -309,7 +264,6 @@ function ContactFiche({
   const showToast = useToast();
   const [showDiscard, setShowDiscard] = useState(false);
   const [showUnshown, setShowUnshown] = useState(false);
-  const [chosenPhoto, setChosenPhoto] = useState<ChosenPhoto | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const changePhotoRef = useRef<HTMLButtonElement>(null);
 
@@ -352,32 +306,7 @@ function ContactFiche({
     [],
   );
 
-  // The decoded image and its object URL go with the dialog.
-  useEffect(() => {
-    if (chosenPhoto === null || !("bitmap" in chosenPhoto)) return;
-    return () => {
-      chosenPhoto.bitmap.close();
-      URL.revokeObjectURL(chosenPhoto.url);
-    };
-  }, [chosenPhoto]);
-
-  // A large image decodes slowly: a result that lands after edit mode ended is dropped.
-  const handlePhotoFile = useCallback(async (file: File) => {
-    const session = editSession.current;
-    let chosen: ChosenPhoto;
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const bitmap = await decodeImage(file);
-      if (session !== editSession.current) {
-        bitmap.close();
-        return;
-      }
-      chosen = { bytes, bitmap, url: URL.createObjectURL(file) };
-    } catch (err) {
-      chosen = { error: err instanceof PhotoError ? err : new PhotoError("UNDECODABLE", err) };
-    }
-    if (session === editSession.current) setChosenPhoto(chosen);
-  }, []);
+  const [chosenPhoto, setChosenPhoto, handlePhotoFile] = usePhotoChoice(editSession);
 
   // `savedId` is the contact to land on after a save; without it, a new
   // contact has nothing to show and goes back to the list.
@@ -409,7 +338,7 @@ function ContactFiche({
         ignoreBlocker: true,
       });
     },
-    [contact, groups, router, routeId, isNew],
+    [contact, groups, router, routeId, isNew, setChosenPhoto],
   );
 
   // Enter edit mode, keeping `anchor` (a section, or the top of the page) where
@@ -443,18 +372,6 @@ function ContactFiche({
     else enterEdit();
   }, [edit, exitEdit, enterEdit]);
 
-  // E key to enter edit
-  useEffect(() => {
-    if (edit) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.repeat || !isPlainKey(e) || isTyping(e.target) || isInMenu(e.target)) return;
-      if (isDialogOpen()) return;
-      if (e.key === "e" || e.key === "E") handleToggleEdit();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [edit, handleToggleEdit]);
-
   // Cancel / Esc
   const handleCancel = useCallback(() => {
     if (hasChanges) {
@@ -481,7 +398,7 @@ function ContactFiche({
       setChosenPhoto(null);
       setShowDiscard(true);
     }
-  }, [blockerActive]);
+  }, [blockerActive, setChosenPhoto]);
 
   const closeDiscard = useCallback(() => {
     setShowDiscard(false);
@@ -489,31 +406,24 @@ function ContactFiche({
   }, [blockerActive, blocker]);
 
   // Esc closes the open dialog (photo, delete, move or discard), otherwise it
-  // cancels editing; not while a delete is in flight.
-  useEffect(() => {
-    if (!edit) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || deleting) return;
-      if (chosenPhoto !== null) {
-        setChosenPhoto(null);
-      } else if (showUnshown) {
-        setShowUnshown(false);
-      } else if (showDelete) {
-        setShowDelete(false);
-      } else if (showMove) {
-        setShowMove(false);
-      } else if (showDiscard) {
-        closeDiscard();
-      } else {
-        handleCancel();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+  // cancels editing.
+  const handleEscape = useCallback(() => {
+    if (chosenPhoto !== null) {
+      setChosenPhoto(null);
+    } else if (showUnshown) {
+      setShowUnshown(false);
+    } else if (showDelete) {
+      setShowDelete(false);
+    } else if (showMove) {
+      setShowMove(false);
+    } else if (showDiscard) {
+      closeDiscard();
+    } else {
+      handleCancel();
+    }
   }, [
-    edit,
-    deleting,
     chosenPhoto,
+    setChosenPhoto,
     showUnshown,
     showDelete,
     showMove,
@@ -694,40 +604,14 @@ function ContactFiche({
     });
   }, [draft, dirty, delta, editBase, isNew, applyGroupChanges, updateContact, runSave, onCreate]);
 
-  // ⌘/Ctrl + Enter saves, from a field too (⌘S belongs to the browser).
-  const saveRef = useRef(handleSave);
-  const canSaveRef = useRef(false);
-  const deferredSave = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => {
-    saveRef.current = handleSave;
-    canSaveRef.current = edit && !busy;
+  useEditShortcuts({
+    edit,
+    busy,
+    deleting,
+    onToggleEdit: handleToggleEdit,
+    onEscape: handleEscape,
+    onSave: handleSave,
   });
-  useEffect(() => () => clearTimeout(deferredSave.current), []);
-  useEffect(() => {
-    if (!edit) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-      if (e.repeat || e.isComposing || busy || isDialogOpen()) return;
-      e.preventDefault();
-      // A field that commits on blur, such as "Ajouter un groupe", commits its
-      // value first; the save then runs once the draft holds it.
-      const active = document.activeElement;
-      if (
-        active instanceof HTMLInputElement &&
-        active.dataset.commitOnBlur !== undefined &&
-        active.value.trim() !== ""
-      ) {
-        active.blur();
-        deferredSave.current = setTimeout(() => {
-          if (canSaveRef.current && !isDialogOpen()) void saveRef.current();
-        }, 0);
-        return;
-      }
-      void handleSave();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [edit, busy, handleSave]);
 
   // Conflict — reload by invalidating the contact query and exiting edit
   const handleConflictReload = useCallback(() => {
@@ -758,35 +642,16 @@ function ContactFiche({
   const handleGroupOverwrite = useCallback(async () => {
     const session = editSession.current;
     setSaveStatus("saving");
-    const written: Contact[] = [];
-    const remaining: GroupFailure[] = [];
     // Only what the draft still asks for: a chip taken back since is dropped.
     const wanted = groupFailures.filter((f) =>
       (f.kind === "add" ? delta.added : delta.removed).includes(f.name),
     );
-    for (const failure of wanted) {
-      try {
-        if (failure.newCard) {
-          // The same card again: a 412 means an earlier try landed, and that
-          // card then only needs this contact as member.
-          try {
-            written.push(await createGroupCard(auth, failure.newCard));
-          } catch (err) {
-            if (!(err instanceof DavError && err.code === "CONFLICT")) throw err;
-            written.push(
-              await overwriteGroupChange(auth, failure.cardHref, editBase.uid, failure.kind),
-            );
-          }
-          groupRetries.current.delete(failure.name);
-        } else {
-          written.push(
-            await overwriteGroupChange(auth, failure.cardHref, editBase.uid, failure.kind),
-          );
-        }
-      } catch (error) {
-        remaining.push({ ...failure, error });
-      }
-    }
+    const { written, remaining } = await retryGroupFailures(
+      auth,
+      wanted,
+      editBase.uid,
+      groupRetries.current,
+    );
     cacheGroupCards(written);
     if (session !== editSession.current) return;
     const done = wanted.filter(
@@ -1078,28 +943,4 @@ function ContactFiche({
       )}
     </article>
   );
-}
-
-/** Message for a failed PUT or DELETE other than a 412, which each caller handles. */
-const NETWORK_ERROR_KEYS: Record<"save" | "delete" | "move", TranslationKey> = {
-  save: "err_save_network",
-  delete: "err_delete_network",
-  move: "err_move_network",
-};
-
-function writeErrorText(
-  err: unknown,
-  write: "save" | "delete" | "move",
-  t: I18nContextValue["t"],
-  locale: string,
-): string {
-  if (err instanceof DavError && err.code === "NETWORK") {
-    return t(NETWORK_ERROR_KEYS[write]);
-  }
-  if (err instanceof DavError && err.code === "AUTH") return t("err_save_auth");
-  if (err instanceof DavError && (err.code === "TOO_LARGE" || err.code === "MAYBE_TOO_LARGE")) {
-    const key = err.code === "TOO_LARGE" ? "err_save_too_large" : "err_save_maybe_too_large";
-    return t(key, { size: formatMegabytes(err.bytes ?? 0, locale) });
-  }
-  return t(write === "move" ? "err_move_unexpected" : "err_save_unexpected");
 }

@@ -1,0 +1,43 @@
+import { Link } from "@tanstack/react-router";
+import { useI18n } from "@/i18n/react";
+import { buttonClass } from "./button";
+import { DemoMark } from "./demo-notice";
+import { ArrowLeftIcon } from "./icons";
+
+/**
+ * Mobile-only top bar: back to the list on the left; on the right, the
+ * "Modifier" pill with `onEdit`, else `label` ("Modification", "Paramètres").
+ */
+export function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: string }) {
+  const { t } = useI18n();
+  return (
+    <div className="sticky top-0 z-20 flex h-14 items-center border-b bg-muted/95 px-2 backdrop-blur lg:hidden">
+      <Link
+        to="/contacts"
+        activeOptions={{ exact: true }}
+        aria-label={t("back_to_list")}
+        className={buttonClass(
+          { variant: "ghost" },
+          "h-10 gap-1.5 pl-2 pr-3 text-foreground hover:bg-background focus-visible:ring-offset-muted",
+        )}
+      >
+        <ArrowLeftIcon />
+        <span>{t("list_label")}</span>
+      </Link>
+      <DemoMark className="ml-1" />
+      {onEdit !== undefined ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          className={buttonClass({ size: "sm" }, "ml-auto mr-1 px-4")}
+        >
+          {t("edit")}
+        </button>
+      ) : (
+        label !== undefined && (
+          <span className="ml-auto mr-3 text-sm font-bold text-muted-foreground">{label}</span>
+        )
+      )}
+    </div>
+  );
+}

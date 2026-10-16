@@ -14,6 +14,7 @@ export {
   groupDelta,
   hasGroupChanges,
   overwriteGroupChange,
+  retryGroupFailures,
   writeGroupChanges,
 } from "./groupChanges";
 export { type MoveOutcome, moveContact } from "./moveContact";
