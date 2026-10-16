@@ -118,10 +118,11 @@ to the runtime image.
 ```
 src/
   routes/        TanStack Router file-based routes (thin: compose components, no logic)
-  components/    UI components; components/ui/ is vendored shadcn, added with
-                 `pnpm dlx shadcn@latest add` (the CLI is not a dependency).
-                 button.ts, icons.tsx and dialog.tsx hold the shared controls;
-                 the contact page is contact-page.tsx (state, saves, dialogs)
+  components/    UI components, built by hand: button.ts, icons.tsx and
+                 dialog.tsx hold the shared controls. A shadcn component, when
+                 one is needed, goes in components/ui/, added with `pnpm dlx
+                 shadcn@latest add` (the CLI is not a dependency).
+                 The contact page is contact-page.tsx (state, saves, dialogs)
                  over contact-view.tsx (reading) and contact-editor.tsx (form)
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.
                  The ONLY module that imports tsdav. session.ts opens, reads

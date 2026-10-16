@@ -84,6 +84,10 @@ your CardDAV account. This example is local only: the port is bound to
 [deployment guide](docs/deployment.md), which includes Traefik, SWAG and
 Nginx Proxy Manager examples. Natel can also [run without Docker](docs/bare-metal.md).
 
+Natel is alpha software. Before your first edit, export each address book
+from the address-book menu to keep a `.vcf` copy, or back up your CardDAV
+server.
+
 For a published image, follow the [version-specific installation notes](docs/deployment.md#published-images).
 Use an explicit tag for a repeatable installation and read the release notes
 before upgrading: the default ports and volume ownership can change.

@@ -17,6 +17,27 @@ first for a new feature, dependency or behaviour decision.
 
 [AGENTS.md](AGENTS.md) has the detailed invariants and agent workflow.
 
+## Where to start
+
+[DECISIONS.md](docs/DECISIONS.md) is a reference, not something to read
+through. Four entries explain most of the code:
+
+- ADR 005: unknown vCard properties are preserved, and only a subset is
+  edited.
+- ADR 006: every write is conditional, and a conflict is shown to the user.
+- ADR 009: how the app reaches the CardDAV server through `/dav`.
+- ADR 032: the sign-in sessions held by `natel-session`.
+
+Then, depending on the change:
+
+- the screens: `src/routes/` (thin), `src/components/` and `src/lib/` (edit
+  drafts, validation, sorting, search), with [DESIGN.md](docs/DESIGN.md);
+- reading and writing vCards: `src/vcard/`, the `Contact` type in
+  `src/model/contact.ts`, and the tests in `tests/vcard/`;
+- talking to the server: `src/dav/` and `src/queries/`;
+- the proxy, sign-in sessions and the image: `Caddyfile`, `session/` and
+  `Dockerfile`.
+
 ## Setup
 
 Use Node 24 and the pnpm version pinned in `package.json` (`corepack enable`).
