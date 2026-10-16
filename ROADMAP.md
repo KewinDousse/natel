@@ -95,9 +95,10 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - Incremental sync via `sync-token`, IndexedDB cache, offline mode
 - Duplicate detection and merge
 - Delegated auth (`Remote-User` header behind Authelia/Authentik)
-- Rate limiting of sign-in attempts on `/dav`, per client address: needs
-  a Caddy module, so a custom Caddy build in the image
+- Rate limiting of sign-in attempts per client address, in `natel-session`
+  (ADR 032)
 
 ## Explicitly never
 
-Calendars, tasks, mail, multi-user permissions, any server-side state.
+Calendars, tasks, mail, multi-user permissions, any server-side state beyond
+sign-in sessions held in memory (ADR 032).

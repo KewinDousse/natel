@@ -75,8 +75,9 @@ with its own read limits.
 
 Caddy 2.11.7's body idle reader can leave an incomplete HTTP/1.1 upload open
 after its deadline. The Caddyfile disables this reader with
-`read_body_idle -1s` and uses the total read budget instead. This bounds
-stalled and trickling uploads while keeping keep-alive for completed
+`read_body_idle -1s` and uses the total read budget instead, as recorded in
+[ADR 031](DECISIONS.md#031--bound-upload-reads-with-a-total-budget-in-the-official-caddy-image).
+This bounds stalled and trickling uploads while keeping keep-alive for completed
 requests. A pause may last until the total budget expires; there is no
 separate body inactivity limit or minimum transfer rate.
 

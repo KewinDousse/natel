@@ -239,12 +239,12 @@ must keep the same `Location` rule.
 
 ### Authenticated redirects stay under /dav
 
-Authenticated redirects are confined under `/dav`, while discovery redirects are preserved. Resolve
-relative paths and dot segments in the server's URL space before prepending
-`/dav`. Absolute and protocol-relative URLs contribute their path and query,
-never their origin. Query-only redirects keep the requested resource; escaped
-path separators, repeated query keys and literal dollar signs remain intact.
-Fragments do not reach the server.
+Authenticated redirects are confined under `/dav`, while discovery redirects are
+preserved. Resolve relative paths and dot segments in the server's URL space
+before prepending `/dav`. Absolute and protocol-relative URLs contribute their
+path and query, never their origin. Query-only redirects keep the requested
+resource; escaped path separators, repeated query keys and literal dollar signs
+remain intact. Fragments do not reach the server.
 
 Requests to `/dav/` are also routed on the escaped URI before static
 handlers, with only the literal prefix stripped. This preserves encoded
@@ -297,9 +297,10 @@ by starting a different server on the same port.
 
 ## 018 — Compatibility matrix: Baïkal from Docker, Xandikos without authentication
 
-**Context.** The compatibility matrix runs the e2e suite against Radicale, Baïkal and
-Xandikos, with workarounds isolated and recorded (invariant 6). ADR 017 runs
-Radicale from pip; the other two servers don't fit that mould as they are.
+**Context.** The compatibility matrix runs the e2e suite against Radicale,
+Baïkal and Xandikos, with workarounds isolated and recorded (invariant 6). ADR
+017 runs Radicale from pip; the other two servers don't fit that mould as they
+are.
 
 **Decision.**
 - The app needed no workaround: the suite passes unchanged on all three.
@@ -322,12 +323,12 @@ locally needs a Docker daemon; Radicale stays the default of `pnpm e2e`.
 
 ## 019 — Display preferences: browser defaults, overrides in localStorage
 
-**Context.** The FR/EN switch sits in the app header. More
-languages are planned, and on phones the header has no room for it: the switch
-truncates the address book's name in the meantime. Users will also want to
-choose other display settings, such as how dates are shown. Locale state
-lives in memory only today (`src/i18n/react.tsx`, DESIGN.md), so a choice is
-lost on reload, which is also a logout (ADR 007).
+**Context.** The FR/EN switch sits in the app header. More languages are
+planned, and on phones the header has no room for it: the switch truncates the
+address book's name meanwhile. Users will also want to choose other display
+settings, such as how dates are shown. Locale state lives in memory only today
+(`src/i18n/react.tsx`, DESIGN.md), so a choice is lost on reload, which is also
+a logout (ADR 007).
 
 **Decision.**
 - Every display preference defaults to what the browser says. For the
@@ -712,20 +713,20 @@ ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
   `imageSmoothingQuality: "high"`, then lands on the target: one large step
   aliases in browsers whose smoothing reads few source pixels per output
   pixel. The result is a JPEG at quality 0.9, where the loss doesn't show at
-  avatar sizes for a third of quality 1's weight. A source that isn't a JPEG
-  is checked for transparency, and kept as a PNG if it has some and the PNG
-  is at most 512 KB; a heavier one (a cut-out photo) is flattened on white
-  and becomes a JPEG, since a card that size is what servers refuse. A PNG,
-  GIF or WebP source without transparency is also encoded as a PNG, and the
-  lighter is kept, so a flat graphic stays a crisp PNG and a photo becomes a
-  JPEG. A browser that hands back another type than asked for fails the
-  photo. It costs something: the result loses all metadata and takes the
-  canvas's colour space (a `display-p3` canvas writes a Display P3 profile,
-  as the device check found), the rotation is baked in, an HDR photo loses its gain map,
-  a 16-bit or HDR source drops to 8 bits, and an animated GIF or WebP keeps
-  only its first frame. A sufficiently small, upright, uncropped file accepted by the lossless
-  metadata filter avoids the canvas. The canvas is `display-p3` where the browser
-  supports it (`getContext("2d", { colorSpace: "display-p3" })`), sRGB
+  avatar sizes for a third of quality 1's weight. A source that isn't a JPEG is
+  checked for transparency, and kept as a PNG if it has some and the PNG is at
+  most 512 KB; a heavier one (a cut-out photo) is flattened on white and becomes
+  a JPEG, since a card that size is what servers refuse. A PNG, GIF or WebP
+  source without transparency is also encoded as a PNG, and the lighter is kept,
+  so a flat graphic stays a crisp PNG and a photo becomes a JPEG. A browser that
+  hands back another type than asked for fails the photo. It costs something:
+  the result loses all metadata and takes the canvas's colour space (a
+  `display-p3` canvas writes a Display P3 profile, as the device check found),
+  the rotation is baked in, an HDR photo loses its gain map, a 16-bit or HDR
+  source drops to 8 bits, and an animated GIF or WebP keeps only its first
+  frame. A sufficiently small, upright, uncropped file accepted by the lossless
+  metadata filter avoids the canvas. The canvas is `display-p3` where the
+  browser supports it (`getContext("2d", { colorSpace: "display-p3" })`), sRGB
   elsewhere, where a Display-P3 photo loses the colours outside sRGB.
 - Considered: a lossless JPEG crop and rotation (jpegtran compiled to
   WebAssembly), which keeps the colour profile and adds no JPEG loss, but crops only on
@@ -1049,10 +1050,10 @@ no artwork.
 ## 028 — Apple's year-less birthday: year 1604 with `X-APPLE-OMIT-YEAR`
 
 **Context.** The real-device test (ADR 023): a birthday saved without a year on
-iCloud comes as `BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14`, since
-vCard 3.0 (RFC 2426) has no date without a year. Natel showed it as
-"14 juillet 1604", while Google Contacts through DAVx⁵ showed "14 juillet".
-vCard 4.0 has a standard form, `--0714` (RFC 6350 §4.3.1).
+iCloud comes as `BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14`, since vCard
+3.0 (RFC 2426) has no date without a year. Natel showed it as "14 juillet 1604",
+while Google Contacts through DAVx⁵ showed "14 juillet". vCard 4.0 has a
+standard form, `--0714` (RFC 6350 §4.3.1).
 
 **Decision.** A workaround for Apple (invariant 6), in `src/vcard/`:
 - `appleOmittedYear` reads a birthday's year as absent when its
@@ -1074,10 +1075,10 @@ birthday is edited; one that isn't edited keeps its form.
 ## 029 — `REV` moves to the time of each save
 
 **Context.** The real-device test (ADR 023): after an edit in Natel, Bob's card
-kept the `REV` iCloud wrote, and Alice's the one DAVx⁵ wrote, while DAVx⁵
-moves it at each change. RFC 6350 §6.7.4 makes `REV` the card's revision,
-so the client that writes the card sets it. The clients tested sync on the
-ETag and saw no difference, but one that orders two versions by `REV`, or shows "modified
+kept the `REV` iCloud wrote, and Alice's the one DAVx⁵ wrote, while DAVx⁵ moves
+it at each change. RFC 6350 §6.7.4 makes `REV` the card's revision, so the
+client that writes the card sets it. The clients tested sync on the ETag and saw
+no difference, but one that orders two versions by `REV`, or shows "modified
 on", would see a wrong date.
 
 **Decision.** `stampRevision` in `src/vcard/` sets the card's `REV` to the
@@ -1094,10 +1095,10 @@ card keeps its `REV` too, since import sends its text unchanged (ADR 020).
 
 ## 030 — Display grouped `X-ABLABEL` values and replace them with an explicit type
 
-**Context.** The real-device test (ADR 023) found the phone labels "Chalet"
-and "Bateau" in Apple and DAVx⁵ cards, grouped with their `TEL` properties.
-The maintainer approved displaying existing labels and replacing them when
-another type is selected. ADR 029 covers the independent `REV` change.
+**Context.** The real-device test (ADR 023) found the phone labels "Chalet" and
+"Bateau" in Apple and DAVx⁵ cards, grouped with their `TEL` properties. The
+maintainer approved displaying existing labels and replacing them when another
+type is selected. ADR 029 covers the independent `REV` change.
 
 **Decision.** `appleLabelOf` in `src/vcard/` associates the first non-empty
 `X-ABLABEL` with a property by its non-empty, case-insensitive group name.

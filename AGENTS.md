@@ -98,9 +98,10 @@ auth, multiple users, plugin systems, theming beyond light/dark.
 
 ## Picking the next step
 
-The backlog to v1.0 is the ordered list of sub-issues of the « Backlog » issue. Take the
-first open one, and read its comments and the pull requests that reference
-it, open or closed: the maintainer's answers there are part of the spec.
+The backlog to v1.0 is the ordered list of sub-issues of the maintainer's
+backlog issue, titled « Backlog ». Take the first open one,
+and read its comments and the pull requests that reference it, open or
+closed: the maintainer's answers there are part of the spec.
 A sub-issue waits on the maintainer when one of them does: an open pull
 request, a question with no answer after it, a note that only maintainer
 work is left, or a pull request closed without merge and no word since.
