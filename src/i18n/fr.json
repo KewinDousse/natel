@@ -221,6 +221,7 @@
   "demo_mark": "Démo",
   "demo_notice": "Démo\u00a0: rien n’est enregistré, modifiez tout ce que vous voulez.",
   "demo_login": "Démo\u00a0: n’importe quel nom d’utilisateur et mot de passe fonctionnent. Rien n’est enregistré.",
+  "privacy_demo": "Dans cette démo, rien de ce que vous saisissez ne quitte votre navigateur.",
   "count_1": "1 contact",
   "book_label_current": "Carnet d’adresses\u00a0: {name}",
   "delete_body": "Le contact sera supprimé du serveur, et donc de tous vos appareils synchronisés.",

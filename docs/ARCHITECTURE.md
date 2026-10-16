@@ -103,6 +103,15 @@ pre-release suffix) publishes it to the repository's GitHub Pages site. The
 normal build, and so the image, never contains it, which the `check` job
 verifies.
 
+## Link previews
+
+`index.html` carries `og:title` and `og:description`, which suit any
+instance. A preview image needs an absolute URL, which only the demo knows:
+given `DEMO_URL` (its GitHub Pages address in CI), the demo build ships
+`docs/brand/social/og-image-en.png` as `og-image.png` and adds `og:url`,
+`og:image` and `twitter:card`. The Docker image, and so self-hosted
+instances, carry no preview image.
+
 ## Build identification
 
 The settings page shows `package.json`'s version and an optional source

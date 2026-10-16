@@ -23,6 +23,11 @@ if (!csp) throw new Error("No Content-Security-Policy in the Caddyfile's securit
 // subpath (VITE_BASE, such as /natel/ for GitHub Pages).
 const demo = process.env.VITE_DEMO === "1";
 const base = process.env.VITE_BASE ?? "/";
+// The demo's public address: link previews only fetch an image from an
+// absolute URL, so without it the demo build carries no preview image.
+const demoUrl = process.env.DEMO_URL;
+// Resolved against it, a URL without the trailing slash loses its last segment.
+if (demoUrl && !demoUrl.endsWith("/")) throw new Error("DEMO_URL must end with /");
 
 export function buildRevision(): string {
   if (process.env.NATEL_REVISION) return process.env.NATEL_REVISION;
@@ -37,10 +42,12 @@ export function buildRevision(): string {
   }
 }
 
+const OG_IMAGE = "og-image.png";
+
 /**
  * What a static host can't send as headers: the CSP as a meta tag (without
  * frame-ancestors, which a meta tag can't set), and a 404.html that loads
- * the app on a deep link.
+ * the app on a deep link. With DEMO_URL, also the link preview's image.
  */
 function demoStaticHost(): Plugin {
   let outDir = "dist";
@@ -52,13 +59,32 @@ function demoStaticHost(): Plugin {
     },
     transformIndexHtml() {
       const policy = (csp ?? "").replace(/;?\s*frame-ancestors [^;]*/, "");
+      const preview = demoUrl
+        ? [
+            { property: "og:url", content: demoUrl },
+            { property: "og:image", content: new URL(OG_IMAGE, demoUrl).href },
+            { property: "og:image:width", content: "1200" },
+            { property: "og:image:height", content: "630" },
+            { name: "twitter:card", content: "summary_large_image" },
+          ]
+        : [];
       return [
         {
           tag: "meta",
           attrs: { "http-equiv": "Content-Security-Policy", content: policy },
           injectTo: "head-prepend",
         },
+        ...preview.map((attrs) => ({ tag: "meta", attrs, injectTo: "head" as const })),
       ];
+    },
+    generateBundle() {
+      if (demoUrl) {
+        this.emitFile({
+          type: "asset",
+          fileName: OG_IMAGE,
+          source: readFileSync(`${import.meta.dirname}/docs/brand/social/og-image-en.png`),
+        });
+      }
     },
     writeBundle() {
       if (existsSync(`${outDir}/index.html`)) {

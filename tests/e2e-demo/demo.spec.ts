@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 async function signIn(page: Page): Promise<void> {
   await expect(page.getByText("Demo: any username and password work.")).toBeVisible();
+  await expect(page.getByText("In this demo, nothing you type leaves your browser.")).toBeVisible();
   await page.getByLabel("Username").fill("visitor");
   await page.getByLabel("Password", { exact: true }).fill("anything");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -41,6 +42,16 @@ test("carries the content security policy in a meta tag", async ({ page, isMobil
     .getAttribute("content");
   expect(policy).toContain("default-src 'self'");
   expect(policy).toContain("require-trusted-types-for 'script'; trusted-types 'none'");
+});
+
+test("gives link previews an absolute image it serves", async ({ page, request, isMobile }) => {
+  test.skip(isMobile, "the tags don't depend on the viewport");
+  await page.goto("./");
+  const image = await page.locator('meta[property="og:image"]').getAttribute("content");
+  expect(image).toBe(new URL("og-image.png", page.url()).href);
+  const response = await request.get(image ?? "");
+  expect(response.ok()).toBe(true);
+  expect(response.headers()["content-type"]).toBe("image/png");
 });
 
 test("loads the app on a deep link", async ({ page }) => {

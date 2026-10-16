@@ -221,6 +221,7 @@
   "demo_mark": "Demo",
   "demo_notice": "Demo: nothing is saved, change anything you like.",
   "demo_login": "Demo: any username and password work. Nothing is saved.",
+  "privacy_demo": "In this demo, nothing you type leaves your browser.",
   "count_1": "1 contact",
   "book_label_current": "Address book: {name}",
   "delete_body": "It will be deleted from the server, and so from all your synced devices.",

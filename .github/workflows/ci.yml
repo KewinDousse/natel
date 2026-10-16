@@ -71,6 +71,12 @@ jobs:
             echo "The demo's CardDAV stand-in is in the normal build" >&2
             exit 1
           fi
+      # Nor does the demo's preview image, which names the demo's address.
+      - run: |
+          if grep -rqE 'og:image|og-image\.png|github\.io' dist; then
+            echo "The demo's link preview image is in the normal build" >&2
+            exit 1
+          fi
 
   e2e:
     name: e2e (${{ matrix.server }})
@@ -289,6 +295,7 @@ jobs:
           NATEL_REVISION: ${{ github.sha }}
           VITE_DEMO: "1"
           VITE_BASE: /natel/
+          DEMO_URL: https://kewindousse.github.io/natel/
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist-demo

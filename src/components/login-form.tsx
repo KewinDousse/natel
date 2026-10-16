@@ -201,7 +201,7 @@ export function LoginForm() {
 
       <p className="mt-8 flex gap-2.5 border-t pt-5 text-sm leading-snug text-muted-foreground">
         <LockIcon className="mt-0.5 size-4" />
-        <span>{t("privacy")}</span>
+        <span>{t(IS_DEMO ? "privacy_demo" : "privacy")}</span>
       </p>
       <p className="mt-6 text-caption text-muted-foreground">
         {t("footer")}{" "}

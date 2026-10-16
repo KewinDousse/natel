@@ -25,7 +25,7 @@ export default defineConfig({
   webServer: {
     command: `pnpm build --outDir dist-demo && pnpm preview --outDir dist-demo --host 127.0.0.1 --port ${PORT} --strictPort`,
     url: `http://127.0.0.1:${PORT}/natel/`,
-    env: { VITE_DEMO: "1", VITE_BASE: "/natel/" },
+    env: { VITE_DEMO: "1", VITE_BASE: "/natel/", DEMO_URL: `http://127.0.0.1:${PORT}/natel/` },
     timeout: 120_000,
   },
 });
