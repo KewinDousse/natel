@@ -133,11 +133,16 @@ src/
                  The contact page is contact-page.tsx (state, saves, dialogs)
                  over contact-view.tsx (reading) and contact-editor.tsx (form)
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.
-                 The ONLY module that imports tsdav. session.ts opens, reads
-                 and ends the sign-in session. demo.ts and demo-seed.ts
+                 The ONLY module that imports tsdav, through internal.ts;
+                 errors.ts maps its errors and proxy-hrefs.ts translates hrefs
+                 across the proxy. session.ts opens, reads and ends the
+                 sign-in session. demo.ts and demo-seed.ts
                  stand in for it in the demo build (ADR 025).
   vcard/         Parse/serialise vCard ↔ Contact model. Wraps ical.js.
-                 The ONLY module that imports ical.js.
+                 The ONLY module that imports ical.js. index.ts is its entry
+                 point, and the only file other code imports (`@/vcard`);
+                 read.ts, write.ts, photo.ts, fields.ts, apple-birthday.ts
+                 and ical-workarounds.ts hold its parts.
   lib/           Pure helpers: contact-list grouping, sorting, search logic;
                  edit drafts, dirty tracking and validation; display formatting;
                  the theme, which public/theme.js applies before the first paint.

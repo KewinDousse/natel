@@ -13,8 +13,18 @@
 
 import type { DAVResponse } from "tsdav";
 import { createDAVClient } from "tsdav";
+import { mapDavError, wrap } from "./errors";
+import {
+  assertProxyHref,
+  deriveBookUrl,
+  fromServerHref,
+  proxyRoot,
+  toServerPath,
+} from "./proxy-hrefs";
 import type { DavAuth } from "./types";
 import { DavError } from "./types";
+
+export { absolutizeHref } from "./proxy-hrefs";
 
 type DAVClient = Awaited<ReturnType<typeof createDAVClient>>;
 
@@ -122,80 +132,6 @@ export function isMemberResponse(response: DAVResponse): boolean {
   // Has resourcetype with at least one key = a collection, skip it
   if (rt && typeof rt === "object" && Object.keys(rt).length > 0) return false;
   return true;
-}
-
-// ---------------------------------------------------------------------------
-// Error mapping
-//
-// tsdav@2.3.1 throws errors with status codes embedded in known formats:
-//   "Collection query failed: 401 Unauthorized. Raw response: ..."  (collectionQuery)
-//   "Invalid credentials: PROPFIND ... returned 401 Unauthorized"   (fetchPrincipalUrl)
-// Network failures surface as native TypeError ("fetch failed", Safari's
-// "Load failed"); there is no status in such messages.
-// ---------------------------------------------------------------------------
-
-/**
- * Extract an HTTP status code from a tsdav error message, if any.
- *
- * Only the formats tsdav actually emits are recognized, so unrelated "412"
- * digits in a raw response body cannot false-positive.
- */
-function extractStatusFromMessage(message: string): number | null {
-  const match = message.match(/(?:failed|returned)[ :]+([45]\d{2})/);
-  if (match?.[1]) return Number.parseInt(match[1], 10);
-  return null;
-}
-
-/** Map a thrown tsdav error to our DavError. */
-function mapDavError(err: unknown, context: string): never {
-  if (err instanceof DavError) throw err;
-
-  const message = err instanceof Error ? err.message : String(err);
-  const status = extractStatusFromMessage(message);
-
-  // Browsers (notably Safari) reject failed fetches with a bare TypeError
-  // such as "Load failed". Treat any TypeError as a network failure.
-  if (err instanceof TypeError) {
-    throw new DavError(`CardDAV network error: ${context}`, "NETWORK", err);
-  }
-
-  if (status === 412) {
-    throw new DavError(
-      `CardDAV conflict: ${context} — resource changed on server`,
-      "CONFLICT",
-      err,
-    );
-  }
-  if (status === 401 || status === 403) {
-    throw new DavError(`CardDAV authentication failed: ${context}`, "AUTH", err);
-  }
-  if (status === 404) {
-    throw new DavError(`CardDAV resource not found: ${context}`, "NOT_FOUND", err);
-  }
-  if (status !== null && status >= 500) {
-    throw new DavError(`CardDAV unexpected error: ${context} — HTTP ${status}`, "UNEXPECTED", err);
-  }
-
-  if (
-    message.includes("fetch") ||
-    message.includes("network") ||
-    message.includes("ENOTFOUND") ||
-    message.includes("ECONNREFUSED") ||
-    message.includes("NetworkError")
-  ) {
-    throw new DavError(`CardDAV network error: ${context}`, "NETWORK", err);
-  }
-
-  throw new DavError(`CardDAV unexpected error: ${context} — ${message}`, "UNEXPECTED", err);
-}
-
-/** Promise wrapper that catches raw tsdav errors and maps them. */
-async function wrap<T>(fn: () => Promise<T>, context: string): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    return mapDavError(err, context);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -347,68 +283,6 @@ async function fetchFreshEtag(client: DAVClient, href: string): Promise<string> 
     );
   }
   return etag;
-}
-
-// ---------------------------------------------------------------------------
-// Proxy URL space
-//
-// Every request goes to the same-origin proxy mounted at /dav, which mirrors
-// the CardDAV server's paths (ADR 009, 014): /dav/dav.php/… reaches the
-// server's /dav.php/…. The proxy rewrites neither request nor response
-// bodies, so hrefs crossing it must be translated both ways.
-// ---------------------------------------------------------------------------
-
-const PROXY_PREFIX = "/dav";
-
-/** Absolute URL of the proxy root, on the page's own origin. */
-function proxyRoot(): string {
-  return new URL(`${PROXY_PREFIX}/`, globalThis.location.href).href;
-}
-
-/** Credentials may only be sent to the app's DAV proxy. */
-function assertProxyHref(href: string): void {
-  let url: URL;
-  try {
-    url = new URL(href);
-  } catch {
-    throw new DavError(`Invalid DAV href: ${href}`, "UNEXPECTED");
-  }
-  if (!url.href.startsWith(proxyRoot()) || url.username || url.password) {
-    throw new DavError(`CardDAV href outside the proxy: ${href}`, "UNEXPECTED");
-  }
-}
-
-/**
- * Map an href from a server response into proxy space.
- *
- * Servers answer with absolute paths in their own URL space (`/dav.php/…`),
- * sometimes with their own origin in front; both get the /dav prefix. A
- * relative href resolves against the request URL, which already carries it.
- *
- * The result is checked to lie under the proxy root: requests to it carry the
- * credentials, and the URL parser reads some relative hrefs (`\\host/`,
- * ` //host/`) as another origin.
- */
-function fromServerHref(href: string, requestUrl: string): string {
-  let path = href;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-    const url = new URL(absolutizeHref(href, requestUrl));
-    path = `${url.pathname}${url.search}`;
-  }
-  const resolved = path.startsWith("/")
-    ? absolutizeHref(`${PROXY_PREFIX}${path}`, requestUrl)
-    : absolutizeHref(href, requestUrl);
-  if (!resolved.startsWith(proxyRoot())) {
-    throw new DavError(`CardDAV href outside the proxy: ${href}`, "UNEXPECTED");
-  }
-  return resolved;
-}
-
-/** Server-space path of a proxy URL, for hrefs sent inside a request body. */
-function toServerPath(href: string): string {
-  assertProxyHref(href);
-  const url = new URL(href);
-  return `${url.pathname.slice(PROXY_PREFIX.length)}${url.search}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -777,18 +651,6 @@ async function makeSession(evict: () => void): Promise<DavSession> {
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve an href against a base, mapping malformed input to a DavError
- * instead of a raw TypeError from `new URL`.
- */
-export function absolutizeHref(href: string, base: string): string {
-  try {
-    return new URL(href, base).href;
-  } catch {
-    throw new DavError(`Invalid DAV href ${href} against base ${base}`, "UNEXPECTED");
-  }
-}
-
-/**
  * Find the DAVResponse whose href maps to the given proxy URL.
  *
  * Handles servers returning relative vs absolute hrefs.
@@ -806,25 +668,6 @@ function findResponseByHref(
       return false;
     }
   });
-}
-
-/**
- * Derive the parent collection (address book) URL from a vCard's href.
- *
- * Strips the last path segment. Assumes the vCard is a direct child of the
- * address book collection. Maps malformed input to a DavError.
- */
-function deriveBookUrl(href: string): string {
-  let url: URL;
-  try {
-    url = new URL(href);
-  } catch {
-    throw new DavError(`Invalid card href: ${href}`, "UNEXPECTED");
-  }
-  const segments = url.pathname.split("/").filter(Boolean);
-  if (segments.length > 0) segments.pop(); // remove vCard filename
-  url.pathname = segments.length > 0 ? `/${segments.join("/")}/` : "/";
-  return url.toString();
 }
 
 /** Clear the in-memory session cache. Used on logout, and between tests. */
