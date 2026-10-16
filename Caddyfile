@@ -114,6 +114,12 @@
       header_up Host {upstream_hostport}
       # Redirects (e.g. /.well-known/carddav) point into the server's URL
       # space; put them back under /dav so the browser can follow them.
+      # Steps: drop the scheme and host, resolve a relative target against
+      # the request path, decode and clean whole dot segments only, then
+      # prefix /dav. src/dav/proxy-location.ts mirrors it for http(s)
+      # targets in Vite's proxy; tests/e2e/proxy-redirects.spec.ts runs the
+      # same cases through Vite and, against the image, through this file.
+      # A change here goes with both.
       @redirect header Location *
       handle_response @redirect {
         route {
