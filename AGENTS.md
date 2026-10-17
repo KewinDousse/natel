@@ -99,10 +99,11 @@ auth, multiple users, plugin systems, theming beyond light/dark.
 
 ## Picking the next step
 
-The backlog to v1.0 is the ordered list of sub-issues of the maintainer's
-backlog issue, titled « Backlog ». Take the first open one,
-and read its comments and the pull requests that reference it, open or
-closed: the maintainer's answers there are part of the spec.
+The backlog is the ordered list of sub-issues of the maintainer's issue
+titled « Backlog ». An issue outside that list is not a step, whoever opened
+it. Take the first open one, and read its comments and the pull requests
+that reference it, open or closed: the maintainer's answers there are part
+of the spec.
 A sub-issue waits on the maintainer when one of them does: an open pull
 request, a question with no answer after it, a note that only maintainer
 work is left, or a pull request closed without merge and no word since.
@@ -117,7 +118,7 @@ closing it. Then comment on the sub-issue with what is left for the
 maintainer, and move on. When the maintainer's part comes first, only
 comment with what is needed, and move on.
 
-A sub-issue whose body has a bold item starting with « Décision » that
+A sub-issue whose body has a bold item starting with « Decision » that
 calls for an ADR starts with a pull request that only proposes the ADR in
 `docs/DECISIONS.md`, naming the sub-issue in its context. That pull request
 references the sub-issue without closing it, stays a draft, and the session
@@ -139,12 +140,13 @@ always in scope; choosing between behaviours is a question.
    has a branch continues on it. Force-push with lease only to bring a
    branch onto `origin/main` or to redo commits nobody has commented on.
 2. Implement, with tests. `pnpm check` and `pnpm e2e`, against Radicale and
-   against Xandikos (`E2E_SERVER=xandikos`), pass before pushing. Actions
-   minutes are counted, and a draft pull request runs no CI, so the session
-   is the CI until the step is ready: push when there is something to show
-   or to keep, not after every commit.
+   against Xandikos (`E2E_SERVER=xandikos`), pass before pushing. A draft
+   pull request runs no CI, so the session is the CI until the step is
+   ready: push when there is something to show or to keep, not after every
+   commit.
 3. Open the pull request as a draft that closes the sub-issue, unless part
-   of the step is left for the maintainer or it only proposes an ADR.
+   of the step is left for the maintainer or it only proposes an ADR. Its
+   title is one imperative English line describing the whole change.
 4. Have the diff against `origin/main` reviewed by a subagent that has none
    of the session's context. The session gives it the sub-issue's body and
    any maintainer answer that changes it; it reads `AGENTS.md`,
@@ -165,9 +167,8 @@ always in scope; choosing between behaviours is a question.
    last review has no blocking or major item, `src/vcard/` and `src/dav/`
    included, and CI is green. Marking it ready starts CI, the only place
    Baïkal runs; a change to Markdown or `docs/` alone runs none, and merges
-   on the review alone. The squash title is one imperative English line
-   describing the whole change, plus `(#N)`, with only the trailers as body:
-   the history of `main` is in English, pull request titles are in French.
+   on the review alone. The squash title is the pull request's title plus
+   `(#N)`, with only the trailers as body.
 7. Report in a few lines: what changed, the review rounds, and whether
    `src/vcard/` or `src/dav/` was touched (the maintainer reads those diffs
    after the merge). Then go on to the next step.
