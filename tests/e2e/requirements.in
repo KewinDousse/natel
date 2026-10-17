@@ -1,5 +1,5 @@
 # The CardDAV servers of the e2e suite, compiled with every dependency and
 # its hashes into requirements.txt:
 #   uv pip compile --universal --python-version 3.10 --generate-hashes requirements.in -o requirements.txt
-radicale==3.8.1
+radicale==3.8.3
 xandikos==0.4.8
