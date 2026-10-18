@@ -88,15 +88,13 @@ test("shows the running version and safe links to help", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page.getByText(`Version ${version}`, { exact: false })).toBeVisible();
-  for (const [name, href] of [
-    ["Setup questions", "https://github.com/KewinDousse/natel/discussions"],
-    ["Report a bug", "https://github.com/KewinDousse/natel/issues/new/choose"],
-  ] as const) {
-    const link = page.getByRole("link", { name, exact: true });
-    await expect(link).toHaveAttribute("href", href);
-    await expect(link).toHaveAttribute("target", "_blank");
-    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-  }
+  const bug = page.getByRole("link", { name: "Report a bug", exact: true });
+  await expect(bug).toHaveAttribute(
+    "href",
+    "https://github.com/KewinDousse/natel/issues/new/choose",
+  );
+  await expect(bug).toHaveAttribute("target", "_blank");
+  await expect(bug).toHaveAttribute("rel", "noopener noreferrer");
   const guide = page.getByRole("link", { name: "User guide (English)", exact: true });
   await expect(guide).toHaveAttribute("href", "/contacts/settings/help");
   await expect(guide).not.toHaveAttribute("target", "_blank");

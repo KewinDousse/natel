@@ -99,8 +99,7 @@ before upgrading: the default ports and volume ownership can change.
   browsers and known limits.
 - [Deployment](docs/deployment.md) and [updates](docs/updating.md).
 - [Troubleshooting](docs/troubleshooting.md): sign-in, discovery, photos and support.
-- [Discussions](https://github.com/KewinDousse/natel/discussions) for setup questions;
-  [issues](https://github.com/KewinDousse/natel/issues/new/choose) for bugs and feature requests.
+- [Issues](https://github.com/KewinDousse/natel/issues/new/choose) for bugs and feature requests.
 - [Security](SECURITY.md): report vulnerabilities privately.
 
 ## Scope

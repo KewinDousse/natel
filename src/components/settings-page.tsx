@@ -21,10 +21,7 @@ import { LanguageSelect } from "./language-select";
 import { MobileTopBar } from "./mobile-top-bar";
 
 const SYSTEM = "system";
-const HELP_LINKS = [
-  ["help_questions", "https://github.com/KewinDousse/natel/discussions"],
-  ["help_bug", "https://github.com/KewinDousse/natel/issues/new/choose"],
-] as const;
+const BUG_REPORT_URL = "https://github.com/KewinDousse/natel/issues/new/choose";
 
 export function SettingsPage() {
   const { t } = useI18n();
@@ -123,18 +120,16 @@ export function SettingsPage() {
                 {t("help_guide")}
               </Link>
             </li>
-            {HELP_LINKS.map(([label, href]) => (
-              <li key={label}>
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`inline-flex min-h-10 items-center rounded-sm font-bold underline decoration-leader underline-offset-2 hover:decoration-foreground ${FOCUS_RING}`}
-                >
-                  {t(label)}
-                </a>
-              </li>
-            ))}
+            <li>
+              <a
+                href={BUG_REPORT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex min-h-10 items-center rounded-sm font-bold underline decoration-leader underline-offset-2 hover:decoration-foreground ${FOCUS_RING}`}
+              >
+                {t("help_bug")}
+              </a>
+            </li>
           </ul>
         </SettingsSection>
 

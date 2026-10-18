@@ -177,8 +177,8 @@ Back, or `Esc` on desktop, returns to `/contacts`. The tab title is "Paramètres
 
 In settings, an "À propos et aide" section shows a small muted version line
 and the available source revision. An internal "Guide utilisateur (anglais)" link
-opens `/contacts/settings/help` without reloading or leaving the instance. Setup
-Discussions and the bug form remain external, with `noopener noreferrer`.
+opens `/contacts/settings/help` without reloading or leaving the instance. The bug
+form stays external, with `noopener noreferrer`.
 
 ### Embedded user guide
 

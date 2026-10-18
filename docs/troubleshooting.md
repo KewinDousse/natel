@@ -88,11 +88,10 @@ zero duration. A successful status alone does not prove that the browser
 received the complete response; check the browser and the CardDAV server
 when diagnosing an interrupted transfer.
 
-## Get help or report a bug
+## Report a bug
 
-Use [Discussions](https://github.com/KewinDousse/natel/discussions) for setup
-questions and [the bug form](https://github.com/KewinDousse/natel/issues/new/choose)
-for a reproducible problem. Include the image tag or source commit, server
+Use [the bug form](https://github.com/KewinDousse/natel/issues/new/choose) for a
+reproducible problem. Include the image tag or source commit, server
 name/version, browser/device, expected result and what happened.
 
 Remove credentials, real contacts and private server addresses from logs

@@ -118,8 +118,7 @@ The maintainer reviews the proposal before publication; changes under
 `src/vcard/` and `src/dav/` need particular care because they handle your data.
 Do not include credentials or personal contacts in issues, logs or captures.
 
-## Questions and security
+## Bugs and security
 
-Use [Discussions](https://github.com/KewinDousse/natel/discussions) for setup
-questions. Use issues for bugs and feature requests, and
-[SECURITY.md](SECURITY.md) for private vulnerability reports.
+Use issues for bugs and feature requests, and [SECURITY.md](SECURITY.md) for
+private vulnerability reports.

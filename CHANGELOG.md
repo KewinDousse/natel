@@ -21,6 +21,8 @@ Notable changes to Natel. The format follows
 
 ### Changed
 
+- The settings' help links end with "Report a bug"; the "Setup questions"
+  link is gone.
 - The image's entrypoint is `natel-session`, which runs Caddy as its child
   and listens on `127.0.0.1:2020`. Sharing the host's network, set
   `NATEL_SESSION_ADDR` if that port is taken. A command given to
