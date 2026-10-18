@@ -62,6 +62,8 @@ Multi-stage Dockerfile:
 Measured on 2026-10-15 (linux/amd64): 26 MB compressed (gzip of `docker
 save`), 70 MB unpacked, of which the app is 1 MB and `natel-session` 7 MB;
 about 16 MB of RAM at rest in a fresh container.
+The [natel.app](https://natel.app) home page quotes the compressed size and
+the RAM at rest: update it with each new measurement.
 
 Caddy sends a strict Content-Security-Policy (everything from the same
 origin, photos as `data:` or `blob:` URLs, and Trusted Types, so no string
