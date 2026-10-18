@@ -37,10 +37,11 @@ chosen grouping setup with your other clients before reorganising a book.
 ## Browsers and installed app
 
 Automated browser tests use Chromium, with desktop and phone viewports.
-They include accessibility checks in light and dark themes. Phone emulation
-does not replace a test on a physical phone, and the suite does not establish
-Safari or Firefox compatibility. Use a current browser and report issues
-with its version and device.
+They include accessibility checks in light and dark themes. Sign-in also
+runs in Firefox, and sign-in, the list, editing and photos in WebKit,
+Safari's engine. Phone emulation does not replace a test on a physical
+phone, and Playwright's WebKit does not replace Safari itself. Use a current
+browser and report issues with its version and device.
 
 The app has an installable manifest. Installation depends on the browser's
 support and normally requires HTTPS; it adds no offline mode. A session

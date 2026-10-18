@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { defineConfig, devices, firefox } from "@playwright/test";
+import { defineConfig, devices, firefox, webkit } from "@playwright/test";
 import { APP_URL, DAV_PORT, DAV_URL, PASSWORD, SERVER, USER } from "./tests/e2e/env";
 
 export default defineConfig({
@@ -46,6 +46,31 @@ export default defineConfig({
               },
             },
             testMatch: "login.spec.ts",
+          },
+        ]
+      : []),
+    // The main flows in WebKit, Safari's engine: sign-in, the list, editing
+    // and photos. Skipped where Playwright's own WebKit isn't installed, as
+    // for Firefox.
+    ...(existsSync(webkit.executablePath())
+      ? [
+          {
+            name: "webkit",
+            // Without the Chromium executable set above for every project.
+            use: { ...devices["Desktop Safari"], launchOptions: {} },
+            // On the CI runner, a WebKit test now and then runs out of time:
+            // the browser sits idle for 25 s while loading a page, or
+            // Xandikos takes over 5 s on the list's REPORT late in the
+            // suite. Neither has shown up on another machine.
+            retries: process.env.CI ? 1 : 0,
+            testMatch: [
+              "login.spec.ts",
+              "list.spec.ts",
+              "contacts.spec.ts",
+              "groups-edit.spec.ts",
+              "photos.spec.ts",
+              "photo-edit.spec.ts",
+            ],
           },
         ]
       : []),

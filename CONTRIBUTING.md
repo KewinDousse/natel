@@ -84,14 +84,14 @@ docker run --rm -v "$PWD/session":/src -w /src golang:1.27-alpine \
 contract (`dev-session.ts`).
 
 The main end-to-end suite starts a throwaway CardDAV server and serves the
-production build. It needs Python 3, and Playwright's Chromium and Firefox
-(Firefox runs the sign-in tests only):
+production build. It needs Python 3, and Playwright's Chromium, Firefox and
+WebKit (Firefox runs the sign-in tests only, WebKit the main flows):
 
 ```sh
 python3 -m venv ~/.cache/natel-e2e
 ~/.cache/natel-e2e/bin/pip install -r tests/e2e/requirements.txt
 export PATH="$HOME/.cache/natel-e2e/bin:$PATH"
-pnpm exec playwright install --with-deps chromium firefox
+pnpm exec playwright install --with-deps chromium firefox webkit
 pnpm e2e:demo
 pnpm e2e
 E2E_SERVER=xandikos pnpm e2e
