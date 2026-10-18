@@ -131,6 +131,14 @@ and `AGENTS.md` are in scope only when it names them. Recording in
 `docs/DECISIONS.md` a workaround the step needs, as invariant 6 requires, is
 always in scope; choosing between behaviours is a question.
 
+## Writing an ADR
+
+An entry in `docs/DECISIONS.md` follows the format at the top of that file
+and stays under about 350 words; most need less than 150. It records what
+was decided and why, not how it is built: that goes in the code, its tests,
+`docs/ARCHITECTURE.md` or `docs/DESIGN.md`. A rejected alternative is named
+only when it was a real candidate, in one line with its reason.
+
 ## One step, one pull request
 
 1. Start each step on its own branch, `<agent>/<step>` (such as

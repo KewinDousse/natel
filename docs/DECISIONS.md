@@ -1,7 +1,10 @@
 # Decisions
 
-Lightweight ADR log. Append, don't rewrite. One entry per decision, newest last.
-Format: context → decision → consequences.
+One entry per decision, newest last. Each entry is short: the context in a
+sentence or two, the decision, the alternatives rejected with their reason,
+and the consequences. How it is built belongs in the code, its tests,
+ARCHITECTURE.md or DESIGN.md. A decision that changes gets a new entry, and
+the old one says which entry amends or replaces it.
 
 ## 001 — Contacts only
 
@@ -15,9 +18,10 @@ calendar, and calendar UIs are an order of magnitude more work.
 **Context.** Goal is minimal memory footprint and trivial deployment. CardDAV
 servers send no CORS headers, so a browser client needs same-origin access.
 **Decision.** Vite static build served by Caddy, which also reverse-proxies
-`/dav/*`. No Node runtime, no server state.
-**Consequences.** ~20 MB RAM. Features requiring server state (SSO sessions,
-server-side search) are excluded or must be reformulated client-side.
+`/dav/*`. No Node runtime, no database.
+**Consequences.** A small image and little RAM. Features that need server
+state are excluded or done client-side. Amended by ADR 032, which adds a
+session process.
 
 ## 003 — Vite + React rather than Next.js
 
@@ -33,8 +37,8 @@ quirks; PWA tooling is simpler. Slight learning curve on TanStack Router.
 **Context.** CardDAV discovery and vCard parsing are full of edge cases.
 **Decision.** Wrap `tsdav` in `src/dav/` and `ical.js` in `src/vcard/`; nothing
 else imports them.
-**Consequences.** If either library proves inadequate (e.g. `PHOTO` encoding),
-the swap is contained to one module. Verify in the phase-1 spike.
+**Consequences.** If either library proves inadequate, the swap is contained
+to one module.
 
 ## 005 — Preserve unknown vCard properties, edit a subset
 
@@ -54,10 +58,8 @@ automatic merge in v0.x.
 
 ## 007 — Credentials in memory only
 
-**Context.** Convenience vs. exposure of CardDAV credentials in the browser.
-**Decision.** Session store in memory; reload logs out. No persistence.
-**Consequences.** Mildly annoying for users; revisit only with delegated auth
-(`Remote-User`) in phase 4.
+Replaced by ADR 032: the browser still never stores credentials, and a
+reload no longer signs out.
 
 ## 008 — vCard 3.0 default
 
@@ -67,1247 +69,439 @@ automatic merge in v0.x.
 
 ## 009 — /dav URL contract: proxy strip prefix
 
-**Context.** The same React app is served by Caddy in production and Vite
-in development. Both need to reach the CardDAV server's paths (e.g.
-`/dav.php/principals/`) without doubling the `/dav` mount prefix.
-
-**Decision.** `BAIKAL_URL` and `VITE_DAV_URL` are origin-only
-(`scheme://host[:port]`, no path) — Caddy `reverse_proxy` upstreams cannot
-contain paths. The app mirrors full CardDAV server paths under `/dav`:
-a request to `/dav/dav.php/…` is proxied to the origin at `/dav.php/…`.
-Caddy matches the escaped `/dav/` prefix and strips only `/dav` before proxying;
-Vite's dev proxy has an equivalent `rewrite` that strips `/^\/dav/`.
-
-**Consequences.** Same app URLs work in dev and prod without URL
-adjustment. Must ensure any future proxy target also supports path
-rewriting; Caddy and Vite proxy semantics must stay in sync.
+**Context.** Caddy in production and Vite in development both have to reach
+the CardDAV server's own paths (`/dav.php/principals/`…) under one `/dav`
+prefix.
+**Decision.** `BAIKAL_URL` and `VITE_DAV_URL` are origins only
+(`scheme://host[:port]`), since a Caddy upstream can't carry a path. A
+request to `/dav/<path>` reaches the server's `/<path>`: both proxies strip
+`/dav` and nothing else.
+**Consequences.** The app uses the same URLs in development and production.
+Caddy's and Vite's proxies must keep the same rules.
 
 ## 010 — License and project name
 
 **Context.** The repo was set up without a license or name committed, leaving
 both as open questions through phase 0.
 **Decision.** MIT license (maximum adoption, aligned with InfCloud's
-predecessor licensing philosophy) and the name "Natel" (a play on
-"navigateur de contacts" / "natel" as a Swiss term for mobile phone).
+predecessor licensing philosophy) and the name "Natel".
 **Consequences.** MIT allows unrestricted use, modification, and
 redistribution. The name is short and available on npm/Docker Hub.
 
 ## 011 — Phase 1 spike outcome: vCard round-trip validated
 
-**Context.** Phase 1 exit criterion: real vCards round-trip byte-for-byte
-through the parser. The spike assembled 387 real-world vCards (381 from
-Baïkal/DAVx⁵, 6 synthetic) and a round-trip test suite in `tests/vcard/`.
-
-**Decision.** The exit criterion is met for all parsing paths exercised by the
-current parser (`parse` + `serialise` for the editable subset FN, N, TEL,
-EMAIL, with all other properties preserved via `raw`). The tests assert both
-semantic equality (same property set) and, via `normalise`, byte-for-byte
-equality after folding/line-ending normalisation and known ical.js
-inconsistencies (VALUE param stripping, property name case, multi-valued param
-expansion).
-
-**What was validated (green locally via `pnpm check`):**
-- 387 vCards round-trip with semantic equality — all 387 pass.
-- 387 vCards round-trip with normalised byte-equality — all 387 pass.
-- Serialisation edge cases (create FN/N from scratch, reorder/delete TEL with
-  stale params) — 3 tests pass.
-- Conditional writes: `If-Match` on PUT and DELETE, `If-None-Match: *` on
-  create, 412 → `DavError.CONFLICT` — mocked unit tests in `tests/dav/` pass.
-- Proxy strip-prefix contract: Caddy `handle_path /dav/*` and Vite dev proxy
-  `rewrite /^\/dav/` are in sync. Both require origin-only upstream URLs.
-
-**What was validated live on 2026-09-23 (against the author's Baïkal instance, sabredav 4.7.0):**
-1. "Baïkal returns 412 on stale If-Match" — full conditional-write contract
-   validated on a throwaway contact (see ROADMAP.md for the sequence). The
-   spike script also ran end to end: 381 real cards fetched, parse+serialise
-   comparison matched the round-trip suite's normalisation results.
-2. "Caddy proxy validated end to end with Basic Auth" — Docker image rebuilt
-   from the current Dockerfile + Caddyfile, run locally with `BAIKAL_URL`
-   pointing at the Baïkal origin. SPA served at `/`, CardDAV reachable at
-   `/dav/dav.php/`, `PROPFIND` with Basic Auth returns 207 (see ROADMAP.md).
-
-**How to re-run the live checks.**
-```bash
-# 1. spike: connect to CardDAV, dump all vCards, check parse→serialise
-DAV_URL=https://my.carddav.server \
-DAV_USERNAME=user \
-DAV_PASSWORD=pass \
-pnpm tsx scripts/spike.ts
-
-# 2. Caddy + live backend
-BAIKAL_URL=https://my.carddav.server \
-SITE_ADDRESS=:8080 \
-caddy run
-# Then open http://localhost:8080/ and http://localhost:8080/dav/dav.php/
-```
-
-**Consequences.** Both manual checks validated live on 2026-09-23.
-Phase 1 exit criterion is met; MVP work can start.
+**Context.** Phase 1's exit criterion: real vCards round-trip through the
+parser.
+**Decision.** Met. 387 vCards (381 from Baïkal and DAVx⁵, 6 synthetic)
+round-trip in `tests/vcard/` with the same properties and, once folding and
+known ical.js differences are normalised, the same bytes. On 2026-09-23, a
+live Baïkal (sabre/dav 4.7.0) answered 412 to a stale `If-Match`, and the
+Caddy image proxied CardDAV with Basic Auth. `scripts/spike.ts` reruns the
+live check.
+**Consequences.** MVP work started on this parser.
 
 ## 012 — ical.js BDAY normalisation on vCard 3.0
 
-**Context.** ical.js's vCard 3.0 design gives BDAY a `detectType` that types
-every value as `date` or `date-time` and drops the `VALUE` parameter. Three
-consequences for real cards:
-- a free-text birthday (`BDAY;VALUE=text:circa 1987`) is typed `date`;
-  `getFirstValue()` then throws while hydrating it, which made `parse()` fail
-  for the whole card, and `toString()` mangles it (`VALUE=DATE:circ 187`);
-- a digit-only text birthday (`BDAY;VALUE=text:1950`) hydrates as a year and
-  is written back as `BDAY;VALUE=DATE:1950`;
-- vCard 4.0 is not affected: `VALUE=text` is kept.
-
-**Decision.** `retypeTextBirthdays` in `src/vcard/` runs right after parsing:
-any BDAY whose value cannot be hydrated is retyped `text` with its original
-string, so it parses, displays as-is and serialises as `BDAY;VALUE=TEXT:…`.
-`readBirthday` also reads the jCal first and falls back to
-`valueType: "text"` with null parts if hydration throws. On save, a BDAY whose
-year/month/day are unchanged is not touched at all. The `VALUE=TEXT → DATE`
-rewrite of digit-only v3 text birthdays is accepted: it is what ical.js emits
-for the untouched card, and the date value is equivalent.
-
-**Consequences.** Free-text birthdays are visible, survive a save of any other
-field, and are replaced by a date only when the user types date parts. REV
-has the same `detectType` on vCard 3.0 but is not retyped: the UI never reads
-it, and a malformed REV is left to ical.js's normalisation.
+**Context.** On vCard 3.0, ical.js types every `BDAY` as a date and drops
+`VALUE`, so a free-text birthday (`circa 1987`) made the whole card fail to
+parse, or came out mangled.
+**Decision.** `retypeTextBirthdays` in `src/vcard/` retypes, right after
+parsing, a `BDAY` that isn't a date as text, kept as written. A birthday
+whose parts don't change is not touched on save. A digit-only text birthday
+written back as a date (`VALUE=DATE:1950`) is accepted: it means the same.
+**Consequences.** Free-text birthdays show and survive a save of any other
+field; only typing date parts replaces them. vCard 4.0 is not affected.
 
 ## 013 — "Écraser avec ma version" applies only the fields the user changed
 
-**Context.** On a 412, the user can overwrite: the app refetches the card for
-a fresh ETag, then PUTs with `If-Match`. Applying the whole draft onto the
-fresh copy reverted every editable field changed elsewhere since the page
-loaded, even fields the user never touched (a phone number fixed on another
-device came back to its old value).
-
-**Decision.** The overwrite applies only the fields marked dirty against the
-version the user started editing (`applyDraft(fresh, draft, dirtyDiff(...))`).
-Untouched fields keep the server's current values. A normal save still
-applies the whole draft onto the version it was built from.
-
-**Consequences.** "My version" means "my changes": a concurrent edit to a
-field the user also changed is still overwritten, which is what the button
-says. A TEL or EMAIL list the user changed is written as a whole, since rows
-are matched by position.
+**Context.** On a 412, the overwrite refetches the card and writes it again.
+Applying the whole draft reverted fields changed elsewhere that the user
+never touched.
+**Decision.** The overwrite applies only the fields the user changed
+(`dirtyDiff`); the others keep the server's values.
+**Consequences.** "My version" means "my changes": a field changed on both
+sides is still overwritten, as the button says. A phone or e-mail list the
+user changed is written whole, since rows match by position.
 
 ## 014 — The server is set by the operator, the login asks only for credentials
 
-**Context.** Natel exists to put a same-origin proxy in front of one CardDAV
-server (002, 009). A login form that accepts any server URL would let anyone
-use a public Natel instance to reach any CardDAV server, and would need CORS
-on that server, which Baïkal does not send.
-
-**Decision.** The CardDAV server is configuration: `BAIKAL_URL` in production,
-`VITE_DAV_URL` in development. The sign-in screen asks only for username and
-password. Every CardDAV request goes to the same-origin `/dav` prefix; the
-app never talks to another origin and never stores a server URL.
-
-**Consequences.** One Natel instance serves one CardDAV server. Connection
-errors can no longer be CORS errors: they are wrong credentials or the
-upstream server being unreachable through the proxy. How discovery finds the
-principal behind `/dav` (well-known redirect or a known path) is settled when
-the login is reworked; a Baïkal-specific answer goes behind its own function,
-per invariant 6.
+**Context.** A sign-in form taking any server URL would let anyone use a
+public Natel to reach any CardDAV server, and would need CORS, which Baïkal
+doesn't send.
+**Decision.** The server is configuration: `BAIKAL_URL`, or `VITE_DAV_URL` in
+development. Sign-in asks only for a username and password, and the app
+talks only to its own `/dav`.
+**Consequences.** One Natel serves one CardDAV server. A connection error is
+wrong credentials or a server the proxy can't reach, never CORS.
 
 ## 015 — Discovery and hrefs behind the /dav proxy
 
-**Context.** With the server behind `/dav` (014), three things break. tsdav's
-discovery reads `/.well-known/carddav` with `redirect: "manual"`, which a
-browser turns into an opaque response, and it resolves every href against the
-origin root. Servers answer with absolute paths in their own URL space
-(`/dav.php/principals/alice/`): resolved against the page, they land outside
-`/dav`; the proxy rewrites no bodies, so the same holds for hrefs sent in a
-REPORT body. And redirects (`Location: /dav.php/`, or an absolute URL on the
-server's origin) lead the browser out of `/dav` too.
+**Context.** Behind `/dav`, servers answer with hrefs and redirects in their
+own URL space (`/dav.php/principals/alice/`), which lead the browser out of
+`/dav`, and tsdav's discovery can't follow a redirect in a browser.
+**Decision.**
+- Natel discovers books itself (`src/dav/internal.ts`, RFC 6764 and
+  RFC 6352): `current-user-principal`, `addressbook-home-set`, then the
+  home's books, trying `/dav/.well-known/carddav`, `/dav/`, then Baïkal's
+  `/dav/dav.php/`. A 401 stops the search.
+- Every href read is mapped into `/dav` (`fromServerHref`), every href
+  written mapped back out (`toServerPath`).
+- Both proxies send the server's own `Host` and keep redirects under
+  `/dav`: they take only the path and query of an absolute URL, keep escaped paths as they are, and strip
+  cookies and authentication challenges. Browser tests check that every
+  followed request stays under `/dav/`.
 
-**Decision.** The proxy rewrites the `Location` of upstream responses under
-`/dav` (Caddy response handling, the same rule in Vite's dev proxy), and sends the
-upstream's own `Host`. `src/dav/internal.ts` does discovery itself (RFC 6764,
-RFC 6352 §7.1): PROPFIND `current-user-principal` on a context root, letting
-the browser follow a redirect, then `addressbook-home-set` on the principal,
-then the home's children. Every href read from a response goes through
-`fromServerHref` (server path → `/dav` + path), every href written into a body
-through `toServerPath` (the inverse). Context roots, in order:
-`/dav/.well-known/carddav` (any server with RFC 6764 redirects: Radicale,
-Nextcloud, Baïkal when its web server is set up for it), `/dav/` (a server
-that answers at its root), `/dav/dav.php/` via `baikalContextRoot()` (a Baïkal
-without the well-known redirect). A 401 stops the search: another root would
-not fix the password.
-
-**Consequences.** A server under any path works as long as it redirects its
-well-known URL. Without that redirect, only a root or `/dav.php/` server is
-found, at the cost of one or two extra PROPFINDs at sign-in. Caddy and Vite
-must keep the same `Location` rule.
-
-### Authenticated redirects stay under /dav
-
-Authenticated redirects are confined under `/dav`, while discovery redirects are
-preserved. Resolve relative paths and dot segments in the server's URL space
-before prepending `/dav`. Absolute and protocol-relative URLs contribute their
-path and query, never their origin. Query-only redirects keep the requested
-resource; escaped path separators, repeated query keys and literal dollar signs
-remain intact. Fragments do not reach the server.
-
-Requests to `/dav/` are also routed on the escaped URI before static
-handlers, with only the literal prefix stripped. This preserves encoded
-separators and empty segments on requests too.
-
-Vite uses URL resolution. Caddy uses its built-in response, rewrite and URI
-handlers, with no extra module. Its response handler preserves the escaped
-path in a temporary request header while normalising dot segments. This header
-is created after the upstream response and removed before copying it. Cookies
-and authentication challenges remain stripped on redirected responses.
-Browser tests exercise both proxies with synthetic credentials and verify
-that every followed request stays under `/dav/`.
+**Consequences.** A server under any path works if it redirects its
+well-known URL; otherwise only one at its root or at `/dav.php/`, for one or
+two extra PROPFINDs at sign-in. Caddy and Vite must keep the same rules.
 
 ## 016 — New cards are named after their UID; a 412 on create is shown
 
-**Context.** A create is a PUT with `If-None-Match: *` followed by a PROPFIND
-for the ETag. If the PUT lands but the answer or the PROPFIND is lost, the
-user sees an error and saves again. With a random href per attempt, the retry
-made a second resource with the same UID, which servers reject with an
-unclear error (RFC 6352 `no-uid-conflict`), while the contact already
-existed.
-
-**Decision.** A new card's href is `<uid>.vcf` (`cardHref`), so a retry
-targets the same resource and gets a 412. That 412 is shown as is, with a
-message saying the contact already exists and the list should be reloaded.
-Recovering it automatically (reading the card and writing over it when it
-has our UID) was considered and rejected: invariant 5 stays without
-exception, every 412 reaches the user.
-
-**Consequences.** A retry after a lost answer never duplicates a contact and
-says what happened; the user reloads to see the card that was saved.
+**Context.** When a create's PUT lands but its answer is lost, the user saves
+again. With a random href, the retry made a second card with the same UID,
+which servers refuse with an unclear error.
+**Decision.** A new card's href is `<uid>.vcf`, so a retry hits the same
+resource and gets a 412, shown with a message saying the contact already
+exists.
+**Rejected.** Recovering that 412 automatically: invariant 5 holds without
+exception, and every 412 reaches the user.
+**Consequences.** A lost answer never duplicates a contact; the user reloads
+to see it.
 
 ## 017 — e2e against Radicale run from pip, not Docker
 
-**Context.** The stack plans Playwright e2e against Radicale in Docker. The
-cloud sandboxes where agents work have no Docker daemon, but have Python and
-a preinstalled Chromium. CI has both.
-
-**Decision.** `pnpm e2e` starts Radicale from `pip` (`tests/e2e/radicale.sh`,
-version pinned in `tests/e2e/requirements.txt`) with fresh storage on each
-run, and serves the production bundle with `vite preview`, whose `/dav` proxy
-is the dev one. Every test empties the address book first. CI and the
-sandbox run the same commands; the sandbox points Playwright at its own
-Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
-
-**Consequences.** Contributors need Python 3 to run e2e locally. The
-Caddyfile is not exercised by e2e. Other
-servers of the compatibility matrix (Baïkal, Xandikos) can reuse the suite
-by starting a different server on the same port.
+**Context.** The cloud sandboxes where agents work have no Docker, but have
+Python and a Chromium.
+**Decision.** `pnpm e2e` runs Radicale from pip (`tests/e2e/radicale.sh`,
+pinned), on fresh storage, against the production bundle served by
+`vite preview`. Every test empties the book first. A sandbox points
+Playwright at its own Chromium (`PLAYWRIGHT_CHROMIUM_EXECUTABLE`).
+**Consequences.** Running e2e locally needs Python 3. Other servers reuse the
+suite on the same port.
 
 ## 018 — Compatibility matrix: Baïkal from Docker, Xandikos without authentication
 
-**Context.** The compatibility matrix runs the e2e suite against Radicale,
-Baïkal and Xandikos, with workarounds isolated and recorded (invariant 6). ADR
-017 runs Radicale from pip; the other two servers don't fit that mould as they
-are.
-
+**Context.** The e2e suite runs against Radicale, Baïkal and Xandikos; the
+last two don't install from pip.
 **Decision.**
-- The app needed no workaround: the suite passes unchanged on all three.
-- Baïkal is a PHP application with no pip or single-binary release, so
-  `tests/e2e/baikal.sh` runs a pinned community image of it,
-  `ckulka/baikal:0.10.1-nginx`. Its installer is skipped by writing its
-  config (with an unused admin password) and a SQLite database holding the
-  test user before it starts.
-- Xandikos leaves authentication to a proxy in front of it and takes any
-  credentials, so the wrong-password test is skipped on it: it would test
-  the server, not the app.
-- Xandikos commits every change with dulwich, which reads the user's git
-  config; `xandikos.sh` gives it an empty `HOME` so a signing setup there
-  can't fail its writes.
-- Nextcloud is left out: its image and first-run setup take minutes per job,
-  and it runs the same sabre/dav as Baïkal.
+- Baïkal runs from a pinned community image, `ckulka/baikal:0.10.1-nginx`,
+  its installer skipped by writing its config and a SQLite database holding
+  the test user.
+- Xandikos takes any credentials and leaves authentication to a proxy, so the
+  wrong-password test is skipped on it. It gets an empty `HOME`, so a git
+  signing setup can't fail its writes.
+- The app needed no workaround for either.
 
-**Consequences.** CI runs one e2e job per server. Running the Baïkal leg
-locally needs a Docker daemon; Radicale stays the default of `pnpm e2e`.
+**Rejected.** Nextcloud: minutes of setup per job, for the same sabre/dav as
+Baïkal.
+**Consequences.** CI runs one e2e job per server. The Baïkal leg needs Docker
+locally; Radicale stays the default.
 
 ## 019 — Display preferences: browser defaults, overrides in localStorage
 
-**Context.** The FR/EN switch sits in the app header. More languages are
-planned, and on phones the header has no room for it: the switch truncates the
-address book's name meanwhile. Users will also want to choose other display
-settings, such as how dates are shown. Locale state lives in memory only today
-(`src/i18n/react.tsx`, DESIGN.md), so a choice is lost on reload, which is also
-a logout (ADR 007).
-
+**Context.** The language switch had no room in the phone header, more
+languages and display settings were coming, and a choice held in memory was
+lost on reload.
 **Decision.**
-- Every display preference defaults to what the browser says. For the
-  language: the first entry of `navigator.languages` (else
-  `navigator.language`) whose primary subtag (`fr-CH` → `fr`) is in
-  `locales`, French when none is.
-- A preference the user sets explicitly is stored in `localStorage` under
-  one key, `natel.preferences`, as a JSON object: `{ "locale": "en" }`. Only
-  explicit choices are stored; "browser language" removes the field, and the
-  key once the object is empty. Unknown fields and values are kept when
-  writing; a value this version doesn't support (`"locale": "de"`) counts as
-  absent when reading, so the browser default applies. Content that doesn't
-  parse as a JSON object counts as `{}` and is overwritten on the next write.
-- Storage is best effort: a change applies in memory first, then the write
-  is attempted in a `try`/`catch`. When storage is unavailable or throws
-  (private browsing, quota), at startup or later, nothing is shown and
-  preferences live in memory for the tab.
-- A tab reads the preferences when it loads; other open tabs apply a change
-  on their next load.
-- `localStorage` holds nothing sensitive, now or for any later preference:
-  any script running on the origin can read it, and so can anyone with
-  access to the browser profile, and it outlives the session. Only display
-  choices go there; never credentials or anything derived from them, the
-  server's address, a username, contact data, or search terms. Invariant 3
-  is unchanged.
-- The settings page is `/contacts/settings`, a child of the `/contacts`
-  layout like `/contacts/new`: it has the same auth guard, and the header,
-  the search and the list stay as they are.
-  - Desktop: it fills the detail pane, in the detail content's `44rem`
-    column. Mobile: its own screen, with the contact page's 56px top bar
-    (back "Contacts" left, "Paramètres" / "Settings" right).
-  - Content: a `font-display` title, then one labelled `<select>` per
-    preference, in the form-field recipe. The language select lists
-    `locales` by their own names ("Français", "English"), plus "Langue du
-    navigateur" / "Browser language". A change applies at once; there is no
-    save button.
-  - Back, or `Esc` on desktop, returns to `/contacts`.
-  - It opens from a ghost icon button (gear, "Paramètres" / "Settings") in
-    the header, where the FR/EN switch is, on phones and on desktop. Opening
-    it during an edit goes through the discard dialog, as Sign out does.
-- The sign-in screen, where there is no header, keeps a compact language
-  select in place of the FR/EN switch, writing the same preference. This
-  changes DESIGN.md's "Sign-in screen", which merging this ADR accepts.
+- Each display preference defaults to the browser's: for the language, the
+  first of `navigator.languages` Natel supports, else French.
+- An explicit choice is stored in `localStorage` under `natel.preferences`,
+  as JSON. Unknown fields are kept, an unsupported value reads as absent,
+  and storage is best effort: without it, choices last for the tab.
+- `localStorage` holds display choices only, never credentials, a server
+  address, a username, contacts or searches: any script on the origin can
+  read it.
+- A settings page, `/contacts/settings`, opens from a gear in the header;
+  the sign-in screen keeps a compact language select (DESIGN.md).
 
-**Consequences.** The header gets back the room for the address book's name
-on phones. Adding a language is a translation file plus its entry in
-`locales`, which the selects list. When this is built, DESIGN.md gets the
-settings page and the sign-in select, and its passages about the FR/EN
-switch are updated: "Copy and i18n" (memory only, `navigator.language`), the
-header recipes (the language switch; New contact and Sign out placed after
-it), the mobile header row, and "settings" under "Still not designed". The
-choice is remembered per browser, not per CardDAV account, which suits one
-Natel per server (ADR 014).
+**Consequences.** Choices are per browser, not per account, which suits one
+Natel per server (ADR 014). A new language is a translation file and an
+entry in `locales`.
 
 ## 020 — Import skips a card whose UID is already in the book
 
-**Context.** Natel exports the selected address book as one `.vcf`
-file and imports one into it, each card created with `If-None-Match: *` at
-`<uid>.vcf` (ADR 016). A file often holds cards the book already has: an
-export imported back, or a second run after an import cut short. What
-happens to such a card has to be chosen, and the menu that holds the two
-actions is not drawn in DESIGN.md.
-
+**Context.** An imported file often holds cards the book already has: an
+export imported back, or a rerun after an import cut short.
 **Decision.**
-- Import, card by card, into the selected book:
-  - `src/vcard/` splits the file (read as UTF-8) into card texts. Each is
-    parsed only to read its UID and check it can be read; the original text
-    is what gets sent, never a re-serialised card. Unknown properties and
-    the vCard version stay as they are (ADR 005; ADR 008 covers only the
-    cards Natel creates), and a version the server refuses fails there.
-  - A card without a UID gets a random one, added as one `UID:` line before
-    `END:VCARD`.
-  - A card whose UID a card of the book already has (as loaded, compared
-    exactly) is skipped: neither written over nor copied. Each import
-    updates the loaded book, so importing the same file twice changes
-    nothing the second time.
-  - Cards are created one after the other, and a failure doesn't stop the
-    rest; nothing is undone. The import ends with three counts, imported,
-    already in the book and failed, and names each failed card with its
-    reason. Failed covers: a card the parser can't read, a UID repeated
-    earlier in the same file, a 412 (a card already sits at `<uid>.vcf`,
-    added elsewhere: this is how that 412 reaches the user, with a hint to
-    reload), a server refusal (such as RFC 6352 `no-uid-conflict`) and a
-    network error.
-  - A file with no card is an error ("Ce fichier ne contient aucun
-    contact."), not three zeros.
-- Export fetches the selected book again and writes each card's text as the
-  server returned it, cards the app can't parse included, one after the
-  other. If a listed card can't be fetched, the export fails and says so
-  rather than write an incomplete file. The file is built in the browser
-  and named after the book's display name, else the last segment of its
-  href, with characters not allowed in file names replaced by `_`. Export
-  is disabled while the book shows no contact.
-- Design, accepted by merging this ADR and then written into DESIGN.md:
-  - The two actions sit at the end of the address-book menu, below a
-    separator, as `menuitem`s: "Exporter « Contacts »" / "Export “Contacts”"
-    and "Importer un fichier .vcf…" / "Import a .vcf file…", which opens
-    the file picker (`.vcf`, `text/vcard`). « » take non-breaking spaces.
-  - The import runs in a dialog built like the discard dialog, titled
-    "Importer dans « Contacts »" / "Import into “Contacts”". It can't be
-    dismissed while cards are being sent (stopping halfway gains nothing,
-    since a rerun is safe). Progress ("12 / 40") and then the counts are
-    `tabular`, in an `aria-live="polite"` region, followed by the failed
-    cards and a Close button.
-  - Behind the dialog, the list shows each contact as it is created. Close
-    leaves the user on that list, with nothing selected: the imported
-    contacts sit in their A–Z places like any other.
+- Import sends each card's original text, never a re-serialised one, to
+  `<uid>.vcf` with `If-None-Match: *`. A card without a UID gets one.
+- A card whose UID is already in the book is skipped. A failure doesn't stop
+  the rest, and nothing is undone. The import ends with three counts
+  (imported, already in the book, failed) and the reason for each failure.
+- Export fetches the book again and writes each card as the server returned
+  it, or fails rather than write an incomplete file.
+- Both actions end the address-book menu; the import runs in a dialog
+  (DESIGN.md).
 
-Rejected:
-- Writing over the existing card: a write over a version the user has not
-  seen, which invariant 5 exists to prevent.
-- Importing it as a copy with a new UID: importing an export back doubles
-  the book.
-- Asking for each card: that is the duplicate detection and merge planned
-  for Phase 4 (ROADMAP.md).
-
-**Consequences.** An import can be rerun safely after a failure. Cards that
-changed in the file since the book got them are not updated: the counts
-show them as already in the book, and updating them is left to the Phase 4
-merge. A card added elsewhere since the book was loaded shows up as failed
-rather than skipped; reloading and importing again settles it.
+**Rejected.** Writing over the existing card: a write over a version the user
+hasn't seen (invariant 5). Importing a copy with a new UID: an export
+imported back would double the book. Asking for each card: that is duplicate
+merging, planned later.
+**Consequences.** An import can be rerun safely. A card that changed in the
+file isn't updated. A card added elsewhere since the book loaded shows as
+failed (a 412), and a reload settles it.
 
 ## 021 — Moving a contact: copy, then delete; a refused delete undoes the copy
 
-**Context.** CardDAV has no move across address books that
-servers agree on, so a move is a create in the target book (`PUT` with
-`If-None-Match: *` at `<uid>.vcf`, ADR 016) followed by a conditional
-`DELETE` in the source. When the create lands and the delete doesn't, the
-contact is in both books, and what happens then has to be chosen. The action
-itself is not drawn in DESIGN.md.
-
+**Context.** CardDAV has no move between books that servers agree on, so a
+move is a create in the target, then a conditional delete in the source, and
+either step can fail or lose its answer.
 **Decision.**
-- What moves is the card as the server has it. The move fetches the card
-  again (text and ETag). If the ETag is not the one the edit started from,
-  or the card is gone (`NOT_FOUND`), it stops there with the conflict box,
-  as for a 412, and writes nothing; any other failure of that fetch shows
-  the error and writes nothing either. Otherwise that text is sent with
-  only its line endings restored to CRLF (the multistatus XML turns them
-  into LF), and the delete uses that ETag. A card without a UID gets one
-  `UID:` line before `END:VCARD`, whose value is the last segment of the
-  source href without `.vcf`: a retried move then targets the same href in
-  the target book. Unsaved changes are never part of a move: while the draft
-  differs from the version it started from, the action is disabled with a
-  hint to save or cancel first.
-- Each request's outcome is read from its `DavError` code. A definite answer
-  (`CONFLICT`, `NOT_FOUND`, `AUTH`, and `TOO_LARGE`, a 413 on the create)
-  means the request did not take effect; `NETWORK`, `MAYBE_TOO_LARGE` and
-  `UNEXPECTED` (any other status, including 5xx, or a lost answer to the
-  PUT or to the PROPFIND that follows it) mean it may have.
-  For a clear refusal that maps to `UNEXPECTED` (a 409, a 415), the cautious
-  message is accepted.
-  - The create gets a definite answer: nothing changed, the error is shown.
-    A `CONFLICT` means a card already sits at that href in the target, maybe
-    left by an earlier move; the message says so and the target book is
-    reloaded.
-  - The create may have landed: the delete is not sent. A message says the
-    contact may have been copied to the target book and was not removed from
-    the source, and both books are reloaded.
-  - The delete succeeds: the move is done. It lands on the contact's page in
-    the target book, which becomes the selected book, with a toast "Déplacé
-    vers « Travail »".
-  - The delete gets a definite answer: the source card changed, was deleted
-    elsewhere, or may not be deleted. The copy is deleted with the ETag its
-    create returned, then the delete's error is shown as it would be for a
-    plain delete: the conflict box with "Recharger" for `CONFLICT` and
-    `NOT_FOUND` (a delete made elsewhere wins, whatever code the server
-    uses), the usual handling for `AUTH`. The move didn't happen.
-  - The delete may have landed: nothing is undone, since undoing would lose
-    the contact if the delete did happen. A message says the contact was
-    copied to the target book and may still be in the source one, and both
-    books are reloaded.
-  - Undoing the copy succeeds or gets `NOT_FOUND`: undone. Anything else: a
-    message says the contact may be in both books, and both are reloaded.
-- After a failure the user stays on the source contact's page, in edit mode,
-  as after a failed delete: messages appear in the bottom bar like a save
-  error, and "Recharger" reloads the books and leaves edit mode as the
-  delete conflict does.
-- A 403 on either request goes through the app's handling of `AUTH`, as for
-  a save. A read-only book or a server that refuses a UID already present
-  under another href (RFC 6352 `no-uid-conflict`) is left to the
-  compatibility matrix (ADR 018).
-- Design, accepted by merging this ADR and then written into DESIGN.md:
-  - In edit mode, an outline button "Déplacer vers un autre carnet" sits
-    right above "Supprimer le contact", absent on a new contact and when the
-    account has a single book.
-  - It opens a dialog built like the delete dialog: title "Déplacer ce
-    contact ?", the other books as native radio buttons in a `fieldset`
-    (none selected at first), actions "Annuler" / "Déplacer" (primary,
-    disabled until a book is chosen).
-  - While the move runs, "Déplacer" shows a spinner and "Déplacement…", and
-    nothing in the dialog responds, so a second click can't start another
-    create.
+- The move fetches the card again and stops with the conflict box, writing
+  nothing, if its ETag changed since the edit started. The card's text goes
+  over unchanged, to `<uid>.vcf`; a card without a UID gets one from its
+  href, so a retried move targets the same card. Unsaved changes never
+  move: the action waits for a save or a cancel.
+- A create refused outright changes nothing. A create that may have landed
+  is not followed by the delete.
+- A delete refused outright undoes the copy and shows the delete's error. A
+  delete that may have landed undoes nothing, since that could lose the
+  contact.
+- Whenever the contact may be in both books, the message says so and both
+  books reload.
+- A button in edit mode opens a dialog listing the other books (DESIGN.md).
 
-**Consequences.** A move never writes over a change made elsewhere and
-never loses a contact. When an answer is lost, the contact may end up in
-both books, and the user is told. For a moment the same UID exists in two
-books; RFC 6352 only requires a UID to be unique within one address book.
+**Consequences.** A move never writes over a change made elsewhere and never
+loses a contact; at worst it leaves it in both books, and says so. For a
+moment the same UID exists in two books, which RFC 6352 allows.
 
 ## 022 — Groups: read CATEGORIES and group cards, write group cards
 
-**Context.** vCard has two ways to put a contact in a group,
-and clients split between them.
-- `CATEGORIES` on the contact's own card: Nextcloud's Contacts app,
-  Thunderbird add-ons, and DAVx⁵ when set to "groups are per-contact
-  categories".
-- A separate group card, `KIND:group` with `MEMBER` lines in vCard 4.0,
-  `X-ADDRESSBOOKSERVER-KIND:group` with `X-ADDRESSBOOKSERVER-MEMBER` in
-  vCard 3.0, members given as `urn:uuid:<UID>`: Apple Contacts and iCloud,
-  and DAVx⁵ by default, which reads both forms whatever the version. For
-  Baïkal, DAVx⁵ recommends "groups are separate VCards (or the method used
-  by your other clients)" (davx5.com/tested-with/baikal). sabre/dav (Baïkal,
-  Nextcloud) serves 4.0 cards as 3.0 by default, turning `KIND`/`MEMBER`
-  into their `X-ADDRESSBOOKSERVER-` forms.
-Natel shows `CATEGORIES` read-only today (DESIGN.md), and the ROADMAP asks to
-read both and write one.
-
+**Context.** Clients split between two ways to group contacts: `CATEGORIES`
+on the contact's card (Nextcloud, Thunderbird add-ons, DAVx⁵ in categories
+mode), and separate group cards listing members by UID (Apple, iCloud, DAVx⁵
+by default).
 **Decision.**
-- Natel writes group cards. The people who run Baïkal sync it with DAVx⁵ on
-  Android, where group cards are the default, and with Apple devices, which
-  only understand group cards. `CATEGORIES` stays readable for cards written
-  by other clients.
-- Reading, within one address book (groups belong to a book):
-  - A card with `KIND:group` or `X-ADDRESSBOOKSERVER-KIND:group` (any case)
-    is a group, not a contact, and is left out of the contact list. Its name
-    is its `FN`, else its `N`, else its UID.
-  - Its members are its `MEMBER` and `X-ADDRESSBOOKSERVER-MEMBER` values,
-    matched to the book's contacts by UID with or without `urn:uuid:`.
-    Members that match no contact are kept and ignored.
-  - Names are compared trimmed and case-sensitive, between group cards and
-    against `CATEGORIES` values. A contact's groups are the group cards
-    listing it plus its `CATEGORIES` values, each name once.
-  - Every group name of the book, empty group cards included, is offered as
-    a suggestion in "Ajouter un groupe".
-- What a save writes is a delta: the group names added and removed between
-  the version the edit started from and the draft.
-  - An added name gets a member line in one group card with that name, the
-    first by href, or a new group card if none has it: vCard 3.0 (ADR 008)
-    with `UID`, `FN`, `N:<name>;;;;`, `X-ADDRESSBOOKSERVER-KIND:group` and
-    one `X-ADDRESSBOOKSERVER-MEMBER`, at `<uid>.vcf` with
-    `If-None-Match: *` (ADR 016). An existing card gets the member property
-    it already uses, else the one of its version. The value is
-    `urn:uuid:<UID>`, without doubling a prefix the UID already has.
-  - A removed name takes the contact out wherever it is recorded, so the
-    chip doesn't come back: from every group card with that name listing
-    it, and from its own `CATEGORIES`. There, only that value goes; the
-    property is dropped once empty, and its other values, parameters and
-    group prefix stay. Nothing is ever added to `CATEGORIES`.
-  - A group card left with no member is kept: other clients show empty
-    groups, and deleting one is a separate action. Group cards are written
-    through `src/vcard/` like any card, so their unknown properties are kept
-    (invariant 4).
-- Order and failures:
-  - The contact's card is written first, and only when something on it
-    changed (a `CATEGORIES` removal counts). If it fails, no group card is
-    written, and the save fails as it does today.
-  - Once it is saved, the edit continues from the saved version and its new
-    ETag, so only the group changes still pending stay in the draft.
-  - Each group card is then written with `If-Match` on the ETag it was
-    loaded with, and the cached group card is updated with its new ETag and
-    members, as contacts are.
-  - A group card that fails leaves the contact's save in place. The bottom
-    bar names the groups not updated and why, and the user stays in edit
-    mode with those changes pending. For a 412 it offers, as for a contact
-    (ADR 013): "Recharger", which reloads the book, leaves edit mode and
-    drops the pending group changes; and "Écraser avec ma version", which
-    fetches that group card again, applies only this contact's delta to it
-    and writes it with its new ETag.
-  - "Écraser avec ma version" on the contact's own card applies the same
-    delta: `CATEGORIES` removals go onto the fresh card, and its other
-    `CATEGORIES` values stay as the server has them.
-- A contact without a UID gets one on the save that adds it to a group,
-  since a member line needs one; the save lands on the contact's new route.
-- Deleting a contact leaves its member lines in group cards: RFC 6350
-  doesn't require members to resolve, and a delete stays one conditional
-  `DELETE`, with no partial failure. Moving a contact (ADR 021) leaves its
-  memberships in the source book the same way.
-- The group filter in the list is not decided here: its design is in
-  DESIGN.md ("Group filter").
+- A group card is a group, not a contact, and stays out of the list. Groups
+  match by name, trimmed and case-sensitive, across both forms.
+- Natel reads both and writes group cards, which DAVx⁵ and Apple devices,
+  the clients Baïkal users sync with, understand. A new group card is vCard
+  3.0 with `X-ADDRESSBOOKSERVER-KIND:group`; an existing one keeps its own
+  member property.
+- A save writes only the groups added and removed. Leaving a group takes the
+  contact out wherever it is recorded, `CATEGORIES` included; nothing is ever
+  added to `CATEGORIES`. An empty group card is kept.
+- The contact's card is written first, then the group cards with `If-Match`.
+  A group card that fails leaves the contact saved, names the groups not
+  updated, and offers reload or overwrite as for a contact (ADR 013).
+- A contact without a UID gets one on the save that adds it to a group.
+- Deleting or moving a contact leaves its member lines in group cards.
 
-**Consequences.** Groups made in Natel show on iPhones, Macs and DAVx⁵
-phones in their default setup. Nextcloud's web app and DAVx⁵ in categories
-mode don't show them, though groups those clients made still show in Natel
-and can be left from it. That can decide whether Natel suits someone, so the
-README links to the [group compatibility guide](compatibility.md#groups). Saving a contact can write several cards, so a
-save can partly fail; the bottom bar then says what was not saved and how
-to finish it. Loading a book now sorts group cards from contacts.
+**Consequences.** Groups made in Natel show on iPhones, Macs and DAVx⁵ in its
+default setup, not in Nextcloud's web app or DAVx⁵ in categories mode;
+`compatibility.md` says so. A save can partly fail, and the bottom bar says
+what is left.
 
 ## 023 — Photos: a small image is kept as it is, a large one scaled down, without the metadata that doesn't show
 
-**Context.** The contact page draws a photo and "Changer la
-photo" / "Retirer la photo" (DESIGN.md), but `PHOTO` is neither shown nor
-edited today; it is only preserved. The photo has to show on Android
-(DAVx⁵, ez-vcard) and Apple clients in vCard 3.0 and 4.0, and the crop
-needs either a library or a canvas. The maintainer's rule: the photo keeps
-the best quality the circumstances allow, knowing most platforms already
-re-encode contact photos. A small file stays as it is; a large one is
-scaled down, rather than making a card that a stock server refuses (a
-stock nginx in front of Baïkal stops at 1 MB) and that every phone
-downloads at each sync, only to shrink it to an avatar. Metadata that
-doesn't change how the image shows, such as a GPS location, can go. ical.js 2.2.1
-reads a 3.0 `PHOTO` with an `ENCODING` as binary and round-trips it byte
-for byte. It types the 4.0
-data URI as `uri` but escapes it like text, so the comma comes out as
-`data:image/jpeg;base64\,…`, on untouched cards and new properties alike;
-ez-vcard and sabre/vobject unescape it, and RFC 6350's own examples
-(§6.2.4) leave the comma unescaped. Radicale keeps the escaped form (adding
-`\;`), but cuts the unescaped one at the comma: it stores
-`data:image/jpeg\;base64` and the image is lost.
+**Context.** A photo set in Natel has to show in Android (DAVx⁵) and Apple
+clients, in vCard 3.0 and 4.0. Most platforms re-encode contact photos
+anyway. A large card is refused by a stock server (an nginx in front of
+Baïkal stops at 1 MB), and every phone downloads it at each sync only to
+shrink it to an avatar.
 
 **Decision.**
-- Reading, by the value's shape whatever the card's version: an `ENCODING`
-  of `b` or `base64` (any case) is base64, its type taken from `TYPE` when it
-  names an image type, else sniffed from the magic bytes; a value starting
-  with `data:image/` is a data URI, including a 3.0 `PHOTO:data:…` with no
-  `VALUE`, which ical.js hands over as a binary whose value is the data URI.
-  The first `PHOTO` whose value yields base64 bytes with an image type,
-  declared or sniffed, is shown, with `object-cover` in the page's
-  `rounded-xl` square and the list's `rounded-lg` one (DESIGN.md rule 7),
-  whatever its format; if none does, or the `<img>` fails to load, the
-  initials show. List avatars take `loading="lazy"` and `decoding="async"`,
-  since a photo can weigh several MB. A `PHOTO` pointing at a URL is not
-  fetched, since the app loads no remote image. Apple's `X-ABCROP-RECTANGLE` is kept but not
-  applied.
-- The file's format comes from its magic bytes, never from `File.type` or
-  the extension; the 3.0 `TYPE` and the 4.0 data URI's media type are
-  written from it.
-- Writing, when the frame ends as it opened (1×, centred: the centred
-  square every client shows of a non-square photo; the final crop rectangle
-  is compared by value, so a frame moved and brought back counts as
-  unchanged), an image at most 1024 px on its longest side whose kept data
-  is at most 512 KB, and whose EXIF orientation is 1 or absent, is kept
-  whole:
-  - A JPEG, PNG, GIF or WebP file keeps its image data byte for byte, at
-    its size and resolution, with no re-encoding. Only its metadata is
-    filtered, by copying the file's segments or chunks verbatim, in their
-    order, which is lossless. Each format has an allowlist of what changes
-    how the image shows; anything not on it is dropped, GPS location,
-    camera, dates, thumbnails, comments and XMP included:
-    - JPEG: SOI and every marker that isn't an `APPn` or `COM` (DQT, DHT,
-      SOFn, DRI, SOS and its data, RSTn, EOI); `APP0` `JFIF`, rewritten
-      with a 0 × 0 thumbnail (`JFXX` is dropped); every `APP2`
-      `ICC_PROFILE` chunk, in order; `APP14` `Adobe`. Any other bytes after EOI (a Motion
-      Photo's video, for one) are dropped.
-    - PNG: `IHDR`, `PLTE`, `tRNS`, `IDAT`, `IEND`, `acTL`, `fcTL`, `fdAT`
-      (APNG frames), `iCCP`, `sRGB`, `gAMA`, `cHRM`, `cICP`, `mDCv`, `cLLi`,
-      `sBIT`.
-    - WebP: `VP8X`, `VP8 `, `VP8L`, `ALPH`, `ANIM`, `ANMF`, `ICCP`. In
-      `VP8X`, the I, E and X flags match the chunks kept, A and L stay as
-      they are; the RIFF size is recomputed and odd-sized chunks keep their
-      padding byte. A simple WebP (no `VP8X`) is copied unchanged.
-    - GIF: header, logical screen descriptor, colour tables, Graphic
-      Control Extensions (frame delay, disposal, transparency), image
-      descriptors and data, the loop block (`NETSCAPE2.0` or
-      `ANIMEXTS1.0`), trailer.
-    - The EXIF block is dropped in all three formats that carry it,
-      orientation included, and the WebP E flag with it: a file kept whole
-      has orientation 1 or none.
-    The filter is `src/lib/photo-metadata.ts`, with no dependency, tested in
-    `tests/lib/`: the image data comes out unchanged; the orientation is
-    read (`orientationOf`) from a JPEG, a PNG `eXIf` and a WebP, and dropped
-    with the rest of the EXIF block; a PNG with `tRNS` keeps its
-    transparency; an APNG and an animated GIF and WebP keep every frame; fixtures
-    with GPS, XMP, `COM` and `tEXt` come out without them. Apple, Android
-    through DAVx⁵, Thunderbird and Nextcloud are expected to show all four
-    (WebP since iOS 14 and macOS 11). The device check showed all
-    four through DAVx⁵ and Google Contacts on Android 16; Apple is not
-    checked, for want of a device. An animated GIF or WebP stays animated
-    where the client supports it; Android re-encodes what it stores, so it
-    doesn't.
-  - A rotated phone photo, whose EXIF orientation isn't 1, goes through the
-    canvas as below, the rotation baked in: Google Contacts, through
-    DAVx⁵, ignores the tag and shows the photo sideways (device check).
-  - Any other format the browser decodes (AVIF, BMP, TIFF…), which not
-    every client reads, and any larger image go through the canvas, as for
-    a crop below.
-- Writing, when the frame is moved or zoomed, for an uncommon format, for a
-  rotated photo, or for a larger image: the square (or, uncropped, the whole
-  image) is drawn on a canvas, scaled down so its longest side is at most
-  1024 px (never up). 1024 px is past what any client shows a contact photo
-  at (Android keeps 720 px) and leaves a sharp avatar on a high-density
-  screen. The scaling halves the image step by step with
-  `imageSmoothingQuality: "high"`, then lands on the target: one large step
-  aliases in browsers whose smoothing reads few source pixels per output
-  pixel. The result is a JPEG at quality 0.9, where the loss doesn't show at
-  avatar sizes for a third of quality 1's weight. A source that isn't a JPEG is
-  checked for transparency, and kept as a PNG if it has some and the PNG is at
-  most 512 KB; a heavier one (a cut-out photo) is flattened on white and becomes
-  a JPEG, since a card that size is what servers refuse. A PNG, GIF or WebP
-  source without transparency is also encoded as a PNG, and the lighter is kept,
-  so a flat graphic stays a crisp PNG and a photo becomes a JPEG. A browser that
-  hands back another type than asked for fails the photo. It costs something:
-  the result loses all metadata and takes the canvas's colour space (a
-  `display-p3` canvas writes a Display P3 profile, as the device check found),
-  the rotation is baked in, an HDR photo loses its gain map, a 16-bit or HDR
-  source drops to 8 bits, and an animated GIF or WebP keeps only its first
-  frame. A sufficiently small, upright, uncropped file accepted by the lossless
-  metadata filter avoids the canvas. The canvas is `display-p3` where the
-  browser supports it (`getContext("2d", { colorSpace: "display-p3" })`), sRGB
-  elsewhere, where a Display-P3 photo loses the colours outside sRGB.
-- Considered: a lossless JPEG crop and rotation (jpegtran compiled to
-  WebAssembly), which keeps the colour profile and adds no JPEG loss, but crops only on
-  the 8 or 16 px block grid and adds a dependency of a few hundred KB, which
-  needs the maintainer's approval. Encoding a cropped JPEG as PNG instead:
-  lossless from there, but several times larger. Merging this ADR as
-  written picks the canvas path; either option is asked for in review
-  instead.
-- Browsers can fail silently on a canvas (iOS Safari caps one at
-  16,777,216 px, less than a 24 MP photo, and may hand back a blank one).
-  The output is at most 1024 × 1024, and a halving step past the cap is
-  skipped, so no canvas goes past it. Every other check runs: a
-  `getContext` or `toBlob` that returns `null`, and the encoded blob
-  decoded back to the expected size, with a few sampled pixels compared,
-  within a JPEG tolerance, to the same area drawn small from the source
-  (through the same halving, so both alias alike, and both on white, where
-  a nearly transparent pixel's colour no longer swings with its alpha). Each canvas is emptied once used, since iOS
-  Safari counts canvas memory until garbage collection.
-  A failure shows an error in the dialog, in the `role="alert"` message.
-  A blank image never replaces the user's photo, and the new photo shows
-  on the contact page in edit mode before it is saved. A photo kept whole
-  never goes through the canvas, so it is unaffected.
-- Past the 1024 px and 512 KB rule above, no size limit of Natel's own:
-  a card can still be large through other properties or another client's
-  photo. A server that refuses the card for its size
-  (413, a new `DavError` code `TOO_LARGE` in `src/dav/`) shows an error
-  saying the server refused the card for its size, with the card's size,
-  and that its request size limit can be raised; the edit stays open. The
-  413 is certain about the size, not about which hop refused it, so the
-  message says "the server", as the user sees it, and names no server. A
-  proxy often closes the connection on a large body instead, but a dropped
-  connection looks the same: a network failure on a card larger than 1 MB
-  (a stock nginx's limit) is `MAYBE_TOO_LARGE`, and its message says the
-  connection dropped, that the size may be why, and to try again
-  otherwise. The import names both reasons the same way.
-- Encoding in the card:
-  - On a 3.0 card: `PHOTO;ENCODING=b;TYPE=JPEG:<base64>` (or `TYPE=PNG`,
-    `GIF`, `WEBP`; RFC 2426, what Apple and ez-vcard write, and what ical.js
-    writes for a binary value).
-  - On a 4.0 card: `PHOTO:data:image/jpeg;base64\,<base64>` (or `image/png`,
-    `image/gif`, `image/webp`), the data URI of RFC 6350 with the comma
-    escaped as ical.js writes it. That form survives every server tested,
-    Radicale included, and ez-vcard (DAVx⁵) and sabre/vobject read it; the
-    unescaped one loses the photo on Radicale. A data URI read from the
-    card, its comma escaped or not, is written back as ical.js writes it.
-    ADR 024 reads the `\;` Radicale adds as `;`. A card can also carry more
-    backslashes before it (Radicale stores a `\\;` it receives as `\\\;`), a
-    media type ez-vcard no longer reads: `unescapeDataUriSemicolons` in
-    `src/vcard/`, a named workaround in the manner of ADR 012, drops any
-    backslash left before a semicolon in the `PHOTO` and `LOGO` data URIs of
-    a 4.0 card right after parsing, since none belongs in a data URI's
-    parameters. A 3.0 `uri` value, which ical.js neither decodes nor
-    escapes, is copied as written.
-  - The card's version never changes for a photo.
-- Editing: the draft holds the photo as unchanged, replaced (a new image) or
-  removed, and `serialise` touches `PHOTO` only for the last two, so a save
-  that doesn't change the photo leaves every `PHOTO` as it was. "Changer la
-  photo" replaces every `PHOTO` with one new property that carries only
-  `ENCODING` and `TYPE` (3.0) or no parameter (4.0): none of the old
-  parameters, such as Apple's `X-ABCROP-RECTANGLE`, is carried over to the
-  new image. "Retirer la photo", shown only when a photo is displayed,
-  removes them all. `LOGO` is left alone. It is one field for ADR 013's
-  overwrite. A new contact can get a photo too.
-- Input: any image the browser decodes (`accept="image/*"`, which also makes
-  iOS hand over HEIC as JPEG). The EXIF orientation is applied for display
-  and for the canvas: `createImageBitmap(file, { imageOrientation:
-  "from-image" })`, retried without options where the engine rejects that
-  value, and a test checks the baked dimensions of an orientation-6 JPEG. An image that
-  doesn't decode shows an error in the dialog, in the `role="alert"`
-  message.
-- Crop on a canvas, with no library, in a dialog built like the discard
-  dialog. Merging this ADR accepts that design, which then goes into
-  DESIGN.md:
-  - Title "Recadrer la photo" / "Crop photo"; actions "Annuler" (outline)
-    and "Utiliser la photo" / "Use photo" (primary).
-  - A square frame, `rounded-xl` like the result, up to 20rem wide (the
-    dialog's width on phones), the image dimmed outside it. The image
-    fills the frame at first, centred.
-  - The frame is focusable and has the initial focus, a translated
-    `aria-label`, its instructions linked with `aria-describedby`, and the
-    focus ring. It takes the drag (`touch-action: none`), pinch and wheel
-    (a non-passive listener), and, while focused, the arrow keys to move and
-    `+` / `-` to zoom. A labelled range input "Zoom" goes from 1× (fills the
-    frame) to 4×.
-  - `Esc` closes the dialog only, never the edit mode behind it.
-- Fixtures: the implementation ships synthetic fixtures in the shapes real
-  clients write (Apple 3.0 with `X-ABCROP-RECTANGLE`, a DAVx⁵ 4.0 data URI,
-  a JPEG with EXIF orientation 6, a WebP). Photos made by Apple Contacts and
-  DAVx⁵ on test devices (no real person) are maintainer work, and join
-  `fixtures/public/` when provided. Round-trip tests check that a card keeps
-  its photo byte for byte when another field is edited, except that a 4.0
-  data URI in `PHOTO` or `LOGO` read with `,` or `\;` is written with `\,`
-  and `;`; and that an uncropped, upright JPEG, PNG, GIF or WebP within
-  1024 px and 512 KB lands in the card with its image data byte for byte
-  and only the kept metadata.
+- An uncropped, upright JPEG, PNG, GIF or WebP of at most 1024 px and
+  512 KB is kept byte for byte. Only the metadata that doesn't change how it
+  shows (GPS location, camera, dates, XMP…) is removed, without re-encoding
+  (`src/lib/photo-metadata.ts`).
+- Anything else goes through a canvas, scaled down to 1024 px at most: a
+  crop, a rotated photo (Google Contacts ignores the EXIF orientation),
+  another format, a larger image, or a JPEG with HDR data, whose packets can
+  hold private data. The result is a JPEG at quality 0.9, or a PNG when that
+  keeps transparency or weighs less, and it is checked before it replaces
+  anything. 1024 px is past what any client shows (Android keeps 720 px).
+- A 3.0 card gets `PHOTO;ENCODING=b;TYPE=…`, a 4.0 card a data URI with the
+  comma escaped as ical.js writes it, the only form Radicale keeps. The
+  card's version never changes.
+- A save touches `PHOTO` only when the user replaces or removes the photo. A
+  photo given as a URL is never fetched, and Apple's crop rectangle is kept
+  but not applied.
+- A card the server refuses for its size (413) shows an error saying so;
+  a dropped connection on a card over 1 MB says the size may be why.
+- The crop is a canvas dialog with no library (DESIGN.md).
 
-**Consequences.** Photos set in Natel show on Android, and are expected to
-show on Apple devices. A small photo stays as the user chose it; a large one
-is scaled down to 1024 px, so the card stays within a few hundred KB: it
-fits a stock server's request limit, and every client downloads it on each
-sync and Natel with the book at sign-in without strain. DAVx⁵ keeps only a
-scaled-down copy on the phone, and writes that copy back if the contact is
-later edited there. A crop, an uncommon format, a rotated photo or a large
-photo re-encodes the image. A photo set in Natel carries no GPS location,
-camera or date: nothing that doesn't show leaves the device. Apple photos
-show uncropped, filling their square, until `X-ABCROP-RECTANGLE` is applied.
-The device check showed a JPEG, a PNG, a GIF, a WebP and a 3000 × 2000
-photo set in Natel right through DAVx⁵ on Android, and a rotated one
-sideways, hence the canvas for it. iOS, and a 24 MP iPhone photo, are still
-to check on a device.
+**Rejected.** A lossless JPEG crop through jpegtran in WebAssembly: it crops
+only on the 8 px block grid and adds a few hundred KB. A PNG for every crop:
+several times larger.
 
-### JPEG HDR photo uploads
-
-For new photos, a JPEG carrying an Ultra HDR XMP namespace or an ISO 21496-1
-marker goes through the canvas, even when it is small, upright and uncropped.
-HDR packets and MPF secondary images can contain private data that the
-lossless filter cannot safely remove. This follows the maintainer's choice
-on HDR photos: loss of the HDR gain map and JPEG recompression are accepted.
-The encoded image keeps its dimensions unless it needs scaling or cropping.
-Existing photos are preserved when the UI does not edit them.
-
-Tests cover HDR XMP mixed with GPS, private data in secondary images,
-both MPF byte orders and malformed indexes. Browser tests check that new
-photos decode without private metadata and untouched photos stay unchanged.
+**Consequences.** A small photo stays as the user chose it; a large one makes
+a card of a few hundred KB that servers and clients accept. A re-encoded
+photo loses its metadata, its HDR gain map and all but the first frame of an
+animation. Apple photos show uncropped. Checked on Android through DAVx⁵ and
+Google Contacts; Apple devices are not checked yet.
 
 ## 024 — The escaped semicolon in text values is read as a semicolon
 
-**Context.** RFC 2426 (vCard 3.0) requires escaping every semicolon in a text
-value as `\;`, and RFC 6350 §3.4 (4.0) allows it outside compound values:
-"an escaped SEMICOLON character is never a field separator". Radicale
-escapes them all, in any text or URI: a `NOTE:a;b` it receives is stored as
-`NOTE:a\;b`. ical.js 2.2.1 decodes `\\`, `\,` and `\n` in a vCard text value
-(and a 4.0 `uri`), but `\;` only inside a structured value such as `N` or
-`ADR`. Left as is, Natel shows `a\;b`, and the next save of any field
-writes `a\\;b`, which Radicale stores as `a\\\;b`: a backslash more on each
-save, seen by every client. Found while writing 4.0 photos; the
-maintainer approved the fix below.
-
-**Decision.** `decodeEscapedSemicolons` in `src/vcard/`, a named workaround in
-the manner of ADR 012, runs once when the module loads: it wraps the
-`fromICAL` of ical.js's vCard `text` and `uri` values (the 3.0 design shares
-the same `text`) so that a value that is not structured decodes `\;` as the
-structured ones do: ical.js tells such a property value apart by passing
-`false`, and only it changes. Structured values already decode it, and a
-parameter value, where a backslash is a plain character (RFC 6868 escapes
-with `^`), is left as ical.js reads it. The 4.0 `uri` is not shared with 3.0,
-whose `uri` ical.js copies as written; iCalendar's codecs are separate
-objects. The wrap is marked, so evaluating the module again doesn't stack
-it. An escaped backslash before a semicolon (`\\;`) still reads as a
-backslash and a semicolon. Writing is unchanged: ical.js writes
-`;` unescaped outside compound values, which RFC 6350 allows; in a 3.0 card
-RFC 2426 asks for `\;`, which ical.js has never written, and adding it would
-rewrite every untouched card that has one.
-
-**Consequences.** A text with a semicolon shows and saves as written, on every
-server. An untouched property read with `\;` is written back with `;`: an
-accepted normalisation, as in ADR 012, since both mean the same. A card that
-repeated saves filled with backslashes keeps them, except in a 4.0 data URI,
-which ADR 023 repairs. Tests are in `tests/vcard/semicolons.test.ts`.
+**Context.** Radicale escapes every semicolon in text (`NOTE:a\;b`), as
+RFC 2426 asks, but ical.js decodes `\;` only in structured values such as
+`N`. Natel showed `a\;b`, and each save added a backslash.
+**Decision.** `decodeEscapedSemicolons` in `src/vcard/`, a named workaround,
+makes ical.js decode `\;` in plain text and 4.0 `uri` values too. Writing is
+unchanged: ical.js writes `;` unescaped, which RFC 6350 allows.
+**Consequences.** A semicolon shows and saves as typed, on every server. An
+untouched `\;` is written back as `;`, an accepted normalisation. Backslashes
+that earlier saves piled up stay, except in a 4.0 photo's data URI, which
+`unescapeDataUriSemicolons` repairs.
 
 ## 025 — Public demo: a static build with an in-memory CardDAV stand-in
 
-**Context.** The launch calls for a public demo instance. Its first plan,
-a read-only Radicale reset nightly, needs a server the maintainer hosts and
-exposes to whatever traffic a launch brings; the maintainer doesn't want
-that, and asked for a mock layer instead. All CardDAV I/O goes through
-`src/dav/` (AGENTS.md), behind nine functions (`discoverAddressBooks`,
-`listContacts`, `fetchCard`, `fetchCards`, `updateCard`, `cardHref`,
-`createCard`, `deleteCard`, `clearCachedDavSessions`) and `DavError`; the
-rest of the app imports them from `@/dav` and its types from `@/dav/types`,
-and never sees `tsdav` or HTTP.
-
+**Context.** The launch needs a public demo. A real server reset nightly
+would mean hosting one and exposing it to launch traffic, which the
+maintainer declined.
 **Decision.**
-- `src/dav/demo.ts` exports the same nine functions and re-exports the same
-  `DavError` from `./types`, so `instanceof` checks behave. The compiler
-  holds it to the real API with a type-only check in a test file
-  (`typeof import("src/dav/demo")` assignable to `typeof
-  import("src/dav/index")`), which keeps `tsdav` out of the demo bundle. It keeps the cards as
-  vCard text in memory, per tab: two books ("Personnel", "Travail"), ETags
-  that change on each write, `If-Match` checked as a server would (a `412`,
-  `DavError` `CONFLICT`, on a mismatch or on a create whose href is taken;
-  with one visitor and no other writer, the conflict screens don't come up
-  in normal use), and a short delay (about 150 ms) so loading states show
-  as they do for real. Everything above `src/dav/`, `src/vcard/` included,
-  runs unchanged. Signing out and in again in the same tab keeps the books
-  as they were edited; only a reload brings the seed back.
-- The demo is a build mode, not a runtime switch: `VITE_DEMO=1 pnpm build`
-  adds, in `vite.config.ts` and before the `@` alias, an exact-match alias
-  (`find: /^@\/dav$/`) to `src/dav/demo.ts`, so `@/dav/types` still resolves
-  to the real types. The normal build and the Docker image never contain
-  it, and a test checks that the image's bundle has no demo marker.
-- It can be served under a subpath: the demo build sets Vite's `base` and
-  the router's `basepath` from one variable (`/natel/` for the repository's
-  GitHub Pages site); Vite prefixes the `index.html` links into `public/`
-  with it, the manifest is already relative, and the build copies
-  `index.html` to `404.html` so a deep
-  link (`/natel/contacts/…`) loads the app on a host without SPA fallback.
-  Static hosts send no headers, so the demo build carries the Caddyfile's
-  Content-Security-Policy as a `<meta http-equiv>` (without
-  `frame-ancestors`, which a meta tag can't set).
-- Sign-in accepts any username and password, kept in memory as always
-  (invariant 3). The sign-in panel says so in one line, and once signed in
-  a discreet reminder stays on every screen: a small "Demo" / "Démo" mark
-  next to the wordmark, and a muted caption saying it is a demo, that
-  nothing is saved and that visitors can change anything they like. Both
-  go through i18n (en + fr), and "nothing is saved" is about contacts and
-  credentials (display preferences still are, in localStorage, ADR 019). Their exact
-  design goes in DESIGN.md with the implementation, and ARCHITECTURE.md
-  gains the demo build mode and `demo.ts`.
-- The cards come from `src/dav/demo-seed.ts`: about 25 made-up contacts
-  (no real person), in vCard 3.0 and 4.0, with phones, e-mails, addresses,
-  birthdays, notes, a few groups (as group cards and as `CATEGORIES`), a
-  few small photos, and one unknown property, so every screen has
-  something to show. Nothing is persisted: reloading the page brings the
-  seed back, and no visitor ever sees another's changes, so there is
-  nothing to moderate or reset on a schedule. Import adds to the tab's
-  book, and export downloads it, as usual.
-- The seed's people are League of Legends characters, and its phone
-  numbers come only from ranges reserved for fiction, in several
-  countries' formats, so the demo shows the formats Natel reads without
-  ever showing a number someone owns: zeroed Swiss numbers, ARCEP's
-  fiction ranges in France, Ofcom's drama numbers in the UK, 555-01xx in
-  the US, ACMA's fiction numbers in Australia. Some are stored as people
-  type them, so the formatting shows too.
-- Hosting: the demo is static files, served by the repository's GitHub
-  Pages site, built and deployed by a workflow on each `vX.Y.Z` tag (a job
-  with `pages: write` and `id-token: write`); enabling Pages in the
-  repository's settings, and allowing `v*` tags to deploy to the
-  `github-pages` environment, is the maintainer's part. A CDN absorbs any traffic, and there is no server to
-  overload. Another static host works the same way, at its root or under
-  a subpath.
-- Tests: unit tests for `src/dav/demo.ts` (ETags, `412`, the seed parsing
-  with `src/vcard/`), and an e2e smoke run against the demo build, in
-  `tests/e2e-demo/` with its own Playwright config (no CardDAV server, the
-  subpath base): sign in with any credentials, open a deep link and see the
-  list mark that contact as open (the routes compare paths with the base
-  stripped), edit a contact, reload, the edit is gone. `pnpm e2e` against
-  Radicale, Baïkal and Xandikos, whose `testDir` is `tests/e2e/`, is
-  unchanged.
-- Considered: a service worker answering the app's `/dav` requests with a
-  small CardDAV server in the browser, which would also exercise `tsdav`
-  and the XML parsing but means writing a PROPFIND/REPORT responder; Mock
-  Service Worker, the same at the fetch level with a library, a new
-  dependency for the demo alone; stubbing the `queries/` hooks, which would
-  leave `src/vcard/` and the save logic out of the demo; and the read-only
-  Radicale of the first plan, which the maintainer declined.
+- `src/dav/demo.ts` implements `src/dav/`'s API in memory, per tab: the same
+  functions and `DavError`, ETags and `If-Match` checked as a server would,
+  and a short delay. A type-only test holds it to the real API. Everything
+  above `src/dav/` runs unchanged.
+- It is a build mode, `VITE_DEMO=1`, never in the Docker image (a test
+  checks). The build can be served under a subpath, carries the CSP as a
+  meta tag, and ships a `404.html` for deep links.
+- Sign-in accepts anything, and every screen says it is a demo. The contacts
+  are made up (`src/dav/demo-seed.ts`), with phone numbers from ranges
+  reserved for fiction. A reload brings the seed back, so there is nothing
+  to moderate.
+- GitHub Pages serves it, deployed at each `vX.Y.Z` tag.
 
+**Rejected.** A service worker answering as a CardDAV server: a PROPFIND and
+REPORT responder to write. Mock Service Worker: a dependency for the demo
+alone. Stubbing the query hooks: it would leave `src/vcard/` and saving out.
 **Consequences.** The demo shows the whole UI, editing included, at no
-hosting cost and with no load to fear, but not compatibility with a real
-server: that is what the e2e matrix (ADR 018) is for, and the demo says it
-is a demo. A change to `src/dav/`'s API must also change `demo.ts`, which
-the compiler enforces. The seed is a second source of sample data next to
-`fixtures/public/`, kept small. The demo runs without the policy's
-`frame-ancestors`, so another site could frame it; it holds no real data.
+hosting cost, but not compatibility with a real server, which the e2e matrix
+covers. A change to `src/dav/`'s API must change `demo.ts`, and the compiler
+enforces it. Another site can frame the demo, since a meta tag can't set
+`frame-ancestors`; it holds no real data.
 
 ## 026 — The theme and the list's sort are display preferences too
 
-**Context.** The UI review before the repository goes public asked for a
-theme choice overriding the system's light or dark, which DESIGN.md listed
-as not designed, and for the list's sort to survive a reload, which signs
-out (ADR 007). Both are display choices, the kind ADR 019 stores.
-
+**Context.** The UI review asked for a theme choice overriding the system's,
+and for the list's sort to survive a reload.
 **Decision.**
-- Both live in `natel.preferences` next to the language, under ADR 019's
-  rules: only an explicit choice is stored, a value this version doesn't
-  know counts as absent, storage is best effort. `"theme"` is `"light"` or
-  `"dark"`, absent for the system's; `"sort"` is `"family"`, absent for the
-  default, by first name.
-- The default sort becomes the first name, as people say a name in French
-  and English; the list, the contact page's name, the initials and the
-  form's name fields all follow the sort, so "Trier par Nom" gives back the
-  directory order (**Family** Given) in one place. Some cultures put the
-  family name first (Hungary, East Asia), and directories and
-  administrations often sort by it: the choice covers both.
-- The settings page gets them under "Affichage": "Apparence" (Comme le
-  système, Clair, Sombre) and "Trier par" (Prénom, Nom). The list's own
-  toggle writes the same preference.
-- The theme applies through `data-theme` on `<html>`, always set: the
-  colour tokens are defined on `:root` and again on
-  `:root[data-theme="dark"]`, each block with its `color-scheme`.
-  `public/theme.js`, a classic script loaded from `index.html` before the
-  styles, sets it before the first paint, from the stored choice or else
-  the system's; an inline script would need a hash in the CSP. While
-  nothing is chosen, `src/lib/theme.ts` follows the system when it
-  changes. The `theme-color` metas follow the choice.
-- Not `light-dark()`, which would switch every token from one declaration:
-  it needs Safari 17.5 and Chrome 123, above Tailwind v4's own floor
-  (Safari 16.4, Chrome 111), and below it every colour token fails, the
-  primary buttons' text included. iPhones held on iOS 16 would get a broken
-  page.
-- The group filter stays per session: a group is tied to a book's content,
-  not to how the user likes to read.
+- Both are display preferences under ADR 019's rules: `"theme"` (`light` or
+  `dark`, absent for the system's) and `"sort"` (`family`, absent for the
+  first name).
+- The default sort is the first name, as names are said in French and
+  English. The sort also sets the name order on the contact page, in the
+  initials and in the form.
+- `public/theme.js`, loaded before the styles, sets `data-theme` before the
+  first paint: an inline script would need a hash in the CSP.
+- The group filter stays per session: it depends on a book's content.
 
-**Consequences.** A reload keeps the theme and the sort, still per browser,
-not per account. `src/store/preferences.ts` holds them in Zustand. Nothing
-sensitive is added to storage (invariant 3 unchanged). Without JavaScript
-the page stays light, which matters little: Natel doesn't run without it.
+**Rejected.** CSS `light-dark()`: it needs Safari 17.5, and below that every
+colour token fails, so iPhones on iOS 16 would get a broken page.
+**Consequences.** A reload keeps the theme and the sort, per browser. Without
+JavaScript the page stays light, which matters little, since Natel needs it.
 
 ## 027 — The demo's two books: Runeterra and Expédition 33
 
-**Context.** ADR 025 seeds the demo with two books, "Personnel" and
-"Travail", of League of Legends characters. The review before going public
-found the second book thin, and the maintainer asked for two books that each
-tell their own story, so the book switcher and moving a contact show
-something.
-
-**Decision.**
-- "Runeterra" holds the League of Legends characters of both former books,
-  with their groups (Famille, Randonnée, Atelier).
-- "Expédition 33" holds about a dozen characters and places of the game
-  *Clair Obscur: Expedition 33*, with a group card ("Expédition 33") and
-  `CATEGORIES` groups, a photo-less organisation card, and an unknown
-  property (`X-SOCIALPROFILE`) so "1 autre information non affichée" shows.
-- Phone numbers still come only from ranges reserved for fiction (ADR 025):
-  ARCEP's `+33 6 39 98` and `+33 1 99 00` ranges for this book.
-
-**Consequences.** The demo e2e and unit tests name the two books. The
-characters belong to their publishers; the demo uses their names only, with
-no artwork.
+**Context.** The demo's second book was thin, and the maintainer asked for
+two books that each tell their own story.
+**Decision.** "Runeterra" holds the League of Legends characters, with their
+groups. "Expédition 33" holds about a dozen characters and places from
+*Clair Obscur: Expedition 33*, with both kinds of group, an organisation and
+an unknown property. Phone numbers still come from fiction ranges (ADR 025).
+**Consequences.** The demo uses the characters' names only, with no artwork.
 
 ## 028 — Apple's year-less birthday: year 1604 with `X-APPLE-OMIT-YEAR`
 
-**Context.** The real-device test (ADR 023): a birthday saved without a year on
-iCloud comes as `BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14`, since vCard
-3.0 (RFC 2426) has no date without a year. Natel showed it as "14 juillet 1604",
-while Google Contacts through DAVx⁵ showed "14 juillet". vCard 4.0 has a
-standard form, `--0714` (RFC 6350 §4.3.1).
-
-**Decision.** A workaround for Apple (invariant 6), in `src/vcard/`:
-- `appleOmittedYear` reads a birthday's year as absent when its
-  `X-APPLE-OMIT-YEAR` parameter names that year; the reading view and the
-  form then show no year.
-- On a vCard 3.0 card, a birthday with a day and a month but no year is
-  written in Apple's form, year 1604 with `X-APPLE-OMIT-YEAR=1604`
-  (`writesAppleYearless`), which Apple and DAVx⁵ read back as year-less. A
-  birthday with a year drops the parameter. A 4.0 card keeps `--MMDD`; any
-  other card (3.0, 2.1, no `VERSION`) is written as 3.0 is.
-- A birthday whose parts don't change is left as it is, as ADR 012 says.
-- Only a day and month lose the placeholder year: a year and month keep it.
-  "Copier la date" copies a day and month as `--MM-DD`, without it.
-
-**Consequences.** Apple's year-less birthdays show as such, and stay so
-through a save. A 3.0 card that had `--MMDD` gets Apple's form once its
-birthday is edited; one that isn't edited keeps its form.
+**Context.** iCloud writes a birthday without a year as
+`BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14`, since vCard 3.0 has no
+date without a year. Natel showed "14 juillet 1604".
+**Decision.** A workaround for Apple (invariant 6) in `src/vcard/`: a year
+named by `X-APPLE-OMIT-YEAR` reads as absent, and a 3.0 card writes a
+year-less birthday in Apple's form, which Apple and DAVx⁵ read back. A 4.0
+card keeps `--MMDD`. A birthday given a year drops the parameter, and an
+unchanged birthday is left as it is (ADR 012).
+**Consequences.** Apple's year-less birthdays show as such and stay so
+through a save. A 3.0 card with `--MMDD` gets Apple's form once its birthday
+is edited.
 
 ## 029 — `REV` moves to the time of each save
 
-**Context.** The real-device test (ADR 023): after an edit in Natel, Bob's card
-kept the `REV` iCloud wrote, and Alice's the one DAVx⁵ wrote, while DAVx⁵ moves
-it at each change. RFC 6350 §6.7.4 makes `REV` the card's revision, so the
-client that writes the card sets it. The clients tested sync on the ETag and saw
-no difference, but one that orders two versions by `REV`, or shows "modified
-on", would see a wrong date.
-
-**Decision.** `stampRevision` in `src/vcard/` sets the card's `REV` to the
-time of the save, in UTC and to the second (`20261008T161205Z`), before a
-contact is updated and before a group card is rewritten. A card without
-`REV` gets none: Natel adds nothing a card doesn't have. A new card has
-none either. The value takes the type RFC 6350 and RFC 2426 give `REV`,
-with no `VALUE` parameter; its other parameters stay.
-
-**Consequences.** A card saved in Natel says when. An "Écraser avec ma
-version" save moves it too, as any write does. A card moved to another book
-keeps its `REV`, since its text goes over as it is (ADR 021). An imported
-card keeps its `REV` too, since import sends its text unchanged (ADR 020).
+**Context.** After an edit in Natel, a card kept the `REV` another client had
+written. RFC 6350 makes `REV` the card's revision, set by the client that
+writes it.
+**Decision.** `stampRevision` in `src/vcard/` sets `REV` to the time of the
+save, in UTC to the second, on contacts and group cards. A card without
+`REV` doesn't get one.
+**Consequences.** A card saved in Natel says when. A moved or imported card
+keeps its `REV`, since its text goes over unchanged.
 
 ## 030 — Display grouped `X-ABLABEL` values and replace them with an explicit type
 
-**Context.** The real-device test (ADR 023) found the phone labels "Chalet" and
-"Bateau" in Apple and DAVx⁵ cards, grouped with their `TEL` properties. The
-maintainer approved displaying existing labels and replacing them when another
-type is selected. ADR 029 covers the independent `REV` change.
-
-**Decision.** `appleLabelOf` in `src/vcard/` associates the first non-empty
-`X-ABLABEL` with a property by its non-empty, case-insensitive group name.
-The UI shows labels for every telephone and e-mail and the first address
-and website. It translates recognised Apple built-ins (`_$!<HomePage>!$_`
-and others), shows unknown built-ins without their wrapper, and keeps
-custom labels verbatim. The type menu offers the label first. Choosing a
-type writes `TYPE` and removes that group's `X-ABLABEL` properties via
-`dropAppleLabel`; reselecting the label restores the original type.
-Changing only a value preserves its label. Creating custom labels is out
-of scope.
-
-**Consequences.** Displayed labels leave the information-not-shown dialog.
-Other labels, properties and parameters survive each save. The mapping is
-isolated in vCard code; UI code works with plain field metadata.
+**Context.** Apple and DAVx⁵ cards carry custom labels ("Chalet", "Bateau")
+as an `X-ABLABEL` grouped with their `TEL`.
+**Decision.** `appleLabelOf` in `src/vcard/` reads a property's label by its
+group. The UI shows it, translating Apple's built-in labels, and offers it
+first in the type menu. Choosing another type writes `TYPE` and drops the
+label; changing only the value keeps it. Creating custom labels is out of
+scope.
+**Consequences.** Labels show on their field rather than among the
+information not shown, and survive every save.
 
 ## 031 — Bound upload reads with a total budget in the official Caddy image
 
-**Context.** A reproduction shows incomplete HTTP/1.1 keep-alive uploads
-that survive Caddy 2.11.7's body idle deadline and retain upstream
-connections. The maintainer chooses option B: a total read budget of ten
-minutes with the body idle reader disabled, while keeping the official
-image, and approves restricting Caddy to HTTP/1.1 and HTTP/2.
-
-**Decision.** Configure `protocols h1 h2`, `read_header 1m`, `read_body 10m` and
-`read_body_idle -1s` in the shared Caddyfile. The negative idle timeout
-disables Caddy's default body idle reader. The read budget is not extended
-by progress. HTTP/1.1 counts headers within it; HTTP/2 starts the body
-budget after the request headers. Normal keep-alive remains enabled.
-
-**Consequences.** Stalled and trickling uploads have a fixed bound, in
-Docker and bare metal. An upload that exceeds its read budget fails; an
-import can run longer if each PUT fits the budget. A pause has
-no separate one-minute limit. There is no payload-size cap or minimum
-transfer rate. Tests adapt the production Caddyfile, verify its actual
-budgets, then reduce the clock to check client and upstream closure and
-reuse of connections after completed uploads. HTTP/3 is disabled because
-Caddy 2.11.7 does not enforce its native total read timeout on that
-protocol when the idle reader is disabled. HTTPS and HTTP/2 remain
-available; QUIC to this Caddy instance is unavailable.
+**Context.** Incomplete HTTP/1.1 uploads could outlive Caddy 2.11.7's body
+idle deadline and hold upstream connections. Natel keeps the official Caddy
+binary rather than a custom build.
+**Decision.** The Caddyfile sets `protocols h1 h2`, `read_header 1m`,
+`read_body 10m` and `read_body_idle -1s`: a fixed ten-minute budget per
+request body, with the idle reader off.
+**Consequences.** A stalled upload is bounded, in Docker and on bare metal; a
+body that takes more than ten minutes fails. There is no size cap. HTTP/3
+is off, since Caddy
+doesn't enforce the budget there. Tests check the budgets on the real
+Caddyfile.
 
 ## 032 — Server-side sessions in a session process next to Caddy
 
-**Context.** A reload signs the user out (ADR 007), so every time the app
-is opened, in a tab, after a browser restart, or as an installed app the
-system reloaded, the user signs in again. That is the main friction left in
-daily use. Every way to keep the session after a reload has a cost:
+**Context.** A reload signed the user out (ADR 007), so every opening of the
+app meant signing in again: the main friction left in daily use. A session
+cookie keeps the password out of page scripts, but needs state on the
+server, which Caddy doesn't hold (ADR 002).
 
-- The browser's password manager fills the form, but the user still signs
-  in each time.
-- The Credential Management API signs in silently, but only in Chromium,
-  over HTTPS.
-- `sessionStorage` works everywhere, but any script running on the origin
-  can read the password.
-- A session cookie keeps the password out of page scripts, but needs state
-  on the server, and Caddy has none (ADR 002).
+**Decision.** `natel-session`, a Go binary with only the standard library
+(`session/`), is the container's entrypoint and runs Caddy as its child. It
+holds sign-in sessions in memory and does nothing else.
+- `POST /session` checks the credentials with a `PROPFIND` on the CardDAV
+  server and sets an `HttpOnly`, `SameSite=Strict` cookie, `Secure` and
+  `__Host-` over HTTPS. The app keeps only the username.
+- For each `/dav/*` request, Caddy asks `natel-session` for the
+  `Authorization` to send (`forward_auth`), on the loopback, with a secret
+  `natel-session` gives Caddy at startup.
+- A sign-in or sign-out is accepted only from Natel's own page
+  (`Sec-Fetch-Site`, else `Origin`).
+- A session ends after 12 hours without use, 7 days at most, on sign-out, or
+  when the container restarts. An account holds at most 20 sessions, and at
+  most 10,000 are open; past that, a sign-in gets a 429. Nothing is written to disk, and no log line
+  carries a password, token, username or address.
+- If either process stops, the container stops and Docker restarts both.
 
-Staying signed in has a large impact on the experience, so Natel accepts
-running its own server process for it. That process does one thing, holds
-sessions, and stays as small as it can while being secure. This amends
-ADR 002 and ADR 007, and invariants 2 and 3 in `AGENTS.md`.
+This amends ADR 002, ADR 007 and invariants 2 and 3 in `AGENTS.md`.
 
-**Decision.** A Go binary, `natel-session` (`session/`, standard library
-only), ships in the image next to Caddy. The image stays `caddy:2-alpine`
-with its official Caddy binary (ADR 031); the session binary is added
-like `dist/` and the `Caddyfile`. One container, two processes.
+**Rejected.** The Credential Management API: Chromium only.
+`sessionStorage`: any script on the origin can read the password.
 
-*Sessions.* `natel-session` listens on `NATEL_SESSION_ADDR`
-(`127.0.0.1:2020`), on the loopback only. Caddy reaches it with
-`reverse_proxy` for `/session` and `forward_auth` for `/dav/*`; `/auth` and
-`/healthz` are not reachable from outside.
-
-- `POST /session` takes the username and password as JSON and checks them
-  with a `PROPFIND` (`Depth: 0`) on the context roots the app's discovery
-  tries, following redirects within the server's URL space as the proxy
-  maps them. A 207 accepts the credentials; a 401 or 403 rejects them with
-  a 401; no answer gives a 502. The check carries the client's
-  `X-Forwarded-For`, so the server, or a fail2ban, still sees who signs in.
-  The whole check has 30 seconds. On success it stores `Authorization`
-  under the SHA-256 of a random 32-byte token and sets
-  `natel_session=<token>; HttpOnly; SameSite=Strict; Path=/;
-  Max-Age=604800`. When Caddy saw HTTPS, or else the page's `Origin` is
-  HTTPS, the cookie is `Secure` and named `__Host-natel_session`, which a
-  sibling subdomain can't set. Behind a reverse proxy that terminates TLS,
-  only `NATEL_TRUSTED_PROXIES` lets Caddy see HTTPS: without it, a client
-  claiming an `http` origin gets a plain cookie it could slip into another
-  browser from a sibling subdomain. A token opens its session only under
-  the name it was issued under, and two cookies of the same name open
-  nothing.
-- A sign-in or sign-out must come from Natel's own page: `Sec-Fetch-Site:
-  same-origin`, which a browser sets whatever `Host` a reverse proxy passes
-  on, or, from a browser without it, an `Origin` naming the host Natel is
-  reached at. The app's requests use their own `same-origin` referrer
-  policy, since under the page's `no-referrer` Firefox and Safari send
-  `Origin: null`. A body that isn't JSON within 4 KB is refused.
-- `GET /session` returns the signed-in username, or 401. The app reads it
-  before its first route, so a reload stays signed in.
-- `DELETE /session` removes the session and expires the cookie.
-- On `/dav/*`, after the 405 for the methods the app never sends, Caddy
-  asks `/auth`, with a secret `natel-session` puts in Caddy's environment
-  (`NATEL_SESSION_SECRET`). Apart from Caddy's admin API, which can read the
-  secret but can already reconfigure Caddy, nothing else on the loopback
-  can trade a session cookie for the password. A `caddy reload` from
-  outside `natel-session` drops the secret: `/auth` then refuses Caddy, logs
-  it, and every `/dav` request fails until a restart. A live session
-  answers with its `Authorization`, which Caddy copies onto the request
-  (`copy_headers`), replacing any the client sent. Otherwise Caddy returns
-  the 401. Caddy removes `Cookie` before the CardDAV server and still drops
-  its `Set-Cookie`.
-- A session expires after 12 hours without a request, and 7 days after
-  sign-in in any case. An account, its name compared without case or
-  surrounding spaces as many servers do, holds at most 20 sessions, its
-  least recently used one closing for a new one, and at most 10,000 are
-  open: past that, a sign-in gets a 429. Nothing is written to disk: a restart
-  signs everyone out.
-
-The app keeps only the username in its store. `dav/` sends no
-`Authorization`; the same-origin cookie goes with every request. A
-sign-in whose book discovery then fails ends the session again.
-
-*Processes.* `natel-session` is the container's entrypoint and PID 1. It
-runs the command it is given, `caddy run`, as its child:
-
-- `SIGTERM`, `SIGINT` and `SIGQUIT` are forwarded to Caddy.
-  `natel-session` waits for Caddy to stop, then stops itself. `SIGHUP`,
-  `SIGUSR1` and `SIGUSR2` are forwarded too, and stop nothing. On a
-  terminal (`docker run -it`), Ctrl-C and `Ctrl-\` already reach Caddy, which
-  shares the terminal and its input: they aren't sent twice.
-- `NATEL_SESSION_ADDR` must be a loopback address with a port; any other
-  stops the container at startup.
-- `BAIKAL_URL` is read as Caddy reads it: `host:port` without a scheme is
-  plain HTTP, port 443 included. One that isn't an origin stops the
-  container at startup.
-- If Caddy exits, `natel-session` exits with Caddy's exit code. If the
-  session server fails, `natel-session` stops Caddy, killing it after ten
-  seconds, and exits non-zero. Either way the container stops and Docker's
-  restart policy restarts it whole. One process never keeps running
-  without the other.
-- As PID 1, it reaps every child that exits, Caddy's orphans included.
-- A panic in a request handler is recovered and answered with a 500; it
-  never takes the process down.
-
-*Logs.* Caddy's output goes to the container's, unchanged.
-`natel-session` writes JSON lines to stdout with Caddy's keys (`level`,
-`ts`, `logger: "natel-session"`, `msg`), so one `docker logs` stream reads
-as one format. It logs startup, shutdown, Caddy's exit code, rejected and
-failed sign-ins without the username, and unexpected errors. It never logs
-a password, an `Authorization` header, a cookie, a session token, a
-username, a client address or the server's address.
-
-*Errors.* The sign-in tells wrong credentials (401) from a server it can't
-reach (502, or 503 when `BAIKAL_URL` is unset) and from the session limit
-(429). A refused origin is logged. When `natel-session` can't
-be reached, `forward_auth` fails with a 502, which the app reports as the
-server being unreachable, not as a signed-out session.
-
-*Health.* `natel-session` answers `GET /healthz`. The `HEALTHCHECK` checks
-it and Caddy's admin API.
-
-*Dev.* Vite's dev and preview servers mirror the contract with a plugin
-(`dev-session.ts`), so dev, the local e2e suite and the image keep one
-`/dav` contract (ADR 009). The demo (ADR 025) signs in without a session,
-and a reload signs it out as it resets the books.
-
-**Consequences.**
-
-- A reload, or reopening the browser, keeps the session, in every browser.
-  The password never reaches page scripts after sign-in: an XSS can act as
-  the user until logout, but can't read the password.
-- No credentials at rest, on disk or in the browser. The password sits in
-  the container's memory for the session's lifetime, not only in the tab.
-- Logout revokes the session on the server. If its request fails, the user
-  stays signed in and is told so: the cookie is out of the app's reach, and
-  a sign-out the server didn't see would let the next visitor back in.
-- Over plain HTTP, the cookie travels in clear like the password does
-  already; the sign-in screen's warning covers both.
-- Caddy stays the official binary, updated with the base image. Caddy and
-  `natel-session` don't depend on each other's internals; they only speak
-  HTTP. Each `/dav` request costs one extra round trip on the loopback.
-- The repository gains Go code, its tests, and their own CI job. Session and
-  process handling are security code: a review before release is required.
-- Bare-metal installs run `natel-session` too, as the service that starts
-  Caddy.
-- `natel-session` is the natural place for sign-in rate limiting.
+**Consequences.** A reload keeps the session in every browser, and page
+scripts never see the password: an XSS can act as the user until sign-out,
+but can't read it. The password stays in the container's memory for the
+session's lifetime. Sign-out revokes the session on the server; if that
+request fails, the user is told and stays signed in. Each `/dav` request
+costs a loopback round trip. The repository gains Go code with its own tests
+and CI job, security code reviewed before each release.
 
 ## 033 — The official Caddy binary on a plain Alpine base
 
-**Context.** The image runs Caddy unprivileged, on unprivileged ports, and
-must start under `cap_drop: ALL`, so the runtime stage removed the file
-capability that `caddy:2-alpine` sets on `/usr/bin/caddy`. Changing a file
-in a later layer copies it whole: the image carried the 52 MB binary twice,
-127 MB unpacked and 46 MB compressed (gzip of `docker save`, measured on
-2026-10-15, linux/amd64).
-ADR 031 and ADR 032 keep the official Caddy build rather than a custom one.
-
-**Decision.** A `caddy` stage starts from the pinned `caddy:2-alpine` and
-removes the capability; the runtime stage starts from the pinned `alpine`
-the official image is built on, and copies the binary from that stage. It
-adds what the official image adds and Natel uses: `ca-certificates`,
-`mailcap` (the MIME types `file_server` relies on), the `/config`, `/data`,
-`/etc/caddy` and `/usr/share/caddy` directories (`/config/caddy` and
-`/data/caddy` in mode 1777, as there), `XDG_CONFIG_HOME`, `XDG_DATA_HOME`
-and `WORKDIR /srv`. It leaves out `curl` and `libcap`, which nothing in the
-image runs. This amends ADR 032's "the image stays `caddy:2-alpine`".
-
-**Consequences.** The binary is still the one the Caddy project builds and
-checks, so ADR 031's reasoning holds. The image drops to 70 MB unpacked
-and 26 MB compressed, with the same RAM at rest (about 16 MB). Dependabot
-moves two pinned bases instead of one, in the same weekly group; it leaves
-the Alpine minor release alone, which is moved by hand to the one the
-official image uses. A change to the official image's Dockerfile, such as
-a new package or directory, no longer reaches Natel by itself.
+**Context.** Starting under `cap_drop: ALL` means removing the file
+capability from Caddy's binary, which copied the 52 MB binary into a new
+layer: the image held it twice (127 MB unpacked, 46 MB compressed).
+**Decision.** A build stage takes the binary from the pinned `caddy:2-alpine`
+and removes the capability. The runtime starts from the pinned `alpine` the
+official image uses, adds what Natel needs from it (`ca-certificates`,
+`mailcap`, its directories and `XDG_*` variables), and leaves out `curl` and
+`libcap`.
+**Consequences.** The binary is still the one the Caddy project builds. The
+image drops to 70 MB unpacked and 26 MB compressed. Dependabot moves two
+pinned bases; the Alpine minor release moves by hand to the official
+image's. A change to the official Dockerfile no longer reaches Natel by
+itself.
