@@ -662,7 +662,7 @@ describe("edit mode — ignoreBlocker on intentional exit (review item 4)", () =
 
 describe("edit mode — save error", () => {
   it.each([
-    ["NETWORK", /Erreur réseau : rien n’a été enregistré/],
+    ["NETWORK", /Erreur réseau : la modification a peut-être quand même été enregistrée/],
     ["TIMEOUT", /la modification a peut-être quand même été enregistrée/],
   ] as const)("says what a %s error means for the save", async (code, message) => {
     mockUpdateCard.mockRejectedValueOnce(new DavError("No save", code));
@@ -982,7 +982,7 @@ describe("edit mode — delete", () => {
   });
 
   it.each([
-    ["NETWORK", "Erreur réseau : rien n’a été supprimé."],
+    ["NETWORK", /Erreur réseau : le contact a peut-être quand même été supprimé/],
     ["TIMEOUT", /le contact a peut-être quand même été supprimé/],
   ] as const)("says what a %s error means for the deletion", async (code, message) => {
     mockDeleteCard.mockRejectedValueOnce(new DavError("No deletion", code));

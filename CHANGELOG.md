@@ -57,6 +57,9 @@ Notable changes to Natel. The format follows
   60 seconds without the start of an answer, the request fails and says the
   server didn't answer in time. A save, deletion or import may still have
   gone through, and the message says so.
+- After a network error, a save, deletion, import or group change says it
+  may have gone through anyway: the connection can drop after the server
+  made the change.
 - Apple birthdays without a year display without the placeholder year.
 - Custom phone, email, address and website labels from Apple/DAVx⁵ are shown;
   changing a label's type removes that custom label.

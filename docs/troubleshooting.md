@@ -51,6 +51,12 @@ have reached the server: reload the page to see where it stands. If it
 happens often, check the CardDAV server's load and logs; loading a large
 address book is the slowest request.
 
+## Network error during a change
+
+A network error can come after the server made the change, so a save,
+deletion, import or group change may have gone through anyway. Reload the
+page to see where it stands.
+
 ## Container logs
 
 Follow the container's logs with:

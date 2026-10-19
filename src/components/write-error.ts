@@ -5,6 +5,7 @@ import { DavError } from "@/queries";
 
 type Write = "save" | "delete" | "move";
 
+// A move fails with NETWORK or TIMEOUT only on its first read, before any write.
 const TRANSPORT_ERROR_KEYS: Record<"NETWORK" | "TIMEOUT", Record<Write, TranslationKey>> = {
   NETWORK: {
     save: "err_save_network",
@@ -14,7 +15,6 @@ const TRANSPORT_ERROR_KEYS: Record<"NETWORK" | "TIMEOUT", Record<Write, Translat
   TIMEOUT: {
     save: "err_save_timeout",
     delete: "err_delete_timeout",
-    // A move fails this way only on its first read, before any write.
     move: "err_move_timeout",
   },
 };
