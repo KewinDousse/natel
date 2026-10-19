@@ -254,9 +254,11 @@ export type ValidationErrors = Record<string, string | undefined>;
 
 /**
  * Validate a draft. Returns an errors map keyed by field path.
- * Only fields with errors are present.
+ * Only fields with errors are present. With `dirty`, a day its month doesn't
+ * have counts only on an edited birthday: one another client stored stays as
+ * it is, and doesn't hold back a save of other fields.
  */
-export function validateDraft(draft: ContactDraft): ValidationErrors {
+export function validateDraft(draft: ContactDraft, dirty?: DirtyFields): ValidationErrors {
   const errors: ValidationErrors = {};
 
   // A card needs a name: a person's, or an organisation's for a company.
@@ -307,9 +309,31 @@ export function validateDraft(draft: ContactDraft): ValidationErrors {
     if (month !== null && year === null && day === null) {
       errors.bday_month = "field_bday_month";
     }
+    if (
+      (dirty?.bday ?? true) &&
+      errors.bday_day === undefined &&
+      errors.bday_month === undefined &&
+      errors.bday_year === undefined &&
+      day !== null &&
+      month !== null &&
+      day > daysInMonth(month, year)
+    ) {
+      errors.bday_day = "field_bday_day";
+    }
   }
 
   return errors;
+}
+
+/**
+ * The days of a month in the proleptic Gregorian calendar. Without a year,
+ * February has 29: a birthday on the 29th is a real one.
+ */
+function daysInMonth(month: number, year: number | null): number {
+  if (month !== 2) return [4, 6, 9, 11].includes(month) ? 30 : 31;
+  if (year === null) return 29;
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  return leap ? 29 : 28;
 }
 
 /** True when the draft has no validation errors. */

@@ -487,6 +487,23 @@ describe("edit mode — birthday input", () => {
     expect(year.getAttribute("aria-describedby")).toBe(message.id);
   });
 
+  it("refuses to save a day the month doesn't have", async () => {
+    await renderEditView("editable");
+    const user = userEvent.setup();
+
+    const day = screen.getByPlaceholderText("JJ");
+    await user.clear(day);
+    await user.type(day, "31");
+    const month = screen.getByPlaceholderText("MM");
+    await user.clear(month);
+    await user.type(month, "2");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(day.getAttribute("aria-invalid")).toBe("true");
+    expect(await screen.findByText("Jour invalide")).toBeTruthy();
+    expect(mockUpdateCard).not.toHaveBeenCalled();
+  });
+
   it("translates the date placeholders", async () => {
     setLanguage("en-US");
     await renderEditView("editable");

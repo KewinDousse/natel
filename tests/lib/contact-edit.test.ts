@@ -222,27 +222,27 @@ END:VCARD`);
   });
 });
 
+const emptyDraft = () => ({
+  family: "",
+  given: "",
+  tel: [],
+  email: [],
+  nickname: "",
+  adr: null,
+  bday: null,
+  org: "",
+  title: "",
+  url: "",
+  note: "",
+  photo: { kind: "unchanged" as const },
+});
+
 describe("validateDraft", () => {
   it("returns no errors for a valid draft", () => {
     const contact = makeContact();
     const draft = buildDraft(contact);
     const errors = validateDraft(draft);
     expect(isValid(errors)).toBe(true);
-  });
-
-  const emptyDraft = () => ({
-    family: "",
-    given: "",
-    tel: [],
-    email: [],
-    nickname: "",
-    adr: null,
-    bday: null,
-    org: "",
-    title: "",
-    url: "",
-    note: "",
-    photo: { kind: "unchanged" as const },
   });
 
   it("asks for a name when there is no name nor organisation", () => {
@@ -492,6 +492,72 @@ describe("validateDraft", () => {
       expect(errors.bday_day).toBeUndefined();
       expect(errors.bday_year).toBeUndefined();
     });
+  });
+});
+
+describe("validateDraft: calendar dates", () => {
+  const withBirthday = (year: string, month: string, day: string) =>
+    validateDraft({
+      ...emptyDraft(),
+      family: "Doe",
+      given: "John",
+      bday: { source: "", year, month, day },
+    });
+
+  it.each([
+    ["2025", "1", "31"],
+    ["2025", "4", "30"],
+    ["2025", "12", "31"],
+    ["2024", "2", "29"],
+    ["2000", "2", "29"],
+    ["2025", "2", "28"],
+    ["", "2", "29"],
+    ["", "6", "30"],
+  ])("accepts %s-%s-%s", (year, month, day) => {
+    expect(isValid(withBirthday(year, month, day))).toBe(true);
+  });
+
+  it.each([
+    ["2025", "2", "31"],
+    ["2025", "2", "29"],
+    ["1900", "2", "29"],
+    ["2024", "2", "30"],
+    ["2025", "4", "31"],
+    ["2025", "6", "31"],
+    ["2025", "9", "31"],
+    ["2025", "11", "31"],
+    ["", "2", "30"],
+    ["", "4", "31"],
+  ])("rejects the day of %s-%s-%s", (year, month, day) => {
+    expect(withBirthday(year, month, day)).toEqual({ bday_day: "field_bday_day" });
+  });
+
+  it("leaves an out-of-range month to its own error", () => {
+    expect(withBirthday("2025", "13", "31")).toEqual({ bday_month: "field_bday_month" });
+  });
+
+  const cardWith = (line: string) =>
+    parse(
+      ["BEGIN:VCARD", "VERSION:3.0", "FN:Ada", "N:Lovelace;Ada;;;", line, "END:VCARD"].join("\r\n"),
+    );
+
+  it("accepts Apple's year-less 29 February, stored with 1604 as its year", () => {
+    expect(validateDraft(buildDraft(cardWith("BDAY;X-APPLE-OMIT-YEAR=1604:1604-02-29")))).toEqual(
+      {},
+    );
+  });
+
+  it("saves other fields of a card holding an impossible date from another client", () => {
+    const card = cardWith("BDAY:2025-02-31");
+    const draft = { ...buildDraft(card), nickname: "Ada" };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({});
+  });
+
+  it("refuses that date once the birthday is edited", () => {
+    const card = cardWith("BDAY:2025-02-31");
+    const base = buildDraft(card);
+    const draft = { ...base, bday: base.bday && { ...base.bday, year: "2024" } };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({ bday_day: "field_bday_day" });
   });
 });
 

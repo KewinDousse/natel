@@ -434,10 +434,10 @@ function ContactFiche({
 
   // Validate on blur
   const handleBlurValidate = useCallback(() => {
-    const validation = validateDraft(draft);
+    const validation = validateDraft(draft, dirty);
     setErrors(validation);
     if (invalidCount > 0) setInvalidCount(Object.keys(validation).length);
-  }, [draft, invalidCount]);
+  }, [draft, dirty, invalidCount]);
 
   // Puts the group cards written (ADR 022) into the book's cached groups.
   const cacheGroupCards = useCallback(
@@ -573,7 +573,7 @@ function ContactFiche({
   // in place, so re-parsing keeps the cached contact intact on failure. The
   // card is written only when something on it changed.
   const handleSave = useCallback(async () => {
-    const validation = validateDraft(draft);
+    const validation = validateDraft(draft, dirty);
     setErrors(validation);
     setInvalidCount(Object.keys(validation).length);
     if (!isValid(validation)) {
