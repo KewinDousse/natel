@@ -6,6 +6,8 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-20
+
 ### Added
 
 - Sign-in sessions: a reload, or reopening the browser, keeps you signed

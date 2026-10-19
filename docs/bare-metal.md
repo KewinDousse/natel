@@ -23,9 +23,7 @@ pnpm build                 # writes dist/
 `pnpm dev` and `pnpm preview` are development servers. Don't serve Natel
 with them.
 
-The settings below describe the current source. Its deployment hardening
-is still in [Unreleased](../CHANGELOG.md#unreleased), not in `0.2.0`. Use a
-release containing these settings once it is published; do not apply this
+The settings below describe the current source. Do not apply this
 Caddyfile to an older release without checking its requirements.
 
 ## Caddy

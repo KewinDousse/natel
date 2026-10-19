@@ -15,9 +15,9 @@ contacts your phone and desktop clients use; it does not host a new address book
 > import/export. See the [roadmap](docs/ROADMAP.md) for remaining validation and
 > the [changelog](CHANGELOG.md) for released and unreleased changes.
 
-A [hosted demo](https://demo.natel.app/) is planned for the public
-launch. Until it is published, [run the demo locally](CONTRIBUTING.md#setup).
-It uses made-up contacts; edits stay in the tab and reset on reload.
+Try the [hosted demo](https://demo.natel.app/), or
+[run it locally](CONTRIBUTING.md#setup). It uses made-up contacts; edits
+stay in the tab and reset on reload.
 
 <p>
   <img alt="The contact list and a contact's page, on a desktop screen." src="docs/screenshots/desktop.png" width="74%">
@@ -56,18 +56,13 @@ requiring a groupware suite: contacts only, one container, one server URL.
 
 ## Quick start
 
-These instructions build the **current source** locally. The image changes
-in [Unreleased](CHANGELOG.md#unreleased), including container port 8080, are
-not in `0.2.0`. A public image containing them is still to be released.
-
-From the root of your checkout, edit [compose.yaml](compose.yaml), setting
-`CARDDAV_URL` to your server's origin (`scheme://host[:port]`, without a path).
+In a `compose.yaml`, set `CARDDAV_URL` to your server's origin
+(`scheme://host[:port]`, without a path):
 
 ```yaml
 services:
   natel:
-    build: .
-    image: ${NATEL_IMAGE:-natel:local}
+    image: ghcr.io/kewindousse/natel:0.3.0
     environment:
       CARDDAV_URL: https://dav.example.com
     ports:
@@ -75,7 +70,7 @@ services:
 ```
 
 ```sh
-docker compose up -d --build
+docker compose up -d
 ```
 
 On the machine running Docker, open `http://localhost:8080` and sign in with
@@ -88,9 +83,10 @@ Natel is alpha software. Before your first edit, export each address book
 from the address-book menu to keep a `.vcf` copy, or back up your CardDAV
 server.
 
-For a published image, follow the [version-specific installation notes](docs/deployment.md#published-images).
-Use an explicit tag for a repeatable installation and read the release notes
-before upgrading: the default ports and volume ownership can change.
+Keep an explicit tag for a repeatable installation, and read the
+[changelog](CHANGELOG.md) before upgrading. To build the current source
+instead, set `CARDDAV_URL` in the root [compose.yaml](compose.yaml) of a
+checkout and run `docker compose up -d --build`.
 
 ## Documentation and help
 

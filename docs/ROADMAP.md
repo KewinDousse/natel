@@ -64,7 +64,7 @@ its checklist is ticked. Later phases are intentions, not commitments.
 - [x] i18n en + fr
 - [x] Docker image published on tag, compose example in README
       — CI publishes the image it tested to `ghcr.io/kewindousse/natel` on
-      a `vX.Y.Z` tag; `v0.1.0` is the first.
+      a `vX.Y.Z` tag; `v0.3.0` is the first published.
 - [x] Tag `v0.1.0`
 
 ## Phase 3 — v0.2, usable by others ✅ when: someone who isn't the author runs it daily

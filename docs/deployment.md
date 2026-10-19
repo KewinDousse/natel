@@ -7,34 +7,19 @@ proxy. A Docker-published port can bypass ufw or firewalld rules: bind a
 local-only port to `127.0.0.1`, or use a private Docker network for the proxy. Credentials also travel from Natel to the CardDAV server: use HTTPS
 there unless that connection stays on a trusted local container network.
 
-The examples below use the current local image built by the quick start.
-They require port 8080 and the current Caddyfile settings.
+The examples below use the published image, which listens on port 8080.
 
 ## Published images
 
-Published `0.2.0` listens on port **80**, not 8080. A local-only installation
-of that version uses this separate Compose file:
+`ghcr.io/kewindousse/natel` is built for linux/amd64 and linux/arm64, with
+an `X.Y.Z` tag for each release, `X.Y` for the newest patch of each minor
+version, and `latest` for the most recently published release.
+Use an explicit `X.Y.Z` tag for a repeatable installation. To check that an
+image came from this repository's CI:
 
-```yaml
-services:
-  natel:
-    image: ghcr.io/kewindousse/natel:0.2.0
-    environment:
-      CARDDAV_URL: https://dav.example.com
-    ports:
-      - "127.0.0.1:8080:80"
+```sh
+gh attestation verify oci://ghcr.io/kewindousse/natel:0.3.0 --owner KewinDousse
 ```
-
-Then run `docker compose up -d` and open `http://localhost:8080` on that
-machine. Package access is still being prepared for the public launch.
-This older image does not include the hardening listed under
-[Unreleased](../CHANGELOG.md#unreleased); do not treat this example as
-validation for direct internet exposure.
-
-For a release containing the current deployment changes, publish port 8080
-instead and use its explicit tag. With the root `compose.yaml`, set
-`NATEL_IMAGE=ghcr.io/kewindousse/natel:X.Y.Z` in the adjacent `.env` file,
-replace `X.Y.Z` with that published tag, and run `docker compose up -d --no-build`.
 
 ## Configuration
 
@@ -101,7 +86,7 @@ container must share a network with Traefik:
 ```yaml
 services:
   natel:
-    image: natel:local
+    image: ghcr.io/kewindousse/natel:0.3.0
     environment:
       CARDDAV_URL: https://dav.example.com
       # Only Traefik reaches Natel, on their shared network: no port is published.
@@ -164,7 +149,7 @@ reads the API and would then fail:
 ```yaml
 services:
   natel:
-    image: natel:local
+    image: ghcr.io/kewindousse/natel:0.3.0
     network_mode: host
     environment:
       CARDDAV_URL: https://dav.example.com

@@ -86,10 +86,11 @@ malformed responses; HTTP error statuses remain in access logs.
 Runtime diagnostics can contain configured server addresses; review logs
 before sharing them.
 
-The supplied `compose.yaml` uses Docker's `local` logging driver with three
-files of 10 MB each, rotated and compressed by Docker. Applying this setting
-to an existing container requires recreating it with `docker compose up -d`.
-If you use another deployment configuration, configure rotation there too.
+The repository's `compose.yaml` uses Docker's `local` logging driver with
+three files of 10 MB each, rotated and compressed by Docker. Copy its
+`logging` block into your own Compose file, or configure rotation in your
+deployment; applying it to an existing container requires recreating it
+with `docker compose up -d`.
 
 Browser errors, including vCard parsing warnings, stay in the browser's
 developer console. They do not appear in the container logs.
