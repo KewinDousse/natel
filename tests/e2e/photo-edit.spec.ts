@@ -10,7 +10,7 @@ const photos = JSON.parse(
   readFileSync(resolve(import.meta.dirname, "../vcard/photo-bytes.json"), "utf8"),
 ) as Record<string, string>;
 const fixture = (name: string) =>
-  readFileSync(resolve(import.meta.dirname, "../../fixtures/public", name), "utf8");
+  readFileSync(resolve(import.meta.dirname, "../fixtures/public", name), "utf8");
 
 /** Chromium's 8 × 6 JPEG with an EXIF block right after SOI: `orientation`, and a GPS tag. */
 function jpegWithExif(orientation: number): Buffer {

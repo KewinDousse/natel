@@ -161,12 +161,12 @@ tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, componen
                  CardDAV server: Radicale by default (`pnpm e2e`, ADR 017),
                  Baïkal (Docker) or Xandikos with `E2E_SERVER`
   e2e-demo/      Playwright against the demo build (`pnpm e2e:demo`)
+  fixtures/
+    public/      synthetic vCards, committed
+    private/     real vCards, gitignored
 session/         natel-session (Go, standard library only): sign-in sessions,
                  forward_auth for /dav, Caddy's supervisor (ADR 032)
 dev-session.ts   the same session contract on Vite's dev and preview servers
-fixtures/
-  public/        synthetic vCards, committed
-  private/       real vCards, gitignored
 scripts/
   brand-images.ts  renders the brand images that carry text (`pnpm brand:images`)
   spike.ts       phase-1 exploration script, kept as documentation

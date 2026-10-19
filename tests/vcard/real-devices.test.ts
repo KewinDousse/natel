@@ -14,7 +14,7 @@ import { type DraftAction, draftReducer } from "../../src/lib/draft-reducer";
 import { parse, serialise } from "../../src/vcard";
 
 function fixture(name: string): string {
-  return readFileSync(resolve(import.meta.dirname, "../../fixtures/public", name), "utf8");
+  return readFileSync(resolve(import.meta.dirname, "../fixtures/public", name), "utf8");
 }
 
 /** The card after the form's actions, unfolded so a long line can be matched whole. */

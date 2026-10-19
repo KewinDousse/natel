@@ -1,8 +1,8 @@
 /**
  * Round-trip tests for vCard parse/serialise.
  *
- * For every .vcf file under fixtures/public/ and fixtures/private/ (if it
- * exists), asserts that serialise(parse(x)) is semantically equal to x.
+ * For every .vcf file under tests/fixtures/public/ and tests/fixtures/private/
+ * (if it exists), asserts that serialise(parse(x)) is semantically equal to x.
  *
  * Semantic equality = same multiset of properties (name, group, parameters,
  * value), order ignored.
@@ -184,10 +184,10 @@ function assertSemanticallyEqual(original: string, serialised: string) {
 // Fixture collection
 // ---------------------------------------------------------------------------
 
-const fixtureDirs = [resolve(import.meta.dirname, "../../fixtures/public")];
+const fixtureDirs = [resolve(import.meta.dirname, "../fixtures/public")];
 
 // Include private dir only if it exists
-const privateDir = resolve(import.meta.dirname, "../../fixtures/private");
+const privateDir = resolve(import.meta.dirname, "../fixtures/private");
 if (existsSync(privateDir)) {
   fixtureDirs.push(privateDir);
 }

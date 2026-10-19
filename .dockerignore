@@ -7,6 +7,6 @@ dist-demo/
 .env*
 report.md
 DECISIONS.md
-fixtures/private/
+**/fixtures/private/
 test-results/
 playwright-report/

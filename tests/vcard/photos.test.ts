@@ -9,7 +9,7 @@ import bytes from "./photo-bytes.json";
 
 const card = (lines: string[]) => parse(["BEGIN:VCARD", ...lines, "END:VCARD", ""].join("\r\n"));
 const fixture = (name: string) =>
-  readFileSync(resolve(import.meta.dirname, "../../fixtures/public", name), "utf8");
+  readFileSync(resolve(import.meta.dirname, "../fixtures/public", name), "utf8");
 const unfold = (text: string) => text.replace(/\r?\n[ \t]/g, "");
 const photoLines = (text: string) =>
   unfold(text)

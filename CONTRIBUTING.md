@@ -102,9 +102,9 @@ Radicale is the default. The suite uses isolated test ports and fresh
 storage. CI also runs against Baïkal and the built Docker image. The Docker
 image is built for amd64 and arm64; its browser tests execute the amd64 image.
 
-Never commit real contacts. `fixtures/public/` contains made-up cards;
-`fixtures/private/` is ignored for local checks. Add fixtures rather than
-modifying existing ones.
+Never commit real contacts. `tests/fixtures/public/` contains made-up
+cards; `tests/fixtures/private/` is ignored for local checks. Add fixtures
+rather than modifying existing ones.
 
 ## Pull requests
 

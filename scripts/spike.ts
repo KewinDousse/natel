@@ -121,7 +121,7 @@ async function main() {
     return;
   }
 
-  const outDir = resolve(import.meta.dirname, "..", "fixtures", "private");
+  const outDir = resolve(import.meta.dirname, "..", "tests", "fixtures", "private");
   await mkdir(outDir, { recursive: true });
 
   console.log(`Connecting to ${davUrl} ...`);
@@ -166,7 +166,7 @@ async function main() {
       continue;
     }
 
-    // write raw vCard to fixtures/private/
+    // write raw vCard to tests/fixtures/private/
     await writeFile(resolve(outDir, filename), raw, "utf-8");
     console.log(`  wrote ${filename}  (etag: ${etag ?? "none"})`);
 

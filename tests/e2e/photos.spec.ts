@@ -8,7 +8,7 @@ const bytes = JSON.parse(
   readFileSync(resolve(import.meta.dirname, "../vcard/photo-bytes.json"), "utf8"),
 ) as Record<string, string>;
 const fixture = (name: string) =>
-  readFileSync(resolve(import.meta.dirname, "../../fixtures/public", name), "utf8");
+  readFileSync(resolve(import.meta.dirname, "../fixtures/public", name), "utf8");
 
 async function signIn(page: Page): Promise<void> {
   await page.goto("/");

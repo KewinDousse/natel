@@ -71,7 +71,7 @@ instead of adding it.
 - A change under `session/` needs `gofmt -l .`, `go vet ./...` and `go test ./...`
   to pass there too (see CONTRIBUTING.md).
 - New behaviour gets a test. Bug fixes get a regression test first.
-- Do not modify files under `fixtures/` except to add new fixtures.
+- Do not modify files under `tests/fixtures/` except to add new fixtures.
 - Do not edit `README.md`, `docs/ROADMAP.md`, or this file unless the task says so.
 - Commit messages: imperative, one line, explain *why* when not obvious.
 

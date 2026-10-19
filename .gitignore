@@ -28,7 +28,7 @@ dev-session.d.ts
 Thumbs.db
 
 # private fixtures
-fixtures/private/*
+**/fixtures/private/*
 
 # design handoff (visual references only, never committed)
 natel-design*/

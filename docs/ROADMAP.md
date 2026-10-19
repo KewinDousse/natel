@@ -13,8 +13,8 @@ its checklist is ticked. Later phases are intentions, not commitments.
 
 ## Phase 1 — Spike ✅ when: real vCards round-trip byte-for-byte through the parser
 
-- [x] 10–20 real vCards from Baïkal/DAVx⁵ in `fixtures/private/` (gitignored)
-      plus synthetic public ones in `fixtures/public/`
+- [x] 10–20 real vCards from Baïkal/DAVx⁵ in `tests/fixtures/private/` (gitignored)
+      plus synthetic public ones in `tests/fixtures/public/`
 - [x] `scripts/spike.ts`: discover principal → list address books → fetch all
       vCards → parse → serialise → diff
 - [x] Round-trip test suite in `tests/vcard/`
