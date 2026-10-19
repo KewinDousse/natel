@@ -204,8 +204,8 @@ above says.
 
 ## Claude Code on the web
 
-`CLAUDE.md` only imports this file. The maintainer's environment sets the
-author outside the repository, through `GIT_AUTHOR_NAME` and
+`.claude/CLAUDE.md` only imports this file. The maintainer's environment
+sets the author outside the repository, through `GIT_AUTHOR_NAME` and
 `GIT_AUTHOR_EMAIL`. The session start hook
 (`.claude/hooks/session-start.sh`) sets Claude as committer, installs the
 dependencies, Radicale and Xandikos, and exports `RADICALE_BIN`,
