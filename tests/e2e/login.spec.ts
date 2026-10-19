@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { putCard, resetBook, vcard } from "./dav";
 import { APP_URL, PASSWORD, USER } from "./env";
 
 test.skip(({ isMobile }) => isMobile, "the markup doesn't depend on the viewport");
@@ -80,7 +81,12 @@ test("stays signed in when the sign-out doesn't reach the server", async ({ page
 // The session can end while the app is open: elsewhere, or as the container
 // restarts. The next write says so, and a reload asks to sign in.
 test("asks to sign in again once the session ended on the server", async ({ page }) => {
+  // The save needs a book, which a fresh server has none of.
+  await resetBook();
+  await putCard("ada", vcard(["UID:ada", "FN:Ada Lovelace", "N:Lovelace;Ada;;;"]));
   await signIn(page);
+  // The book is loaded before the session ends, so the page can offer "New contact".
+  await expect(page.getByRole("link", { name: /Lovelace/ })).toBeVisible();
   const ended = await page.request.delete("/session", { headers: { Origin: APP_URL } });
   expect(ended.status()).toBe(204);
   await page.getByRole("link", { name: "New contact" }).filter({ visible: true }).click();
