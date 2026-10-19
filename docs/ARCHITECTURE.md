@@ -99,17 +99,16 @@ without a pre-release suffix).
 
 The demo (ADR 025) is another build of the same app: `VITE_DEMO=1` swaps
 `@/dav` for `src/dav/demo.ts`, an in-memory CardDAV stand-in seeded with
-made-up contacts, and `VITE_BASE` serves it under a subpath, with the CSP as
-a meta tag and a `404.html` for deep links. A release tag (without a
-pre-release suffix) publishes it to the repository's GitHub Pages site. The
-normal build, and so the image, never contains it, which the `check` job
-verifies.
+made-up contacts, with the CSP as a meta tag and a `404.html` for deep
+links. A release tag (without a pre-release suffix) publishes it to the
+repository's GitHub Pages site, at `demo.natel.app` (ADR 035). The normal
+build, and so the image, never contains it, which the `check` job verifies.
 
 ## Link previews
 
 `index.html` carries `og:title` and `og:description`, which suit any
 instance. A preview image needs an absolute URL, which only the demo knows:
-given `DEMO_URL` (its GitHub Pages address in CI), the demo build ships
+given `DEMO_URL` (`https://demo.natel.app/` in CI), the demo build ships
 `docs/brand/social/og-image-en.png` as `og-image.png` and adds `og:url`,
 `og:image` and `twitter:card`. The Docker image, and so self-hosted
 instances, carry no preview image.
@@ -158,8 +157,7 @@ tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, componen
   e2e/           Playwright against the production build and a throwaway
                  CardDAV server: Radicale by default (`pnpm e2e`, ADR 017),
                  Baïkal (Docker) or Xandikos with `E2E_SERVER`
-  e2e-demo/      Playwright against the demo build under /natel/
-                 (`pnpm e2e:demo`)
+  e2e-demo/      Playwright against the demo build (`pnpm e2e:demo`)
 session/         natel-session (Go, standard library only): sign-in sessions,
                  forward_auth for /dav, Caddy's supervisor (ADR 032)
 dev-session.ts   the same session contract on Vite's dev and preview servers

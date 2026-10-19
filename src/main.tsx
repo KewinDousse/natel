@@ -9,11 +9,7 @@ import { routeTree } from "./routeTree.gen";
 import { useSessionStore } from "./store/session";
 import "./index.css";
 
-// The demo build can be served under a subpath (ADR 025).
-const router = createRouter({
-  routeTree,
-  basepath: import.meta.env.BASE_URL.replace(/\/$/, "") || "/",
-});
+const router = createRouter({ routeTree });
 
 const queryClient = createQueryClient();
 

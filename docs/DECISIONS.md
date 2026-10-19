@@ -370,7 +370,8 @@ alone. Stubbing the query hooks: it would leave `src/vcard/` and saving out.
 hosting cost, but not compatibility with a real server, which the e2e matrix
 covers. A change to `src/dav/`'s API must change `demo.ts`, and the compiler
 enforces it. Another site can frame the demo, since a meta tag can't set
-`frame-ancestors`; it holds no real data.
+`frame-ancestors`; it holds no real data. Amended by ADR 035, which serves
+it at the root of its own domain.
 
 ## 026 — The theme and the list's sort are display preferences too
 
@@ -523,3 +524,17 @@ network between the browser and Caddy drops the answer.
 endless wait. A write that times out may still have taken effect, so its
 message says so, and saving again then meets a conflict. A PUT's 60
 seconds include its upload.
+
+## 035 — The demo at demo.natel.app
+
+**Context.** The README and the link previews need the demo's address
+before launch. GitHub Pages' own, `kewindousse.github.io/natel/`, follows
+the repository's owner and name, and puts the app under a subpath.
+**Decision.** The Pages site of `KewinDousse/natel` uses `demo.natel.app` as
+its custom domain, a CNAME to `kewindousse.github.io`. The demo is built
+for the root, like the normal build: neither takes a base path.
+**Rejected.** The `github.io` address: it changes if the repository moves,
+and it keeps a build option only the demo uses.
+**Consequences.** The address stays if the repository moves. The demo
+build is closer to the normal one, and its e2e tests run at the root. The
+`natel.app` DNS zone now serves the demo too.

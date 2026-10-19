@@ -15,7 +15,7 @@ contacts your phone and desktop clients use; it does not host a new address book
 > import/export. See the [roadmap](ROADMAP.md) for remaining validation and
 > the [changelog](CHANGELOG.md) for released and unreleased changes.
 
-A [hosted demo](https://kewindousse.github.io/natel/) is planned for the public
+A [hosted demo](https://demo.natel.app/) is planned for the public
 launch. Until it is published, [run the demo locally](CONTRIBUTING.md#setup).
 It uses made-up contacts; edits stay in the tab and reset on reload.
 

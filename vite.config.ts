@@ -19,10 +19,8 @@ for (const [, name, value] of snippet.matchAll(/^\s*([\w-]+) "([^"]+)"$/gm)) {
 const csp = securityHeaders["Content-Security-Policy"];
 if (!csp) throw new Error("No Content-Security-Policy in the Caddyfile's security_headers");
 
-// The demo build (ADR 025): an in-memory CardDAV stand-in, servable under a
-// subpath (VITE_BASE, such as /natel/ for GitHub Pages).
+// The demo build (ADR 025): an in-memory CardDAV stand-in.
 const demo = process.env.VITE_DEMO === "1";
-const base = process.env.VITE_BASE ?? "/";
 // The demo's public address: link previews only fetch an image from an
 // absolute URL, so without it the demo build carries no preview image.
 const demoUrl = process.env.DEMO_URL;
@@ -99,7 +97,6 @@ const DAV_METHODS = ["PROPFIND", "REPORT", "PUT", "DELETE"];
 const davOrigin = process.env.VITE_DAV_URL;
 
 export default defineConfig({
-  base,
   // The demo reminders follow the same switch as the alias, never a .env file.
   define: {
     "import.meta.env.VITE_DEMO": JSON.stringify(demo ? "1" : ""),

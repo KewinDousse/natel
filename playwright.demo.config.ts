@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// The demo build (ADR 025): no CardDAV server, served under /natel/ as on
-// GitHub Pages. `pnpm e2e` keeps its own config and servers.
+// The demo build (ADR 025): no CardDAV server. `pnpm e2e` keeps its own
+// config and servers.
 const PORT = 4399;
 
 export default defineConfig({
@@ -11,7 +11,7 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: `http://127.0.0.1:${PORT}/natel/`,
+    baseURL: `http://127.0.0.1:${PORT}/`,
     locale: "en-US",
     trace: "retain-on-failure",
     launchOptions: {
@@ -24,8 +24,8 @@ export default defineConfig({
   ],
   webServer: {
     command: `pnpm build --outDir dist-demo && pnpm preview --outDir dist-demo --host 127.0.0.1 --port ${PORT} --strictPort`,
-    url: `http://127.0.0.1:${PORT}/natel/`,
-    env: { VITE_DEMO: "1", VITE_BASE: "/natel/", DEMO_URL: `http://127.0.0.1:${PORT}/natel/` },
+    url: `http://127.0.0.1:${PORT}/`,
+    env: { VITE_DEMO: "1", DEMO_URL: `http://127.0.0.1:${PORT}/` },
     timeout: 120_000,
   },
 });

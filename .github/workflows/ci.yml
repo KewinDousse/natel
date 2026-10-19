@@ -259,8 +259,9 @@ jobs:
           push-to-registry: true
 
   demo:
-    # The demo (ADR 025) on this repository's GitHub Pages site, at each
-    # release; a pre-release (a tag with a suffix) leaves it as it is.
+    # The demo (ADR 025) on this repository's GitHub Pages site, at
+    # demo.natel.app, at each release; a pre-release (a tag with a suffix)
+    # leaves it as it is.
     if: >-
       startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
       && github.repository == 'KewinDousse/natel'
@@ -294,8 +295,7 @@ jobs:
         env:
           NATEL_REVISION: ${{ github.sha }}
           VITE_DEMO: "1"
-          VITE_BASE: /natel/
-          DEMO_URL: https://kewindousse.github.io/natel/
+          DEMO_URL: https://demo.natel.app/
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist-demo

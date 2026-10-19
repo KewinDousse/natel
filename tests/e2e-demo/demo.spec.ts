@@ -17,19 +17,8 @@ test("signs in with any credentials, and says on every screen that it is a demo"
   await signIn(page);
   await expect(page.getByText("Demo: nothing is saved, change anything you like.")).toBeVisible();
   await page.getByRole("link", { name: /Luxanna Crownguard/ }).click();
-  await expect(page).toHaveURL(/\/natel\/contacts\/p01$/);
+  await expect(page).toHaveURL(/\/contacts\/p01$/);
   await expect(page.getByText("Demo", { exact: true }).filter({ visible: true })).toBeVisible();
-});
-
-test("keeps the open contact marked in the list under the subpath", async ({ page, isMobile }) => {
-  test.skip(isMobile, "the list and the contact share the screen from lg");
-  await page.goto("./");
-  await signIn(page);
-  await page.getByRole("link", { name: /Luxanna Crownguard/ }).click();
-  await expect(page.getByRole("link", { name: /Luxanna Crownguard/ })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
 });
 
 // A static host sends no headers: the policy, Trusted Types included, comes
