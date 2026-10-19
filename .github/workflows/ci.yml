@@ -248,6 +248,13 @@ jobs:
           echo "digest=$(cat digest)" >> "$GITHUB_OUTPUT"
         env:
           TAGS: ${{ needs.image.outputs.tags }}
+      # The attestation's push to the registry reads Docker's credentials,
+      # not skopeo's.
+      - if: ${{ !github.event.repository.private }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+        env:
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Lets users check the image came from this workflow:
       # gh attestation verify oci://ghcr.io/kewindousse/natel:<tag> --owner KewinDousse
       # GitHub attests only for public repositories on this plan.

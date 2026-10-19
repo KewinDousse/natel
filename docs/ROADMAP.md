@@ -88,7 +88,7 @@ its checklist is ticked. Later phases are intentions, not commitments.
 ## Phase 4 — Community (if it takes off)
 
 - [x] Static demo build with made-up contacts in memory (ADR 025)
-- [ ] Publish the demo on GitHub Pages
+- [x] Publish the demo on GitHub Pages
 - [x] CONTRIBUTING, security policy, issue templates, public roadmap
 - [ ] Validate an installation and daily use by someone other than the author
 - Announce: r/selfhosted, Baïkal issue tracker, awesome-selfhosted, Show HN
