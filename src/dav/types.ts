@@ -50,6 +50,7 @@ export type DavErrorCode =
   | "AUTH"
   | "NOT_FOUND"
   | "NETWORK"
+  | "TIMEOUT"
   | "UNEXPECTED"
   | "CONFLICT"
   | "TOO_LARGE"
@@ -61,6 +62,8 @@ export class DavError extends Error {
    * Machine-readable error code for programmatic handling.
    *
    * - CONFLICT: HTTP 412 Precondition Failed (resource changed on server).
+   * - TIMEOUT: the server's answer didn't start in time. A write may still
+   *   have taken effect.
    * - TOO_LARGE: HTTP 413 on a PUT: the server, or a proxy in front of it,
    *   refused the card for its size (ADR 023).
    * - MAYBE_TOO_LARGE: a network failure while sending a card over 1 MB,

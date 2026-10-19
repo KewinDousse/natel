@@ -15,6 +15,7 @@ export type ImportFailureReason =
   | "conflict"
   | "refused"
   | "network"
+  | "timeout"
   | "too_large"
   | "maybe_too_large";
 
@@ -107,6 +108,7 @@ function parseCreated(text: string, href: string, etag: string): Contact | null 
 function failureReason(err: unknown): ImportFailureReason {
   if (err instanceof DavError && err.code === "CONFLICT") return "conflict";
   if (err instanceof DavError && err.code === "NETWORK") return "network";
+  if (err instanceof DavError && err.code === "TIMEOUT") return "timeout";
   if (err instanceof DavError && err.code === "TOO_LARGE") return "too_large";
   if (err instanceof DavError && err.code === "MAYBE_TOO_LARGE") return "maybe_too_large";
   return "refused";

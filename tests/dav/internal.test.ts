@@ -94,9 +94,14 @@ async function answerPut(args: PutArgs, status: number, headers: Record<string, 
     "fetch",
     vi.fn(async () => new Response(null, { status, headers })),
   );
+  await sendPut(args);
+  return [davResp({ ok: status < 300, status })];
+}
+
+/** Sends a PUT through the `fetch` the adapter hands tsdav, to whatever fetch is stubbed. */
+async function sendPut(args: PutArgs) {
   if (!args.fetch) throw new Error("a PUT without the adapter's fetch");
   await args.fetch(args.url, args.init as RequestInit);
-  return [davResp({ ok: status < 300, status })];
 }
 
 /** A davRequest whose PUTs succeed with these response headers. */
@@ -139,6 +144,7 @@ describe("createDavSession", () => {
       authMethod: "Custom",
       authFunction: expect.any(Function),
       fetchOptions: { mode: "same-origin" },
+      fetch: internalTesting.timedFetch,
     });
   });
 
@@ -285,6 +291,14 @@ describe("discovery", () => {
     expect(pfind).toHaveBeenCalledTimes(1);
   });
 
+  it("stops at the first root that doesn't answer in time", async () => {
+    const pfind = vi.fn().mockRejectedValue(new DavError("no answer", "TIMEOUT"));
+    mockCreateDAVClient.mockResolvedValue(scriptedClient(pfind));
+
+    await expect(createDavSession(AUTH)).rejects.toMatchObject({ code: "TIMEOUT" });
+    expect(pfind).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects with the last root's error when no root has a principal", async () => {
     const pfind = vi
       .fn()
@@ -295,6 +309,91 @@ describe("discovery", () => {
 
     await expect(createDavSession(AUTH)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(pfind).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The wait for an answer
+// ---------------------------------------------------------------------------
+
+describe("answer timeout", () => {
+  const { timedFetch, ANSWER_TIMEOUT_MS } = internalTesting;
+
+  /** A server that never answers: the request ends only when aborted. */
+  function silentServer() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError")),
+            );
+          }),
+      ),
+    );
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("rejects with TIMEOUT when no answer starts in time", async () => {
+    silentServer();
+
+    const request = timedFetch("http://localhost:3000/dav/books/");
+    const outcome = expect(request).rejects.toMatchObject({ code: "TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS);
+    await outcome;
+  });
+
+  it("lets an answer that has started take its time", async () => {
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        signal = init?.signal ?? undefined;
+        return new Response("body");
+      }),
+    );
+
+    await timedFetch("http://localhost:3000/dav/books/");
+    await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS * 2);
+
+    expect(signal?.aborted).toBe(false);
+  });
+
+  it("leaves a network failure as it is", async () => {
+    const failure = new TypeError("Load failed");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(failure));
+
+    await expect(timedFetch("http://localhost:3000/dav/books/")).rejects.toBe(failure);
+  });
+
+  it("bounds a PUT's wait too", async () => {
+    silentServer();
+    mockCreateDAVClient.mockResolvedValue(
+      mockClient({
+        davRequest: vi.fn(async (args: PutArgs) => {
+          await sendPut(args);
+          return [davResp({})];
+        }),
+      }),
+    );
+    const session = await createDavSession(AUTH);
+
+    const save = session.updateCard(
+      "http://localhost:3000/dav/books/default/1.vcf",
+      '"old"',
+      "BEGIN:VCARD\nVERSION:3.0\nFN:Alice\nEND:VCARD\n",
+    );
+    const outcome = expect(save).rejects.toMatchObject({ code: "TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS);
+    await outcome;
   });
 });
 

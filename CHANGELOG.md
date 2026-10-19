@@ -53,6 +53,10 @@ Notable changes to Natel. The format follows
 
 ### Fixed
 
+- A CardDAV server that never answers no longer leaves Natel waiting: after
+  60 seconds without the start of an answer, the request fails and says the
+  server didn't answer in time. A save, deletion or import may still have
+  gone through, and the message says so.
 - Apple birthdays without a year display without the placeholder year.
 - Custom phone, email, address and website labels from Apple/DAVx⁵ are shown;
   changing a label's type removes that custom label.

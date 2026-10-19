@@ -184,6 +184,7 @@ function Notice({
 function groupErrorKey(err: unknown): TranslationKey {
   if (err instanceof DavError && err.code === "CONFLICT") return "group_err_conflict";
   if (err instanceof DavError && err.code === "NETWORK") return "group_err_network";
+  if (err instanceof DavError && err.code === "TIMEOUT") return "group_err_timeout";
   if (err instanceof DavError && err.code === "AUTH") return "group_err_auth";
   return "group_err_refused";
 }

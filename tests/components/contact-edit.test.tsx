@@ -661,16 +661,18 @@ describe("edit mode — ignoreBlocker on intentional exit (review item 4)", () =
 });
 
 describe("edit mode — save error", () => {
-  it("shows network error in the bottom bar", async () => {
-    mockUpdateCard.mockRejectedValueOnce(new DavError("Network error", "NETWORK"));
+  it.each([
+    ["NETWORK", /Erreur réseau : rien n’a été enregistré/],
+    ["TIMEOUT", /la modification a peut-être quand même été enregistrée/],
+  ] as const)("says what a %s error means for the save", async (code, message) => {
+    mockUpdateCard.mockRejectedValueOnce(new DavError("No save", code));
     await renderEditView("editable");
     const user = userEvent.setup();
 
     await user.type(screen.getByDisplayValue("John"), "x");
-    const saveBtn = screen.getByRole("button", { name: "Enregistrer" });
-    await user.click(saveBtn);
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
-    await waitFor(() => expect(screen.getByText(/Erreur réseau/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(message)).toBeTruthy());
   });
 
   it("says the server refused a card for its size, and how large it was", async () => {
@@ -979,17 +981,18 @@ describe("edit mode — delete", () => {
     await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
   });
 
-  it("shows a network error in the bottom bar", async () => {
-    mockDeleteCard.mockRejectedValueOnce(new DavError("Network error", "NETWORK"));
+  it.each([
+    ["NETWORK", "Erreur réseau : rien n’a été supprimé."],
+    ["TIMEOUT", /le contact a peut-être quand même été supprimé/],
+  ] as const)("says what a %s error means for the deletion", async (code, message) => {
+    mockDeleteCard.mockRejectedValueOnce(new DavError("No deletion", code));
     await renderEditView("editable");
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
 
-    await waitFor(() =>
-      expect(screen.getByText("Erreur réseau : rien n’a été supprimé.")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText(message)).toBeTruthy());
   });
 });
 

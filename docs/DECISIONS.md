@@ -505,3 +505,21 @@ image drops to 70 MB unpacked and 26 MB compressed. Dependabot moves two
 pinned bases; the Alpine minor release moves by hand to the official
 image's. A change to the official Dockerfile no longer reaches Natel by
 itself.
+
+## 034 — Wait 60 seconds for a CardDAV answer to start
+
+**Context.** Caddy's proxy waits on the CardDAV server without a limit, and
+the app did too: a server that never answered left a save, or the list,
+waiting for good.
+**Decision.** Each DAV request from the app fails with its own error,
+`TIMEOUT`, when the server's answer hasn't started within 60 seconds. Once
+it starts, the body has no limit. Discovery stops at the first timeout,
+since every root it tries is on the same server.
+**Rejected.** A total budget per request: a large address book on a slow
+connection can take longer to arrive. A `response_header_timeout` on
+Caddy's proxy: Vite's proxy would still wait, and so would the app when the
+network between the browser and Caddy drops the answer.
+**Consequences.** A server that doesn't answer gets an error instead of an
+endless wait. A write that times out may still have taken effect, so its
+message says so, and saving again then meets a conflict. A PUT's 60
+seconds include its upload.

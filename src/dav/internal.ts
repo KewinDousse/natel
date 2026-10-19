@@ -209,6 +209,27 @@ function assertWriteEtag(etag: string, href: string): void {
   }
 }
 
+/** How long a request waits for the server's answer to start (ADR 034). */
+const ANSWER_TIMEOUT_MS = 60_000;
+
+/** fetch for every DAV request, rejecting with TIMEOUT when no answer starts in time. */
+const timedFetch: typeof fetch = async (input, init) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ANSWER_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (!controller.signal.aborted) throw err;
+    throw new DavError(
+      `CardDAV server didn't answer within ${ANSWER_TIMEOUT_MS / 1000} s`,
+      "TIMEOUT",
+      err,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 /**
  * PUT a card. Resolves to the response's ETag when it is strong: a server
  * sends one only when it stored the body as sent (RFC 6352 §6.3.2.3), so it
@@ -226,8 +247,9 @@ async function putCard(
   context: string,
 ): Promise<string | undefined> {
   const answer: { etag: string | null } = { etag: null };
+  // Replaces the client's fetch for this request, so it keeps the timeout itself.
   const keepEtag: typeof fetch = async (input, init) => {
-    const response = await fetch(input, init);
+    const response = await timedFetch(input, init);
     answer.etag = response.headers.get("ETag");
     return response;
   };
@@ -359,8 +381,9 @@ function baikalContextRoot(): string {
 /**
  * Find the address book home of the authenticated user.
  *
- * A root that does not answer with a principal is skipped; an auth failure
- * stops the search at once, since another root would not fix the password.
+ * A root that does not answer with a principal is skipped. An auth failure
+ * or a timeout stops the search at once: every root is on the same server,
+ * so another one would not fix the password or answer sooner.
  */
 async function discoverHomeUrl(client: DAVClient): Promise<string> {
   let lastError: unknown;
@@ -380,7 +403,7 @@ async function discoverHomeUrl(client: DAVClient): Promise<string> {
         "addressbookHomeSet",
       );
     } catch (err) {
-      if (err instanceof DavError && err.code === "AUTH") throw err;
+      if (err instanceof DavError && (err.code === "AUTH" || err.code === "TIMEOUT")) throw err;
       lastError = err;
     }
   }
@@ -483,6 +506,7 @@ async function makeSession(evict: () => void): Promise<DavSession> {
         authMethod: "Custom",
         authFunction: async () => ({}),
         fetchOptions: { mode: "same-origin" },
+        fetch: timedFetch,
       }),
     "creating session",
   );
@@ -709,6 +733,8 @@ export const __testing = {
   deriveBookUrl,
   fromServerHref,
   toServerPath,
+  timedFetch,
+  ANSWER_TIMEOUT_MS,
   /** Clear the in-memory session cache (needed between tests with mocked tsdav). */
   clearSessionCache: clearCachedDavSessions,
 };

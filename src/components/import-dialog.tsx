@@ -22,6 +22,7 @@ const REASON_KEYS: Record<ImportFailureReason, TranslationKey> = {
   conflict: "import_reason_conflict",
   refused: "import_reason_refused",
   network: "import_reason_network",
+  timeout: "import_reason_timeout",
   too_large: "import_reason_too_large",
   maybe_too_large: "import_reason_maybe_too_large",
 };

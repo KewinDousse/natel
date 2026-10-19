@@ -43,6 +43,14 @@ server. Do not assume that a network failure means a size rejection.
 Photo display also depends on the synced client; see
 [compatibility](compatibility.md#synced-clients).
 
+## Server not answering in time
+
+Natel waits 60 seconds for the CardDAV server to start answering a request,
+then says it didn't answer in time. A save, deletion or import may still
+have reached the server: reload the page to see where it stands. If it
+happens often, check the CardDAV server's load and logs; loading a large
+address book is the slowest request.
+
 ## Container logs
 
 Follow the container's logs with:
