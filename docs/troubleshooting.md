@@ -110,4 +110,4 @@ name/version, browser/device, expected result and what happened.
 
 Remove credentials, real contacts and private server addresses from logs
 and screenshots. Use synthetic data for vCard examples. Report a suspected
-vulnerability through [SECURITY.md](../SECURITY.md), privately.
+vulnerability through [SECURITY.md](../.github/SECURITY.md), privately.

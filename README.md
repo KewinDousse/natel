@@ -12,7 +12,7 @@ Built for Baïkal, tested against Baïkal, Radicale and Xandikos.
 contacts your phone and desktop clients use; it does not host a new address book.
 
 > **Status:** alpha. The app supports contact editing, photos, groups and
-> import/export. See the [roadmap](ROADMAP.md) for remaining validation and
+> import/export. See the [roadmap](docs/ROADMAP.md) for remaining validation and
 > the [changelog](CHANGELOG.md) for released and unreleased changes.
 
 A [hosted demo](https://demo.natel.app/) is planned for the public
@@ -100,7 +100,7 @@ before upgrading: the default ports and volume ownership can change.
 - [Deployment](docs/deployment.md) and [updates](docs/updating.md).
 - [Troubleshooting](docs/troubleshooting.md): sign-in, discovery, photos and support.
 - [Issues](https://github.com/KewinDousse/natel/issues/new/choose) for bugs and feature requests.
-- [Security](SECURITY.md): report vulnerabilities privately.
+- [Security](.github/SECURITY.md): report vulnerabilities privately.
 
 ## Scope
 

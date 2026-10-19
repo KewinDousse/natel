@@ -120,5 +120,5 @@ Do not include credentials or personal contacts in issues, logs or captures.
 
 ## Bugs and security
 
-Use issues for bugs and feature requests, and [SECURITY.md](SECURITY.md) for
-private vulnerability reports.
+Use issues for bugs and feature requests, and
+[SECURITY.md](.github/SECURITY.md) for private vulnerability reports.

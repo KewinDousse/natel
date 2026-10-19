@@ -72,7 +72,7 @@ instead of adding it.
   to pass there too (see CONTRIBUTING.md).
 - New behaviour gets a test. Bug fixes get a regression test first.
 - Do not modify files under `fixtures/` except to add new fixtures.
-- Do not edit `README.md`, `ROADMAP.md`, or this file unless the task says so.
+- Do not edit `README.md`, `docs/ROADMAP.md`, or this file unless the task says so.
 - Commit messages: imperative, one line, explain *why* when not obvious.
 
 ## Code conventions
@@ -126,7 +126,7 @@ never merges it and moves on. The maintainer merging it accepts the
 decision: once an ADR naming the sub-issue is in `docs/DECISIONS.md`, the
 step goes straight to implementation.
 
-The sub-issue is the task in the « Workflow » sense above: `README.md`, `ROADMAP.md`
+The sub-issue is the task in the « Workflow » sense above: `README.md`, `docs/ROADMAP.md`
 and `AGENTS.md` are in scope only when it names them. Recording in
 `docs/DECISIONS.md` a workaround the step needs, as invariant 6 requires, is
 always in scope; choosing between behaviours is a question.
