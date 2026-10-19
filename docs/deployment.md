@@ -32,8 +32,8 @@ gh attestation verify oci://ghcr.io/kewindousse/natel:0.3.0 --owner KewinDousse
 | `NATEL_SESSION_ADDR`    | `127.0.0.1:2020`      | Where `natel-session`, which holds sign-in sessions, listens for Caddy. Change the port only when the container shares its network namespace and another service uses it (see below).                                                                                                                                                              |
 
 The container runs as an unprivileged user, UID 10001. A new named volume on
-`/data` needs nothing; a host directory mounted there, or a volume created by
-an earlier version, must belong to that user (`chown -R 10001:10001`).
+`/data` needs nothing; a host directory mounted there must belong to that
+user (`chown -R 10001:10001`).
 
 ### Password guessing
 

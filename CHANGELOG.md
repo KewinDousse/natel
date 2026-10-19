@@ -24,7 +24,7 @@ Notable changes to Natel. The format follows
 ### Changed
 
 - `BAIKAL_URL` is now `CARDDAV_URL`, since Natel works with any CardDAV
-  server. Rename it in your compose file or service before upgrading.
+  server.
 - The settings' help links end with "Report a bug"; the "Setup questions"
   link is gone.
 - The image's entrypoint is `natel-session`, which runs Caddy as its child
@@ -34,19 +34,14 @@ Notable changes to Natel. The format follows
   install `natel-session` and run Caddy under it
   ([bare-metal.md](docs/bare-metal.md)).
 - The image runs Caddy as an unprivileged user (UID 10001) and listens on
-  port 8080, and 8443 for HTTPS: publish the container's port 8080 instead
-  of 80, and point a reverse proxy at port 8080. A `/data` volume from an earlier
-  version must be handed to that user once:
-  `docker run --rm -v <volume>:/data alpine chown -R 10001:10001 /data`.
+  port 8080, and 8443 for HTTPS.
 - Caddy's admin API is off outside the image, which keeps it on
   `127.0.0.1:2019` for its healthcheck only.
 - No file or folder whose name starts with a dot (`.env`, `.git/`) is
   served, so one left in the app's folder outside the image stays private.
 - HSTS covers Natel's own host only, without `includeSubDomains`: a Natel
   at the root of a domain no longer forces HTTPS on all its subdomains for a
-  year. A browser that already has the old rule drops it for the subdomains
-  on its next visit to an updated Natel; one that doesn't come back keeps it
-  until it expires.
+  year.
 - A photo larger than 1024 px or 512 KB is scaled down to 1024 px on its
   longest side, so a phone photo fits a server's default request limit: a
   JPEG, or a PNG when it has transparency and stays under 512 KB, or comes
