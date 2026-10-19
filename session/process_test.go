@@ -65,7 +65,7 @@ func TestStopKillsAChildThatIgnoresTerm(t *testing.T) {
 
 func TestRunExitsWithTheChildsCode(t *testing.T) {
 	t.Setenv("NATEL_SESSION_ADDR", "127.0.0.1:0")
-	t.Setenv("BAIKAL_URL", "")
+	t.Setenv("CARDDAV_URL", "")
 	var logs bytes.Buffer
 	if code := run(newLogger(&logs), []string{"sh", "-c", "exit 4"}); code != 4 {
 		t.Fatalf("exit code %d\n%s", code, logs.String())
@@ -77,7 +77,7 @@ func TestRunExitsWithTheChildsCode(t *testing.T) {
 
 func TestRunRefusesABadServerURL(t *testing.T) {
 	t.Setenv("NATEL_SESSION_ADDR", "127.0.0.1:0")
-	t.Setenv("BAIKAL_URL", "https://dav.example.com/dav.php")
+	t.Setenv("CARDDAV_URL", "https://dav.example.com/dav.php")
 	if code := run(newLogger(io.Discard), []string{"true"}); code != 1 {
 		t.Fatalf("exit code %d", code)
 	}
@@ -95,7 +95,7 @@ func TestRunNeedsACommand(t *testing.T) {
 // anything.
 func TestRunForwardsSignalsToTheChild(t *testing.T) {
 	t.Setenv("NATEL_SESSION_ADDR", "127.0.0.1:0")
-	t.Setenv("BAIKAL_URL", "")
+	t.Setenv("CARDDAV_URL", "")
 	logs := &lockedBuffer{}
 	ready := filepath.Join(t.TempDir(), "ready")
 	done := make(chan int, 1)
@@ -126,7 +126,7 @@ func TestRunForwardsSignalsToTheChild(t *testing.T) {
 	}
 }
 
-func TestParseUpstreamReadsBaikalURLAsCaddyDoes(t *testing.T) {
+func TestParseUpstreamReadsCardDAVURLAsCaddyDoes(t *testing.T) {
 	for raw, want := range map[string]string{
 		"https://dav.example.com": "https://dav.example.com",
 		"http://127.0.0.1:5299/":  "http://127.0.0.1:5299/",

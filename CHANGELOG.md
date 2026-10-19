@@ -21,6 +21,8 @@ Notable changes to Natel. The format follows
 
 ### Changed
 
+- `BAIKAL_URL` is now `CARDDAV_URL`, since Natel works with any CardDAV
+  server. Rename it in your compose file or service before upgrading.
 - The settings' help links end with "Report a bug"; the "Setup questions"
   link is gone.
 - The image's entrypoint is `natel-session`, which runs Caddy as its child

@@ -37,10 +37,10 @@ func run(log *slog.Logger, command []string) int {
 		return 1
 	}
 	var v *verifier
-	if raw := os.Getenv("BAIKAL_URL"); raw != "" {
+	if raw := os.Getenv("CARDDAV_URL"); raw != "" {
 		upstream, err := parseUpstream(raw)
 		if err != nil {
-			log.Error("BAIKAL_URL is not an origin such as https://dav.example.com")
+			log.Error("CARDDAV_URL is not an origin such as https://dav.example.com")
 			return 1
 		}
 		v = newVerifier(upstream)
@@ -199,7 +199,7 @@ func levelName(level slog.Level) string {
 	}
 }
 
-// parseUpstream reads BAIKAL_URL as Caddy's reverse_proxy does: without a
+// parseUpstream reads CARDDAV_URL as Caddy's reverse_proxy does: without a
 // scheme, HTTP, port 443 included.
 func parseUpstream(raw string) (*url.URL, error) {
 	if !strings.Contains(raw, "://") {

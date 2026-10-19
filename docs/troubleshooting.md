@@ -5,7 +5,7 @@
 Use your CardDAV credentials, not a Natel account. If the server uses
 application passwords, create one there. Natel has no password reset.
 
-If the server cannot be reached, check `BAIKAL_URL`: it is an origin,
+If the server cannot be reached, check `CARDDAV_URL`: it is an origin,
 `scheme://host[:port]`, without a path, and must be reachable from inside
 the Natel container. `localhost` inside that container refers to the
 container itself. Check that your reverse proxy forwards the session cookie
@@ -59,7 +59,7 @@ requests and the container's healthcheck do not produce access logs.
 A `401` means authentication was rejected; a `412` means a conditional
 write conflicted with the server's version. A `502` can indicate that the
 proxy cannot reach the CardDAV server or received an invalid response.
-Check `BAIKAL_URL`, connectivity from the container and the CardDAV
+Check `CARDDAV_URL`, connectivity from the container and the CardDAV
 server's own logs.
 A `207` is a normal WebDAV multi-status response; individual results
 inside its body may still report failures.

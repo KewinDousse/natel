@@ -84,7 +84,7 @@
   # CardDAV proxy — forward /dav/* to the user's CardDAV server
   # ---------------------------------------------------------------
   # The app mirrors full server paths under /dav: e.g. a request to
-  # /dav/dav.php/… reaches {$BAIKAL_URL}/dav.php/… (prefix stripped).
+  # /dav/dav.php/… reaches {$CARDDAV_URL}/dav.php/… (prefix stripped).
   # Match escaped paths before the static handlers normalise them.
   @dav expression `{http.request.uri}.startsWith("/dav/")`
   handle @dav {
@@ -109,7 +109,7 @@
         copy_headers Authorization
       }
     }
-    reverse_proxy {$BAIKAL_URL} {
+    reverse_proxy {$CARDDAV_URL} {
       # The upstream's own name, so a virtual host in front of it matches.
       header_up Host {upstream_hostport}
       # Redirects (e.g. /.well-known/carddav) point into the server's URL

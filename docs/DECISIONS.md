@@ -72,7 +72,7 @@ reload no longer signs out.
 **Context.** Caddy in production and Vite in development both have to reach
 the CardDAV server's own paths (`/dav.php/principals/`…) under one `/dav`
 prefix.
-**Decision.** `BAIKAL_URL` and `VITE_DAV_URL` are origins only
+**Decision.** `CARDDAV_URL` and `VITE_DAV_URL` are origins only
 (`scheme://host[:port]`), since a Caddy upstream can't carry a path. A
 request to `/dav/<path>` reaches the server's `/<path>`: both proxies strip
 `/dav` and nothing else.
@@ -128,7 +128,7 @@ user changed is written whole, since rows match by position.
 **Context.** A sign-in form taking any server URL would let anyone use a
 public Natel to reach any CardDAV server, and would need CORS, which Baïkal
 doesn't send.
-**Decision.** The server is configuration: `BAIKAL_URL`, or `VITE_DAV_URL` in
+**Decision.** The server is configuration: `CARDDAV_URL`, or `VITE_DAV_URL` in
 development. Sign-in asks only for a username and password, and the app
 talks only to its own `/dav`.
 **Consequences.** One Natel serves one CardDAV server. A connection error is

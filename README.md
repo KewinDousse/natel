@@ -60,8 +60,8 @@ These instructions build the **current source** locally. The image changes
 in [Unreleased](CHANGELOG.md#unreleased), including container port 8080, are
 not in `0.2.0`. A public image containing them is still to be released.
 
-From the root of your checkout, edit [compose.yaml](compose.yaml), replacing
-`BAIKAL_URL` with your server's origin (`scheme://host[:port]`, without a path).
+From the root of your checkout, edit [compose.yaml](compose.yaml), setting
+`CARDDAV_URL` to your server's origin (`scheme://host[:port]`, without a path).
 
 ```yaml
 services:
@@ -69,7 +69,7 @@ services:
     build: .
     image: ${NATEL_IMAGE:-natel:local}
     environment:
-      BAIKAL_URL: https://dav.example.com
+      CARDDAV_URL: https://dav.example.com
     ports:
       - "127.0.0.1:8080:8080"
 ```

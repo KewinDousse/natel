@@ -181,7 +181,7 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
       "-e",
       `SITE_ADDRESS=${origin}, ${tlsOrigin}`,
       "-e",
-      `BAIKAL_URL=http://127.0.0.1:${upstreamPort}`,
+      `CARDDAV_URL=http://127.0.0.1:${upstreamPort}`,
       "-e",
       `NATEL_SESSION_ADDR=${sessionAddress}`,
       // The adapted config holds it: natel-session must use the same one.
@@ -229,7 +229,7 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
       "-v",
       `${configPath}:/etc/caddy/caddy.json:ro`,
       "-e",
-      `BAIKAL_URL=http://127.0.0.1:${upstreamPort}`,
+      `CARDDAV_URL=http://127.0.0.1:${upstreamPort}`,
       "-e",
       `NATEL_SESSION_ADDR=${sessionAddress}`,
       "-e",

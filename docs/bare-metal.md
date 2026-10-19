@@ -113,7 +113,7 @@ with `sudo systemctl edit caddy`:
 ExecStart=
 ExecStart=/usr/local/bin/natel-session /usr/bin/caddy run --config /etc/caddy/Caddyfile
 NotifyAccess=all
-Environment=BAIKAL_URL=https://dav.example.com
+Environment=CARDDAV_URL=https://dav.example.com
 Environment=NATEL_ROOT=/usr/share/natel
 Environment=NATEL_BIND=127.0.0.1
 Environment=NATEL_TRUSTED_PROXIES=127.0.0.1
@@ -131,7 +131,7 @@ Without `natel-session`, every sign-in fails with "server can't be reached".
 
 | Variable                              | Default            |                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BAIKAL_URL`                          | (required)         | Origin of your CardDAV server. Use `https://` unless the server runs on the same machine: Natel sends your password to it with every request. Natel starts without it, but the sign-in then reports that the server can't be reached.                                                                               |
+| `CARDDAV_URL`                         | (required)         | Origin of your CardDAV server. Use `https://` unless the server runs on the same machine: Natel sends your password to it with every request. Natel starts without it, but the sign-in then reports that the server can't be reached.                                                                               |
 | `SITE_ADDRESS`                        | `http://`          | What Caddy serves. Exposed directly, your domain (`contacts.example.com`): Caddy gets and renews the certificate itself, on ports 80 and 443.                                                                                                                                                                        |
 | `NATEL_BIND`                          | (all interfaces)   | The interface Caddy listens on. Behind a reverse proxy on the same machine, `127.0.0.1`, so Natel can't be reached around the proxy in plain HTTP. A host in `SITE_ADDRESS` doesn't do that: Caddy still listens everywhere and only matches the `Host` header, which the client chooses.                            |
 | `NATEL_ROOT`                          | `/usr/share/caddy` | The folder holding the contents of `dist/`, and nothing else.                                                                                                                                                                                                                                                        |

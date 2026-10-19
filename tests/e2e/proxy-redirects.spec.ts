@@ -71,7 +71,7 @@ test.beforeAll(async () => {
         "-e",
         `NATEL_SESSION_ADDR=127.0.0.1:${await freePort()}`,
         "-e",
-        `BAIKAL_URL=${upstream}`,
+        `CARDDAV_URL=${upstream}`,
         "-e",
         "NATEL_REDIRECT_TEST_SECRET=must-not-be-expanded",
         process.env.E2E_PROXY_IMAGE ?? "natel:ci",

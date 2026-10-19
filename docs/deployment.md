@@ -20,7 +20,7 @@ services:
   natel:
     image: ghcr.io/kewindousse/natel:0.2.0
     environment:
-      BAIKAL_URL: https://dav.example.com
+      CARDDAV_URL: https://dav.example.com
     ports:
       - "127.0.0.1:8080:80"
 ```
@@ -40,7 +40,7 @@ replace `X.Y.Z` with that published tag, and run `docker compose up -d --no-buil
 
 | Variable                | Default               |                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BAIKAL_URL`            | (required)            | Origin of your CardDAV server, `scheme://host[:port]`, no path. Reached from inside the container: `http://baikal` works when Baïkal is a service of the same Compose file.                                                                                                                                                                         |
+| `CARDDAV_URL`           | (required)            | Origin of your CardDAV server, `scheme://host[:port]`, no path. Reached from inside the container: `http://baikal` works when Baïkal is a service of the same Compose file.                                                                                                                                                                         |
 | `SITE_ADDRESS`          | `http://` (port 8080) | What Caddy serves. Set it to your domain (`contacts.example.com`), publish the host's ports 80 and 443 to the container's 8080 and 8443 (`"80:8080"`, `"443:8443"`) and keep `/data` in a volume, and Caddy fetches and renews the certificate itself.                                                                                              |
 | `NATEL_TRUSTED_PROXIES` | (none)                | The reverse proxies in front of Natel, as addresses or ranges separated by spaces (`172.16.0.0/12`), or `private_ranges` if nothing on those networks reaches Natel directly. The CardDAV server then sees each client's own address instead of the proxy's (see below). Only list your proxies: an address listed here can claim to be any client. |
 | `NATEL_ADMIN`           | `127.0.0.1:2019`      | Caddy's admin API, which reconfigures it without authentication and which the image's healthcheck reads. Set it to `"off"` when the container shares its network namespace (see below): only `"off"` turns it off; an empty value keeps it on at `localhost:2019`.                                                                                  |
@@ -75,9 +75,9 @@ get someone else banned. With Apache, `RemoteIPHeader X-Forwarded-For` and one
 ### Finding your address books
 
 Natel looks for the server's address books under `/.well-known/carddav`, then
-at the root of `BAIKAL_URL`, then under `/dav.php/`. Baïkal at the root of its
+at the root of `CARDDAV_URL`, then under `/dav.php/`. Baïkal at the root of its
 domain is found without any setup. Baïkal under a path
-(`https://example.com/baikal/html/`, with `BAIKAL_URL=https://example.com`)
+(`https://example.com/baikal/html/`, with `CARDDAV_URL=https://example.com`)
 needs the `.well-known` redirect on that origin, for example with nginx:
 
 ```nginx
@@ -103,7 +103,7 @@ services:
   natel:
     image: natel:local
     environment:
-      BAIKAL_URL: https://dav.example.com
+      CARDDAV_URL: https://dav.example.com
       # Only Traefik reaches Natel, on their shared network: no port is published.
       NATEL_TRUSTED_PROXIES: private_ranges
     labels:
@@ -167,7 +167,7 @@ services:
     image: natel:local
     network_mode: host
     environment:
-      BAIKAL_URL: https://dav.example.com
+      CARDDAV_URL: https://dav.example.com
       NATEL_ADMIN: "off"
     healthcheck:
       disable: true

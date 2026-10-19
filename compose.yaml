@@ -3,7 +3,7 @@ services:
     build: .
     image: ${NATEL_IMAGE:-natel:local}
     environment:
-      BAIKAL_URL: https://dav.example.com
+      CARDDAV_URL: https://dav.example.com
     ports:
       - "127.0.0.1:8080:8080"
     logging:

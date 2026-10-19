@@ -124,7 +124,7 @@ export default defineConfig({
     // VITE_DAV_URL must be origin-only (scheme://host[:port], no path).
     // When set, requests to /dav/* are proxied to the CardDAV server.
     // The same escaped-path prefix removal as the production Caddyfile:
-    // /dav/dav.php/... reaches {$BAIKAL_URL}/dav.php/...
+    // /dav/dav.php/... reaches {$CARDDAV_URL}/dav.php/...
     proxy: davOrigin
       ? {
           "/dav": {

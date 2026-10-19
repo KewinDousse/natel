@@ -7,7 +7,7 @@ Browser ──HTTPS──▶ Caddy (single container)
                     ├── /            static SPA (Vite build output)
                     ├── /session     reverse_proxy natel-session (loopback)
                     └── /dav/*       forward_auth natel-session, then
-                                     reverse_proxy {$BAIKAL_URL}
+                                     reverse_proxy {$CARDDAV_URL}
                                        └──▶ CardDAV server (Baïkal, Radicale, …)
 ```
 
@@ -42,8 +42,8 @@ Browser ──HTTPS──▶ Caddy (single container)
   other, so the server, or a fail2ban, can block password guessing per
   client; Natel itself doesn't. `natel-session`'s sign-in check carries it
   too.
-- `BAIKAL_URL` is the only required environment variable. The Caddyfile and
-  `natel-session` read it directly (`{$BAIKAL_URL}`), no templating.
+- `CARDDAV_URL` is the only required environment variable. The Caddyfile and
+  `natel-session` read it directly (`{$CARDDAV_URL}`), no templating.
   `NATEL_SESSION_ADDR` (`127.0.0.1:2020`) is where they meet. Outside the image,
   `NATEL_ROOT` points Caddy at the build output and `NATEL_BIND` at one
   interface (docs/bare-metal.md).
@@ -211,7 +211,7 @@ library allows it.
 ## Authentication
 
 Basic Auth. The sign-in screen asks only for username and password; the
-CardDAV server is configuration (`BAIKAL_URL`), never user input (ADR 014).
+CardDAV server is configuration (`CARDDAV_URL`), never user input (ADR 014).
 The password goes once to `POST /session`: `natel-session` checks it
 against the CardDAV server and answers with an HttpOnly, `SameSite=Strict`
 cookie. Every `/dav` request carries the cookie, and the proxy gets its

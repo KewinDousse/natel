@@ -94,7 +94,7 @@ test("logs DAV status and timing without private request or response data", asyn
       "-e",
       `NATEL_SESSION_ADDR=127.0.0.1:${sessionPort}`,
       "-e",
-      `BAIKAL_URL=http://127.0.0.1:${upstreamPort}`,
+      `CARDDAV_URL=http://127.0.0.1:${upstreamPort}`,
       process.env.E2E_PROXY_IMAGE ?? "natel:ci",
     ]);
     containerStarted = true;

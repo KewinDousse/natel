@@ -85,7 +85,7 @@ func (s *server) signIn(w http.ResponseWriter, r *http.Request) {
 	authorization := "Basic " + base64.StdEncoding.EncodeToString([]byte(creds.Username+":"+creds.Password))
 
 	if s.verifier == nil {
-		s.log.Error("sign-in impossible: BAIKAL_URL is not set")
+		s.log.Error("sign-in impossible: CARDDAV_URL is not set")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
