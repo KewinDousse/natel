@@ -507,6 +507,75 @@ describe("edit round-trip — ORG secondary component preservation on clear (ite
 // Tests for item 7: FN follows derived N parts
 // ---------------------------------------------------------------------------
 
+describe("edit round-trip: N components holding several values", () => {
+  // RFC 6350 §6.2.2: a component may hold a comma-separated list of values.
+  const VCARD_N_LISTS = [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    "FN:Alice Test",
+    "N:Test;Alice,Alix;;Dr,Prof;",
+    "NOTE:before",
+    "END:VCARD",
+  ].join("\r\n");
+
+  function nLine(text: string): string | undefined {
+    return text.split(/\r\n/).find((line) => line.startsWith("N:"));
+  }
+
+  it("reads each list as one text", () => {
+    expect(parse(VCARD_N_LISTS).fields.n).toEqual({
+      family: "Test",
+      given: "Alice, Alix",
+      additional: "",
+      prefix: "Dr, Prof",
+      suffix: "",
+    });
+  });
+
+  it("keeps N as it is when another field is edited", () => {
+    const text = editField(VCARD_N_LISTS, (draft) => {
+      draft.note = "after";
+    });
+    expect(nLine(text)).toBe("N:Test;Alice,Alix;;Dr,Prof;");
+    expect(contains(text, "NOTE:after")).toBe(true);
+  });
+
+  it("keeps the lists of the components not edited", () => {
+    const text = editField(VCARD_N_LISTS, (draft) => {
+      draft.family = "Muster";
+    });
+    expect(nLine(text)).toBe("N:Muster;Alice,Alix;;Dr,Prof;");
+  });
+
+  it("writes an edited component as typed, a single value", () => {
+    const text = editField(VCARD_N_LISTS, (draft) => {
+      draft.given = "Alice, Alixe";
+    });
+    expect(nLine(text)).toBe("N:Test;Alice\\, Alixe;;Dr,Prof;");
+    expect(parse(text).fields.n.given).toBe("Alice, Alixe");
+  });
+
+  it("keeps the components past the fifth when the name is edited", () => {
+    const text = editField(
+      VCARD_N_LISTS.replace("N:Test;Alice,Alix;;Dr,Prof;", "N:Test;Alice;;;;Second,Third;Jr"),
+      (draft) => {
+        draft.given = "Alix";
+      },
+    );
+    expect(nLine(text)).toBe("N:Test;Alix;;;;Second,Third;Jr");
+  });
+
+  it("leaves a single-component N as it is when the name isn't edited", () => {
+    const text = editField(
+      VCARD_N_LISTS.replace("N:Test;Alice,Alix;;Dr,Prof;", "N:Test"),
+      (draft) => {
+        draft.note = "after";
+      },
+    );
+    expect(nLine(text)).toBe("N:Test");
+  });
+});
+
 describe("edit round-trip — FN follows derived N (item 7)", () => {
   const DERIVED_GIVEN_FAMILY = `BEGIN:VCARD
 VERSION:3.0

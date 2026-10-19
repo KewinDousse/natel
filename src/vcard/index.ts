@@ -32,6 +32,7 @@ import {
   updateAddressProperty,
   updateBdayProperty,
   updateFirstStringProperty,
+  updateNameProperty,
   updateOrgProperty,
   updateStringProperty,
 } from "./write";
@@ -418,19 +419,7 @@ export function serialise(contact: Contact): string {
   fnProp.setValue(fields.fn);
 
   // --- Update N ---
-  let nProp = raw.getFirstProperty("n");
-  if (!nProp) {
-    const prop = new ICAL.Property("n");
-    raw.addProperty(prop);
-    nProp = prop;
-  }
-  nProp.setValue([
-    fields.n.family,
-    fields.n.given,
-    fields.n.additional,
-    fields.n.prefix,
-    fields.n.suffix,
-  ]);
+  updateNameProperty(raw, fields.n);
 
   // --- Update TEL properties in place ---
   replacePropertiesInPlace(raw, "tel", fields.tel);

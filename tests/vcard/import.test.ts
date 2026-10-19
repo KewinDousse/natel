@@ -52,6 +52,11 @@ describe("readImportCard", () => {
     expect(readImportCard(BOB)).toEqual({ uid: null, name: "Bob" });
   });
 
+  it("names a card without FN from N components holding several values", () => {
+    const card = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:a\r\nN:Test;Alice,Alix;;;\r\nEND:VCARD\r\n";
+    expect(readImportCard(card).name).toBe("Alice, Alix Test");
+  });
+
   it("keeps the UID exactly as written", () => {
     const card = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID: spaced \r\nFN:A\r\nEND:VCARD\r\n";
     expect(readImportCard(card).uid).toBe(" spaced ");

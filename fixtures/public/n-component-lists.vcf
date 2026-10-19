@@ -1,0 +1,6 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Alice Test
+N:Test;Alice,Alix;;Dr,Prof;
+UID:n-component-lists@example.com
+END:VCARD

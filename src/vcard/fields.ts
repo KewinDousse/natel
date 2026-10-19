@@ -7,16 +7,26 @@
 import ICAL from "ical.js";
 import type { ContactField, EditableFields, RawComponent, RawProperty } from "../model/contact";
 
+/** N's components in RFC 6350 order. */
+export const N_KEYS = ["family", "given", "additional", "prefix", "suffix"] as const;
+
+/**
+ * A component of a structured value as text. A component can hold several
+ * values (`N:Test;Alice,Alix;;;`, RFC 6350 §6.2.2), which ical.js reads as
+ * an array: they read as one text, "Alice, Alix".
+ */
+export function componentText(part: unknown): string {
+  return Array.isArray(part)
+    ? part.map((value) => String(value ?? "")).join(", ")
+    : String(part ?? "");
+}
+
 /** Convert a 5-element N structured value to our model struct. */
 export function nValueToStruct(value: unknown): EditableFields["n"] {
-  const arr = Array.isArray(value) ? (value as string[]) : [String(value)];
-  return {
-    family: arr[0] ?? "",
-    given: arr[1] ?? "",
-    additional: arr[2] ?? "",
-    prefix: arr[3] ?? "",
-    suffix: arr[4] ?? "",
-  };
+  const arr: unknown[] = Array.isArray(value) ? value : [String(value)];
+  return Object.fromEntries(
+    N_KEYS.map((key, i) => [key, componentText(arr[i])]),
+  ) as EditableFields["n"];
 }
 
 /** Convert a RawProperty to a ContactField. */

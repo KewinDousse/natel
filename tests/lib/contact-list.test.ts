@@ -445,3 +445,27 @@ describe("isOrgCard", () => {
     expect(isOrgCard(contact)).toBe(true);
   });
 });
+
+describe("N components holding several values", () => {
+  // RFC 6350 §6.2.2; ical.js reads such a component as an array.
+  const alix = parse(
+    ["BEGIN:VCARD", "VERSION:3.0", "UID:alix", "FN:", "N:Test;Alice,Alix;;;", "END:VCARD"].join(
+      "\r\n",
+    ),
+  );
+
+  it("sorts and groups the card by the values read as one text", () => {
+    const other = makeContact({ uid: "zoe", family: "Abel", given: "Zoé" });
+    const groups = buildGroups([other, alix], "given", "");
+    expect(groups.map((g) => [g.letter, g.contacts.map((c) => c.uid)])).toEqual([
+      ["A", ["alix"]],
+      ["Z", ["zoe"]],
+    ]);
+    expect(namePartsOf(alix).display).toBe("Test Alice, Alix");
+  });
+
+  it("finds the card by any of the values", () => {
+    expect(matchesQuery(searchTargetOf(alix), "alix")).toBe(true);
+    expect(buildGroups([alix], "family", "alix").flatMap((g) => g.contacts)).toEqual([alix]);
+  });
+});

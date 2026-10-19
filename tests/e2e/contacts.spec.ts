@@ -126,6 +126,24 @@ test("shows a semicolon the server escaped, and saves it without adding a backsl
   expect(note?.replace(/\\([\\,;])/g, "$1")).toBe("NOTE:Lac 1; 2e étage");
 });
 
+test("lists, finds and saves a name component holding several values", async ({ page }) => {
+  // RFC 6350 §6.2.2: a list of given names, which the editor leaves alone.
+  await putCard("ada", ADA.replace("N:Lovelace;Ada;;;", "N:Lovelace;Ada,Augusta;;;"));
+  await signIn(page);
+  await page.getByRole("searchbox", { name: "Search contacts" }).fill("Augusta");
+  await page.getByRole("link", { name: /Ada, Augusta/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeAttached();
+  await startEditing(page);
+  await primaryPhoneInput(page).fill("+41 79 000 00 00");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+
+  const saved = await getCard("ada");
+  expect(saved).toMatch(/^N:Lovelace;Ada,Augusta;;;$/im);
+  expect(saved).toContain("+41 79 000 00 00");
+  expectUnknownKept(saved);
+});
+
 test("creates a contact", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: "New contact" }).filter({ visible: true }).click();

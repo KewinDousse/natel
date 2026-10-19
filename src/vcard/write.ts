@@ -1,6 +1,6 @@
 /**
  * Writes the edited subset back onto the card's own properties, in place:
- * text properties, address, birthday and organisation.
+ * text properties, name, address, birthday and organisation.
  */
 
 import ICAL from "ical.js";
@@ -11,6 +11,7 @@ import {
   dateValueTypeOf,
   writesAppleYearless,
 } from "./apple-birthday";
+import { componentText, N_KEYS } from "./fields";
 import { readAddress, readBirthday } from "./read";
 
 /**
@@ -96,6 +97,38 @@ function setPropertyValue(prop: RawProperty, value: string): void {
 }
 
 /**
+ * A structured value's parts as edited, where each part still as read keeps
+ * its parsed value, so a list stays a list.
+ */
+function keepUneditedParts(
+  parsed: unknown[],
+  read: readonly string[],
+  edited: readonly string[],
+): unknown[] {
+  return edited.map((part, i) => (read[i] === part ? (parsed[i] ?? part) : part));
+}
+
+/**
+ * Update the N property in place, leaving it untouched when no component
+ * changed. Components past the fifth (RFC 9554 adds two) stay as they are.
+ */
+export function updateNameProperty(raw: RawComponent, n: EditableFields["n"]): void {
+  const edited = N_KEYS.map((key) => n[key]);
+  const prop = raw.getFirstProperty("n");
+  if (!prop) {
+    const added = new ICAL.Property("n");
+    added.setValue(edited);
+    raw.addProperty(added);
+    return;
+  }
+  const value = prop.getFirstValue();
+  const parsed: unknown[] = Array.isArray(value) ? value : [value];
+  const read = parsed.map(componentText);
+  if (edited.every((part, i) => part === (read[i] ?? ""))) return;
+  prop.setValue(keepUneditedParts(parsed, read, [...edited, ...read.slice(N_KEYS.length)]));
+}
+
+/**
  * Update the first ADR property in place. Only the parts and TYPE the user
  * changed are rewritten, so untouched components (including list values like
  * "Rue A,Bât B") and parameter order survive. Other ADR properties remain
@@ -142,12 +175,8 @@ export function updateAddressProperty(raw: RawComponent, adr: EditableFields["ad
   }
 
   if (partsChanged) {
-    // Keep the parsed value of every part the user left alone.
     const parsed = prop.getFirstValue();
-    const parsedParts: unknown[] = Array.isArray(parsed) ? parsed : [];
-    prop.setValue(
-      edited.map((part, i) => (currentParts[i] === part ? (parsedParts[i] ?? part) : part)),
-    );
+    prop.setValue(keepUneditedParts(Array.isArray(parsed) ? parsed : [], currentParts, edited));
   }
 
   if (typeChanged) {
