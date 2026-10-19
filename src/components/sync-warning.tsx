@@ -9,8 +9,8 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { useSignOut } from "@/queries";
-import { buttonClass } from "./button";
-import { AlertIcon, RefreshIcon, SpinnerIcon } from "./icons";
+import { buttonClass } from "./ui/button";
+import { AlertIcon, RefreshIcon, SpinnerIcon } from "./ui/icons";
 
 /**
  * "ok" while reloads work; "failed" after one failed; "retrying" while one

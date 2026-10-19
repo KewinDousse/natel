@@ -19,7 +19,7 @@ import { ContactList, type ListLoad } from "@/components/contact-list";
 import { ImportDialog, type ImportState } from "@/components/import-dialog";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import type { SyncState } from "@/components/sync-warning";
-import { ToastProvider, useToast } from "@/components/toast";
+import { ToastProvider, useToast } from "@/components/ui/toast";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { bookName, downloadText, exportFileName } from "@/lib/vcf-file";

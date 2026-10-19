@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useI18n } from "@/i18n/react";
-import { buttonClass } from "./button";
 import { DemoMark } from "./demo-notice";
-import { ArrowLeftIcon } from "./icons";
+import { buttonClass } from "./ui/button";
+import { ArrowLeftIcon } from "./ui/icons";
 
 /**
  * Mobile-only top bar: back to the list on the left; on the right, the

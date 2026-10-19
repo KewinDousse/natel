@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import type { Contact, PhotoEdit } from "@/model/contact";
 import { usePreferences } from "@/store/preferences";
 import { photoOf } from "@/vcard";
-import { BuildingIcon } from "./icons";
+import { BuildingIcon } from "./ui/icons";
 
 const UNCHANGED: PhotoEdit = { kind: "unchanged" };
 

@@ -9,8 +9,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { isApple, isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
-import { buttonClass } from "./button";
-import { Dialog, DialogActions, DialogTitle } from "./dialog";
+import { buttonClass } from "./ui/button";
+import { Dialog, DialogActions, DialogTitle } from "./ui/dialog";
 
 const OPEN_EVENT = "natel:open-shortcuts";
 

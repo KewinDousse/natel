@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
-import { fieldClass } from "@/components/button";
 import { LanguageSelect } from "@/components/language-select";
 import { LoginForm } from "@/components/login-form";
+import { fieldClass } from "@/components/ui/button";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/session";

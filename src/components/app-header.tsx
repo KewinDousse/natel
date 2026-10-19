@@ -18,10 +18,10 @@ import { isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/s
 import { cn } from "@/lib/utils";
 import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
-import { buttonClass } from "./button";
 import { DemoMark, DemoNotice } from "./demo-notice";
-import { GearIcon, PlusIcon, SearchIcon, XIcon } from "./icons";
 import { type SyncState, SyncWarning } from "./sync-warning";
+import { buttonClass } from "./ui/button";
+import { GearIcon, PlusIcon, SearchIcon, XIcon } from "./ui/icons";
 
 type AppHeaderProps = {
   books: DavAddressBook[] | undefined;

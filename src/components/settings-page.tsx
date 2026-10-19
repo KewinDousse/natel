@@ -14,11 +14,11 @@ import type { Theme } from "@/lib/theme";
 import { useSignOut } from "@/queries";
 import { usePreferences } from "@/store/preferences";
 import { useAuth } from "@/store/session";
-import { buttonClass, FOCUS_RING, fieldClass } from "./button";
-import { LogoutIcon } from "./icons";
 import { openShortcuts } from "./keyboard-shortcuts";
 import { LanguageSelect } from "./language-select";
 import { MobileTopBar } from "./mobile-top-bar";
+import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
+import { LogoutIcon } from "./ui/icons";
 
 const SYSTEM = "system";
 const BUG_REPORT_URL = "https://github.com/KewinDousse/natel/issues/new/choose";

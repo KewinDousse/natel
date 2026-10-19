@@ -6,8 +6,8 @@
 import { type ReactNode, useId, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
-import { fieldClass } from "./button";
-import { XSmallIcon } from "./icons";
+import { fieldClass } from "./ui/button";
+import { XSmallIcon } from "./ui/icons";
 
 export function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
   const id = useId();

@@ -14,8 +14,8 @@ import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { bookName } from "@/lib/vcf-file";
 import type { DavAddressBook } from "@/queries";
-import { FOCUS_RING } from "./button";
-import { CheckIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from "./icons";
+import { FOCUS_RING } from "./ui/button";
+import { CheckIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from "./ui/icons";
 
 type BookSwitcherProps = {
   books: DavAddressBook[];

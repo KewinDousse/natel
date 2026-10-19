@@ -10,8 +10,8 @@ import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState 
 import { useI18n } from "@/i18n/react";
 import { bookName } from "@/lib/vcf-file";
 import type { DavAddressBook } from "@/queries";
-import { buttonClass } from "./button";
-import { Dialog, DialogActions, DialogTitle } from "./dialog";
+import { buttonClass } from "./ui/button";
+import { Dialog, DialogActions, DialogTitle } from "./ui/dialog";
 
 export function MoveDialog({
   books,

@@ -5,8 +5,8 @@
 
 import { type ReactNode, useEffect, useId, useRef } from "react";
 import { useI18n } from "@/i18n/react";
-import { buttonClass } from "./button";
-import { Dialog, DialogActions, DialogTitle } from "./dialog";
+import { buttonClass } from "./ui/button";
+import { Dialog, DialogActions, DialogTitle } from "./ui/dialog";
 
 /**
  * Modal confirming a destructive action (dropping edits, deleting the

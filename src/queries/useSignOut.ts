@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useToast } from "@/components/toast";
+import { useToast } from "@/components/ui/toast";
 import { useI18n } from "@/i18n/react";
 import { useSessionStore } from "@/store/session";
 

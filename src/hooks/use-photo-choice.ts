@@ -1,6 +1,6 @@
 import { type RefObject, useCallback, useEffect, useState } from "react";
+import type { ChosenPhoto } from "@/components/photo-crop-dialog";
 import { decodeImage, PhotoError } from "@/lib/photo-prepare";
-import type { ChosenPhoto } from "./photo-crop-dialog";
 
 /**
  * The photo picked for the crop dialog. `editSession` changes when edit mode

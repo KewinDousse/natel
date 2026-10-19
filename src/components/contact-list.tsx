@@ -7,18 +7,18 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
+import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
 import { useI18n } from "@/i18n/react";
 import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
 import { buildGroups, OTHER_GROUP, type SortBy } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { AlphabetRail } from "./alphabet-rail";
-import { buttonClass, FOCUS_RING } from "./button";
 import { GroupSection } from "./contact-row";
 import { GroupFilter } from "./group-filter";
-import { AlertIcon, RefreshIcon } from "./icons";
 import { EmptyBook, ListSkeleton, SignInAgain, StateBox } from "./list-states";
-import { useArrowNavigation } from "./use-arrow-navigation";
+import { buttonClass, FOCUS_RING } from "./ui/button";
+import { AlertIcon, RefreshIcon } from "./ui/icons";
 
 /** Why the book shows no list: still loading, or a load that failed. */
 export type ListLoad = { kind: "loading" } | { kind: "failed"; expired: boolean };

@@ -8,8 +8,8 @@ import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import { type FieldKind, type Kind, kindOf } from "@/lib/contact-edit";
 import { cn } from "@/lib/utils";
-import { buttonClass, FOCUS_RING, fieldClass } from "./button";
-import { CopyIcon, PencilIcon, PlusIcon, TrashIcon } from "./icons";
+import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
+import { CopyIcon, PencilIcon, PlusIcon, TrashIcon } from "./ui/icons";
 
 const KIND_LABELS: Record<Kind, TranslationKey> = {
   cell: "t_cell",

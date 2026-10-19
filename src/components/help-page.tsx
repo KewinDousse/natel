@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { useI18n } from "@/i18n/react";
-import { buttonClass } from "./button";
-import { ArrowLeftIcon } from "./icons";
 import { MobileTopBar } from "./mobile-top-bar";
+import { buttonClass } from "./ui/button";
+import { ArrowLeftIcon } from "./ui/icons";
 import { UserGuideContent } from "./user-guide-content";
 
 export function HelpPage() {

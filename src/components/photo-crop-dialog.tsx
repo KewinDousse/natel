@@ -30,8 +30,8 @@ import {
 } from "@/lib/photo-crop";
 import { bitmapSize, PhotoError, type PreparedPhoto, preparePhoto } from "@/lib/photo-prepare";
 import { cn } from "@/lib/utils";
-import { buttonClass, FOCUS_RING } from "./button";
-import { Dialog, DialogActions, DialogTitle } from "./dialog";
+import { buttonClass, FOCUS_RING } from "./ui/button";
+import { Dialog, DialogActions, DialogTitle } from "./ui/dialog";
 
 /** The chosen file, decoded, or why it couldn't be. */
 export type ChosenPhoto =

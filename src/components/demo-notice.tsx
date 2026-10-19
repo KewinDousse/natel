@@ -7,7 +7,7 @@
 import { useI18n } from "@/i18n/react";
 import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
-import { InfoIcon } from "./icons";
+import { InfoIcon } from "./ui/icons";
 
 export function DemoMark({ className }: { className?: string }) {
   const { t } = useI18n();

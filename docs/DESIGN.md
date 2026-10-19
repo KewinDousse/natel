@@ -9,7 +9,7 @@ untracked handoff and is never committed. When the two disagree, this document w
 | File | Role |
 |---|---|
 | `src/index.css` (from the handoff `natel-annuaire-tokens.css`) | Tailwind v4 + shadcn tokens, fonts via Fontsource, base layer, `leader` utility |
-| `src/components/button.ts`, `icons.tsx`, `dialog.tsx` | The button and field recipes as class helpers, the icon set, the dialog shell. Build controls from these rather than repeating classes |
+| `src/components/ui/button.ts`, `icons.tsx`, `dialog.tsx` | The button and field recipes as class helpers, the icon set, the dialog shell. Build controls from these rather than repeating classes |
 | `natel-design/natel-annuaire-identite.html` | Design-system reference: palette with contrast ratios, type scale, shapes, motion |
 | `natel-design/natel-annuaire-login.html` | Visual reference: sign-in screen |
 | `natel-design/natel-annuaire-contacts.html` | Visual reference: list, search, and the contact page. Its edit mode, where the form keeps the reading view's layout, is superseded by "Contact page" below |
@@ -132,7 +132,7 @@ Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). On
 - For the session; it goes back to "Tous les groupes" when another book is selected, or when the group no longer exists.
 
 ### Buttons
-`buttonClass({ variant, size })` in `src/components/button.ts` gives every button and button-like link its classes: `inline-flex items-center justify-center gap-2 rounded-full font-bold`, plus
+`buttonClass({ variant, size })` in `src/components/ui/button.ts` gives every button and button-like link its classes: `inline-flex items-center justify-center gap-2 rounded-full font-bold`, plus
 
 | Variant | Classes |
 |---|---|
@@ -141,7 +141,7 @@ Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). On
 | `destructive` | `bg-destructive text-destructive-foreground`, always icon + label |
 | `ghost` | `text-muted-foreground hover:bg-muted hover:text-foreground`, icon-only with a translated `aria-label` |
 
-Sizes: `sm` (`h-9 px-3 text-sm`), `md` (`h-10 px-4 text-sm`, the default), `lg` (`h-12 lg:h-11 px-6 text-base`), `icon` (`size-10`), `icon-sm` (`size-9`). Icons come from `src/components/icons.tsx` (2px stroke, 16px by default).
+Sizes: `sm` (`h-9 px-3 text-sm`), `md` (`h-10 px-4 text-sm`, the default), `lg` (`h-12 lg:h-11 px-6 text-base`), `icon` (`size-10`), `icon-sm` (`size-9`). Icons come from `src/components/ui/icons.tsx` (2px stroke, 16px by default).
 
 Touch targets are ≥ 40px (44–48px on mobile forms). Every interactive element has the keyboard focus ring, `FOCUS_RING`: `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`.
 
@@ -254,7 +254,7 @@ properties stay there.
 ### States
 - **Field error**: `aria-invalid="true"` + message under the field (`text-destructive`, `aria-describedby`). Validate on blur and on save, not on each keystroke. A save that finds errors sends nothing, counts them in the bottom bar, scrolls the first one to the middle of the screen and focuses it.
 - **ETag conflict (412)**: warning box in the bottom bar, "Ce contact a été modifié ailleurs.", actions Recharger (primary) / Écraser avec ma version (outline). Never overwrite silently.
-- **Dialogs** (`src/components/dialog.tsx`): `font-display` title, `rounded-xl shadow-overlay`, a bottom sheet on phones, centred from `sm`. Tab stays inside; `Esc` or a click outside closes, except while something runs. The discard dialog: "Abandonner les modifications ?", "Continuer l’édition" / "Abandonner" (destructive).
+- **Dialogs** (`src/components/ui/dialog.tsx`): `font-display` title, `rounded-xl shadow-overlay`, a bottom sheet on phones, centred from `sm`. Tab stays inside; `Esc` or a click outside closes, except while something runs. The discard dialog: "Abandonner les modifications ?", "Continuer l’édition" / "Abandonner" (destructive).
 - **Move** (ADR 021): an outline button "Déplacer vers un autre carnet" (arrow icon) right above "Supprimer le contact", absent on a new contact and when the account has a single book. Disabled while the draft has unsaved changes, with the hint "Enregistrez ou annulez vos modifications d’abord." below it. Its dialog, "Déplacer ce contact ?", lists the other books as native radio buttons in a `fieldset`, the only one chosen when there is just one, none otherwise; "Annuler" / "Déplacer" (primary, disabled until a book is chosen). While the move runs, "Déplacer" shows a spinner and "Déplacement…" and nothing in the dialog responds. Success lands on the contact's page in the target book, now selected, with the toast "Déplacé vers « Travail »". A failure keeps the form with the message in the bottom bar; a card changed or gone elsewhere shows the conflict box with "Recharger" only.
 - **Delete**: "Supprimer le contact" (destructive, trash icon) is the last element of the form, absent on a new contact. Its dialog: "Supprimer Ada Lovelace ?", "Le contact sera supprimé du serveur, et donc de tous vos appareils synchronisés.", "Annuler" / "Supprimer" (destructive, trash icon). A 412 shows the conflict box in the bottom bar with "Recharger" only: there is no version of the user's to push, and deleting a card changed elsewhere unseen is exactly what the ETag prevents.
 - **Photo** (ADR 023): "Changer la photo" opens the file picker (`accept="image/*"`), then the "Recadrer la photo" dialog. A square frame, `rounded-xl` like the result, up to 20rem wide, over the image dimmed outside it; the image fills the frame at first, centred. The frame is focusable and has the initial focus, a translated `aria-label` ("Cadre de la photo"), its instructions below it in `text-caption text-muted-foreground`, linked with `aria-describedby`, and the focus ring. It takes the drag, pinch and wheel, and while focused the arrow keys to move and `+` / `-` to zoom; a labelled range "Zoom" goes from 1× to 4×. Errors (an image that doesn't decode, a canvas that fails) show in a `role="alert"` message in the dialog. Actions "Annuler" (outline) and "Utiliser la photo" (primary). `Esc` closes the dialog only. The new photo shows in the form before it is saved. "Retirer la photo" shows only while a photo is displayed. On a vCard 2.1 card, or one without a version, only "Retirer la photo" is offered.

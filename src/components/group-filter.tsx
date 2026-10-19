@@ -12,8 +12,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import type { BookGroup } from "@/lib/contact-groups";
 import { cn } from "@/lib/utils";
-import { FOCUS_RING } from "./button";
-import { CheckIcon, ChevronDownIcon, XSmallIcon } from "./icons";
+import { FOCUS_RING } from "./ui/button";
+import { CheckIcon, ChevronDownIcon, XSmallIcon } from "./ui/icons";
 
 type GroupFilterProps = {
   groups: BookGroup[];

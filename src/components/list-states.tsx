@@ -6,8 +6,8 @@ import { useRef } from "react";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { useSignOut } from "@/queries";
-import { buttonClass } from "./button";
-import { PlusIcon, UploadIcon } from "./icons";
+import { buttonClass } from "./ui/button";
+import { PlusIcon, UploadIcon } from "./ui/icons";
 
 export function StateBox({
   title,

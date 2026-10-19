@@ -14,8 +14,8 @@ import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { DavError, useLogin } from "@/queries";
 import { useSessionStore } from "@/store/session";
-import { buttonClass, FOCUS_RING, fieldClass } from "./button";
-import { AlertIcon, EyeIcon, LockIcon, SpinnerIcon } from "./icons";
+import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
+import { AlertIcon, EyeIcon, LockIcon, SpinnerIcon } from "./ui/icons";
 
 type FieldName = "username" | "password";
 type FieldErrors = Partial<Record<FieldName, string>>;

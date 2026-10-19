@@ -29,8 +29,9 @@ import {
   typeValuesOf,
   type VCardAddress,
 } from "@/vcard";
-import { buttonClass } from "./button";
 import { CopyButton, Section, SectionEditButton, TypeLabel } from "./contact-fields";
+import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
+import { buttonClass } from "./ui/button";
 import {
   CakeIcon,
   GlobeIcon,
@@ -40,8 +41,7 @@ import {
   NoteIcon,
   PhoneIcon,
   UsersIcon,
-} from "./icons";
-import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
+} from "./ui/icons";
 
 export function ContactView({
   contact,

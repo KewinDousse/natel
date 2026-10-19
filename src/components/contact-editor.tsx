@@ -13,7 +13,6 @@ import type { DraftAction } from "@/lib/draft-reducer";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { usePreferences } from "@/store/preferences";
-import { buttonClass, fieldClass } from "./button";
 import { EditRow, ErrorText, Field, GroupsEditor } from "./contact-editor-parts";
 import {
   AddPill,
@@ -23,6 +22,8 @@ import {
   Section,
   TypeSelect,
 } from "./contact-fields";
+import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
+import { buttonClass, fieldClass } from "./ui/button";
 import {
   ArrowRightIcon,
   CakeIcon,
@@ -35,8 +36,7 @@ import {
   TagIcon,
   TrashIcon,
   UsersIcon,
-} from "./icons";
-import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
+} from "./ui/icons";
 
 /** Optional sections the form shows only once they have something, or are asked for. */
 type Optional = "url" | "nickname" | "note";

@@ -9,6 +9,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useBlocker, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
+import { usePhotoChoice } from "@/hooks/use-photo-choice";
 import { useI18n } from "@/i18n/react";
 import {
   applyDraft,
@@ -60,13 +62,11 @@ import { ConfirmDialog, UnshownPropertiesDialog } from "./contact-dialogs";
 import { ContactEditBar } from "./contact-edit-bar";
 import { ContactEditor } from "./contact-editor";
 import { ContactView } from "./contact-view";
-import { SpinnerIcon, TrashIcon } from "./icons";
 import { MobileTopBar } from "./mobile-top-bar";
 import { MoveDialog } from "./move-dialog";
 import { PhotoCropDialog } from "./photo-crop-dialog";
-import { useToast } from "./toast";
-import { useEditShortcuts } from "./use-edit-shortcuts";
-import { usePhotoChoice } from "./use-photo-choice";
+import { SpinnerIcon, TrashIcon } from "./ui/icons";
+import { useToast } from "./ui/toast";
 import { writeErrorText } from "./write-error";
 
 type ContactPageProps = {

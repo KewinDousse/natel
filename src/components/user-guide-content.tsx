@@ -1,7 +1,7 @@
 import type { Ref } from "react";
 import { type GuideInline, parseUserGuide } from "@/lib/user-guide";
 import markdown from "../../docs/user-guide.md?raw";
-import { FOCUS_RING } from "./button";
+import { FOCUS_RING } from "./ui/button";
 
 const guide = parseUserGuide(markdown);
 

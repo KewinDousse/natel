@@ -8,8 +8,8 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import { DavError, type GroupFailure } from "@/queries";
-import { buttonClass } from "./button";
-import { SpinnerIcon } from "./icons";
+import { buttonClass } from "./ui/button";
+import { SpinnerIcon } from "./ui/icons";
 
 /** The same column as the form, so the buttons line up with its right edge. */
 const COLUMN = "mx-auto w-full max-w-[44rem] px-5 sm:px-8 lg:px-10 xl:px-14";
