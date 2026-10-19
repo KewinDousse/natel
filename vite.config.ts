@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
-import { devSession } from "./dev-session.ts";
+import { devSession } from "./session/dev-session.ts";
 import { proxyLocation } from "./src/dav/proxy-location.ts";
 
 // The app's security headers, read from the Caddyfile so the e2e suite runs

@@ -166,7 +166,7 @@ tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, componen
     private/     real vCards, gitignored
 session/         natel-session (Go, standard library only): sign-in sessions,
                  forward_auth for /dav, Caddy's supervisor (ADR 032)
-dev-session.ts   the same session contract on Vite's dev and preview servers
+  dev-session.ts the same session contract on Vite's dev and preview servers
 scripts/
   brand-images.ts  renders the brand images that carry text (`pnpm brand:images`)
   spike.ts       phase-1 exploration script, kept as documentation

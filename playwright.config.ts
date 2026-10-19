@@ -26,7 +26,7 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
     // Sign-in alone, in Firefox, whose session requests differ from
     // Chromium's under the page's no-referrer policy (ADR 032). It runs
-    // against dev-session.ts, which reads Sec-Fetch-Site first as
+    // against session/dev-session.ts, which reads Sec-Fetch-Site first as
     // natel-session does: the Origin fallback and the app's own referrer
     // policy are covered by unit tests. Skipped where Playwright's own
     // Firefox isn't installed, as in Claude Code's web sandbox or CI's

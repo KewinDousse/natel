@@ -10,7 +10,7 @@ dist-demo/
 vite.config.d.ts
 vitest.config.d.ts
 src/dav/proxy-location.d.ts
-dev-session.d.ts
+session/dev-session.d.ts
 
 # env
 .env

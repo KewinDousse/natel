@@ -81,7 +81,7 @@ docker run --rm -v "$PWD/session":/src -w /src golang:1.27-alpine \
 ```
 
 `pnpm dev` and the end-to-end suite don't need Go: Vite mirrors the session
-contract (`dev-session.ts`).
+contract (`session/dev-session.ts`).
 
 The main end-to-end suite starts a throwaway CardDAV server and serves the
 production build. It needs Python 3, and Playwright's Chromium, Firefox and
