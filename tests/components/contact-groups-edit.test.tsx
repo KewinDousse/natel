@@ -69,13 +69,17 @@ beforeEach(async () => {
     etag: '"fresh"',
     vcardText: cards[href] ?? "",
   }));
-  mocks.updateCard.mockImplementation(async (_a: DavAuth, href: string) => ({
-    href,
-    etag: '"new"',
-  }));
-  mocks.createCard.mockImplementation(async (_a: DavAuth, href: string) => ({
+  mocks.updateCard.mockImplementation(
+    async (_a: DavAuth, href: string, _etag: string, vcardText: string) => ({
+      href,
+      etag: '"new"',
+      vcardText,
+    }),
+  );
+  mocks.createCard.mockImplementation(async (_a: DavAuth, href: string, vcardText: string) => ({
     href,
     etag: '"created"',
+    vcardText,
   }));
 });
 
@@ -276,11 +280,11 @@ describe("leaving the edit while group cards are written", () => {
 
   it("still caches the group card the server took", async () => {
     cards[ADA] = card(["UID:ada", "FN:Ada Lovelace", "N:Lovelace;Ada;;;"]);
-    let land: (value: { href: string; etag: string }) => void = () => {};
+    let land: () => void = () => {};
     mocks.createCard.mockImplementationOnce(
-      (_a: DavAuth, href: string) =>
+      (_a: DavAuth, href: string, vcardText: string) =>
         new Promise((resolve) => {
-          land = () => resolve({ href, etag: '"created"' });
+          land = () => resolve({ href, etag: '"created"', vcardText });
         }),
     );
     await renderEdit(ADA);
@@ -293,7 +297,7 @@ describe("leaving the edit while group cards are written", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Enregistrer" })).toBeNull());
     expect(screen.queryByText("Club")).toBeNull();
 
-    land({ href: "", etag: "" });
+    land();
     await screen.findByText("Club");
   });
 });

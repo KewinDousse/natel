@@ -98,7 +98,11 @@ describe("new contact", () => {
   });
 
   it("creates a vCard 3.0 in the selected book and opens its page", async () => {
-    mockCreateCard.mockImplementation(async (_auth, href) => ({ href, etag: '"e1"' }));
+    mockCreateCard.mockImplementation(async (_auth, href, vcardText) => ({
+      href,
+      etag: '"e1"',
+      vcardText,
+    }));
     const router = renderApp("/contacts/new");
     const user = userEvent.setup();
     const [family, given] = await nameInputs();

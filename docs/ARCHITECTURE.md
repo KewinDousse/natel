@@ -201,7 +201,12 @@ library allows it.
 
 1. Read: `GET`/`REPORT` returns body + ETag; both stored on the `Contact`.
 2. Write: `PUT` with `If-Match: <etag>`.
-3. `2xx` → store new ETag from response (or re-`PROPFIND` if server omits it).
+3. `2xx` → the text sent goes with the strong ETag of the `PUT` response
+   (RFC 6352 §6.3.2.3). Without one, the card's text and ETag are read again
+   in one multiget, and that version, which may hold another client's change
+   made since, becomes the cache and the next edit's base. An ETag read on
+   its own is never paired with the text sent: it may name that other
+   change, and the next save would write over it.
 4. `412` → show a conflict banner: "reload" takes the server version,
    "overwrite with my version" refetches for a fresh ETag and applies only the
    fields the user changed (ADR 013). Never auto-merge in v0.x.

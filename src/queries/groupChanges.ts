@@ -63,16 +63,14 @@ function copyOf(card: Contact): Contact {
 
 async function put(auth: DavAuth, card: Contact): Promise<Contact> {
   stampRevision(card);
-  const text = serialiseRaw(card);
-  const { etag } = await updateCard(auth, card.href, card.etag, text);
-  return parse(text, card.href, etag);
+  const saved = await updateCard(auth, card.href, card.etag, serialiseRaw(card));
+  return parse(saved.vcardText, saved.href, saved.etag);
 }
 
 /** Creates a new group card at its href with If-None-Match: * (ADR 016). */
 export async function createGroupCard(auth: DavAuth, card: Contact): Promise<Contact> {
-  const text = serialiseRaw(card);
-  const created = await createCard(auth, card.href, text);
-  return parse(text, created.href, created.etag);
+  const created = await createCard(auth, card.href, serialiseRaw(card));
+  return parse(created.vcardText, created.href, created.etag);
 }
 
 export async function writeGroupChanges(

@@ -51,8 +51,9 @@ describe("the demo books", () => {
     const card = await demo.fetchCard(AUTH, first.href);
     const edited = card.vcardText.replace("END:VCARD", "NOTE:edited\r\nEND:VCARD");
 
-    const { etag } = await demo.updateCard(AUTH, card.href, card.etag, edited);
+    const { etag, vcardText } = await demo.updateCard(AUTH, card.href, card.etag, edited);
     expect(etag).not.toBe(card.etag);
+    expect(vcardText).toBe(edited);
     expect((await demo.fetchCard(AUTH, card.href)).vcardText).toContain("NOTE:edited");
 
     await expect(demo.updateCard(AUTH, card.href, card.etag, edited)).rejects.toMatchObject({
@@ -67,7 +68,7 @@ describe("the demo books", () => {
     const [book] = await demo.discoverAddressBooks(AUTH);
     const href = demo.cardHref(book?.href ?? "", "new-one");
     const text = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:new-one\r\nFN:Nouveau\r\nEND:VCARD\r\n";
-    await demo.createCard(AUTH, href, text);
+    expect((await demo.createCard(AUTH, href, text)).vcardText).toBe(text);
     expect((await demo.listContacts(AUTH, book?.href ?? "")).map((s) => s.href)).toContain(href);
     await expect(demo.createCard(AUTH, href, text)).rejects.toMatchObject({ code: "CONFLICT" });
   });

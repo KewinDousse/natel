@@ -92,7 +92,7 @@ export async function updateCard(
   href: string,
   etag: string,
   vcardText: string,
-): Promise<DavContactSummary> {
+): Promise<DavContactDetail> {
   await wait();
   const card = cardAt(href);
   if (card.etag !== etag) {
@@ -100,7 +100,7 @@ export async function updateCard(
   }
   const updated = { vcardText, etag: nextEtag() };
   bookOf(href)?.cards.set(href, updated);
-  return { href, etag: updated.etag };
+  return { href, ...updated };
 }
 
 export function cardHref(bookHref: string, uid: string): string {
@@ -111,14 +111,14 @@ export async function createCard(
   _auth: DavAuth,
   href: string,
   vcardText: string,
-): Promise<DavContactSummary> {
+): Promise<DavContactDetail> {
   await wait();
   const book = bookOf(href);
   if (!book) throw new DavError(`CardDAV resource not found: ${href}`, "NOT_FOUND");
   if (book.cards.has(href)) throw new DavError(`Precondition failed for ${href}`, "CONFLICT");
   const etag = nextEtag();
   book.cards.set(href, { vcardText, etag });
-  return { href, etag };
+  return { href, etag, vcardText };
 }
 
 export async function deleteCard(_auth: DavAuth, href: string, etag: string): Promise<void> {

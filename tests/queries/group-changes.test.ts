@@ -43,8 +43,16 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-09T12:34:56Z"));
   vi.clearAllMocks();
-  mockUpdateCard.mockImplementation(async (_a, href: string) => ({ href, etag: '"new"' }));
-  mockCreateCard.mockImplementation(async (_a, href: string) => ({ href, etag: '"created"' }));
+  mockUpdateCard.mockImplementation(async (_a, href: string, _etag: string, vcardText: string) => ({
+    href,
+    etag: '"new"',
+    vcardText,
+  }));
+  mockCreateCard.mockImplementation(async (_a, href: string, vcardText: string) => ({
+    href,
+    etag: '"created"',
+    vcardText,
+  }));
 });
 
 afterEach(() => vi.useRealTimers());
@@ -72,6 +80,31 @@ describe("writeGroupChanges", () => {
     expect([href, etag]).toEqual([`${BOOK}a.vcf`, '"a"']);
     expect(text).toContain("X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:ada");
     expect(written.map((c) => [c.href, c.etag])).toEqual([[`${BOOK}a.vcf`, '"new"']]);
+  });
+
+  it("returns the group cards as the server has them after the write, not as sent", async () => {
+    // Another client added a member between the PUT and the card read back.
+    mockUpdateCard.mockImplementationOnce(async (_a, href: string, _e: string, text: string) => ({
+      href,
+      etag: '"after-bob"',
+      vcardText: text.replace("END:VCARD", "X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:bob\r\nEND:VCARD"),
+    }));
+    mockCreateCard.mockImplementationOnce(async (_a, href: string, text: string) => ({
+      href,
+      etag: '"club-after-bob"',
+      vcardText: text.replace("END:VCARD", "X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:bob\r\nEND:VCARD"),
+    }));
+    const { written } = await writeGroupChanges(
+      AUTH,
+      BOOK,
+      "ada",
+      { added: ["Famille", "Club"], removed: [] },
+      [group("a", "Famille", [])],
+    );
+    expect(written.map((c) => [c.etag, groupCardOf(c)])).toEqual([
+      ['"after-bob"', { name: "Famille", members: ["ada", "bob"] }],
+      ['"club-after-bob"', { name: "Club", members: ["ada", "bob"] }],
+    ]);
   });
 
   it("moves the REV of a group card it writes to the save's time", async () => {

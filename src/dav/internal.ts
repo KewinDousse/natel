@@ -21,7 +21,7 @@ import {
   proxyRoot,
   toServerPath,
 } from "./proxy-hrefs";
-import type { DavAuth } from "./types";
+import type { DavAuth, DavContactDetail } from "./types";
 import { DavError } from "./types";
 
 export { absolutizeHref } from "./proxy-hrefs";
@@ -141,11 +141,13 @@ export function isMemberResponse(response: DAVResponse): boolean {
 // the conditional headers from a vCard object, so the exact If-Match /
 // If-None-Match values could not be pinned from outside. We therefore go
 // through client.davRequest directly with explicit headers. davRequest only
-// returns { href, ok, status, statusText, raw } — response headers are
-// consumed inside tsdav and never surfaced, so after a successful write the
-// fresh ETag must come from a follow-up PROPFIND (ARCHITECTURE.md §Write path).
-// Evidence: tsdav@2.3.1 `davRequest` (src/request.ts) returns parsed response
-// objects without headers for non-XML bodies.
+// returns { href, ok, status, statusText, raw }, without response headers,
+// so the PUT goes through a fetch that keeps its ETag (ARCHITECTURE.md
+// §Write path).
+// Evidence: tsdav@2.4.0 `davRequest` (src/request.ts) returns parsed
+// response objects without headers for non-XML bodies; the client's
+// `davRequest` (src/client.ts) hands its `fetch` through `requestDefaults`
+// and `authFetch`, which keep it as is for a "Custom" auth method.
 // ---------------------------------------------------------------------------
 
 /**
@@ -192,21 +194,29 @@ function byteLength(text: string): number {
 /** A body past which a proxy's default request limit is likely (a stock nginx stops at 1 MB). */
 const LARGE_BODY_BYTES = 1024 * 1024;
 
+/** RFC 9110 entity-tag syntax, strong only: If-Match uses strong comparison. */
+function isStrongEtag(etag: string): boolean {
+  return /^"[\x21\x23-\x7e\x80-\xff]*"$/.test(etag);
+}
+
 /** If-Match must identify one version, never merely an existing resource. */
 function assertWriteEtag(etag: string, href: string): void {
   if (!etag) {
     throw new DavError(`Cannot write ${href}: missing or empty ETag`, "UNEXPECTED");
   }
-  // RFC 9110 entity-tag syntax; If-Match uses strong comparison.
-  if (!/^"[\x21\x23-\x7e\x80-\xff]*"$/.test(etag)) {
+  if (!isStrongEtag(etag)) {
     throw new DavError(`Cannot write ${href}: invalid strong ETag`, "UNEXPECTED");
   }
 }
 
 /**
- * PUT a card. A proxy often answers a body over its limit by closing the
- * connection rather than with a 413, so a network failure on a large card
- * reads as MAYBE_TOO_LARGE (ADR 023).
+ * PUT a card. Resolves to the response's ETag when it is strong: a server
+ * sends one only when it stored the body as sent (RFC 6352 §6.3.2.3), so it
+ * names the version this PUT made and no later one.
+ *
+ * A proxy often answers a body over its limit by closing the connection
+ * rather than with a 413, so a network failure on a large card reads as
+ * MAYBE_TOO_LARGE (ADR 023).
  */
 async function putCard(
   client: DAVClient,
@@ -214,7 +224,13 @@ async function putCard(
   vcardText: string,
   condition: Record<string, string>,
   context: string,
-): Promise<void> {
+): Promise<string | undefined> {
+  const answer: { etag: string | null } = { etag: null };
+  const keepEtag: typeof fetch = async (input, init) => {
+    const response = await fetch(input, init);
+    answer.etag = response.headers.get("ETag");
+    return response;
+  };
   try {
     const responses = await wrap(
       () =>
@@ -227,6 +243,7 @@ async function putCard(
           },
           convertIncoming: false,
           parseOutgoing: false,
+          fetch: keepEtag,
         }),
       context,
     );
@@ -239,6 +256,7 @@ async function putCard(
       );
     }
     assertOk(responses[0], context);
+    return answer.etag !== null && isStrongEtag(answer.etag) ? answer.etag : undefined;
   } catch (err) {
     if (err instanceof DavError && err.code === "NETWORK") {
       const bytes = byteLength(vcardText);
@@ -256,33 +274,66 @@ async function putCard(
 }
 
 /**
- * Re-read a card's ETag after a successful write (server may not include it
- * in the PUT/DELETE response, and tsdav never surfaces response headers).
+ * A card's text and ETag from one addressbook-multiget, so both describe the
+ * same version.
  */
-async function fetchFreshEtag(client: DAVClient, href: string): Promise<string> {
+async function readCard(
+  client: DAVClient,
+  href: string,
+): Promise<{ vcardText: string; etag: string }> {
+  // The multiget must run against the parent address book collection;
+  // derive it from href by stripping the last path segment.
   const bookUrl = deriveBookUrl(href);
+  assertProxyHref(bookUrl);
+
   const responses = await wrap(
     () =>
-      client.propfind({
-        url: href,
-        props: { "d:getetag": {} },
-        depth: "0",
+      client.addressBookMultiGet({
+        url: bookUrl,
+        props: MULTIGET_PROPS,
+        depth: "1",
+        // Hrefs in the body reach the server untouched, so they must be
+        // in its URL space, not the proxy's.
+        objectUrls: [toServerPath(href)],
       }),
-    `refetching etag for ${href}`,
+    `fetching card ${href}`,
   );
+
+  // Match on normalized (absolute) URLs to handle href format differences
+  // between PROPFIND (server-relative) and multiget responses.
   const match = findResponseByHref(responses, href, bookUrl);
-
-  // A non-ok entry (e.g. 404 after a concurrent delete) maps like any response.
-  if (match) assertOk(match, `refetching etag for ${href}`);
-
-  const etag = match ? extractEtag(match) : undefined;
-  if (etag === undefined) {
-    throw new DavError(
-      `Contact ${href} is missing an ETag after write — data integrity risk`,
-      "UNEXPECTED",
-    );
+  // A card deleted meanwhile is left out, or listed as 404 or 410.
+  if (!match || match.status === 404 || match.status === 410) {
+    throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
   }
-  return etag;
+  assertOk(match, `fetching card ${href}`);
+
+  const vcardText = extractAddressData(match);
+  if (vcardText === undefined) {
+    throw new DavError(`Contact ${href} has no address-data in response`, "UNEXPECTED");
+  }
+  const etag = extractEtag(match);
+  if (etag === undefined) {
+    throw new DavError(`Contact ${href} is missing an ETag: data integrity risk`, "UNEXPECTED");
+  }
+
+  return { vcardText, etag };
+}
+
+/**
+ * The version a successful PUT left: the text sent with the PUT's ETag, or
+ * else the card read again, which may hold a change another client made
+ * since. Never the text sent with an ETag read separately, which could name
+ * that other change and let the next save write over it.
+ */
+async function writtenVersion(
+  client: DAVClient,
+  href: string,
+  vcardText: string,
+  putEtag: string | undefined,
+): Promise<DavContactDetail> {
+  if (putEtag !== undefined) return { href, etag: putEtag, vcardText };
+  return { href, ...(await readCard(client, href)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -376,14 +427,13 @@ export interface DavSession {
   fetchCard(href: string): Promise<{ vcardText: string; etag: string }>;
   /** Fetch multiple vCards in a single addressbook-multiget REPORT. */
   fetchCards(hrefs: string[]): Promise<Array<{ href: string; vcardText: string; etag: string }>>;
-  /** Update a card with a conditional PUT (If-Match); returns the new etag. */
-  updateCard(
-    href: string,
-    etag: string,
-    vcardText: string,
-  ): Promise<{ href: string; etag: string }>;
-  /** Create a card with a conditional PUT (If-None-Match: *); returns href + etag. */
-  createCard(href: string, vcardText: string): Promise<{ href: string; etag: string }>;
+  /**
+   * Update a card with a conditional PUT (If-Match); returns the version it
+   * left, whose text and ETag go together.
+   */
+  updateCard(href: string, etag: string, vcardText: string): Promise<DavContactDetail>;
+  /** Create a card with a conditional PUT (If-None-Match: *); returns it as updateCard does. */
+  createCard(href: string, vcardText: string): Promise<DavContactDetail>;
   /** Delete a card with a conditional DELETE (If-Match). */
   deleteCard(href: string, etag: string): Promise<void>;
 }
@@ -518,46 +568,7 @@ async function makeSession(evict: () => void): Promise<DavSession> {
     async fetchCard(href: string) {
       return withAuthEviction(async () => {
         assertProxyHref(href);
-        // The multiget must run against the parent address book collection;
-        // derive it from href by stripping the last path segment.
-        const bookUrl = deriveBookUrl(href);
-        assertProxyHref(bookUrl);
-
-        const responses = await wrap(
-          () =>
-            client.addressBookMultiGet({
-              url: bookUrl,
-              props: MULTIGET_PROPS,
-              depth: "1",
-              // Hrefs in the body reach the server untouched, so they must be
-              // in its URL space, not the proxy's.
-              objectUrls: [toServerPath(href)],
-            }),
-          `fetching card ${href}`,
-        );
-
-        // Match on normalized (absolute) URLs to handle href format differences
-        // between PROPFIND (server-relative) and multiget responses.
-        const match = findResponseByHref(responses, href, bookUrl);
-        // A card deleted meanwhile is left out, or listed as 404 or 410.
-        if (!match || match.status === 404 || match.status === 410) {
-          throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
-        }
-        assertOk(match, `fetching card ${href}`);
-
-        const vcardText = extractAddressData(match);
-        if (vcardText === undefined) {
-          throw new DavError(`Contact ${href} has no address-data in response`, "UNEXPECTED");
-        }
-        const etag = extractEtag(match);
-        if (etag === undefined) {
-          throw new DavError(
-            `Contact ${href} is missing an ETag — data integrity risk`,
-            "UNEXPECTED",
-          );
-        }
-
-        return { vcardText, etag };
+        return await readCard(client, href);
       });
     },
 
@@ -606,18 +617,28 @@ async function makeSession(evict: () => void): Promise<DavSession> {
       return withAuthEviction(async () => {
         assertProxyHref(href);
         assertWriteEtag(etag, href);
-        await putCard(client, href, vcardText, { "If-Match": etag }, `updating card ${href}`);
-        const newEtag = await fetchFreshEtag(client, href);
-        return { href, etag: newEtag };
+        const putEtag = await putCard(
+          client,
+          href,
+          vcardText,
+          { "If-Match": etag },
+          `updating card ${href}`,
+        );
+        return await writtenVersion(client, href, vcardText, putEtag);
       });
     },
 
     async createCard(href: string, vcardText: string) {
       return withAuthEviction(async () => {
         assertProxyHref(href);
-        await putCard(client, href, vcardText, { "If-None-Match": "*" }, `creating card ${href}`);
-        const newEtag = await fetchFreshEtag(client, href);
-        return { href, etag: newEtag };
+        const putEtag = await putCard(
+          client,
+          href,
+          vcardText,
+          { "If-None-Match": "*" },
+          `creating card ${href}`,
+        );
+        return await writtenVersion(client, href, vcardText, putEtag);
       });
     },
 

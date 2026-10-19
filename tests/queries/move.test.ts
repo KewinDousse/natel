@@ -35,7 +35,11 @@ const CHANGED = new DavError("412", "CONFLICT");
 beforeEach(() => {
   vi.clearAllMocks();
   mockFetchCard.mockResolvedValue({ href: SOURCE, etag: '"e1"', vcardText: TEXT });
-  mockCreateCard.mockImplementation(async (_a, href: string) => ({ href, etag: '"c1"' }));
+  mockCreateCard.mockImplementation(async (_a, href: string, vcardText: string) => ({
+    href,
+    etag: '"c1"',
+    vcardText,
+  }));
   mockDeleteCard.mockResolvedValue(undefined);
 });
 

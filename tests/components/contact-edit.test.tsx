@@ -195,7 +195,11 @@ function setupMocks() {
     const vcardText = CARDS[href.split("/").at(-1)?.replace(".vcf", "") ?? ""] ?? "";
     return { href, etag: '"e"', vcardText };
   });
-  mockUpdateCard.mockResolvedValue({ href: "editable", etag: '"new-etag"' });
+  mockUpdateCard.mockImplementation(async (_auth, href, _etag, vcardText) => ({
+    href,
+    etag: '"new-etag"',
+    vcardText,
+  }));
   mockDeleteCard.mockResolvedValue(undefined);
 }
 
@@ -814,6 +818,32 @@ describe("edit mode — background refetch", () => {
     expect(mockUpdateCard.mock.calls[1]?.[2]).toBe('"new-etag"');
   });
 
+  it("starts the next save from the version the write left, not the one sent", async () => {
+    // The card read back after the PUT holds a note another client wrote since.
+    mockUpdateCard.mockImplementationOnce(async (_auth, href, _etag, vcardText) => ({
+      href,
+      etag: '"after-other-client"',
+      vcardText: vcardText.replace("END:VCARD", "NOTE:from another client\r\nEND:VCARD"),
+    }));
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
+    expect(within(article).getByText("from another client")).toBeTruthy();
+
+    const [editButton] = screen.getAllByRole("button", { name: /^Modifier/ });
+    if (editButton) await user.click(editButton);
+    await waitFor(() => expect(article.getAttribute("data-mode")).toBe("edit"));
+    await user.type(screen.getByDisplayValue("Johnx"), "y");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(2));
+    expect(mockUpdateCard.mock.calls[1]?.[2]).toBe('"after-other-client"');
+    expect(mockUpdateCard.mock.calls[1]?.[3]).toContain("NOTE:from another client");
+  });
+
   it("deletes with the ETag the edit started from", async () => {
     const { queryClient } = await renderEditView("editable");
     const user = userEvent.setup();
@@ -984,7 +1014,11 @@ describe("free-text birthday (VALUE=text on vCard 3.0)", () => {
   it("Écraser refetches and PUTs the card with the birthday intact", async () => {
     mockUpdateCard
       .mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"))
-      .mockResolvedValueOnce({ href: "textbday", etag: '"new-etag"' });
+      .mockImplementationOnce(async (_auth, href, _etag, vcardText) => ({
+        href,
+        etag: '"new-etag"',
+        vcardText,
+      }));
     await renderEditView("textbday");
     const user = userEvent.setup();
 

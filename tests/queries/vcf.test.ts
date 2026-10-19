@@ -38,7 +38,11 @@ function run(file: string, bookUids: string[] = []) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreateCard.mockImplementation(async (_auth, href: string) => ({ href, etag: '"1"' }));
+  mockCreateCard.mockImplementation(async (_auth, href: string, vcardText: string) => ({
+    href,
+    etag: '"1"',
+    vcardText,
+  }));
 });
 
 describe("importVcf", () => {
@@ -78,13 +82,13 @@ describe("importVcf", () => {
   });
 
   it("keeps going after failures, and names each one", async () => {
-    mockCreateCard.mockImplementation(async (_auth, href: string) => {
+    mockCreateCard.mockImplementation(async (_auth, href: string, vcardText: string) => {
       if (href.endsWith("c412.vcf")) throw new DavError("412", "CONFLICT");
       if (href.endsWith("cnet.vcf")) throw new DavError("net", "NETWORK");
       if (href.endsWith("c403.vcf")) throw new DavError("403", "UNEXPECTED");
       if (href.endsWith("c413.vcf")) throw new DavError("413", "TOO_LARGE");
       if (href.endsWith("cbig.vcf")) throw new DavError("lost", "MAYBE_TOO_LARGE");
-      return { href, etag: '"1"' };
+      return { href, etag: '"1"', vcardText };
     });
     const file = ["BEGIN:VCARD\r\nFN:cut short\r\n"].join("");
     const { done } = run(

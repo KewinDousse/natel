@@ -598,9 +598,7 @@ function ContactFiche({
         applyDraft(parse(editBase.raw.toString(), editBase.href, editBase.etag), draft),
       );
       if (onCreate !== undefined) return await onCreate(detached);
-      const { etag } = await updateContact.mutateAsync(detached);
-      // The card now holds the photo, as the cache does: a later save leaves it.
-      return { ...detached, etag, fields: { ...detached.fields, photo: { kind: "unchanged" } } };
+      return await updateContact.mutateAsync(detached);
     });
   }, [draft, dirty, delta, editBase, isNew, applyGroupChanges, updateContact, runSave, onCreate]);
 
@@ -627,12 +625,7 @@ function ContactFiche({
       const freshContact = applyGroupChanges(
         applyDraft(await refetchCard(editBase.href), draft, dirty),
       );
-      const { etag } = await updateContact.mutateAsync(freshContact);
-      return {
-        ...freshContact,
-        etag,
-        fields: { ...freshContact.fields, photo: { kind: "unchanged" } },
-      };
+      return await updateContact.mutateAsync(freshContact);
     });
   }, [draft, dirty, editBase, refetchCard, applyGroupChanges, updateContact, runSave]);
 

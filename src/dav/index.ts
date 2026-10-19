@@ -68,14 +68,14 @@ export async function fetchCards(auth: DavAuth, hrefs: string[]): Promise<DavCon
  *
  * `etag` must be the last-known ETag (from fetchCard / listContacts). On HTTP
  * 412 the server version has changed — throws DavError with code CONFLICT.
- * Returns the new href and ETag.
+ * Returns the version the write left, whose text may not be the one sent.
  */
 export async function updateCard(
   auth: DavAuth,
   href: string,
   etag: string,
   vcardText: string,
-): Promise<DavContactSummary> {
+): Promise<DavContactDetail> {
   const session = await createDavSession(auth);
   return await session.updateCard(href, etag, vcardText);
 }
@@ -92,13 +92,13 @@ export function cardHref(bookHref: string, uid: string): string {
  * Create a new card at `href` (see cardHref) with PUT and If-None-Match: *.
  *
  * On HTTP 412 something already exists there — throws DavError with code
- * CONFLICT. Returns the href and the new ETag.
+ * CONFLICT. Returns the version created, as updateCard does.
  */
 export async function createCard(
   auth: DavAuth,
   href: string,
   vcardText: string,
-): Promise<DavContactSummary> {
+): Promise<DavContactDetail> {
   const session = await createDavSession(auth);
   return await session.createCard(href, vcardText);
 }

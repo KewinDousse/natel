@@ -51,10 +51,7 @@ const {
         auth: DavAuth,
         href: string,
         vcardText: string,
-      ) => Promise<{
-        href: string;
-        etag: string;
-      }>
+      ) => Promise<{ href: string; etag: string; vcardText: string }>
     >(),
   mockUpdateCard:
     vi.fn<
@@ -63,10 +60,7 @@ const {
         href: string,
         etag: string,
         vcardText: string,
-      ) => Promise<{
-        href: string;
-        etag: string;
-      }>
+      ) => Promise<{ href: string; etag: string; vcardText: string }>
     >(),
   mockDeleteCard: vi.fn<(auth: DavAuth, href: string, etag: string) => Promise<void>>(),
   mockParse: vi.fn<(text: string, href?: string, etag?: string) => Contact>(),
@@ -374,7 +368,9 @@ describe("useCreateContact", () => {
 
   it("creates the card at an href named after its UID, then adds it to the cached book", async () => {
     mockSerialise.mockReturnValue("SERIALISED_VCARD");
-    mockCreateCard.mockResolvedValue({ href: NEW_HREF, etag: '"new-e"' });
+    mockCreateCard.mockResolvedValue({ href: NEW_HREF, etag: '"new-e"', vcardText: "STORED" });
+    const created = makeContact({ uid: "new-uid", href: NEW_HREF, etag: '"new-e"' });
+    mockParse.mockReturnValue(created);
 
     const existing = makeContact({ etag: '"e1"' });
     const contact = makeContact({ uid: "new-uid", etag: "", href: "" });
@@ -388,30 +384,10 @@ describe("useCreateContact", () => {
 
     expect(mockSerialise).toHaveBeenCalledWith(contact);
     expect(mockCreateCard).toHaveBeenCalledWith(MOCK_AUTH, NEW_HREF, "SERIALISED_VCARD");
-    const created = { ...contact, href: NEW_HREF, etag: '"new-e"' };
-    expect(result.current.data).toEqual(created);
+    // The text the ETag goes with, which may not be the one sent.
+    expect(mockParse).toHaveBeenCalledWith("STORED", NEW_HREF, '"new-e"');
+    expect(result.current.data).toBe(created);
     expect(client.getQueryData<LoadFullBookResult>(key)?.contacts).toEqual([existing, created]);
-  });
-
-  it("caches a new contact's photo as unchanged once written", async () => {
-    mockSerialise.mockReturnValue("SERIALISED_VCARD");
-    mockCreateCard.mockResolvedValue({ href: NEW_HREF, etag: '"new-e"' });
-
-    const base = makeContact({ uid: "new-uid", etag: "", href: "" });
-    const contact = makeContact({
-      uid: "new-uid",
-      etag: "",
-      href: "",
-      fields: {
-        ...base.fields,
-        photo: { kind: "replaced", mediaType: "image/png", base64: "iVBO" },
-      },
-    });
-    const { result } = renderCreate(createTestClient());
-
-    result.current.mutate(contact);
-    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
-    expect(result.current.data?.fields.photo).toEqual({ kind: "unchanged" });
   });
 
   it("surfaces a 412 as a conflict, without any further write", async () => {
@@ -435,11 +411,12 @@ describe("useCreateContact", () => {
 // ---------------------------------------------------------------------------
 
 describe("useUpdateContact", () => {
-  it("serialises with the correct etag and updates cache via setQueriesData", async () => {
+  it("serialises with the correct etag and caches the version the write left", async () => {
     mockSerialise.mockReturnValue("SERIALISED_VCARD");
     mockUpdateCard.mockResolvedValue({
       href: "https://dav.example.com/dav/books/default/1.vcf",
       etag: '"new-etag"',
+      vcardText: "STORED",
     });
 
     // Pre-populate the contacts cache.
@@ -449,6 +426,12 @@ describe("useUpdateContact", () => {
       contacts: [oldContact],
       skipped: [],
     });
+    // The server's version: another client's note came in after the PUT.
+    const stored = makeContact({
+      etag: '"new-etag"',
+      fields: { ...oldContact.fields, fn: "Alice Updated", note: "from elsewhere" },
+    });
+    mockParse.mockReturnValue(stored);
 
     const { result } = renderHook(() => useUpdateContact(MOCK_AUTH), {
       wrapper: wrapper(client),
@@ -461,14 +444,16 @@ describe("useUpdateContact", () => {
     result.current.mutate(updatedContact);
     await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
 
-    // The cache should have the new etag.
+    // The cache and the result hold the text that goes with the new ETag,
+    // not the contact sent.
+    expect(mockParse).toHaveBeenCalledWith("STORED", updatedContact.href, '"new-etag"');
+    expect(result.current.data).toBe(stored);
     const cached = client.getQueryData<LoadFullBookResult>([
       "contacts",
       MOCK_AUTH.username,
       MOCK_BOOK.href,
     ])?.contacts;
-    expect(cached).toHaveLength(1);
-    expect(cached![0]!.etag).toBe('"new-etag"');
+    expect(cached).toEqual([stored]);
 
     // REV moved to the save's time before the card was serialised.
     expect(mockStampRevision).toHaveBeenCalledWith(updatedContact);
@@ -483,68 +468,6 @@ describe("useUpdateContact", () => {
       '"e1"',
       "SERIALISED_VCARD",
     );
-  });
-
-  it("caches a written photo as unchanged, so the next save leaves PHOTO alone", async () => {
-    mockSerialise.mockReturnValue("SERIALISED_VCARD");
-    mockUpdateCard.mockResolvedValue({
-      href: "https://dav.example.com/dav/books/default/1.vcf",
-      etag: '"new-etag"',
-    });
-    const oldContact = makeContact({ etag: '"e1"' });
-    const client = createTestClient();
-    const key = ["contacts", MOCK_AUTH.username, MOCK_BOOK.href];
-    client.setQueryData(key, { contacts: [oldContact], skipped: [] });
-    const { result } = renderHook(() => useUpdateContact(MOCK_AUTH), { wrapper: wrapper(client) });
-
-    result.current.mutate({
-      ...oldContact,
-      fields: { ...oldContact.fields, photo: { kind: "removed" } },
-    });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
-
-    const cached = client.getQueryData<LoadFullBookResult>(key)?.contacts[0];
-    expect(cached?.fields.photo).toEqual({ kind: "unchanged" });
-    expect(cached?.etag).toBe('"new-etag"');
-  });
-
-  it("patches the cache with the submitted contact fields (not the stale cached ones)", async () => {
-    mockSerialise.mockReturnValue("SERIALISED_VCARD");
-    mockUpdateCard.mockResolvedValue({
-      href: "https://dav.example.com/dav/books/default/1.vcf",
-      etag: '"new-etag"',
-    });
-
-    // Pre-populate cache with a contact.
-    const oldContact = makeContact({ etag: '"e1"' });
-    const client = createTestClient();
-    client.setQueryData(["contacts", MOCK_AUTH.username, MOCK_BOOK.href], {
-      contacts: [oldContact],
-      skipped: [],
-    });
-
-    const { result } = renderHook(() => useUpdateContact(MOCK_AUTH), {
-      wrapper: wrapper(client),
-    });
-
-    // Copy-edit pattern: spread the contact, change a field, pass the copy.
-    const editedContact = {
-      ...oldContact,
-      fields: { ...oldContact.fields, fn: "Alice Updated" },
-    };
-    result.current.mutate(editedContact);
-    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
-
-    // The cache should carry the edited fields AND the new etag — a regression
-    // test against spreading the stale cached copy instead of the submitted one.
-    const cached = client.getQueryData<LoadFullBookResult>([
-      "contacts",
-      MOCK_AUTH.username,
-      MOCK_BOOK.href,
-    ])?.contacts;
-    expect(cached).toHaveLength(1);
-    expect(cached![0]!.etag).toBe('"new-etag"');
-    expect(cached![0]!.fields.fn).toBe("Alice Updated");
   });
 
   it("exposes CONFLICT DavError to the caller", async () => {

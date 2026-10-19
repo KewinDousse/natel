@@ -7,12 +7,12 @@
  * have landed is never undone, so a contact is never lost.
  */
 import { cardHref, createCard, deleteCard, fetchCard } from "@/dav";
-import { type DavAuth, DavError } from "@/dav/types";
+import { type DavAuth, type DavContactDetail, DavError } from "@/dav/types";
 import type { Contact } from "@/model/contact";
 import { readImportCard, withUid } from "@/vcard";
 
 export type MoveOutcome =
-  /** Moved: the card now sits at `href` in the target book. */
+  /** Moved: the card now sits at `href` in the target book, as `text` with `etag`. */
   | { kind: "moved"; href: string; etag: string; text: string }
   /** The card changed or went away since the edit began: nothing written. */
   | { kind: "stale" }
@@ -76,7 +76,7 @@ export async function moveContact(
     return { kind: "failed", error: err };
   }
 
-  let created: { href: string; etag: string };
+  let created: DavContactDetail;
   try {
     created = await createCard(auth, cardHref(targetBookHref, uid), text);
   } catch (err) {
@@ -98,5 +98,5 @@ export async function moveContact(
     }
     return { kind: "delete_refused", error: err };
   }
-  return { kind: "moved", href: created.href, etag: created.etag, text };
+  return { kind: "moved", href: created.href, etag: created.etag, text: created.vcardText };
 }

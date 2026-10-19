@@ -83,10 +83,10 @@ export async function importVcf(
     } else {
       seenInFile.add(uid);
       try {
-        const { href, etag } = await createCard(auth, cardHref(bookHref, uid), text);
+        const created = await createCard(auth, cardHref(bookHref, uid), text);
         known.add(uid);
         result.imported += 1;
-        onCreated(uid, parseCreated(text, href, etag));
+        onCreated(uid, parseCreated(created.vcardText, created.href, created.etag));
       } catch (err) {
         result.failed.push({ name: read.name, position, reason: failureReason(err) });
       }

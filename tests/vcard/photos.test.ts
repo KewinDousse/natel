@@ -254,10 +254,11 @@ describe("changing and removing photos", () => {
     const contact = parse(fixture("photo-apple-v3.vcf"));
     contact.fields.photo = replaced;
     const first = serialise(contact);
-    // As the save hooks cache it once written.
-    contact.fields.photo = { kind: "unchanged" };
-    contact.fields.note = "edited";
-    expect(photoLines(serialise(contact))).toEqual(photoLines(first));
+    // The save hooks cache the card parsed from the text written.
+    const again = parse(first);
+    expect(again.fields.photo).toEqual({ kind: "unchanged" });
+    again.fields.note = "edited";
+    expect(photoLines(serialise(again))).toEqual(photoLines(first));
   });
 
   it("lets a 3.0 card and a new contact take a new photo", () => {

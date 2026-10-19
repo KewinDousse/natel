@@ -26,6 +26,7 @@ import { createDavSession, __testing as internalTesting } from "@/dav/internal";
 
 // DavError is needed for AUTH-eviction tests.
 import { DavError } from "@/dav/types";
+import { parse, serialise } from "@/vcard";
 
 // Get references to the mocked functions for per-test setup.
 const tsdavModule = await import("tsdav");
@@ -78,6 +79,36 @@ function davResp(overrides: Partial<DAVResponse>): DAVResponse {
   return { status: 200, statusText: "OK", ok: true, ...overrides } as DAVResponse;
 }
 
+type PutArgs = {
+  url: string;
+  init: { headers: Record<string, string>; body: string };
+  fetch?: typeof fetch;
+};
+
+/**
+ * Answers a PUT through the `fetch` the adapter hands tsdav, as tsdav does,
+ * so the response headers reach the adapter.
+ */
+async function answerPut(args: PutArgs, status: number, headers: Record<string, string> = {}) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status, headers })),
+  );
+  if (!args.fetch) throw new Error("a PUT without the adapter's fetch");
+  await args.fetch(args.url, args.init as RequestInit);
+  return [davResp({ ok: status < 300, status })];
+}
+
+/** A davRequest whose PUTs succeed with these response headers. */
+function putAnswering(status: number, headers: Record<string, string> = {}) {
+  return vi.fn((args: PutArgs) => answerPut(args, status, headers));
+}
+
+/** A multiget answering one card at `href` with this text and ETag. */
+function multigetAnswering(href: string, addressData: string, getetag: string) {
+  return vi.fn().mockResolvedValue([davResp({ href, props: { getetag, addressData } })]);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   // Clear the session cache so each test gets a fresh tsdav client from the
@@ -89,6 +120,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 // ---------------------------------------------------------------------------
@@ -783,21 +815,17 @@ describe("fetchCards", () => {
 });
 
 // ---------------------------------------------------------------------------
-// updateCard — conditional PUT via davRequest + re-PROPFIND
+// updateCard: conditional PUT via davRequest, then the version it left
 // ---------------------------------------------------------------------------
 
 describe("updateCard", () => {
   const VCARD = "BEGIN:VCARD\nVERSION:3.0\nFN:Alice\nEND:VCARD\n";
+  const SERVER_VCARD = "BEGIN:VCARD\nVERSION:3.0\nFN:Alice\nNOTE:server\nEND:VCARD\n";
   const CARD_HREF = "http://localhost:3000/dav/books/default/1.vcf";
 
   it("calls davRequest with PUT, If-Match etag, vcard body, and text/vcard content-type", async () => {
-    const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
-    const pfind = vi
-      .fn()
-      .mockResolvedValue([
-        davResp({ href: "/books/default/1.vcf", props: { getetag: '"new-etag"' } }),
-      ]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
+    const davId = putAnswering(204, { ETag: '"new-etag"' });
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
     await session.updateCard(CARD_HREF, '"old"', VCARD);
@@ -811,39 +839,48 @@ describe("updateCard", () => {
       },
       convertIncoming: false,
       parseOutgoing: false,
+      fetch: expect.any(Function),
     });
   });
 
-  it("returns the re-PROPFIND etag after a successful PUT", async () => {
-    const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
-    const pfind = vi
-      .fn()
-      .mockResolvedValue([
-        davResp({ href: "/books/default/1.vcf", props: { getetag: '"new-etag"' } }),
-      ]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
+  it("returns the text sent with the PUT's strong ETag, without reading the card again", async () => {
+    const multiget = vi.fn();
+    const pfind = vi.fn();
+    mockCreateDAVClient.mockResolvedValue(
+      mockClient({
+        davRequest: putAnswering(204, { ETag: '"new-etag"' }),
+        addressBookMultiGet: multiget,
+        propfind: pfind,
+      }),
+    );
 
     const session = await createDavSession(AUTH);
     const result = await session.updateCard(CARD_HREF, '"old"', VCARD);
 
-    expect(result).toEqual({ href: CARD_HREF, etag: '"new-etag"' });
+    expect(result).toEqual({ href: CARD_HREF, etag: '"new-etag"', vcardText: VCARD });
+    expect(multiget).not.toHaveBeenCalled();
+    expect(pfind).not.toHaveBeenCalled();
   });
 
-  it("re-PROPFINDS depth 0 on the card href to get the fresh etag", async () => {
-    const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
-    const pfind = vi
-      .fn()
-      .mockResolvedValue([davResp({ href: "/books/default/1.vcf", props: { getetag: '"e"' } })]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
+  it.each([
+    ["no ETag", {}],
+    ["a weak ETag", { ETag: 'W/"weak"' }],
+  ])("reads text and ETag back together when the PUT gives %s", async (_name, headers) => {
+    const multiget = multigetAnswering("/books/default/1.vcf", SERVER_VCARD, '"server"');
+    mockCreateDAVClient.mockResolvedValue(
+      mockClient({ davRequest: putAnswering(204, headers), addressBookMultiGet: multiget }),
+    );
 
     const session = await createDavSession(AUTH);
-    await session.updateCard(CARD_HREF, '"old"', VCARD);
+    const result = await session.updateCard(CARD_HREF, '"old"', VCARD);
 
-    expect(pfind).toHaveBeenCalledWith({
-      url: CARD_HREF,
-      props: { "d:getetag": {} },
-      depth: "0",
+    expect(multiget).toHaveBeenCalledWith({
+      url: "http://localhost:3000/dav/books/default/",
+      props: { "d:getetag": {}, "card:address-data": {} },
+      depth: "1",
+      objectUrls: ["/books/default/1.vcf"],
     });
+    expect(result).toEqual({ href: CARD_HREF, etag: '"server"', vcardText: SERVER_VCARD });
   });
 
   it("throws CONFLICT when PUT returns 412", async () => {
@@ -987,23 +1024,109 @@ describe("updateCard", () => {
     });
   });
 
-  it("throws UNEXPECTED when re-PROPFIND returns a response without etag", async () => {
-    const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 200 })]);
-    const pfind = vi
-      .fn()
-      .mockResolvedValue([davResp({ href: "/books/default/1.vcf", props: { getetag: "" } })]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
+  it("throws UNEXPECTED when the card read back has no etag", async () => {
+    const multiget = multigetAnswering("/books/default/1.vcf", SERVER_VCARD, "");
+    mockCreateDAVClient.mockResolvedValue(
+      mockClient({ davRequest: putAnswering(204), addressBookMultiGet: multiget }),
+    );
 
     const session = await createDavSession(AUTH);
     await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
       code: "UNEXPECTED",
-      message: expect.stringContaining("missing an ETag after write"),
+      message: expect.stringContaining("missing an ETag"),
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// createCard — conditional PUT with If-None-Match: * + re-PROPFIND
+// Another client writing between Natel's PUT and what follows it (ADR 006)
+// ---------------------------------------------------------------------------
+
+describe("a write raced by another client", () => {
+  const HREF = "http://localhost:3000/dav/books/default/1.vcf";
+  const card = (note: string) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:1",
+      "FN:Alice",
+      "N:;Alice;;;",
+      `NOTE:${note}`,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  /**
+   * One card on a server where another client changes NOTE right after
+   * Natel's first PUT, before Natel's next request. `putEtag` says whether
+   * the server answers a PUT with the ETag it made.
+   */
+  function racedServer(putEtag: boolean) {
+    const server = { text: card("initial"), etag: '"v1"', puts: 0 };
+    const davRequest = vi.fn(async (args: PutArgs) => {
+      const ifMatch = args.init.headers["If-Match"];
+      const ifNoneMatch = args.init.headers["If-None-Match"];
+      if (ifNoneMatch === "*" ? server.etag !== "" : ifMatch !== server.etag) {
+        return [davResp({ ok: false, status: 412 })];
+      }
+      server.puts += 1;
+      server.text = args.init.body;
+      server.etag = `"natel-${server.puts}"`;
+      const made = server.etag;
+      if (server.puts === 1) {
+        server.text = server.text.replace(/NOTE:[^\r\n]*/, "NOTE:external-client");
+        server.etag = '"external"';
+      }
+      return answerPut(args, 204, putEtag ? { ETag: made } : {});
+    });
+    const addressBookMultiGet = vi.fn(async () => [
+      davResp({
+        href: "/books/default/1.vcf",
+        props: { getetag: server.etag, addressData: server.text },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest, addressBookMultiGet }));
+    return server;
+  }
+
+  /** Two saves the way the app chains them: each starts from what the last returned. */
+  async function twoSaves() {
+    const session = await createDavSession(AUTH);
+    const first = parse(card("initial"), HREF, '"v1"');
+    first.fields.title = "First save";
+    const saved = await session.updateCard(HREF, first.etag, serialise(first));
+    const second = parse(saved.vcardText, saved.href, saved.etag);
+    second.fields.org = "Second save";
+    return session.updateCard(HREF, second.etag, serialise(second));
+  }
+
+  it("refuses the next save when the PUT's ETag names Natel's own version", async () => {
+    const server = racedServer(true);
+    await expect(twoSaves()).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(parse(server.text).fields.note).toBe("external-client");
+  });
+
+  it("starts the next save from the other client's version when the PUT gives no ETag", async () => {
+    const server = racedServer(false);
+    await twoSaves();
+    const fields = parse(server.text).fields;
+    expect(fields.note).toBe("external-client");
+    expect(fields.title).toBe("First save");
+    expect(fields.org).toBe("Second save");
+  });
+
+  it("returns the other client's version after a create the PUT gives no ETag for", async () => {
+    const server = racedServer(false);
+    server.etag = "";
+    const session = await createDavSession(AUTH);
+    const created = await session.createCard(HREF, card("mine"));
+    expect(created.etag).toBe('"external"');
+    expect(parse(created.vcardText).fields.note).toBe("external-client");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createCard: conditional PUT with If-None-Match: *, then the version it left
 // ---------------------------------------------------------------------------
 
 describe("createCard", () => {
@@ -1012,14 +1135,8 @@ describe("createCard", () => {
     "http://localhost:3000/dav/books/default/00000000-0000-4000-8000-000000000000.vcf";
 
   it("PUTs the given href with If-None-Match: * and the raw vcard body", async () => {
-    const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 201 })]);
-    const pfind = vi.fn().mockResolvedValue([
-      davResp({
-        href: "/books/default/00000000-0000-4000-8000-000000000000.vcf",
-        props: { getetag: '"e"' },
-      }),
-    ]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
+    const davId = putAnswering(201, { ETag: '"e"' });
+    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
 
     const session = await createDavSession(AUTH);
     await session.createCard(CARD_HREF, VCARD);
@@ -1033,26 +1150,41 @@ describe("createCard", () => {
       },
       convertIncoming: false,
       parseOutgoing: false,
+      fetch: expect.any(Function),
     });
   });
 
-  it("returns the created href and re-PROPFIND etag", async () => {
-    const davId = vi.fn().mockResolvedValue([davResp({ ok: true, status: 201 })]);
-    const pfind = vi.fn().mockResolvedValue([
-      davResp({
-        href: "/books/default/00000000-0000-4000-8000-000000000000.vcf",
-        props: { getetag: '"new-e"' },
+  it("returns the created href with the text sent and the PUT's ETag", async () => {
+    const multiget = vi.fn();
+    mockCreateDAVClient.mockResolvedValue(
+      mockClient({
+        davRequest: putAnswering(201, { ETag: '"new-e"' }),
+        addressBookMultiGet: multiget,
       }),
-    ]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId, propfind: pfind }));
+    );
 
     const session = await createDavSession(AUTH);
     const result = await session.createCard(CARD_HREF, VCARD);
 
-    expect(result).toEqual({
-      href: CARD_HREF,
-      etag: '"new-e"',
-    });
+    expect(result).toEqual({ href: CARD_HREF, etag: '"new-e"', vcardText: VCARD });
+    expect(multiget).not.toHaveBeenCalled();
+  });
+
+  it("returns the card read back when the PUT gives no ETag", async () => {
+    const stored = VCARD.replace("END:VCARD", "PRODID:server\nEND:VCARD");
+    const multiget = multigetAnswering(
+      "/books/default/00000000-0000-4000-8000-000000000000.vcf",
+      stored,
+      '"read"',
+    );
+    mockCreateDAVClient.mockResolvedValue(
+      mockClient({ davRequest: putAnswering(201), addressBookMultiGet: multiget }),
+    );
+
+    const session = await createDavSession(AUTH);
+    const result = await session.createCard(CARD_HREF, VCARD);
+
+    expect(result).toEqual({ href: CARD_HREF, etag: '"read"', vcardText: stored });
   });
 
   it("throws CONFLICT when PUT returns 412", async () => {
@@ -1240,10 +1372,10 @@ describe("write ETag validation", () => {
   it.each(['""', '"*"', '"opaque,tag"', '"opaque\\tag"', '"latin-\u00e9"'])(
     "keeps a single strong tag %j verbatim",
     async (etag) => {
-      const propfind = vi
-        .fn()
-        .mockResolvedValue([davResp({ href: "/books/default/1.vcf", props: { getetag: etag } })]);
-      const client = mockClient({ propfind, davRequest: vi.fn().mockResolvedValue([davResp({})]) });
+      const davRequest = vi.fn((args: PutArgs) =>
+        args.fetch ? answerPut(args, 204, { ETag: etag }) : Promise.resolve([davResp({})]),
+      );
+      const client = mockClient({ davRequest });
       mockCreateDAVClient.mockResolvedValue(client);
       const session = await createDavSession(AUTH);
       const href = "http://localhost:3000/dav/books/default/1.vcf";

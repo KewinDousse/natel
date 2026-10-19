@@ -199,6 +199,69 @@ test("overwrites only the fields the user changed after a conflict", async ({ pa
   expectUnknownKept(saved);
 });
 
+/**
+ * Saves a phone number while another client changes ORG just after the PUT
+ * lands, before the app's next request. Without `keepEtag`, the PUT's answer
+ * loses its ETag, so the app has to read the card again. Resolves to whether
+ * the server's answer had an ETag.
+ */
+async function saveRacedByAnotherClient(page: Page, keepEtag: boolean): Promise<boolean> {
+  let raced = false;
+  let hadEtag = false;
+  await page.route("**/dav/**", async (route) => {
+    if (raced || route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
+    raced = true;
+    const response = await route.fetch();
+    const written = (await getCard("ada")) ?? "";
+    await putCard("ada", written.replace(/^ORG:.*$/im, "ORG:Difference Engines"));
+    const headers = response.headers();
+    hadEtag = headers.etag !== undefined;
+    if (!keepEtag) delete headers.etag;
+    await route.fulfill({ response, headers });
+  });
+  await signIn(page);
+  await openAda(page);
+  await startEditing(page);
+  await primaryPhoneInput(page).fill("+41 79 000 00 22");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  return hadEtag;
+}
+
+test("after a save, starts the next one from the card as the server has it", async ({ page }) => {
+  await saveRacedByAnotherClient(page, false);
+  await expect(page.getByText("Difference Engines").filter({ visible: true })).toBeVisible();
+
+  await startEditing(page);
+  await primaryPhoneInput(page).fill("+41 79 000 00 23");
+  // The first save's "Saved" may still be showing, so wait for the PUT itself.
+  const written = page.waitForResponse((response) => response.request().method() === "PUT");
+  await page.getByRole("button", { name: "Save" }).click();
+  await written;
+  const saved = await getCard("ada");
+  expect(saved).toContain("+41 79 000 00 23");
+  expect(saved).toContain("ORG:Difference Engines");
+  expectUnknownKept(saved);
+});
+
+test("after a save, a change made since its PUT is a conflict, not overwritten", async ({
+  page,
+}) => {
+  const hadEtag = await saveRacedByAnotherClient(page, true);
+  test.skip(!hadEtag, "the server sent no ETag for the PUT: the card is read again instead");
+
+  await startEditing(page);
+  await primaryPhoneInput(page).fill("+41 79 000 00 23");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
+  const saved = await getCard("ada");
+  expect(saved).toContain("ORG:Difference Engines");
+  expect(saved).toContain("+41 79 000 00 22");
+});
+
 test("deletes a contact after confirmation", async ({ page }) => {
   await signIn(page);
   await openAda(page);
