@@ -62,7 +62,7 @@ In a `compose.yaml`, set `CARDDAV_URL` to your server's origin
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.3.0
+    image: ghcr.io/kewindousse/natel:0.3.1
     environment:
       CARDDAV_URL: https://dav.example.com
     ports:

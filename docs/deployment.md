@@ -14,8 +14,8 @@ The examples below use the published image, which listens on port 8080.
 `ghcr.io/kewindousse/natel` is built for linux/amd64 and linux/arm64, with
 an `X.Y.Z` tag for each release, `X.Y` for the newest patch of each minor
 version, and `latest` for the most recently published release.
-Use an explicit `X.Y.Z` tag for a repeatable installation. Releases after
-`0.3.0` carry a provenance attestation, which checks that the image came
+Use an explicit `X.Y.Z` tag for a repeatable installation. Releases from
+`0.3.1` carry a provenance attestation, which checks that the image came
 from this repository's CI:
 
 ```sh
@@ -87,7 +87,7 @@ container must share a network with Traefik:
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.3.0
+    image: ghcr.io/kewindousse/natel:0.3.1
     environment:
       CARDDAV_URL: https://dav.example.com
       # Only Traefik reaches Natel, on their shared network: no port is published.
@@ -150,7 +150,7 @@ reads the API and would then fail:
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.3.0
+    image: ghcr.io/kewindousse/natel:0.3.1
     network_mode: host
     environment:
       CARDDAV_URL: https://dav.example.com

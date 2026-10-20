@@ -11,7 +11,7 @@ no contact database of its own.
 ## Docker Compose
 
 Change the image tag in your `compose.yaml` to the release you have chosen,
-such as `ghcr.io/kewindousse/natel:0.3.0`. With the repository's root
+such as `ghcr.io/kewindousse/natel:0.3.1`. With the repository's root
 `compose.yaml`, set it as `NATEL_IMAGE` in the `.env` file next to it
 instead. Then run:
 

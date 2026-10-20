@@ -6,6 +6,14 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-20
+
+### Added
+
+- Published images carry a provenance attestation:
+  `gh attestation verify oci://ghcr.io/kewindousse/natel:0.3.1 --owner KewinDousse`
+  checks that the image came from this repository's CI.
+
 ## [0.3.0] - 2026-10-20
 
 ### Added
