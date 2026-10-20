@@ -6,6 +6,11 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The header loses its red band along the top, a decoration the contact,
+  settings and new-contact screens on phones didn't have.
+
 ## [0.3.1] - 2026-10-20
 
 ### Fixed

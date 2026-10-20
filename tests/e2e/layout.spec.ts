@@ -55,8 +55,8 @@ test("keeps the header on one row above the search at every phone width, in both
       expect(search, `${width}px ${lang}`).not.toBeNull();
       if (plus && search) {
         expect(plus.y + plus.height, `${width}px ${lang}`).toBeLessThanOrEqual(search.y);
-        // Search sits right under the one 56px row, after the 6px band.
-        expect(search.y, `${width}px ${lang}`).toBeLessThan(6 + 56 + 8);
+        // Search sits right under the one 56px row.
+        expect(search.y, `${width}px ${lang}`).toBeLessThan(56 + 8);
       }
       expect(await horizontalOverflow(page), `${width}px ${lang}`).toBe(0);
     }

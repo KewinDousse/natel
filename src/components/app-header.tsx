@@ -1,14 +1,14 @@
 /**
- * AppHeader — brand band + bar (wordmark, book switcher, settings, new
- * contact, and a sync warning only when the book couldn't be reloaded) +
- * search row, per DESIGN.md "Header". Signing out is in the settings, so the
- * bar keeps its room for the book's name.
+ * AppHeader — bar (wordmark, book switcher, settings, new contact, and a
+ * sync warning only when the book couldn't be reloaded) + search row, per
+ * DESIGN.md "Header". Signing out is in the settings, so the bar keeps its
+ * room for the book's name.
  *
  * `--header-h` (defined in src/index.css :root) is the mobile header height
- * used by sticky group letters (`top-[var(--header-h)]`): band 0.375rem +
- * 56px bar + search row = 7.375rem, at every phone width. On lg+ the header is
- * static (`lg:static`) and the letters use `lg:top-2`, so the property is
- * only meaningful below lg.
+ * used by sticky group letters (`top-[var(--header-h)]`): 56px bar + search
+ * row = 7rem, at every phone width. On lg+ the header is static
+ * (`lg:static`) and the letters use `lg:top-2`, so the property is only
+ * meaningful below lg.
  */
 
 import { Link } from "@tanstack/react-router";
@@ -95,7 +95,6 @@ export function AppHeader({
         hiddenOnMobile && "max-lg:hidden",
       )}
     >
-      <div className="h-1.5 bg-brand" aria-hidden="true" />
       <div className="flex flex-wrap items-center gap-x-3 border-b px-4 lg:h-16 lg:flex-nowrap lg:gap-x-5 lg:px-6">
         {/* Zero basis: the book name truncates instead of pushing the actions
             onto a second row. */}

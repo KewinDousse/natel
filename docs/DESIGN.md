@@ -26,7 +26,7 @@ URL, no remote images — ever.
 ## Core rules
 
 1. **Directory grammar.** A contact row reads like a phone directory entry: the part the list sorts by in bold, the other after it, dotted leader, primary phone number right-aligned. The default sort is by first name (**Given** Family, ADR 026); by last name the row reads like a Swiss phone book, **Family** Given.
-2. **Red (`brand`) marks position, never action.** Allowed: wordmark, A–Z group letters, the 3px selection bar, the sign-in panel, the 6px top band. Forbidden: buttons, links, error states, icons meaning "delete".
+2. **Red (`brand`) marks position, never action.** Allowed: wordmark, A–Z group letters, the 3px selection bar, the sign-in panel. Forbidden: buttons, links, error states, icons meaning "delete".
 3. **Primary action = ink pill** (`bg-primary text-primary-foreground rounded-full`). Destructive actions use `destructive`, always with an icon and a text label.
 4. **Two typefaces, strict roles.** `font-display` (Big Shoulders 700) only at ≥ 32px: wordmark, group letters, screen and state titles. Everything else is `font-sans` (Work Sans 400/700, and 500 for the second part of a list name). Never Big Shoulders below 32px, except initials in avatars.
 5. **Numbers are tabular.** Phone numbers, dates, counts: `tabular` class (or inside `a[href^="tel:"]` / `<time>`, handled by the base layer).
@@ -54,9 +54,9 @@ The list's hierarchy follows what people look for: the name first, then its numb
 
 ## Layout
 
-**Desktop (`lg`, ≥ 1024px):** full-height grid. Header 6px `bg-brand` band + 64px bar. Below: list pane `minmax(26rem,34rem)` (own scroll, `border-r`) + detail pane `1fr` on `bg-muted` (own scroll). Detail content max width `44rem`.
+**Desktop (`lg`, ≥ 1024px):** full-height grid. Header 64px bar. Below: list pane `minmax(26rem,34rem)` (own scroll, `border-r`) + detail pane `1fr` on `bg-muted` (own scroll). Detail content max width `44rem`.
 
-**Mobile (< 1024px):** page scroll. Sticky header = band + 56px row (wordmark, address-book switcher, settings, round "+" button) + search row, on one row down to 320px. No detail pane: opening a contact is a separate route.
+**Mobile (< 1024px):** page scroll. Sticky header = 56px row (wordmark, address-book switcher, settings, round "+" button) + search row, on one row down to 320px. No detail pane: opening a contact is a separate route.
 
 Sticky offsets: use `--header-h` (exposed on the header) with `top-[var(--header-h)]`; do not hardcode pixel offsets.
 
@@ -65,7 +65,6 @@ Sticky offsets: use `--header-h` (exposed on the header) with `top-[var(--header
 Recipes below are the exact class sets from the references. Build them as React components; use shadcn primitives (Button, Input, DropdownMenu, Dialog, Sheet…) and restyle them with these classes rather than keeping shadcn's defaults.
 
 ### Header
-- Band: `h-1.5 bg-brand`.
 - Wordmark: `font-display text-wordmark font-bold` — plain text "Natel", ink colour in the app header (red only on the sign-in panel and the identity page).
 - Address-book switcher: `rounded-full px-2.5 h-8 text-sm font-bold text-muted-foreground hover:bg-muted` + chevron. On phones it takes the room the actions leave and truncates the book name, which the menu shows in full; the menu spans the header's width, 1rem from each edge.
 - Book menu, below the books and a separator (ADR 020): "Exporter « Contacts »" (download icon) saves the selected book as `<name>.vcf`, disabled (`aria-disabled`, muted, still focusable) while the book shows no contact; "Importer un fichier .vcf…" (upload icon) opens the file picker (`.vcf`, `text/vcard`). An export that fails says so in a toast.
@@ -274,10 +273,9 @@ holds earlier candidates, for reference only.
   Never a white N on a red tile.
 - In the app, the header wordmark stays live text (`font-display`), not an
   image.
-- `theme-color` is the brand red `#D8261D`, matching the band, and
-  `#121316` (the dark background) in dark mode, the system's or the one
-  chosen in the settings. The app serves no `og:`
-  tags: an instance is private.
+- `theme-color` is the brand red `#D8261D` in light mode, and `#121316`
+  (the dark background) in dark mode, the system's or the one chosen in the
+  settings. The app serves no `og:` tags: an instance is private.
 
 ## Dark mode
 

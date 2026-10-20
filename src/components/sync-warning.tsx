@@ -149,7 +149,7 @@ export function SyncWarning({
           {open && (
             <div
               id="sync-panel"
-              className="absolute inset-x-4 top-[calc(0.375rem+3.5rem)] z-30 rounded-lg bg-popover p-4 text-left shadow-float sm:inset-x-auto sm:right-0 sm:top-[calc(100%+0.375rem)] sm:w-80"
+              className="absolute inset-x-4 top-14 z-30 rounded-lg bg-popover p-4 text-left shadow-float sm:inset-x-auto sm:right-0 sm:top-[calc(100%+0.375rem)] sm:w-80"
             >
               <p className="text-sm font-bold">{label}</p>
               <p id="sync-panel-body" className="mt-1 text-sm leading-snug text-muted-foreground">

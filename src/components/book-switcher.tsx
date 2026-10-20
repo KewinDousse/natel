@@ -155,7 +155,7 @@ export function BookSwitcher({
           role="menu"
           aria-label={t("book_label")}
           onKeyDown={onMenuKeyDown}
-          className="absolute inset-x-4 top-[calc(0.375rem+3.5rem)] z-30 rounded-lg bg-popover py-1 shadow-float sm:inset-x-auto sm:left-0 sm:top-[calc(100%+0.375rem)] sm:min-w-[13rem]"
+          className="absolute inset-x-4 top-14 z-30 rounded-lg bg-popover py-1 shadow-float sm:inset-x-auto sm:left-0 sm:top-[calc(100%+0.375rem)] sm:min-w-[13rem]"
         >
           {books.map((book, index) => {
             const checked = book.href === selectedBook?.href;
