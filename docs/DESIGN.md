@@ -313,7 +313,7 @@ below, matches `data-theme="dark"`.
 ## Demo
 
 Only in the demo build (ADR 025), so a visitor always knows nothing is saved. It has two books, "Runeterra" and "Expédition 33" (ADR 027), so the book switcher and moving a contact have something to show.
-- Sign-in: under the form, one line on `bg-secondary` (`rounded-lg px-3.5 py-2.5 text-sm text-foreground`): "Démo : n'importe quel nom d'utilisateur et mot de passe fonctionnent. Rien n'est enregistré."
+- Sign-in: above the form, one line on `bg-secondary` (`rounded-lg px-3.5 py-2.5 text-sm text-foreground`): "Démo : n'importe quel nom d'utilisateur et mot de passe fonctionnent. Rien n'est enregistré."
 - The privacy note under the sign-in form says what holds in the demo, where nothing is sent to a server: "Dans cette démo, rien de ce que vous saisissez ne quitte votre navigateur."
 - Signed in: a "Démo" mark next to the wordmark (`rounded-full bg-secondary px-2 py-0.5 text-caption font-bold text-foreground`, the reminder in its `title`), and under the header bar one centred line in `text-caption text-muted-foreground`, bordered below like the bar, led by an info icon in `text-foreground` to draw the eye: "Démo : rien n'est enregistré, modifiez tout ce que vous voulez."
 - On phones, where a contact, a new contact or the settings replace the header, the mark sits in the top bar after "Contacts".

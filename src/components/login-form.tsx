@@ -91,6 +91,12 @@ export function LoginForm() {
         </p>
       )}
 
+      {IS_DEMO && (
+        <p className="mt-6 rounded-lg bg-secondary px-3.5 py-2.5 text-sm leading-snug text-foreground">
+          {t("demo_login")}
+        </p>
+      )}
+
       {formError && (
         <div
           className="mt-6 flex gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3.5 text-sm text-destructive"
@@ -192,12 +198,6 @@ export function LoginForm() {
           )}
         </button>
       </form>
-
-      {IS_DEMO && (
-        <p className="mt-5 rounded-lg bg-secondary px-3.5 py-2.5 text-sm leading-snug text-foreground">
-          {t("demo_login")}
-        </p>
-      )}
 
       <p className="mt-8 flex gap-2.5 border-t pt-5 text-sm leading-snug text-muted-foreground">
         <LockIcon className="mt-0.5 size-4" />
