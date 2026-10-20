@@ -76,7 +76,9 @@ README header that follows GitHub's light/dark theme:
 </picture>
 ```
 
-The social images and the README banners take up the sign-in panel: the red, the thumb-index tabs on the right edge (N–P stands out), the tagline and the giant wordmark, with no contact on them. The dark banners use the dark-mode red (`#A11F18`), as the sign-in panel does, so they don't glare.
+The social images and the README banners take up the sign-in panel: the red, the thumb-index tabs on the right edge (N–P stands out), the headline and the giant wordmark. The dark banners use the dark-mode red (`#A11F18`), as the sign-in panel does, so they don't glare.
+
+The social images leave the subline out: a shared preview is often shown at a third of its size or less, where it can't be read. Their headline sits beside the mark, and on the right a phone shows the demo's contact list: it says what Natel is, where the wordmark can't. The README banners show no contact.
 
 ## Tagline
 | | |
@@ -84,9 +86,12 @@ The social images and the README banners take up the sign-in panel: the red, the
 | Headline | The contact editor your CardDAV server is missing. |
 | Subline | A directory for your contacts, on your own server. |
 
-The headline says what Natel is and who it is for, people who already run a CardDAV server. The subline is the app's own `tagline` (`src/i18n/`), so the images and the sign-in panel say the same thing; the app shows only that line, since whoever reads it already uses Natel. Headline in Work Sans Bold, subline in Work Sans Regular at 85 % white.
+The headline says what Natel is and who it is for, people who already run a CardDAV server. The subline is the app's own `tagline` (`src/i18n/`), so the README banners and the sign-in panel say the same thing; the app shows only that line, since whoever reads it already uses Natel. Headline in Work Sans Bold, subline in Work Sans Regular at 85 % white.
 
 ## Regenerating
 The README banners and the social images (not the avatar) are rendered by `pnpm brand:images` (`scripts/brand-images.ts`), with Playwright: the text is set live in Work Sans, the mark and the wordmark come from `icon/` and `logo/`. The headline is in that script and the subline is read from `src/i18n/`, so new wording needs no redrawing. A language given a headline there gets its own banners and `og:image`; GitHub's social preview stays in English, like the README.
 
 The other PNGs are rendered from the SVGs in this folder: after editing an SVG, re-export it at the same pixel size.
+
+## Screenshots
+The README's screenshots (`docs/screenshots/`), the phone on the social images and the website's screenshots come from the demo build, signed in, with its reminders hidden: they show the app as someone using it sees it. `pnpm brand:images` builds the demo and renders them with the images above (`scripts/demo-screens.ts`). With `--site <dir>`, it also writes the website's set (`desktop-*` with Caitlyn Kiramman's page, `mobile-light*` and `mobile-dark*` on the list, `mobile-contact-*` on her page; light and dark, 1x and 2x) and its `og:image` into `<dir>`, the natel.app repository's `assets/img`; a relative path starts at the repository root. The phone on the social images shows the app in English, whatever the image's language.

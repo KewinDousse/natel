@@ -168,7 +168,9 @@ session/         natel-session (Go, standard library only): sign-in sessions,
                  forward_auth for /dav, Caddy's supervisor (ADR 032)
   dev-session.ts the same session contract on Vite's dev and preview servers
 scripts/
-  brand-images.ts  renders the brand images that carry text (`pnpm brand:images`)
+  brand-images.ts  renders the brand images that carry text and the README's
+                 screenshots (`pnpm brand:images`)
+  demo-screens.ts  screens of the demo build, signed in, without its reminders
   spike.ts       phase-1 exploration script, kept as documentation
 ```
 

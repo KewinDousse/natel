@@ -1,17 +1,22 @@
 /**
  * Renders the brand images that carry text (README banners, social images)
- * into docs/brand, from the mark, the wordmark and the app's fonts. Text is
+ * into docs/brand, from the mark, the wordmark and the app's fonts, and the
+ * README's screenshots into docs/screenshots, from the demo build. Text is
  * set live here rather than outlined in SVG, so new wording or a new language
  * is one entry below, not a redrawing.
  *
- * Usage: pnpm brand:images
+ * Usage: pnpm brand:images [--site <dir>]
+ * With --site, also writes the website's screenshots and og:image into <dir>,
+ * the natel.app repository's assets/img.
  */
 
 /// <reference types="node" />
 
-import { readFile } from "node:fs/promises";
+import { access, copyFile, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { chromium } from "@playwright/test";
+import { parseArgs } from "node:util";
+import { type Browser, chromium } from "@playwright/test";
+import { capture, type Screen, startDemo } from "./demo-screens.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const brand = resolve(root, "docs/brand");
@@ -49,7 +54,7 @@ function escapeHtml(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
 }
 
-type Assets = { font: string; mark: string; wordmark: string };
+type Assets = { font: string; mark: string; wordmark: string; phone: string };
 
 function tabs(red: string, label: number, line: number): string {
   const items = TABS.map(
@@ -72,9 +77,14 @@ body{background:${red};color:#fff;font-family:"Work Sans";position:relative;over
 </style></head><body>${body}</body></html>`;
 }
 
-/** Sign-in panel at full size: mark and subline, headline, giant wordmark. */
-function social(assets: Assets, lang: { headline: string; subline: string }, height: number) {
-  // The headline and wordmark sit 10 px lower on the taller GitHub preview.
+/**
+ * Mark with the headline balanced beside it, giant wordmark, and the contact
+ * list on a phone, which says what Natel is where the wordmark can't. No
+ * subline: shared previews are shown a third of their size or less, where it
+ * can't be read.
+ */
+function social(assets: Assets, headline: string, height: number) {
+  // The wordmark and the phone sit 10 px lower on the taller GitHub preview.
   const shift = height - 630;
   return page(
     assets,
@@ -82,9 +92,10 @@ function social(assets: Assets, lang: { headline: string; subline: string }, hei
     `${tabs(RED, 20, 1.5)}
 <div class="abs" style="left:80px;top:80px;width:111.2px;height:111.2px;border-radius:24.9px;background:#fff;padding:3.6px">
   <img src="${assets.mark}" width="104" height="104"></div>
-<p class="abs trim" style="left:219.2px;bottom:${height - 144.24}px;font-size:24px;opacity:.85;white-space:nowrap">${escapeHtml(lang.subline)}</p>
-<p class="abs trim" style="left:80px;bottom:${height - 291.52 - shift}px;font-size:34px;font-weight:700;white-space:nowrap">${escapeHtml(lang.headline)}</p>
-<img class="abs" src="${assets.wordmark}" style="left:80px;top:${327.52 + shift}px;width:528px;height:222.48px">`,
+<h1 class="abs boxed" style="left:227px;top:55.6px;width:540px;height:160px;display:flex;align-items:center;font-size:42px;line-height:50px;text-wrap:balance">${escapeHtml(headline)}</h1>
+<img class="abs" src="${assets.wordmark}" style="left:80px;top:${300 + shift}px;width:600px;height:252.81px">
+<div class="abs" style="right:122px;top:${80 + shift}px;width:286px;border-radius:44px;background:#111;padding:10px;box-shadow:0 24px 60px rgb(0 0 0 / 30%)">
+  <img src="${assets.phone}" style="display:block;width:266px;border-radius:34px"></div>`,
   );
 }
 
@@ -100,7 +111,85 @@ function banner(assets: Assets, lang: { headline: string; subline: string }, red
   );
 }
 
+/** The contact whose page the screenshots open. */
+const CAITLYN = "Caitlyn Kiramman";
+
+/** The README's screenshots, in docs/screenshots. */
+const README_SCREENS: Record<string, Screen> = {
+  "desktop.png": { width: 1280, height: 900, scale: 1, dark: false, contact: CAITLYN },
+  "mobile.png": { width: 390, height: 806, scale: 3, dark: false, contact: CAITLYN },
+};
+
+/**
+ * The website's screenshots, light and dark, at 1x and 2x: the desktop with
+ * Caitlyn Kiramman's page open, and the phone on the list and on her page, so
+ * a width that shows only phones still shows the directory.
+ */
+function siteScreens(): Record<string, Screen> {
+  const screens: Record<string, Screen> = {};
+  for (const [name, width, height, contact] of [
+    ["desktop", 1280, 900, CAITLYN],
+    ["mobile", 390, 806, undefined],
+    ["mobile-contact", 390, 806, CAITLYN],
+  ] as const) {
+    for (const dark of [false, true]) {
+      for (const scale of [1, 2]) {
+        const file = `${name}-${dark ? "dark" : "light"}${scale === 2 ? "@2x" : ""}.png`;
+        screens[file] = { width, height, scale, dark, contact };
+      }
+    }
+  }
+  return screens;
+}
+
 async function main() {
+  const { values } = parseArgs({ options: { site: { type: "string" } } });
+  // Fails before the build; pnpm runs from the repository root, where a relative path starts.
+  if (values.site) await access(values.site);
+  // Same browser as the e2e configs, which the web sandbox points elsewhere.
+  const browser = await chromium.launch({
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
+  });
+  try {
+    const demo = await startDemo(root);
+    let phone: Buffer;
+    try {
+      phone = await capture(browser, demo, {
+        width: 390,
+        height: 900,
+        scale: 3,
+        dark: false,
+      });
+      for (const [file, screen] of Object.entries(README_SCREENS)) {
+        await writeFile(
+          resolve(root, "docs/screenshots", file),
+          await capture(browser, demo, screen),
+        );
+        console.log(`screenshots/${file}`);
+      }
+      if (values.site) {
+        for (const [file, screen] of Object.entries(siteScreens())) {
+          await writeFile(resolve(values.site, file), await capture(browser, demo, screen));
+          console.log(`${values.site}/${file}`);
+        }
+      }
+    } finally {
+      await demo.close();
+    }
+    await render(browser, `data:image/png;base64,${phone.toString("base64")}`);
+    if (values.site) {
+      await copyFile(
+        resolve(brand, "social/og-image-en.png"),
+        resolve(values.site, "og-image-en.png"),
+      );
+      console.log(`${values.site}/og-image-en.png`);
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
+async function render(browser: Browser, phone: string) {
   const assets: Assets = {
     font: await dataUrl(
       resolve(
@@ -111,6 +200,7 @@ async function main() {
     ),
     mark: await dataUrl(resolve(brand, "icon/natel-mark.svg"), "image/svg+xml"),
     wordmark: await dataUrl(resolve(brand, "logo/natel-wordmark-white.svg"), "image/svg+xml"),
+    phone,
   };
   const shots: { file: string; width: number; height: number; html: string }[] = [];
   for (const [code, headline] of Object.entries(HEADLINES)) {
@@ -132,7 +222,7 @@ async function main() {
         file: `social/og-image-${code}.png`,
         width: 1200,
         height: 630,
-        html: social(assets, lang, 630),
+        html: social(assets, headline, 630),
       },
     );
     // GitHub takes a single social preview, in the README's language.
@@ -141,34 +231,31 @@ async function main() {
         file: "social/github-social-preview.png",
         width: 1280,
         height: 640,
-        html: social(assets, lang, 640),
+        html: social(assets, headline, 640),
       });
     }
   }
 
-  // Same browser as the e2e configs, which the web sandbox points elsewhere.
-  const browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
-  });
-  try {
-    for (const shot of shots) {
-      const tab = await browser.newPage({ viewport: { width: shot.width, height: shot.height } });
-      await tab.setContent(shot.html);
-      await tab.evaluate(() => document.fonts.ready);
-      // A longer wording would run under the tabs rather than wrap.
-      const overflow = await tab.evaluate(() => {
-        const tabs = document.querySelector(".tabs")?.getBoundingClientRect().left ?? Infinity;
-        return [...document.querySelectorAll("p, h1")].some(
+  for (const shot of shots) {
+    const tab = await browser.newPage({ viewport: { width: shot.width, height: shot.height } });
+    await tab.setContent(shot.html);
+    await tab.evaluate(() => document.fonts.ready);
+    // A longer wording would run under the tabs, or out of the social headline's box.
+    const overflow = await tab.evaluate(() => {
+      const tabs = document.querySelector(".tabs")?.getBoundingClientRect().left ?? Infinity;
+      return (
+        [...document.querySelectorAll("p, h1")].some(
           (text) => text.getBoundingClientRect().right > tabs,
-        );
-      });
-      if (overflow) throw new Error(`${shot.file}: text runs under the tabs`);
-      await tab.screenshot({ path: resolve(brand, shot.file) });
-      await tab.close();
-      console.log(shot.file);
-    }
-  } finally {
-    await browser.close();
+        ) ||
+        [...document.querySelectorAll(".boxed")].some(
+          (text) => text.scrollHeight > text.clientHeight || text.scrollWidth > text.clientWidth,
+        )
+      );
+    });
+    if (overflow) throw new Error(`${shot.file}: text runs out of its room`);
+    await tab.screenshot({ path: resolve(brand, shot.file) });
+    await tab.close();
+    console.log(shot.file);
   }
 }
 
