@@ -54,7 +54,7 @@ function escapeHtml(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
 }
 
-type Assets = { font: string; mark: string; wordmark: string; phone: string };
+type Assets = { font: string; favicon: string; wordmark: string; screen: string };
 
 function tabs(red: string, label: number, line: number): string {
   const items = TABS.map(
@@ -78,24 +78,28 @@ body{background:${red};color:#fff;font-family:"Work Sans";position:relative;over
 }
 
 /**
- * Mark with the headline balanced beside it, giant wordmark, and the contact
- * list on a phone, which says what Natel is where the wordmark can't. No
- * subline: shared previews are shown a third of their size or less, where it
- * can't be read.
+ * On one margin all round, also between the columns: the headline at the top
+ * left, the wordmark at the bottom left, and a whole browser window on the
+ * app's list and a contact's page on the right. No thumb-index tabs: they
+ * would leave the window too little room. A desktop rather than a phone: Natel
+ * is the editor a CardDAV server lacks in the browser, and a phone alone reads
+ * as a rival to the phone's own contacts app. No subline: shared previews are
+ * shown a third of their size or less, where it can't be read.
  */
-function social(assets: Assets, headline: string, height: number) {
-  // The wordmark and the phone sit 10 px lower on the taller GitHub preview.
-  const shift = height - 630;
+function social(assets: Assets, headline: string) {
+  const margin = 64;
+  const wordmark = { width: 420, height: 176.97 };
   return page(
     assets,
     RED,
-    `${tabs(RED, 20, 1.5)}
-<div class="abs" style="left:80px;top:80px;width:111.2px;height:111.2px;border-radius:24.9px;background:#fff;padding:3.6px">
-  <img src="${assets.mark}" width="104" height="104"></div>
-<h1 class="abs boxed" style="left:227px;top:55.6px;width:540px;height:160px;display:flex;align-items:center;font-size:42px;line-height:50px;text-wrap:balance">${escapeHtml(headline)}</h1>
-<img class="abs" src="${assets.wordmark}" style="left:80px;top:${300 + shift}px;width:600px;height:252.81px">
-<div class="abs" style="right:122px;top:${80 + shift}px;width:286px;border-radius:44px;background:#111;padding:10px;box-shadow:0 24px 60px rgb(0 0 0 / 30%)">
-  <img src="${assets.phone}" style="display:block;width:266px;border-radius:34px"></div>`,
+    `<h1 class="abs trim boxed" style="left:${margin}px;top:${margin}px;width:${wordmark.width}px;bottom:${margin + wordmark.height + 40}px;font-size:46px;line-height:54px;text-wrap:balance">${escapeHtml(headline)}</h1>
+<img class="abs" src="${assets.wordmark}" style="left:${margin}px;bottom:${margin}px;width:${wordmark.width}px;height:${wordmark.height}px">
+<div class="abs" style="left:${2 * margin + wordmark.width}px;right:${margin}px;top:${margin}px;bottom:${margin}px;display:flex;flex-direction:column;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 24px 60px rgb(0 0 0 / 30%)">
+  <div style="flex:none;height:34px;display:flex;align-items:center;gap:7px;padding:0 14px;background:#E9E9EC">
+    <i style="width:11px;height:11px;border-radius:50%;background:#C6C6CC"></i><i style="width:11px;height:11px;border-radius:50%;background:#C6C6CC"></i><i style="width:11px;height:11px;border-radius:50%;background:#C6C6CC"></i>
+    <span style="margin-left:16px;width:300px;height:22px;border-radius:11px;background:#fff;color:#55575E;font-size:12px;display:flex;align-items:center;gap:7px;padding:0 10px"><img src="${assets.favicon}" width="16" height="16" style="border-radius:4px;box-shadow:0 0 0 1px #D4D4DA">contacts.example.org</span>
+  </div>
+  <img src="${assets.screen}" style="display:block;width:100%"></div>`,
   );
 }
 
@@ -122,15 +126,13 @@ const README_SCREENS: Record<string, Screen> = {
 
 /**
  * The website's screenshots, light and dark, at 1x and 2x: the desktop with
- * Caitlyn Kiramman's page open, and the phone on the list and on her page, so
- * a width that shows only phones still shows the directory.
+ * Caitlyn Kiramman's page open, and the phone on the list.
  */
 function siteScreens(): Record<string, Screen> {
   const screens: Record<string, Screen> = {};
   for (const [name, width, height, contact] of [
     ["desktop", 1280, 900, CAITLYN],
     ["mobile", 390, 806, undefined],
-    ["mobile-contact", 390, 806, CAITLYN],
   ] as const) {
     for (const dark of [false, true]) {
       for (const scale of [1, 2]) {
@@ -152,13 +154,14 @@ async function main() {
   });
   try {
     const demo = await startDemo(root);
-    let phone: Buffer;
+    let screen: Buffer;
     try {
-      phone = await capture(browser, demo, {
-        width: 390,
-        height: 900,
-        scale: 3,
+      screen = await capture(browser, demo, {
+        width: 1024,
+        height: 800,
+        scale: 2,
         dark: false,
+        contact: CAITLYN,
       });
       for (const [file, screen] of Object.entries(README_SCREENS)) {
         await writeFile(
@@ -176,7 +179,7 @@ async function main() {
     } finally {
       await demo.close();
     }
-    await render(browser, `data:image/png;base64,${phone.toString("base64")}`);
+    await render(browser, `data:image/png;base64,${screen.toString("base64")}`);
     if (values.site) {
       await copyFile(
         resolve(brand, "social/og-image-en.png"),
@@ -189,7 +192,7 @@ async function main() {
   }
 }
 
-async function render(browser: Browser, phone: string) {
+async function render(browser: Browser, screen: string) {
   const assets: Assets = {
     font: await dataUrl(
       resolve(
@@ -198,9 +201,9 @@ async function render(browser: Browser, phone: string) {
       ),
       "font/woff2",
     ),
-    mark: await dataUrl(resolve(brand, "icon/natel-mark.svg"), "image/svg+xml"),
+    favicon: await dataUrl(resolve(brand, "favicon/favicon-16.svg"), "image/svg+xml"),
     wordmark: await dataUrl(resolve(brand, "logo/natel-wordmark-white.svg"), "image/svg+xml"),
-    phone,
+    screen,
   };
   const shots: { file: string; width: number; height: number; html: string }[] = [];
   for (const [code, headline] of Object.entries(HEADLINES)) {
@@ -222,7 +225,7 @@ async function render(browser: Browser, phone: string) {
         file: `social/og-image-${code}.png`,
         width: 1200,
         height: 630,
-        html: social(assets, headline, 630),
+        html: social(assets, headline),
       },
     );
     // GitHub takes a single social preview, in the README's language.
@@ -231,7 +234,7 @@ async function render(browser: Browser, phone: string) {
         file: "social/github-social-preview.png",
         width: 1280,
         height: 640,
-        html: social(assets, headline, 640),
+        html: social(assets, headline),
       });
     }
   }
