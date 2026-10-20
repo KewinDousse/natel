@@ -84,9 +84,8 @@ function ContactRow({
     <li>
       {/*
         The router's Link marks the active row with aria-current="page" and
-        data-status="active"; the design's aria-[current=true] classes target
-        that attribute, so the "true" token is matched through data-status
-        instead (same a11y contract, styles live on the router's marker).
+        data-status="active"; the selection styles key on data-status, which
+        only the active row carries.
       */}
       <Link
         to="/contacts/$id"

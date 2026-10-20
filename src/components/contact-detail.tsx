@@ -4,8 +4,8 @@
  * muted empty state. On mobile the pane replaces the list (max-lg:hidden).
  *
  * The pane keeps only scroll/layout chrome: the mobile 56px top bar and the
- * padded content wrapper live in the contact page itself (DESIGN.md page
- * skeleton item 1), so there is exactly one back mechanism.
+ * padded content wrapper live in the contact page itself (DESIGN.md "Reading
+ * view, top to bottom", item 1), so there is exactly one back mechanism.
  */
 
 import type { ReactNode } from "react";

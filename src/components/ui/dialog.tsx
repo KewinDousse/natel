@@ -1,5 +1,5 @@
 /**
- * Dialog — the modal shell every dialog shares (DESIGN.md "Discard dialog"):
+ * Dialog — the modal shell every dialog shares (DESIGN.md "States", Dialogs):
  * dimmed backdrop, bottom sheet on phones and centred panel from `sm`, a
  * `font-display` title, and Tab kept inside the panel. Each dialog keeps its
  * own initial focus, Esc handling and actions.
