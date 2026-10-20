@@ -14,9 +14,9 @@ The examples below use the published image, which listens on port 8080.
 `ghcr.io/kewindousse/natel` is built for linux/amd64 and linux/arm64, with
 an `X.Y.Z` tag for each release, `X.Y` for the newest patch of each minor
 version, and `latest` for the most recently published release.
-Use an explicit `X.Y.Z` tag for a repeatable installation. Releases from
-`0.3.1` carry a provenance attestation, which checks that the image came
-from this repository's CI:
+Use an explicit `X.Y.Z` tag for a repeatable installation. Each release
+carries a provenance attestation, which checks that the image came from
+this repository's CI:
 
 ```sh
 gh attestation verify oci://ghcr.io/kewindousse/natel:X.Y.Z --owner KewinDousse
