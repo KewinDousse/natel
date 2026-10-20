@@ -21,7 +21,7 @@ import { capture, type Screen, startDemo } from "./demo-screens.ts";
 const root = resolve(import.meta.dirname, "..");
 const brand = resolve(root, "docs/brand");
 
-/** Headline per language; the subline is the app's own `tagline`. */
+/** Headline per language. */
 const HEADLINES: Record<string, string> = {
   en: "The contact editor your CardDAV server is missing.",
 };
@@ -34,20 +34,6 @@ const CURRENT_TAB = "N–P";
 
 async function dataUrl(path: string, type: string): Promise<string> {
   return `data:${type};base64,${(await readFile(path)).toString("base64")}`;
-}
-
-async function subline(lang: string): Promise<string> {
-  const messages: unknown = JSON.parse(
-    await readFile(resolve(root, `src/i18n/${lang}.json`), "utf8"),
-  );
-  const tagline =
-    typeof messages === "object" && messages !== null && "tagline" in messages
-      ? messages.tagline
-      : undefined;
-  if (typeof tagline !== "string" || tagline === "") {
-    throw new Error(`src/i18n/${lang}.json has no tagline`);
-  }
-  return tagline;
 }
 
 function escapeHtml(text: string): string {
@@ -103,15 +89,19 @@ function social(assets: Assets, headline: string) {
   );
 }
 
-/** README banner: wordmark on the left, headline over two lines and subline beside it. */
-function banner(assets: Assets, lang: { headline: string; subline: string }, red: string) {
+/**
+ * README banner: wordmark on the left, headline over two lines beside it,
+ * centred on the wordmark. No subline: on a phone the banner shrinks to a
+ * third of its size or less, where it can't be read.
+ */
+function banner(assets: Assets, headline: string, red: string) {
   return page(
     assets,
     red,
     `${tabs(red, 17, 1)}
 <img class="abs" src="${assets.wordmark}" style="left:80px;top:90px;width:336px;height:141.58px">
-<h1 class="abs trim" style="left:464px;top:90px;width:600px;font-size:34px;line-height:44px;text-wrap:balance">${escapeHtml(lang.headline)}</h1>
-<p class="abs trim" style="left:464px;bottom:90px;font-size:24px;opacity:.85;white-space:nowrap">${escapeHtml(lang.subline)}</p>`,
+<div class="abs" style="left:464px;top:90px;width:640px;height:141.58px;display:flex;align-items:center">
+  <h1 class="trim" style="font-size:44px;line-height:54px;text-wrap:balance">${escapeHtml(headline)}</h1></div>`,
   );
 }
 
@@ -207,19 +197,18 @@ async function render(browser: Browser, screen: string) {
   };
   const shots: { file: string; width: number; height: number; html: string }[] = [];
   for (const [code, headline] of Object.entries(HEADLINES)) {
-    const lang = { headline, subline: await subline(code) };
     shots.push(
       {
         file: `readme/banner-light-${code}.png`,
         width: 1280,
         height: 320,
-        html: banner(assets, lang, RED),
+        html: banner(assets, headline, RED),
       },
       {
         file: `readme/banner-dark-${code}.png`,
         width: 1280,
         height: 320,
-        html: banner(assets, lang, RED_DARK),
+        html: banner(assets, headline, RED_DARK),
       },
       {
         file: `social/og-image-${code}.png`,
@@ -247,7 +236,7 @@ async function render(browser: Browser, screen: string) {
     const overflow = await tab.evaluate(() => {
       const tabs = document.querySelector(".tabs")?.getBoundingClientRect().left ?? Infinity;
       return (
-        [...document.querySelectorAll("p, h1")].some(
+        [...document.querySelectorAll("h1")].some(
           (text) => text.getBoundingClientRect().right > tabs,
         ) ||
         [...document.querySelectorAll(".boxed")].some(
