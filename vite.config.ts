@@ -27,6 +27,8 @@ const demoUrl = process.env.DEMO_URL;
 // Resolved against it, a URL without the trailing slash loses its last segment.
 if (demoUrl && !demoUrl.endsWith("/")) throw new Error("DEMO_URL must end with /");
 
+// The source revision the settings page shows. The image's build has no .git
+// (.dockerignore), so it gets one only from NATEL_REVISION, as CI passes it.
 export function buildRevision(): string {
   if (process.env.NATEL_REVISION) return process.env.NATEL_REVISION;
   try {
