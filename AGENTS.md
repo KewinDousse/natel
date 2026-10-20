@@ -72,7 +72,7 @@ instead of adding it.
   to pass there too (see CONTRIBUTING.md).
 - New behaviour gets a test. Bug fixes get a regression test first.
 - Do not modify files under `tests/fixtures/` except to add new fixtures.
-- Do not edit `README.md`, `docs/ROADMAP.md`, or this file unless the task says so.
+- Do not edit `README.md` or this file unless the task says so.
 - Commit messages: imperative, one line, explain *why* when not obvious.
 
 ## Code conventions
@@ -126,8 +126,8 @@ never merges it and moves on. The maintainer merging it accepts the
 decision: once an ADR naming the sub-issue is in `docs/DECISIONS.md`, the
 step goes straight to implementation.
 
-The sub-issue is the task in the « Workflow » sense above: `README.md`, `docs/ROADMAP.md`
-and `AGENTS.md` are in scope only when it names them. Recording in
+The sub-issue is the task in the « Workflow » sense above: `README.md` and
+`AGENTS.md` are in scope only when it names them. Recording in
 `docs/DECISIONS.md` a workaround the step needs, as invariant 6 requires, is
 always in scope; choosing between behaviours is a question.
 
@@ -159,7 +159,7 @@ only when it was a real candidate, in one line with its reason.
    of the session's context. The session gives it the sub-issue's body and
    any maintainer answer that changes it; it reads `AGENTS.md`,
    `docs/ARCHITECTURE.md`, `docs/DESIGN.md` for UI work, and follows
-   `docs/REVIEW.md`.
+   « Reviewing a change » below.
 5. Fix every blocking or major item, fix minor ones or say why not, then have
    the new diff reviewed again: at most four rounds, and one for process
    documents such as this one, which are refined through use. A blocking
@@ -183,6 +183,28 @@ only when it was a real candidate, in one line with its reason.
 
 Never merge on red CI and never re-run it hoping for green: fix the failure
 within the step, or, when it lies outside, ask the maintainer about it.
+
+## Reviewing a change
+
+The reviewer, the subagent of step 4 or a human, never modifies files. It
+reviews `git diff origin/main...HEAD` (or the base it is given) for the
+task it is given, checking in this order:
+
+1. The invariants above.
+2. `docs/ARCHITECTURE.md`: layout, dependency direction, `tsdav` or
+   `ical.js` imported outside `src/dav/` and `src/vcard/`.
+3. Dependencies or configuration outside the stack above.
+4. Weakened guardrails: tsconfig, Biome rules, skipped or altered tests.
+5. Correctness, especially around ETags, error handling and empty cases.
+6. Scope creep: changes the task doesn't need.
+
+It outputs only a list ordered by severity, one item per line:
+`severity — file:line — problem in one sentence — fix in one sentence`,
+where severity is **blocking** (data loss, invariant violation, broken
+build or tests), **major** (bug, architecture deviation, disallowed
+dependency) or **minor** (style, naming, small improvements). With nothing
+blocking or major, its first line says so. No praise, no summary of the
+diff, no feature ideas.
 
 ## Asking the maintainer
 

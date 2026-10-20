@@ -14,7 +14,7 @@ gives you nowhere to edit them in a browser. Natel fills that gap: one small
 container, contacts only, pointed at the server you already run.
 
 **[Try the demo](https://demo.natel.app/)** (made-up contacts, edits reset
-on reload) · [Quick start](#quick-start) · [Documentation](docs/README.md)
+on reload) · [Quick start](#quick-start) · [Documentation](#documentation-and-help)
 
 <p>
   <img alt="The contact list and a contact's page, on a desktop screen." src="docs/screenshots/desktop.png" width="74%">
@@ -25,7 +25,8 @@ on reload) · [Quick start](#quick-start) · [Documentation](docs/README.md)
 > Natel is alpha software, and it edits the contacts your other devices
 > sync. Before your first edit, export each address book from the
 > address-book menu, or back up your CardDAV server. The
-> [roadmap](docs/ROADMAP.md) lists what remains to validate.
+> [compatibility notes](docs/compatibility.md) list what is tested and what
+> remains to check.
 
 ## Why Natel
 
@@ -93,24 +94,27 @@ local only: to reach Natel from other machines, serve it over HTTPS as the
 Proxy Manager examples. Natel also [runs without Docker](docs/bare-metal.md).
 
 Keep an explicit version tag, and read the [changelog](CHANGELOG.md) before
-[updating](docs/updating.md).
+[updating](docs/deployment.md#updating).
 
 ## Documentation and help
 
 - [User guide](docs/user-guide.md): contacts, photos, groups, conflicts and sign-out.
 - [Compatibility](docs/compatibility.md): tested servers and clients, group formats,
   browsers and known limits.
-- [Deployment](docs/deployment.md) and [updates](docs/updating.md).
+- [Deployment and updates](docs/deployment.md), also
+  [without Docker](docs/bare-metal.md).
 - [Troubleshooting](docs/troubleshooting.md): sign-in, discovery, photos and support.
 - [Issues](https://github.com/KewinDousse/natel/issues/new/choose) for bugs and feature requests.
 - [Security](.github/SECURITY.md): report vulnerabilities privately.
 
 ## Scope
 
-Natel is a contacts client and stays one: no calendars, tasks or mail, and
-no server-side database. The UI edits a subset of vCard fields and keeps
-the others. Offline use, duplicate merging and delegated authentication are
-not implemented.
+Natel is a contacts client and stays one: no calendars, tasks or mail, no
+accounts or permissions of its own, and no contacts or credentials stored
+on the server: sign-in sessions live in memory only. The UI edits a subset of vCard
+fields and keeps the others. Offline use, incremental sync, duplicate
+merging, delegated authentication and limits on password guessing are not
+implemented.
 
 ## Contributing
 

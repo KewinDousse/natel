@@ -226,8 +226,7 @@ cookie. Every `/dav` request carries the cookie, and the proxy gets its
 `Authorization` from `natel-session` (ADR 032). The Zustand store holds only
 the username. At startup the app asks `GET /session`, so a reload stays
 signed in; a session ends after 12 hours idle, 7 days after sign-in, on
-sign-out (`DELETE /session`) or when the container restarts. Delegated auth
-remains on the roadmap (phase 4).
+sign-out (`DELETE /session`) or when the container restarts.
 
 ## Search
 

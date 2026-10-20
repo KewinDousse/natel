@@ -1,5 +1,5 @@
 /**
- * Contacts layout route — the Phase 2 directory screen. Thin: composes the
+ * Contacts layout route — the directory screen. Thin: composes the
  * header, list pane and detail pane, and owns the search/sort state that both
  * panes share. All grouping/search logic lives in src/lib/contact-list.ts.
  */

@@ -176,3 +176,35 @@ Natel is static files, a Caddyfile and a small Go binary, so it runs on any
 machine with Caddy.
 [bare-metal.md](bare-metal.md) covers the build, the settings, and
 the defaults to change for it to stay safe.
+
+## Updating
+
+Read the target version's entry in the [changelog](../CHANGELOG.md),
+including any port or volume changes.
+Save open edits and export the address books you want to back up. For a
+complete backup, use your CardDAV server's own backup procedure: Natel has
+no contact database of its own.
+
+Change the image tag in your `compose.yaml` to the release you have chosen,
+such as `ghcr.io/kewindousse/natel:0.3.1`. With the repository's root
+`compose.yaml`, set it as `NATEL_IMAGE` in the `.env` file next to it
+instead. Then run:
+
+```sh
+docker compose pull
+docker compose up -d --no-build
+```
+
+The new container starts without sessions: reload Natel and sign in again.
+Check that the selected book loads and try an edit on a made-up contact.
+Display preferences stay in this browser.
+
+To return to a previous image, restore its tag and run the same commands.
+Check its release notes for compatibility with your deployment. Changing
+the Natel image does not undo edits made on the CardDAV server; restore
+those through that server's backup procedure if needed.
+
+For a source build, check out the chosen revision and run
+`docker compose up -d --build` with the root `compose.yaml`, leaving
+`NATEL_IMAGE` unset. Without Docker, see
+[bare-metal.md](bare-metal.md#update).

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/session";
 
 /**
- * Sign-in screen — first screen of Phase 2.
+ * Sign-in screen.
  *
  * Layout and classes come from the design handoff "Sign-in screen" section
  * (natel-design/natel-annuaire-login.html). The red panel is the only place
