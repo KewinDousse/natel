@@ -6,21 +6,27 @@ decision, and the consequences. A rejected alternative is named only when
 it was a real candidate, in one line with its reason. An entry records what
 was decided and why; how it is built belongs in the code, its tests,
 ARCHITECTURE.md or DESIGN.md. A decision that changes gets a new entry, and
-the old one says which entry amends or replaces it.
+the old one says which entry amends or replaces it. Each part opens its own
+paragraph with its name in bold. The order is **Context.**, **Decision.**,
+then **Rejected.** when an alternative is named, and **Consequences.**
 
 ## 001 — Contacts only
 
 **Context.** InfCloud bundles CalDAV and CardDAV. The author doesn't use the
 calendar, and calendar UIs are an order of magnitude more work.
+
 **Decision.** No calendar, ever. It's in the README scope and AGENTS.md invariants.
+
 **Consequences.** Smaller scope, clearer positioning, a smaller audience by design.
 
 ## 002 — Static SPA + Caddy, no backend
 
 **Context.** Goal is minimal memory footprint and trivial deployment. CardDAV
 servers send no CORS headers, so a browser client needs same-origin access.
+
 **Decision.** Vite static build served by Caddy, which also reverse-proxies
 `/dav/*`. No Node runtime, no database.
+
 **Consequences.** A small image and little RAM. Features that need server
 state are excluded or done client-side. Amended by ADR 032, which adds a
 session process.
@@ -30,15 +36,19 @@ session process.
 **Context.** Author's day-to-day framework is Next.js, but the code will mostly
 be written by an agent under supervision. Next in `output: 'export'` is a
 minority mode with dynamic-route friction and a constant pull toward server features.
+
 **Decision.** Vite + React + TanStack Router/Query.
+
 **Consequences.** Most conventional SPA stack; agents know it best; no export
 quirks; PWA tooling is simpler. Slight learning curve on TanStack Router.
 
 ## 004 — tsdav + ical.js, no hand-written protocol code
 
 **Context.** CardDAV discovery and vCard parsing are full of edge cases.
+
 **Decision.** Wrap `tsdav` in `src/dav/` and `ical.js` in `src/vcard/`; nothing
 else imports them.
+
 **Consequences.** If either library proves inadequate, the swap is contained
 to one module.
 
@@ -46,16 +56,20 @@ to one module.
 
 **Context.** CardDavMATE/InfCloud are known to corrupt photo encoding for other
 clients. Data loss is the worst failure mode for a contacts editor.
+
 **Decision.** The UI edits a fixed subset; everything else round-trips untouched.
 Round-trip tests over real fixtures are a merge gate.
+
 **Consequences.** Some properties are visible but not editable in the UI. That
 is acceptable and documented.
 
 ## 006 — Conditional writes, explicit conflict UI
 
 **Context.** Users edit the same book from their phone (DAVx⁵) and the web.
+
 **Decision.** Every write uses `If-Match`. `412` shows a conflict view; no
 automatic merge in v0.x.
+
 **Consequences.** Slightly more UI work in the MVP; zero silent overwrites.
 
 ## 007 — Credentials in memory only
@@ -66,7 +80,9 @@ reload no longer signs out.
 ## 008 — vCard 3.0 default
 
 **Context.** Baïkal and DAVx⁵ default to 3.0; Apple clients too.
+
 **Decision.** Never change a card's version on save. Create new cards as 3.0.
+
 **Consequences.** Some 4.0-only properties won't be authorable from the UI. Fine.
 
 ## 009 — /dav URL contract: proxy strip prefix
@@ -74,10 +90,12 @@ reload no longer signs out.
 **Context.** Caddy in production and Vite in development both have to reach
 the CardDAV server's own paths (`/dav.php/principals/`…) under one `/dav`
 prefix.
+
 **Decision.** `CARDDAV_URL` and `VITE_DAV_URL` are origins only
 (`scheme://host[:port]`), since a Caddy upstream can't carry a path. A
 request to `/dav/<path>` reaches the server's `/<path>`: both proxies strip
 `/dav` and nothing else.
+
 **Consequences.** The app uses the same URLs in development and production.
 Caddy's and Vite's proxies must keep the same rules.
 
@@ -85,8 +103,10 @@ Caddy's and Vite's proxies must keep the same rules.
 
 **Context.** The repo was set up without a license or name committed, leaving
 both as open questions through phase 0.
+
 **Decision.** MIT license (maximum adoption, aligned with InfCloud's
 predecessor licensing philosophy) and the name "Natel".
+
 **Consequences.** MIT allows unrestricted use, modification, and
 redistribution. The name is short and available on npm/Docker Hub.
 
@@ -94,12 +114,14 @@ redistribution. The name is short and available on npm/Docker Hub.
 
 **Context.** Phase 1's exit criterion: real vCards round-trip through the
 parser.
+
 **Decision.** Met. 387 vCards (381 from Baïkal and DAVx⁵, 6 synthetic)
 round-trip in `tests/vcard/` with the same properties and, once folding and
 known ical.js differences are normalised, the same bytes. On 2026-09-23, a
 live Baïkal (sabre/dav 4.7.0) answered 412 to a stale `If-Match`, and the
 Caddy image proxied CardDAV with Basic Auth. `scripts/spike.ts` reruns the
 live check.
+
 **Consequences.** MVP work started on this parser.
 
 ## 012 — ical.js BDAY normalisation on vCard 3.0
@@ -107,10 +129,12 @@ live check.
 **Context.** On vCard 3.0, ical.js types every `BDAY` as a date and drops
 `VALUE`, so a free-text birthday (`circa 1987`) made the whole card fail to
 parse, or came out mangled.
+
 **Decision.** `retypeTextBirthdays` in `src/vcard/` retypes, right after
 parsing, a `BDAY` that isn't a date as text, kept as written. A birthday
 whose parts don't change is not touched on save. A digit-only text birthday
 written back as a date (`VALUE=DATE:1950`) is accepted: it means the same.
+
 **Consequences.** Free-text birthdays show and survive a save of any other
 field; only typing date parts replaces them. vCard 4.0 is not affected.
 
@@ -119,8 +143,10 @@ field; only typing date parts replaces them. vCard 4.0 is not affected.
 **Context.** On a 412, the overwrite refetches the card and writes it again.
 Applying the whole draft reverted fields changed elsewhere that the user
 never touched.
+
 **Decision.** The overwrite applies only the fields the user changed
 (`dirtyDiff`); the others keep the server's values.
+
 **Consequences.** "My version" means "my changes": a field changed on both
 sides is still overwritten, as the button says. A phone or e-mail list the
 user changed is written whole, since rows match by position.
@@ -130,9 +156,11 @@ user changed is written whole, since rows match by position.
 **Context.** A sign-in form taking any server URL would let anyone use a
 public Natel to reach any CardDAV server, and would need CORS, which Baïkal
 doesn't send.
+
 **Decision.** The server is configuration: `CARDDAV_URL`, or `VITE_DAV_URL` in
 development. Sign-in asks only for a username and password, and the app
 talks only to its own `/dav`.
+
 **Consequences.** One Natel serves one CardDAV server. A connection error is
 wrong credentials or a server the proxy can't reach, never CORS.
 
@@ -141,6 +169,7 @@ wrong credentials or a server the proxy can't reach, never CORS.
 **Context.** Behind `/dav`, servers answer with hrefs and redirects in their
 own URL space (`/dav.php/principals/alice/`), which lead the browser out of
 `/dav`, and tsdav's discovery can't follow a redirect in a browser.
+
 **Decision.**
 - Natel discovers books itself (`src/dav/internal.ts`, RFC 6764 and
   RFC 6352): `current-user-principal`, `addressbook-home-set`, then the
@@ -162,11 +191,14 @@ two extra PROPFINDs at sign-in. Caddy and Vite must keep the same rules.
 **Context.** When a create's PUT lands but its answer is lost, the user saves
 again. With a random href, the retry made a second card with the same UID,
 which servers refuse with an unclear error.
+
 **Decision.** A new card's href is `<uid>.vcf`, so a retry hits the same
 resource and gets a 412, shown with a message saying the contact already
 exists.
+
 **Rejected.** Recovering that 412 automatically: invariant 5 holds without
 exception, and every 412 reaches the user.
+
 **Consequences.** A lost answer never duplicates a contact; the user reloads
 to see it.
 
@@ -174,10 +206,12 @@ to see it.
 
 **Context.** The cloud sandboxes where agents work have no Docker, but have
 Python and a Chromium.
+
 **Decision.** `pnpm e2e` runs Radicale from pip (`tests/e2e/radicale.sh`,
 pinned), on fresh storage, against the production bundle served by
 `vite preview`. Every test empties the book first. A sandbox points
 Playwright at its own Chromium (`PLAYWRIGHT_CHROMIUM_EXECUTABLE`).
+
 **Consequences.** Running e2e locally needs Python 3. Other servers reuse the
 suite on the same port.
 
@@ -185,6 +219,7 @@ suite on the same port.
 
 **Context.** The e2e suite runs against Radicale, Baïkal and Xandikos; the
 last two don't install from pip.
+
 **Decision.**
 - Baïkal runs from a pinned community image, `ckulka/baikal:0.10.1-nginx`,
   its installer skipped by writing its config and a SQLite database holding
@@ -196,6 +231,7 @@ last two don't install from pip.
 
 **Rejected.** Nextcloud: minutes of setup per job, for the same sabre/dav as
 Baïkal.
+
 **Consequences.** CI runs one e2e job per server. The Baïkal leg needs Docker
 locally; Radicale stays the default.
 
@@ -204,6 +240,7 @@ locally; Radicale stays the default.
 **Context.** The language switch had no room in the phone header, more
 languages and display settings were coming, and a choice held in memory was
 lost on reload.
+
 **Decision.**
 - Each display preference defaults to the browser's: for the language, the
   first of `navigator.languages` Natel supports, else French.
@@ -224,6 +261,7 @@ entry in `locales`.
 
 **Context.** An imported file often holds cards the book already has: an
 export imported back, or a rerun after an import cut short.
+
 **Decision.**
 - Import sends each card's original text, never a re-serialised one, to
   `<uid>.vcf` with `If-None-Match: *`. A card without a UID gets one.
@@ -239,6 +277,7 @@ export imported back, or a rerun after an import cut short.
 hasn't seen (invariant 5). Importing a copy with a new UID: an export
 imported back would double the book. Asking for each card: that is duplicate
 merging, planned later.
+
 **Consequences.** An import can be rerun safely. A card that changed in the
 file isn't updated. A card added elsewhere since the book loaded shows as
 failed (a 412), and a reload settles it.
@@ -248,6 +287,7 @@ failed (a 412), and a reload settles it.
 **Context.** CardDAV has no move between books that servers agree on, so a
 move is a create in the target, then a conditional delete in the source, and
 either step can fail or lose its answer.
+
 **Decision.**
 - The move fetches the card again and stops with the conflict box, writing
   nothing, if its ETag changed since the edit started. The card's text goes
@@ -273,6 +313,7 @@ moment the same UID exists in two books, which RFC 6352 allows.
 on the contact's card (Nextcloud, Thunderbird add-ons, DAVx⁵ in categories
 mode), and separate group cards listing members by UID (Apple, iCloud, DAVx⁵
 by default).
+
 **Decision.**
 - A group card is a group, not a contact, and stays out of the list. Groups
   match by name, trimmed and case-sensitive, across both forms.
@@ -338,9 +379,11 @@ Google Contacts; Apple devices are not checked yet.
 **Context.** Radicale escapes every semicolon in text (`NOTE:a\;b`), as
 RFC 2426 asks, but ical.js decodes `\;` only in structured values such as
 `N`. Natel showed `a\;b`, and each save added a backslash.
+
 **Decision.** `decodeEscapedSemicolons` in `src/vcard/`, a named workaround,
 makes ical.js decode `\;` in plain text and 4.0 `uri` values too. Writing is
 unchanged: ical.js writes `;` unescaped, which RFC 6350 allows.
+
 **Consequences.** A semicolon shows and saves as typed, on every server. An
 untouched `\;` is written back as `;`, an accepted normalisation. Backslashes
 that earlier saves piled up stay, except in a 4.0 photo's data URI, which
@@ -351,6 +394,7 @@ that earlier saves piled up stay, except in a 4.0 photo's data URI, which
 **Context.** The launch needs a public demo. A real server reset nightly
 would mean hosting one and exposing it to launch traffic, which the
 maintainer declined.
+
 **Decision.**
 - `src/dav/demo.ts` implements `src/dav/`'s API in memory, per tab: the same
   functions and `DavError`, ETags and `If-Match` checked as a server would,
@@ -368,6 +412,7 @@ maintainer declined.
 **Rejected.** A service worker answering as a CardDAV server: a PROPFIND and
 REPORT responder to write. Mock Service Worker: a dependency for the demo
 alone. Stubbing the query hooks: it would leave `src/vcard/` and saving out.
+
 **Consequences.** The demo shows the whole UI, editing included, at no
 hosting cost, but not compatibility with a real server, which the e2e matrix
 covers. A change to `src/dav/`'s API must change `demo.ts`, and the compiler
@@ -379,6 +424,7 @@ it at the root of its own domain.
 
 **Context.** The UI review asked for a theme choice overriding the system's,
 and for the list's sort to survive a reload.
+
 **Decision.**
 - Both are display preferences under ADR 019's rules: `"theme"` (`light` or
   `dark`, absent for the system's) and `"sort"` (`family`, absent for the
@@ -391,6 +437,7 @@ and for the list's sort to survive a reload.
 
 **Rejected.** CSS `light-dark()`: it needs Safari 17.5, and below that every
 colour token fails, so iPhones on iOS 16 would get a broken page.
+
 **Consequences.** A reload keeps the theme and the sort, per browser. Without
 JavaScript the page stays light, which matters little, since Natel needs it.
 
@@ -398,10 +445,12 @@ JavaScript the page stays light, which matters little, since Natel needs it.
 
 **Context.** The demo's second book was thin, and the maintainer asked for
 two books that each tell their own story.
+
 **Decision.** "Runeterra" holds the League of Legends characters, with their
 groups. "Expédition 33" holds about a dozen characters and places from
 *Clair Obscur: Expedition 33*, with both kinds of group, an organisation and
 an unknown property. Phone numbers still come from fiction ranges (ADR 025).
+
 **Consequences.** The demo uses the characters' names only, with no artwork.
 
 ## 028 — Apple's year-less birthday: year 1604 with `X-APPLE-OMIT-YEAR`
@@ -409,11 +458,13 @@ an unknown property. Phone numbers still come from fiction ranges (ADR 025).
 **Context.** iCloud writes a birthday without a year as
 `BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14`, since vCard 3.0 has no
 date without a year. Natel showed "14 juillet 1604".
+
 **Decision.** A workaround for Apple (invariant 6) in `src/vcard/`: a year
 named by `X-APPLE-OMIT-YEAR` reads as absent, and a 3.0 card writes a
 year-less birthday in Apple's form, which Apple and DAVx⁵ read back. A 4.0
 card keeps `--MMDD`. A birthday given a year drops the parameter, and an
 unchanged birthday is left as it is (ADR 012).
+
 **Consequences.** Apple's year-less birthdays show as such and stay so
 through a save. A 3.0 card with `--MMDD` gets Apple's form once its birthday
 is edited.
@@ -423,9 +474,11 @@ is edited.
 **Context.** After an edit in Natel, a card kept the `REV` another client had
 written. RFC 6350 makes `REV` the card's revision, set by the client that
 writes it.
+
 **Decision.** `stampRevision` in `src/vcard/` sets `REV` to the time of the
 save, in UTC to the second, on contacts and group cards. A card without
 `REV` doesn't get one.
+
 **Consequences.** A card saved in Natel says when. A moved or imported card
 keeps its `REV`, since its text goes over unchanged.
 
@@ -433,10 +486,12 @@ keeps its `REV`, since its text goes over unchanged.
 
 **Context.** Apple and DAVx⁵ cards carry custom labels ("Chalet", "Bateau")
 as an `X-ABLABEL` grouped with their `TEL`.
+
 **Decision.** `appleLabelOf` in `src/vcard/` reads a property's label by its
 group. The UI shows it in place of the row's type (DESIGN.md "Grouped
 contact labels"). Choosing another type writes `TYPE` and drops the label;
 changing only the value keeps it. Creating custom labels is out of scope.
+
 **Consequences.** Labels show on their field rather than among the
 information not shown, and survive every save.
 
@@ -445,9 +500,11 @@ information not shown, and survive every save.
 **Context.** Incomplete HTTP/1.1 uploads could outlive Caddy 2.11.7's body
 idle deadline and hold upstream connections. Natel keeps the official Caddy
 binary rather than a custom build.
+
 **Decision.** The Caddyfile sets `protocols h1 h2`, `read_header 1m`,
 `read_body 10m` and `read_body_idle -1s`: a fixed ten-minute budget per
 request body, with the idle reader off.
+
 **Consequences.** A stalled upload is bounded, in Docker and on bare metal; a
 body that takes more than ten minutes fails. There is no size cap. HTTP/3
 is off, since Caddy
@@ -496,11 +553,13 @@ and CI job, security code reviewed before each release.
 **Context.** Starting under `cap_drop: ALL` means removing the file
 capability from Caddy's binary, which copied the 52 MB binary into a new
 layer: the image held it twice (127 MB unpacked, 46 MB compressed).
+
 **Decision.** A build stage takes the binary from the pinned `caddy:2-alpine`
 and removes the capability. The runtime starts from the pinned `alpine` the
 official image uses, adds what Natel needs from it (`ca-certificates`,
 `mailcap`, its directories and `XDG_*` variables), and leaves out `curl` and
 `libcap`.
+
 **Consequences.** The binary is still the one the Caddy project builds. The
 image drops to 70 MB unpacked and 26 MB compressed. Dependabot moves two
 pinned bases; the Alpine minor release moves by hand to the official
@@ -512,14 +571,17 @@ itself.
 **Context.** Caddy's proxy waits on the CardDAV server without a limit, and
 the app did too: a server that never answered left a save, or the list,
 waiting for good.
+
 **Decision.** Each DAV request from the app fails with its own error,
 `TIMEOUT`, when the server's answer hasn't started within 60 seconds. Once
 it starts, the body has no limit. Discovery stops at the first timeout,
 since every root it tries is on the same server.
+
 **Rejected.** A total budget per request: a large address book on a slow
 connection can take longer to arrive. A `response_header_timeout` on
 Caddy's proxy: Vite's proxy would still wait, and so would the app when the
 network between the browser and Caddy drops the answer.
+
 **Consequences.** A server that doesn't answer gets an error instead of an
 endless wait. A write that times out may still have taken effect, so its
 message says so, and saving again then meets a conflict. A PUT's 60
@@ -530,11 +592,14 @@ seconds include its upload.
 **Context.** The README and the link previews need the demo's address
 before launch. GitHub Pages' own, `kewindousse.github.io/natel/`, follows
 the repository's owner and name, and puts the app under a subpath.
+
 **Decision.** The Pages site of `KewinDousse/natel` uses `demo.natel.app` as
 its custom domain, a CNAME to `kewindousse.github.io`. The demo is built
 for the root, like the normal build: neither takes a base path.
+
 **Rejected.** The `github.io` address: it changes if the repository moves,
 and it keeps a build option only the demo uses.
+
 **Consequences.** The address stays if the repository moves. The demo
 build is closer to the normal one, and its e2e tests run at the root. The
 `natel.app` DNS zone now serves the demo too.
