@@ -149,7 +149,8 @@ never touched.
 
 **Consequences.** "My version" means "my changes": a field changed on both
 sides is still overwritten, as the button says. A phone or e-mail list the
-user changed is written whole, since rows match by position.
+user changed is written whole, since rows match by position. ADR 038
+amends this for phones, e-mails and addresses.
 
 ## 014 — The server is set by the operator, the login asks only for credentials
 
@@ -654,3 +655,29 @@ web map opens in a new tab, `geo:` in place.
 any map link does. The automatic choice never picks Google Maps. A user
 agent that misnames its device gets the wrong default, which the setting
 corrects.
+
+## 038 — Offer the overwrite only on lists the other client left as they were
+
+**Context.** On a 412, the overwrite (ADR 013) writes each phone, e-mail
+or address list the user changed onto the card fetched again. vCard
+properties carry no identifier that Apple or DAVx⁵ write, so placing a list
+on a card another client changed means guessing which property is which.
+Each guess that #226 and its fix needed misplaced another client's labels,
+groups or `X-` lines in some case.
+
+**Decision.** The overwrite is offered only when every phone, e-mail or
+address list the user changed is, on the card fetched again, as it was
+read: same properties, parameters, groups, and the `X-ABLABEL` and
+`X-ABADR` of those groups. Otherwise the conflict offers to reload only,
+and names the sections changed on both sides. Other fields keep ADR 013.
+
+**Rejected.** Matching each property to the one it was read from, by
+value, parameters and group: the reviews of #222 and #227 kept finding
+cases where it changed what the other client wrote.
+
+**Consequences.** An overwrite writes these lists onto the properties they
+were read from, as a plain save does, and #226 cannot occur. When two
+clients change the same list at once, the user loses their changes to it
+and types them again after reloading, rather than another client's data
+being changed unseen.
+
