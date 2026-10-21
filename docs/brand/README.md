@@ -38,7 +38,7 @@ Rules:
 | `logo/natel-wordmark-white.svg` | On red or ink |
 | `logo/natel-lockup-light.svg` / `-dark.svg` | Mark + wordmark, for places that need both (about dialog, docs header). Use when the mark renders ≥ 48 px; smaller, place `icon/natel-mark-small.svg` next to the wordmark yourself |
 
-In the app itself the header keeps **live text** "Natel" in `font-display` (it's the same font), so it stays crisp and translatable-free. Use the SVG only outside the app.
+The app's header sets the wordmark as live text ([DESIGN.md](../DESIGN.md#header)): use the SVG only outside the app.
 
 Don't stretch, don't add letter-spacing, don't set it in another font, don't put the red wordmark on the red background.
 

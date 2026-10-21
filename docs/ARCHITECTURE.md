@@ -131,19 +131,20 @@ byte-equal where the library allows it.
    made since, becomes the cache and the next edit's base. An ETag read on
    its own is never paired with the text sent: it may name that other
    change, and the next save would write over it.
-4. `412` → show a conflict banner: "reload" takes the server version,
-   "overwrite with my version" refetches for a fresh ETag and applies only the
-   fields the user changed (ADR 013). Never auto-merge in v0.x.
-5. Delete: `DELETE` with `If-Match`. `412` → the same banner, with "reload"
-   only: there is nothing of the user's to write over the server version.
+4. `412` → show the conflict ([DESIGN.md](DESIGN.md#states)): reloading
+   takes the server version, overwriting refetches for a fresh ETag and
+   applies only the fields the user changed (ADR 013). Never auto-merge in
+   v0.x.
+5. Delete: `DELETE` with `If-Match`. `412` → the same conflict, with reload
+   only.
 
 ## Authentication
 
-Basic Auth, held by `natel-session` (ADR 032). The sign-in screen asks only
-for username and password; the CardDAV server is configuration, never user
-input (ADR 014). `POST /session` checks the password against the server and
-sets an HttpOnly cookie, `GET /session` at startup keeps a reload signed in,
-and `DELETE /session` signs out. The Zustand store holds only the username.
+Basic Auth, held by `natel-session` (ADR 032). The CardDAV server is
+configuration, never user input (ADR 014). `POST /session` checks the
+password against the server and sets an HttpOnly cookie, `GET /session` at
+startup keeps a reload signed in, and `DELETE /session` signs out. The
+Zustand store holds only the username.
 
 ## Search
 

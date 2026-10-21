@@ -12,7 +12,7 @@ they disagree with this document, this document wins.
 | File | Role |
 |---|---|
 | `src/index.css` | Tailwind v4 + shadcn tokens, fonts via Fontsource, base layer, `leader` utility |
-| `src/components/ui/button.ts`, `icons.tsx`, `dialog.tsx` | Button and field recipes as class helpers, the icon set (2px stroke), the dialog shell. Build controls from these rather than repeating classes, and restyle a vendored shadcn primitive with them rather than keeping its defaults |
+| `src/components/ui/` | The shared controls, which [ARCHITECTURE.md](ARCHITECTURE.md#source-layout) lists. Button and field recipes are class helpers, and icons have a 2px stroke. Build controls from these rather than repeating classes, and restyle a vendored shadcn primitive with them rather than keeping its defaults |
 | `natel-design/natel-annuaire-*.html` | Visual references: identity (palette, type, shapes, motion), sign-in, list and contact page. The contact page's edit mode there is superseded by "Contact page" below |
 
 From the reference files, copy only class names on elements; never their
@@ -185,7 +185,7 @@ Dotted leaders are used in the list only: they need right-aligned values.
 5. Rows: type menu | field | remove button, wrapping under the menu when the field would get narrower than 10rem. A row without a remove button keeps its room, so fields line up. Picking a type rewrites only the card's `cell`/`work`/`home` types and keeps the others (`INTERNET`, `PREF`, `VOICE`…); a type the menu doesn't offer still shows as it is. Phones offer mobile, work, home and other; e-mails, addresses and websites offer home, work and other.
    - Address: street, then postal code and locality on one line, then country.
    - Birthday: day / month / year.
-   - Groups: chips with a ×, and a field suggesting the book's other groups. Groups are read from group cards and `CATEGORIES`, and written as group cards (ADR 022); group cards never show in the list.
+   - Groups (ADR 022): chips with a ×, and a field suggesting the book's other groups. Group cards never show in the list.
 6. Below the sections, so nothing above shifts: one dashed button per empty optional section, which opens it and focuses its first field, the information-not-shown link (see States), move, and delete.
 7. A sticky bottom bar at the foot of the screen, even when the form is shorter: the error count after a failed save on the left, Cancel / Save on the right. Conflicts and errors show **inside this bar**, so they never push the form.
 
@@ -218,13 +218,9 @@ are left out of the information-not-shown dialog.
 
 ## Brand assets
 
-The mark, wordmark, favicon, app icons, manifest, social and README images
-live in `docs/brand/`, with their rules in `docs/brand/README.md`; the files
-the app serves are copied from there into `public/`.
-
-- In the app, the header wordmark stays live text, not an image.
-- `theme-color` is the brand red in light mode and the dark background in
-  dark mode. The app serves no `og:` tags: an instance is private.
+The [brand kit](brand/README.md) holds the brand files and their rules.
+`theme-color` follows the theme: the brand red in light, the dark
+background in dark.
 
 ## Dark mode
 
@@ -294,7 +290,7 @@ The shortcuts dialog shows `⌘` on Apple devices and `Ctrl` elsewhere, and on p
 - The French "E-mail" keeps its hyphen on one line: the strings put a word joiner (U+2060) on each side of it, since Work Sans has no non-breaking hyphen.
 - Swiss numbers are displayed in local format (`079 000 00 01`), foreign numbers in international format. Numbers are stored as they are in the vCard; formatting is display only.
 - Search is accent-insensitive, matches name, organisation, e-mail and phone digits, and highlights matches.
-- The language defaults to the first of `navigator.languages` Natel has, French when none; an explicit choice is stored with the display preferences (ADR 019). Languages are listed by their own names.
+- The language defaults to the browser's (ADR 019). Languages are listed by their own names.
 
 ## Accessibility checklist
 - Text contrast ≥ 4.5:1; the large A–Z letters, input borders and the focus ring ≥ 3:1, in light and dark (checked by `tests/lib/contrast.test.ts`).
