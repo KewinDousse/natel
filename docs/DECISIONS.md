@@ -213,8 +213,8 @@ lost on reload.
 - `localStorage` holds display choices only, never credentials, a server
   address, a username, contacts or searches: any script on the origin can
   read it.
-- A settings page, `/contacts/settings`, opens from a gear in the header;
-  the sign-in screen keeps a compact language select (DESIGN.md).
+- The choices are made on a settings page; the language can also be chosen
+  on the sign-in screen (DESIGN.md "Settings", "Sign-in screen").
 
 **Consequences.** Choices are per browser, not per account, which suits one
 Natel per server (ADR 014). A new language is a translation file and an
@@ -384,8 +384,7 @@ and for the list's sort to survive a reload.
   `dark`, absent for the system's) and `"sort"` (`family`, absent for the
   first name).
 - The default sort is the first name, as names are said in French and
-  English. The sort also sets the name order on the contact page, in the
-  initials and in the form.
+  English.
 - `public/theme.js`, loaded before the styles, sets `data-theme` before the
   first paint: an inline script would need a hash in the CSP.
 - The group filter stays per session: it depends on a book's content.
@@ -435,10 +434,9 @@ keeps its `REV`, since its text goes over unchanged.
 **Context.** Apple and DAVx⁵ cards carry custom labels ("Chalet", "Bateau")
 as an `X-ABLABEL` grouped with their `TEL`.
 **Decision.** `appleLabelOf` in `src/vcard/` reads a property's label by its
-group. The UI shows it, translating Apple's built-in labels, and offers it
-first in the type menu. Choosing another type writes `TYPE` and drops the
-label; changing only the value keeps it. Creating custom labels is out of
-scope.
+group. The UI shows it in place of the row's type (DESIGN.md "Grouped
+contact labels"). Choosing another type writes `TYPE` and drops the label;
+changing only the value keeps it. Creating custom labels is out of scope.
 **Consequences.** Labels show on their field rather than among the
 information not shown, and survive every save.
 
