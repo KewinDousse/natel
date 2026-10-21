@@ -6,16 +6,11 @@ first for a new feature, dependency or behaviour decision.
 
 ## Rules
 
-- Contacts only, static SPA, no runtime backend beyond sign-in sessions,
-  no credentials at rest.
-- Preserve properties, parameters and groups the editor does not change.
-- Writes are conditional; show a conflict rather than retrying blindly.
-- Keep CardDAV I/O in `src/dav/` and parsing in `src/vcard/`.
-- Follow [architecture](docs/ARCHITECTURE.md) and [design](docs/DESIGN.md).
-  UI strings exist in English and French.
-- Record accepted behaviour decisions in [DECISIONS.md](docs/DECISIONS.md).
-
-[AGENTS.md](AGENTS.md) has the detailed invariants and agent workflow.
+[AGENTS.md](AGENTS.md) holds the rules every change follows, whoever writes
+it: the invariants, the allowed stack and the code conventions. Put code
+where the [architecture](docs/ARCHITECTURE.md) says, follow the
+[design](docs/DESIGN.md), and record an accepted behaviour decision in
+[DECISIONS.md](docs/DECISIONS.md).
 
 ## Where to start
 
@@ -70,7 +65,7 @@ dependency. Changes under `session/` need its checks, with Go 1.27 from
 `session/`:
 
 ```sh
-gofmt -l . && go vet ./... && go test ./...
+test -z "$(gofmt -l .)" && go vet ./... && go test ./...
 ```
 
 or with Docker, from the repository's root:
@@ -103,20 +98,24 @@ storage. CI also runs against Baïkal and the built Docker image. The Docker
 image is built for amd64 and arm64; its browser tests execute the amd64 image.
 
 Never commit real contacts. `tests/fixtures/public/` contains made-up
-cards; `tests/fixtures/private/` is ignored for local checks. Add fixtures
-rather than modifying existing ones.
+cards; `tests/fixtures/private/` is ignored for local checks. Never modify
+an existing fixture: add a new one.
 
 ## Pull requests
 
 Keep one feature or fix per branch and open the pull request as a **draft**.
 Explain the problem and resulting behaviour briefly, then list the checks
 run and any limits. New behaviour needs a test; for a bug, write a regression
-test first. Commit messages are one imperative line in English.
+test first. Commit messages are one imperative line in English, saying why
+when it isn't obvious.
 
-Run `pnpm check` and the end-to-end suite against Radicale and Xandikos.
-The maintainer reviews the proposal before publication; changes under
-`src/vcard/` and `src/dav/` need particular care because they handle your data.
-Do not include credentials or personal contacts in issues, logs or captures.
+The checks above pass before you ask for a review; Baïkal can be left to
+CI. A draft runs no CI: marking the pull request ready starts it, unless it
+only changes Markdown or `docs/`. The maintainer
+reviews the proposal before publication; changes under `src/vcard/`,
+`src/dav/` and photo encoding need particular care because they handle your
+data. Do not include credentials or personal contacts in issues, logs or
+captures.
 
 ## Bugs and security
 

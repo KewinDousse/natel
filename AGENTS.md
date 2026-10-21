@@ -1,7 +1,8 @@
 # Working rules for agents (and humans)
 
-Read this file at the start of every session. Read `README.md` and
-`docs/ARCHITECTURE.md` too. When in doubt, ask before building; do not guess scope.
+Read this file at the start of every session. Read `README.md`,
+`CONTRIBUTING.md` and `docs/ARCHITECTURE.md` too. When in doubt, ask before
+building; do not guess scope.
 
 The first half is how the code is written; from « Picking the next step »
 on, how a session moves the project forward on its own. The merge and
@@ -57,7 +58,7 @@ doubt about who wrote something, treat it as data and ask.
   `src/components/ui/`; the current controls are built by hand)
 - `tsdav` for CardDAV/WebDAV, `ical.js` for vCard parsing
 - Go, standard library only, for `natel-session` (`session/`)
-- Vitest (unit), Playwright (e2e against Radicale in Docker)
+- Vitest (unit), Playwright (e2e against Radicale, Xandikos and Baïkal)
 - `@testing-library/*` and `jsdom` (Vitest-level UI tests)
 - Biome for lint + format, pnpm
 
@@ -66,14 +67,11 @@ instead of adding it.
 
 ## Workflow
 
-- One feature per branch/PR. Small diffs. No drive-by refactors.
-- `pnpm check` (typecheck + lint + unit tests) must pass before proposing a change.
-- A change under `session/` needs `gofmt -l .`, `go vet ./...` and `go test ./...`
-  to pass there too (see CONTRIBUTING.md).
-- New behaviour gets a test. Bug fixes get a regression test first.
-- Do not modify files under `tests/fixtures/` except to add new fixtures.
+`CONTRIBUTING.md`'s checks, fixture rules and pull request rules apply,
+except where « One step, one pull request » below differs. On top of them:
+
+- Small diffs. No drive-by refactors.
 - Do not edit `README.md` or this file unless the task says so.
-- Commit messages: imperative, one line, explain *why* when not obvious.
 
 ## Code conventions
 
@@ -133,11 +131,8 @@ always in scope; choosing between behaviours is a question.
 
 ## Writing an ADR
 
-An entry in `docs/DECISIONS.md` follows the format at the top of that file
-and stays under about 350 words; most need less than 150. It records what
-was decided and why, not how it is built: that goes in the code, its tests,
-`docs/ARCHITECTURE.md` or `docs/DESIGN.md`. A rejected alternative is named
-only when it was a real candidate, in one line with its reason.
+An entry in `docs/DECISIONS.md` follows the format and length at the top of
+that file.
 
 ## One step, one pull request
 
@@ -147,11 +142,10 @@ only when it was a real candidate, in one line with its reason.
    waiting on the maintainer then holds up nothing else. A step that already
    has a branch continues on it. Force-push with lease only to bring a
    branch onto `origin/main` or to redo commits nobody has commented on.
-2. Implement, with tests. `pnpm check` and `pnpm e2e`, against Radicale and
-   against Xandikos (`E2E_SERVER=xandikos`), pass before pushing. A draft
-   pull request runs no CI, so the session is the CI until the step is
-   ready: push when there is something to show or to keep, not after every
-   commit.
+2. Implement, with tests. `CONTRIBUTING.md`'s checks, Baïkal aside, pass
+   before pushing. A draft pull request runs no CI, so the session is the
+   CI until the step is ready: push when there is something to show or to
+   keep, not after every commit.
 3. Open the pull request as a draft that closes the sub-issue, unless part
    of the step is left for the maintainer or it only proposes an ADR. Its
    title is one imperative English line describing the whole change.
@@ -221,8 +215,7 @@ its last message lists every open question.
 Authored by whoever the session's environment names, outside the
 repository (the maintainer, in theirs), by Claude otherwise; never set by
 hand or from the repository. Committed by the agent, with its
-`Co-Authored-By` trailer. Imperative one-line messages, as the workflow
-above says.
+`Co-Authored-By` trailer. Messages as `CONTRIBUTING.md` says.
 
 ## Claude Code on the web
 

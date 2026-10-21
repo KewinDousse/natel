@@ -1,8 +1,10 @@
 # Decisions
 
-One entry per decision, newest last. Each entry is short: the context in a
-sentence or two, the decision, the alternatives rejected with their reason,
-and the consequences. How it is built belongs in the code, its tests,
+One entry per decision, newest last. Each entry stays under about 350
+words, and most need less than 150: the context in a sentence or two, the
+decision, and the consequences. A rejected alternative is named only when
+it was a real candidate, in one line with its reason. An entry records what
+was decided and why; how it is built belongs in the code, its tests,
 ARCHITECTURE.md or DESIGN.md. A decision that changes gets a new entry, and
 the old one says which entry amends or replaces it.
 
