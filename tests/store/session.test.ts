@@ -36,7 +36,12 @@ const { clearCachedDavSessions, closeSession, currentSession } = await import("@
 
 /** Reset store state between tests. */
 function resetStore(): void {
-  useSessionStore.setState({ auth: null, selectedBook: null, signOutFailed: false });
+  useSessionStore.setState({
+    auth: null,
+    selectedBook: null,
+    signOutFailed: false,
+    groupFilter: null,
+  });
   vi.clearAllMocks();
 }
 
@@ -45,16 +50,18 @@ function resetStore(): void {
 // ---------------------------------------------------------------------------
 
 describe("login", () => {
-  it("sets auth and clears selectedBook", () => {
+  it("sets auth and clears selectedBook and the group filter", () => {
     resetStore();
     // Start with something selected to prove it gets cleared.
     useSessionStore.getState().selectBook(mockBook);
+    useSessionStore.getState().setGroupFilter("Famille");
 
     useSessionStore.getState().login(mockAuth);
 
     const state = useSessionStore.getState();
     expect(state.auth).toEqual(mockAuth);
     expect(state.selectedBook).toBeNull();
+    expect(state.groupFilter).toBeNull();
   });
 
   it("writes nothing to browser storage", () => {
@@ -74,16 +81,18 @@ describe("login", () => {
 // ---------------------------------------------------------------------------
 
 describe("logout", () => {
-  it("clears auth and selectedBook", async () => {
+  it("clears auth, selectedBook and the group filter", async () => {
     resetStore();
     useSessionStore.getState().login(mockAuth);
     useSessionStore.getState().selectBook(mockBook);
+    useSessionStore.getState().setGroupFilter("Famille");
 
     await useSessionStore.getState().logout();
 
     const state = useSessionStore.getState();
     expect(state.auth).toBeNull();
     expect(state.selectedBook).toBeNull();
+    expect(state.groupFilter).toBeNull();
   });
 
   it("calls clearCachedDavSessions on the dav module", async () => {
@@ -178,6 +187,18 @@ describe("selectBook", () => {
     useSessionStore.getState().selectBook(mockBook);
 
     expect(useSessionStore.getState().selectedBook).toEqual(mockBook);
+  });
+
+  it("keeps the group filter on the same book and clears it on another", () => {
+    resetStore();
+    useSessionStore.getState().selectBook(mockBook);
+    useSessionStore.getState().setGroupFilter("Famille");
+
+    useSessionStore.getState().selectBook({ ...mockBook });
+    expect(useSessionStore.getState().groupFilter).toBe("Famille");
+
+    useSessionStore.getState().selectBook({ href: "/dav/books/work/", displayName: "Work" });
+    expect(useSessionStore.getState().groupFilter).toBeNull();
   });
 });
 

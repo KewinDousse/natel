@@ -46,6 +46,30 @@ test("changes the language at once and remembers it on the next visit", async ({
   expect(await page.evaluate(() => localStorage.getItem("natel.preferences"))).toBeNull();
 });
 
+test("opens addresses in the map the settings choose", async ({ page }) => {
+  await putCard(
+    "ada",
+    vcard([
+      "UID:ada",
+      "FN:Ada Lovelace",
+      "N:Lovelace;Ada;;;",
+      "ADR:;;12 St James's Square;London;;;",
+    ]),
+  );
+  await signIn(page);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const select = page.getByRole("combobox", { name: "Open addresses in" });
+  await expect(select).toHaveValue("auto");
+  await select.selectOption("geo");
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Open addresses in" })).toHaveValue("geo");
+
+  await page.goto("/contacts/ada");
+  const link = page.getByRole("link", { name: /on a map$/ });
+  await expect(link).toHaveAttribute("href", "geo:0,0?q=12%20St%20James's%20Square%2C%20London");
+  await expect(link).not.toHaveAttribute("target");
+});
+
 test("goes back to the list with Esc on desktop", async ({ page, isMobile }) => {
   test.skip(isMobile, "Esc is a desktop shortcut; phones use the back link");
   await signIn(page);

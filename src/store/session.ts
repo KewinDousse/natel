@@ -25,6 +25,8 @@ export interface SessionState {
   selectedBook: DavAddressBook | null;
   /** The last sign-out wasn't confirmed by the server: the user is still signed in. */
   signOutFailed: boolean;
+  /** The group the list is filtered on, or null for every contact. */
+  groupFilter: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,8 +44,10 @@ export interface SessionActions {
    * reload would sign the user back in: false, and signOutFailed is set.
    */
   logout: () => Promise<boolean>;
-  /** Select or deselect the active address book. */
+  /** Select or deselect the active address book; another book starts from every group. */
   selectBook: (book: DavAddressBook | null) => void;
+  /** Filter the list on a group, or on every contact with null. */
+  setGroupFilter: (name: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,9 +60,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   auth: null,
   selectedBook: null,
   signOutFailed: false,
+  groupFilter: null,
 
   login: (auth: DavAuth) => {
-    set({ auth, selectedBook: null });
+    set({ auth, selectedBook: null, groupFilter: null });
   },
 
   restore: async () => {
@@ -72,12 +77,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return false;
     }
     clearCachedDavSessions();
-    set({ auth: null, selectedBook: null, signOutFailed: false });
+    set({ auth: null, selectedBook: null, signOutFailed: false, groupFilter: null });
     return true;
   },
 
   selectBook: (book: DavAddressBook | null) => {
-    set({ selectedBook: book });
+    set((state) =>
+      state.selectedBook?.href === book?.href
+        ? { selectedBook: book }
+        : { selectedBook: book, groupFilter: null },
+    );
+  },
+
+  setGroupFilter: (name: string | null) => {
+    set({ groupFilter: name });
   },
 }));
 

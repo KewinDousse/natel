@@ -147,13 +147,13 @@ function setLanguage(lang: string) {
   });
 }
 
-function shimMatchMedia() {
+function shimMatchMedia(matches = true) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     writable: true,
     value: (query: string): MediaQueryList =>
       ({
-        matches: true,
+        matches,
         media: query,
         onchange: null,
         addListener: () => {},
@@ -191,8 +191,8 @@ beforeEach(() => {
   setLanguage("fr-FR");
   shimMatchMedia();
   localStorage.clear();
-  usePreferences.setState({ sortBy: "family", theme: null });
-  useSessionStore.setState({ auth: null, selectedBook: null });
+  usePreferences.setState({ sortBy: "family", theme: null, mapApp: null });
+  useSessionStore.setState({ auth: null, selectedBook: null, groupFilter: null });
   vi.resetAllMocks();
 });
 
@@ -538,6 +538,75 @@ describe("avatar and special sections", () => {
     );
   });
 
+  it("links the address to OpenStreetMap, in a new tab, on a desktop", async () => {
+    // jsdom's user agent names neither Android nor an Apple device.
+    expect(navigator.userAgent).not.toMatch(/Android|iPhone|iPad|Macintosh/);
+    await renderLoggedIn("/contacts/full");
+
+    const article = await screen.findByRole("article");
+    const link = within(article).getByRole("link", {
+      name: "Voir Place du Bastion 2, 0000 Noxus, NX, Runeterra sur une carte",
+    });
+    expect(link.getAttribute("href")).toBe(
+      "https://www.openstreetmap.org/search?query=Place%20du%20Bastion%202%2C%200000%20Noxus%2C%20NX%2C%20Runeterra",
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.querySelector("address")).not.toBeNull();
+  });
+
+  it("opens the map the settings choose, in the same tab for the device's app", async () => {
+    usePreferences.setState({ mapApp: "geo" });
+    await renderLoggedIn("/contacts/full");
+
+    const article = await screen.findByRole("article");
+    const link = within(article).getByRole("link", { name: /sur une carte$/ });
+    expect(link.getAttribute("href")).toBe(
+      "geo:0,0?q=Place%20du%20Bastion%202%2C%200000%20Noxus%2C%20NX%2C%20Runeterra",
+    );
+    expect(link.getAttribute("target")).toBeNull();
+  });
+
+  it("searches the map without the box and extended line, and gives a box alone no map", async () => {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:verso",
+      "FN:Verso",
+      "N:;Verso;;;",
+      "ADR;TYPE=HOME:Case postale 33;Atelier;Rue du Monolithe 1;Lumière;;;",
+      "END:VCARD",
+    ].join("\r\n");
+    const box = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:box",
+      "FN:Esquie",
+      "N:;Esquie;;;",
+      "ADR:Case postale 12;;;;;;",
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ verso: card, box });
+    const router = renderApp("/contacts/verso");
+
+    const article = await screen.findByRole("article");
+    expect(
+      within(article)
+        .getByRole("link", { name: /sur une carte$/ })
+        .getAttribute("href"),
+    ).toBe("https://www.openstreetmap.org/search?query=Rue%20du%20Monolithe%201%2C%20Lumi%C3%A8re");
+
+    await act(() => router.navigate({ to: "/contacts/$id", params: { id: "box" } }));
+    await waitFor(() =>
+      expect(screen.getByRole("article").querySelector("address")?.textContent).toBe(
+        "Case postale 12",
+      ),
+    );
+    expect(within(screen.getByRole("article")).queryByRole("link", { name: /carte/ })).toBeNull();
+  });
+
   it("shows every address, each with its type or label", async () => {
     const card = [
       "BEGIN:VCARD",
@@ -587,13 +656,41 @@ describe("avatar and special sections", () => {
     await renderLoggedIn("/contacts/full");
 
     const article = await screen.findByRole("article");
-    const chips = within(article).getAllByRole("listitem");
+    const chips = within(article)
+      .getAllByRole("listitem")
+      .map((item) => within(item).getByRole("button"));
     expect(chips.map((c) => c.textContent)).toEqual(
       expect.arrayContaining(["Travail", "Fosse de Noxus"]),
     );
     for (const chip of chips) {
       expect(chip.className).toContain("rounded-full");
     }
+  });
+
+  it("filters the list on a group's chip, beside the contact on desktop", async () => {
+    const user = userEvent.setup();
+    const router = await renderLoggedIn("/contacts/full");
+
+    const article = await screen.findByRole("article");
+    await user.click(within(article).getByRole("button", { name: "Afficher le groupe Travail" }));
+
+    expect(useSessionStore.getState().groupFilter).toBe("Travail");
+    expect(screen.getByRole("button", { name: "Filtrer par groupe\u00a0: Travail" })).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/contacts/full");
+  });
+
+  it("goes back to the filtered list on a group's chip on a phone", async () => {
+    const user = userEvent.setup();
+    const router = await renderLoggedIn("/contacts/full");
+    shimMatchMedia(false);
+
+    const article = await screen.findByRole("article");
+    await user.click(
+      within(article).getByRole("button", { name: "Afficher le groupe Fosse de Noxus" }),
+    );
+
+    expect(useSessionStore.getState().groupFilter).toBe("Fosse de Noxus");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
   });
 
   it("preserves note whitespace with pre-wrap", async () => {

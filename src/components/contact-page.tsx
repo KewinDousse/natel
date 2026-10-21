@@ -26,6 +26,7 @@ import {
 import { bookGroupNames, contactGroupNames } from "@/lib/contact-groups";
 import { contactById, contactIdOf, namePartsOf } from "@/lib/contact-list";
 import { draftReducer } from "@/lib/draft-reducer";
+import { isDesktop } from "@/lib/shortcuts";
 import { bookName } from "@/lib/vcf-file";
 import type { Contact } from "@/model/contact";
 import {
@@ -255,6 +256,7 @@ function ContactFiche({
   const deleting = saveStatus === "deleting" || saveStatus === "moving";
   const selectedBook = useSelectedBook();
   const selectBook = useSessionStore((state) => state.selectBook);
+  const setGroupFilter = useSessionStore((state) => state.setGroupFilter);
   const booksQuery = useAddressBooks(auth);
   const otherBooks = useMemo(
     () => (booksQuery.data ?? []).filter((book) => book.href !== selectedBook?.href),
@@ -800,6 +802,15 @@ function ContactFiche({
     [t, showToast],
   );
 
+  // On phones the list is another screen: show it.
+  const handleGroup = useCallback(
+    (name: string) => {
+      setGroupFilter(name);
+      if (!isDesktop()) void router.navigate({ to: "/contacts" });
+    },
+    [setGroupFilter, router],
+  );
+
   const canChangePhoto = canReplacePhoto(editBase);
   const showsPhoto =
     draft.photo.kind === "replaced" ||
@@ -859,7 +870,13 @@ function ContactFiche({
           busy={busy}
         />
       ) : (
-        <ContactView contact={contact} groups={groups} onEdit={enterEdit} onCopy={handleCopy} />
+        <ContactView
+          contact={contact}
+          groups={groups}
+          onEdit={enterEdit}
+          onCopy={handleCopy}
+          onGroup={handleGroup}
+        />
       )}
 
       {edit && (

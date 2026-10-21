@@ -10,6 +10,7 @@ import { type ReactNode, useEffect } from "react";
 import { useI18n } from "@/i18n/react";
 import { APP_REVISION, APP_VERSION } from "@/lib/app-info";
 import type { SortBy } from "@/lib/contact-list";
+import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
 import { useSignOut } from "@/queries";
 import { usePreferences } from "@/store/preferences";
@@ -21,6 +22,7 @@ import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
 import { LogoutIcon } from "./ui/icons";
 
 const SYSTEM = "system";
+const AUTO = "auto";
 const BUG_REPORT_URL = "https://github.com/KewinDousse/natel/issues/new/choose";
 
 export function SettingsPage() {
@@ -28,7 +30,7 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const signOut = useSignOut();
   const auth = useAuth();
-  const { sortBy, setSortBy, theme, setTheme } = usePreferences();
+  const { sortBy, setSortBy, theme, setTheme, mapApp, setMapApp } = usePreferences();
 
   useEffect(() => {
     document.title = t("settings_doc_title");
@@ -81,6 +83,24 @@ export function SettingsPage() {
             >
               <option value="given">{t("sort_given")}</option>
               <option value="family">{t("sort_family")}</option>
+            </select>
+          </Field>
+          <Field id="setting-map" label={t("map_label")}>
+            <select
+              id="setting-map"
+              value={mapApp ?? AUTO}
+              onChange={(event) => {
+                const value = event.target.value;
+                setMapApp(value === AUTO ? null : (value as MapApp));
+              }}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value={AUTO}>{t("map_auto")}</option>
+              {MAP_APPS.map((app) => (
+                <option key={app} value={app}>
+                  {t(`map_${app}`)}
+                </option>
+              ))}
             </select>
           </Field>
         </SettingsSection>

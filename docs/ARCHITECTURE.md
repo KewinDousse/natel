@@ -85,8 +85,9 @@ src/
                  edit drafts, dirty tracking and validation; display formatting;
                  the theme, which public/theme.js applies before the first paint.
   model/         The Contact type. Plain data, no I/O.
-  store/         Zustand: session (signed-in user, selected book), memory only;
-                 preferences (sort, theme), stored like the language (ADR 026).
+  store/         Zustand: session (signed-in user, selected book, group filter),
+                 memory only; preferences (sort, theme, map), stored like the
+                 language (ADR 026, ADR 037).
   queries/       TanStack Query hooks; the bridge between dav/ and routes/.
   i18n/          en.json, fr.json, setup, stored display preferences (ADR 019)
 tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, components)

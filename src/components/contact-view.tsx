@@ -17,6 +17,7 @@ import {
 } from "@/lib/contact-list";
 import { birthdayCopyText, birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
+import { deviceMapApp, mapLinkOf } from "@/lib/map-link";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { usePreferences } from "@/store/preferences";
@@ -31,7 +32,7 @@ import {
 } from "@/vcard";
 import { CopyButton, Section, SectionEditButton, TypeLabel } from "./contact-fields";
 import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
-import { buttonClass } from "./ui/button";
+import { buttonClass, FOCUS_RING } from "./ui/button";
 import {
   CakeIcon,
   GlobeIcon,
@@ -48,6 +49,7 @@ export function ContactView({
   groups,
   onEdit,
   onCopy,
+  onGroup,
 }: {
   contact: Contact;
   /** The contact's groups, from its card and the book's group cards. */
@@ -55,6 +57,8 @@ export function ContactView({
   /** Opens the form, on a section when one is named. */
   onEdit: (section?: string) => void;
   onCopy: (value: string) => void;
+  /** Filters the list on a group. */
+  onGroup: (name: string) => void;
 }) {
   const { t, locale } = useI18n();
   const parts = namePartsOf(contact);
@@ -66,6 +70,7 @@ export function ContactView({
   const addresses = addressesOf(contact)
     .map((address) => ({ address, lines: addressLinesOf(address) }))
     .filter(({ lines }) => lines.length > 0);
+  const mapApp = usePreferences((state) => state.mapApp) ?? deviceMapApp(navigator.userAgent);
   const birthday = birthdayOf(contact);
   const note = noteOf(contact);
   const nickname = contact.fields.nickname;
@@ -213,23 +218,32 @@ export function ContactView({
               />
             }
           >
-            {keyed(addresses, ({ lines }) => lines.join("\n")).map(([key, { address, lines }]) => (
-              <Row
-                key={key}
-                label={<TypeLabel types={address.type} label={address.label} />}
-                action={
-                  <CopyButton label={t("copy_adr")} onCopy={() => onCopy(lines.join(", "))} />
-                }
-              >
-                <address className="not-italic leading-snug lg:text-body">
-                  {keyed(lines, (line) => line).map(([key, line]) => (
-                    <span key={key} className="block break-words">
-                      {line}
-                    </span>
-                  ))}
-                </address>
-              </Row>
-            ))}
+            {keyed(addresses, ({ lines }) => lines.join("\n")).map(([key, { address, lines }]) => {
+              const map = mapLinkOf(address, mapApp);
+              return (
+                <Row
+                  key={key}
+                  label={<TypeLabel types={address.type} label={address.label} />}
+                  action={
+                    <CopyButton label={t("copy_adr")} onCopy={() => onCopy(lines.join(", "))} />
+                  }
+                >
+                  {map === null ? (
+                    <AddressBlock lines={lines} />
+                  ) : (
+                    <a
+                      href={map.href}
+                      target={map.newTab ? "_blank" : undefined}
+                      rel={map.newTab ? "noopener noreferrer" : undefined}
+                      aria-label={t("adr_map", { address: lines.join(", ") })}
+                      className="block hover:underline"
+                    >
+                      <AddressBlock lines={lines} />
+                    </a>
+                  )}
+                </Row>
+              );
+            })}
           </Section>
         )}
 
@@ -259,11 +273,19 @@ export function ContactView({
           <Section icon={<UsersIcon />} title={t("s_groups")}>
             <ul className="flex flex-wrap gap-2 py-1.5">
               {groups.map((group) => (
-                <li
-                  key={group}
-                  className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-bold text-secondary-foreground"
-                >
-                  {group}
+                <li key={group}>
+                  <button
+                    type="button"
+                    aria-label={t("group_show", { name: group })}
+                    onClick={() => onGroup(group)}
+                    // The chip stays 32px high; its target reaches 40px.
+                    className={cn(
+                      "relative inline-flex h-8 min-w-10 items-center justify-center rounded-full bg-secondary px-3 text-sm font-bold text-secondary-foreground underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:underline",
+                      FOCUS_RING,
+                    )}
+                  >
+                    {group}
+                  </button>
                 </li>
               ))}
             </ul>
@@ -378,6 +400,18 @@ export function addressLinesOf(address: VCardAddress): string[] {
     address.region,
     address.country,
   ].filter((line) => line.trim().length > 0);
+}
+
+function AddressBlock({ lines }: { lines: string[] }) {
+  return (
+    <address className="not-italic leading-snug lg:text-body">
+      {keyed(lines, (line) => line).map(([key, line]) => (
+        <span key={key} className="block break-words">
+          {line}
+        </span>
+      ))}
+    </address>
+  );
 }
 
 const NAME_CLASS = "mt-5 text-3xl font-bold leading-tight tracking-tight text-balance sm:text-4xl";

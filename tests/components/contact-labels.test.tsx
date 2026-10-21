@@ -66,7 +66,13 @@ describe("contact labels", () => {
   it("shows labels in the reading view, including the translated website label", () => {
     render(
       <I18nProvider>
-        <ContactView contact={parse(CARD)} groups={[]} onEdit={vi.fn()} onCopy={vi.fn()} />
+        <ContactView
+          contact={parse(CARD)}
+          groups={[]}
+          onEdit={vi.fn()}
+          onCopy={vi.fn()}
+          onGroup={vi.fn()}
+        />
       </I18nProvider>,
     );
     for (const label of ["Chalet", "Cabane", "Atelier", "Home page"]) {

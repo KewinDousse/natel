@@ -51,19 +51,21 @@ on reload) · [Quick start](#quick-start) · [Documentation](#documentation-and-
 - Phone and desktop layouts, light and dark themes, English and French,
   keyboard shortcuts. Installable as an app, though it needs a connection.
 
-## Your data
+## Your contacts and your password
 
-- **What you don't edit is kept.** Properties, parameters and groups the
-  editor doesn't change are written back as they were; serialisation can
-  normalise formatting, so a card isn't guaranteed to stay byte-identical.
-  Round-trip tests enforce this.
-- **No silent overwrite.** If another client changed a contact since you
-  opened it, Natel shows a conflict instead of saving over it.
-- **Your password stays in memory.** Natel checks it against your CardDAV
-  server at sign-in and keeps it in memory, never on disk, for the
-  [session](docs/user-guide.md#sign-in-and-sign-out). For sign-in, the
-  browser only holds a session cookie that page scripts can't read; display
-  preferences are saved in the browser.
+Whatever you don't edit on a card stays as it was, including the fields
+Natel doesn't show, apart from the revision date a save moves. The formatting may shift a little, so a card can come
+back with different line breaks or letter case, but nothing is lost, and
+tests check this on every change.
+
+If you edit a contact that someone changed on another device in the
+meantime, Natel tells you instead of saving over their change.
+
+Your password never touches a disk. Natel checks it with your CardDAV
+server when you sign in and keeps it in memory until the
+[session](docs/user-guide.md#sign-in-and-sign-out) ends. The only things
+Natel stores about you in your browser are a session cookie that page
+scripts can't read, and your display settings.
 
 ## Quick start
 

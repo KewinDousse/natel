@@ -637,3 +637,20 @@ Any other gets a new `ADR`: an `ADR` left, in its group or another, may be
 another address's, regrouped or added elsewhere, or removed by the user.
 So does one whose `X-ABADR` changed elsewhere with its country: its old
 group keeps that `X-ABADR` and the label, which shows twice on the card.
+
+## 037 — Addresses open in the map the settings choose
+
+**Context.** A contact's address links to a map search. Android hands a
+`geo:` link to the user's maps app, which iOS and desktop browsers don't
+open, and no browser says which app handles `geo:`.
+
+**Decision.** A display preference under ADR 019's rules, `"map"`, picks
+the map: OpenStreetMap, the device's maps app (`geo:0,0?q=`, Android's
+form), Apple Maps or Google Maps. Absent, Natel picks from the user agent:
+`geo:` on Android, Apple Maps on Apple devices, OpenStreetMap elsewhere. A
+web map opens in a new tab, `geo:` in place.
+
+**Consequences.** The search sends the address to the map's provider, as
+any map link does. The automatic choice never picks Google Maps. A user
+agent that misnames its device gets the wrong default, which the setting
+corrects.

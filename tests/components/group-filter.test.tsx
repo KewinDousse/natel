@@ -90,7 +90,7 @@ beforeEach(async () => {
 let client: ReturnType<typeof createQueryClient>;
 
 async function renderList() {
-  useSessionStore.setState({ auth: AUTH, selectedBook: BOOK });
+  useSessionStore.setState({ auth: AUTH, selectedBook: BOOK, groupFilter: null });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: ["/contacts"] }),

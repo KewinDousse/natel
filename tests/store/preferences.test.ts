@@ -38,7 +38,7 @@ beforeEach(() => {
     <meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">`;
   delete document.documentElement.dataset.theme;
   systemDark = false;
-  usePreferences.setState({ sortBy: "given", theme: null });
+  usePreferences.setState({ sortBy: "given", theme: null, mapApp: null });
 });
 
 afterEach(() => {
@@ -51,6 +51,15 @@ describe("the list's sort", () => {
     usePreferences.getState().setSortBy("family");
     expect(stored()).toEqual({ sort: "family" });
     usePreferences.getState().setSortBy("given");
+    expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
+  });
+});
+
+describe("the map", () => {
+  it("stores an explicit map only, the device's being the default", () => {
+    usePreferences.getState().setMapApp("geo");
+    expect(stored()).toEqual({ map: "geo" });
+    usePreferences.getState().setMapApp(null);
     expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
   });
 });
@@ -118,6 +127,7 @@ describe("what the preferences hold", () => {
   it("is display choices only, next to the language", () => {
     usePreferences.getState().setSortBy("family");
     usePreferences.getState().setTheme("light");
-    expect(Object.keys(stored() as object).sort()).toEqual(["sort", "theme"]);
+    usePreferences.getState().setMapApp("osm");
+    expect(Object.keys(stored() as object).sort()).toEqual(["map", "sort", "theme"]);
   });
 });

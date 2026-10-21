@@ -135,7 +135,7 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 
 ### Settings
 `/contacts/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
-- Display: language, appearance (system, light, dark) and sort order. A change applies at once; there is no save button.
+- Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
 - Account: who is signed in, and sign-out. When the server doesn't confirm the sign-out, the user stays signed in and a toast says so.
 - Keyboard shortcuts, desktop only.
 
@@ -172,8 +172,10 @@ Both states group values in the same sections, in the same order: phones, e-mail
 7. Rows: type | value | copy button, the button right after the value so it reads as its own. A birthday, and a website without a label, have no type. A value too long to sit beside its type goes under it on phones. No copy button on a phone's touch screen: a long press on a link already offers to copy.
    - Phones and e-mails are `tel:` and `mailto:` links. The primary number (first `TYPE=cell`, else the first number) is larger and bold.
    - Each address is one block, as on an envelope, each line only when the card has it; copying joins the lines with commas.
+   - Each address links to a map search on its street, postal code and locality, region and country: a post office box or an extended line would only blur the search. A post office box alone has no link. The map is the one the settings choose (ADR 037); a web map opens in a new tab, the device's maps app (`geo:`) in place.
    - A website is a link only for `http(s)`: another scheme could open a local application.
-   - Groups are chips, with no action. The note keeps its line breaks.
+   - Groups are chips; each filters the list on its group (see Group filter). On phones, where the list is another screen, it also goes back to the list.
+   - The note keeps its line breaks.
 
 Dotted leaders are used in the list only: they need right-aligned values.
 

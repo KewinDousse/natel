@@ -18,8 +18,11 @@ A password manager can fill the sign-in form for you.
 Choose an address book from the menu next to Natel's name. Search matches
 names, phone numbers, email addresses and organisations. Use the A–Z index
 when no search is active; on a touch screen, slide along it to browse.
-A group filter appears when the book contains groups. Settings also let you
-choose the language, theme and sort order.
+A group filter appears when the book contains groups.
+On a contact's page, choose an address to look it up on a map: by
+default Apple Maps on Apple devices, your maps app on Android, and
+OpenStreetMap elsewhere. Settings also let you choose the map, the
+language, theme and sort order.
 
 ## Edit, create, move or delete
 
@@ -49,6 +52,9 @@ A server or reverse proxy can reject a card for its size. If saving fails,
 the draft stays open. See [troubleshooting](troubleshooting.md#photos-and-large-cards).
 
 ## Groups
+
+On a contact's page, choose one of its groups to show only that group's
+contacts in the list.
 
 Use the groups section in edit mode to add or remove a membership. Natel
 reads group cards and per-contact categories, but creates group-card

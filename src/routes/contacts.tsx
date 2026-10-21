@@ -78,12 +78,8 @@ function ContactsScreen() {
   const [query, setQuery] = useState("");
   const sortBy = usePreferences((state) => state.sortBy);
   const setSortBy = usePreferences((state) => state.setSortBy);
-  // For the session; another book starts from every group.
-  const [groupFilter, setGroupFilter] = useState<string | null>(null);
-  const selectedHref = selectedBook?.href;
-  useEffect(() => {
-    if (selectedHref !== undefined) setGroupFilter(null);
-  }, [selectedHref]);
+  const groupFilter = useSessionStore((state) => state.groupFilter);
+  const setGroupFilter = useSessionStore((state) => state.setGroupFilter);
 
   // A contact, a new contact or the settings name the tab themselves.
   useEffect(() => {

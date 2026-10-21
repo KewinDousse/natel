@@ -10,6 +10,10 @@ Notable changes to Natel. The format follows
 
 - A contact can have several addresses, each with an extended line (c/o,
   building) and a label of its own, such as "Chalet".
+- A contact's address opens a map search for it: by default Apple Maps on
+  Apple devices, the device's maps app on Android, OpenStreetMap elsewhere.
+  The settings choose another, Google Maps included.
+- A group on a contact's page filters the list on that group.
 
 ### Changed
 
