@@ -9,9 +9,11 @@
 | Xandikos                             | The same end-to-end suite runs locally and in CI.                      | The test instance has no authentication; its password checks are not exercised.                                                       |
 | Nextcloud and other RFC 6352 servers | Not in the compatibility suite.                                        | Compatibility is unverified; group formats can differ.                                                                                |
 
-Natel authenticates with a CardDAV username and password. For a server that
-requires it, use an application password. SSO and delegated authentication
-are not implemented. The address books must already exist on the server.
+Natel authenticates with a CardDAV
+[username and password](user-guide.md#sign-in-and-sign-out); SSO and
+delegated authentication are not implemented. The address books must already exist
+on the server; [deployment](deployment.md#finding-your-address-books) shows
+how to configure Baïkal's discovery.
 
 ## Synced clients
 
@@ -44,9 +46,7 @@ phone, and Playwright's WebKit does not replace Safari itself. Use a current
 browser and report issues with its version and device.
 
 The app has an installable manifest. Installation depends on the browser's
-support and normally requires HTTPS; it adds no offline mode. A session
-lasts across reloads and browser restarts, up to 7 days, or 12 hours
-without use.
+support and normally requires HTTPS; it adds no offline mode.
 
 ## vCards and book size
 

@@ -60,10 +60,10 @@ on reload) · [Quick start](#quick-start) · [Documentation](#documentation-and-
 - **No silent overwrite.** If another client changed a contact since you
   opened it, Natel shows a conflict instead of saving over it.
 - **Your password stays in memory.** Natel checks it against your CardDAV
-  server at sign-in and keeps it in memory, never on disk, for the session:
-  up to 7 days, 12 hours without use, or until Natel restarts. For sign-in,
-  the browser only holds a session cookie that page scripts can't read;
-  display preferences are saved in the browser.
+  server at sign-in and keeps it in memory, never on disk, for the
+  [session](docs/user-guide.md#sign-in-and-sign-out). For sign-in, the
+  browser only holds a session cookie that page scripts can't read; display
+  preferences are saved in the browser.
 
 ## Quick start
 
@@ -111,10 +111,9 @@ Keep an explicit version tag, and read the [changelog](CHANGELOG.md) before
 
 Natel is a contacts client and stays one: no calendars, tasks or mail, no
 accounts or permissions of its own, and no contacts or credentials stored
-on the server: sign-in sessions live in memory only. The UI edits a subset of vCard
-fields and keeps the others. Offline use, incremental sync, duplicate
-merging, delegated authentication and limits on password guessing are not
-implemented.
+on the server. The UI edits a subset of vCard fields and keeps the others.
+Offline use, incremental sync, duplicate merging, delegated authentication
+and limits on password guessing are not implemented.
 
 ## Contributing
 

@@ -120,8 +120,8 @@ Environment=NATEL_HTTP_PORT=8080
 
 then `sudo systemctl restart caddy`. That example serves Natel on
 `127.0.0.1:8080`, for a reverse proxy on the same machine, which
-`NATEL_TRUSTED_PROXIES` trusts: Natel then knows the browser used HTTPS and
-gives it a session cookie a sibling subdomain can't replace. The package's
+`NATEL_TRUSTED_PROXIES` trusts (see
+[deployment](deployment.md#behind-a-reverse-proxy) for why). The package's
 unit waits for Caddy to report itself ready, which it now does as
 `natel-session`'s child: `NotifyAccess=all` lets systemd hear it. The
 package's `--environ` is left out: it writes the environment to the journal.

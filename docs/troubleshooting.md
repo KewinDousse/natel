@@ -2,14 +2,14 @@
 
 ## Sign-in and address books
 
-Use your CardDAV credentials, not a Natel account. If the server uses
-application passwords, create one there. Natel has no password reset.
+Sign in with your CardDAV credentials, as the
+[user guide](user-guide.md#sign-in-and-sign-out) says.
 
-If the server cannot be reached, check `CARDDAV_URL`: it is an origin,
-`scheme://host[:port]`, without a path, and must be reachable from inside
-the Natel container. `localhost` inside that container refers to the
-container itself. Check that your reverse proxy forwards the session cookie
-and all requests, including `/session` and `/dav/`.
+If the server cannot be reached, check
+[`CARDDAV_URL`](deployment.md#configuration): it must be reachable from
+inside the Natel container, where `localhost` is the container itself.
+Check that your reverse proxy forwards everything, `/session` and `/dav/`
+included, as [deployment](deployment.md#behind-a-reverse-proxy) says.
 
 If every user is told the session expired, and signing in again reports
 wrong credentials, Caddy lost the secret it shares with `natel-session`:
@@ -25,9 +25,9 @@ Address books are created on the CardDAV server, not in Natel.
 
 Select the expected address book and clear the search and group filter.
 If a sync warning appears, open it and retry; a rejected session asks you
-to sign in again. A session ends after 12 hours without use, 7 days after
-sign-in, or when the container restarts. A reload keeps the session and
-fetches the book.
+to sign in again: a session ends as the
+[user guide](user-guide.md#sign-in-and-sign-out) says. A reload keeps the
+session and fetches the book.
 
 A card that cannot be fetched or parsed is not displayed, but Natel does
 not delete it. Compare with another client or inspect it on your CardDAV
@@ -47,9 +47,10 @@ Photo display also depends on the synced client; see
 
 Natel waits 60 seconds for the CardDAV server to start answering a request,
 then says it didn't answer in time. A save, deletion or import may still
-have reached the server: reload the page to see where it stands. If it
-happens often, check the CardDAV server's load and logs; loading a large
-address book is the slowest request.
+have reached the server, as after a
+[network error](#network-error-during-a-change). If it happens often, check
+the CardDAV server's load and logs; loading a large address book is the
+slowest request.
 
 ## Network error during a change
 
