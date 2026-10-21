@@ -21,6 +21,7 @@ import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import type { SyncState } from "@/components/sync-warning";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { useI18n } from "@/i18n/react";
+import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { bookName, downloadText, exportFileName } from "@/lib/vcf-file";
 import {
@@ -40,6 +41,9 @@ import { isGroupCard } from "@/vcard";
 
 export const Route = createFileRoute("/contacts")({
   beforeLoad: () => {
+    if (IS_DEMO && !useSessionStore.getState().auth) {
+      useSessionStore.getState().login({ username: "demo" });
+    }
     if (!useSessionStore.getState().auth) throw redirect({ to: "/login" });
   },
   component: ContactsRoute,

@@ -251,6 +251,14 @@ Only in the demo build (ADR 025), so a visitor always knows nothing is saved. It
 - Sign-in: a line above the form says any username and password work and nothing is saved; the privacy note under it says nothing typed leaves the browser.
 - Signed in: a "Demo" mark next to the wordmark, and under the header bar one line saying nothing is saved. On phones, where a contact, a new contact or the settings replace the header, the mark sits in the top bar.
 
+### Demo direct links
+
+Opening `/contacts` or one of its child routes in the demo starts an
+in-memory session named `demo`, without showing the sign-in screen. The
+root and `/login` show the demo sign-in form on a fresh load; signing out
+returns there.
+A reload resets the contacts and opens the requested page directly.
+
 ## Still not designed
 
 Offline state.
