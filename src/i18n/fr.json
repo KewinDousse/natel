@@ -79,6 +79,8 @@
   "s_address": "Adresse",
   "s_addresses": "Adresses",
   "s_bday": "Anniversaire",
+  "age": "{n}\u00a0ans",
+  "age_1": "1\u00a0an",
   "s_groups": "Groupes",
   "s_note": "Note",
   "t_cell": "Mobile",

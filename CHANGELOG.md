@@ -14,6 +14,7 @@ Notable changes to Natel. The format follows
   Apple devices, the device's maps app on Android, OpenStreetMap elsewhere.
   The settings choose another, Google Maps included.
 - A group on a contact's page filters the list on that group.
+- A full birthday shows the age.
 
 ### Changed
 

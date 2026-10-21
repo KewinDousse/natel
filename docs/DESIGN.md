@@ -174,6 +174,7 @@ Both states group values in the same sections, in the same order: phones, e-mail
    - Each address is one block, as on an envelope, each line only when the card has it; copying joins the lines with commas.
    - Each address links to a map search on its street, postal code and locality, region and country: a post office box or an extended line would only blur the search. A post office box alone has no link. The map is the one the settings choose (ADR 037); a web map opens in a new tab, the device's maps app (`geo:`) in place.
    - A website is a link only for `http(s)`: another scheme could open a local application.
+   - A birthday with a day, a month and a year is followed by the age, muted, from 1 to 130: past that, the year is a placeholder.
    - Groups are chips; each filters the list on its group (see Group filter). On phones, where the list is another screen, it also goes back to the list.
    - The note keeps its line breaks.
 

@@ -15,7 +15,7 @@ import {
   orderedNameOf,
   primaryNumberOf,
 } from "@/lib/contact-list";
-import { birthdayCopyText, birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
+import { ageOf, birthdayCopyText, birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
 import { formatPhone } from "@/lib/format-phone";
 import { deviceMapApp, mapLinkOf } from "@/lib/map-link";
 import { cn } from "@/lib/utils";
@@ -77,6 +77,7 @@ export function ContactView({
   // An organisation's card is already named after it: only its units remain.
   const orgLine = orgCard ? org.slice(contact.fields.org.length).replace(/^,\s*/, "") : org;
   const subtitle = [jobTitle, orgLine].filter((part) => part.length > 0).join(" · ");
+  const age = birthday ? ageOf(birthday, new Date()) : null;
 
   return (
     <div className="mx-auto w-full max-w-[44rem] px-5 pb-16 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
@@ -262,9 +263,17 @@ export function ContactView({
                 />
               }
             >
-              <time dateTime={birthdayDateTime(birthday)} className="lg:text-body">
-                {formatBirthday(birthday, locale)}
-              </time>
+              <span className="lg:text-body">
+                <time dateTime={birthdayDateTime(birthday)}>
+                  {formatBirthday(birthday, locale)}
+                </time>
+                {age !== null && (
+                  <span className="text-muted-foreground">
+                    {"\u00a0· "}
+                    {t(age === 1 ? "age_1" : "age", { n: String(age) })}
+                  </span>
+                )}
+              </span>
             </Row>
           </Section>
         )}

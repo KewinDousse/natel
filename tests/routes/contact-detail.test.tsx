@@ -643,13 +643,28 @@ describe("avatar and special sections", () => {
     await waitFor(() => expect(document.title).toBe("Du Couteau Katarina · Natel"));
   });
 
-  it("renders a month-day birthday without a year", async () => {
+  it("renders a month-day birthday without a year, and so without an age", async () => {
     await renderLoggedIn("/contacts/bday-md");
 
     const article = await screen.findByRole("article");
     const time = within(article).getByText("14 mars");
     expect(time.tagName).toBe("TIME");
     expect(time.getAttribute("dateTime")).toBe("--03-14");
+    expect(within(article).queryByText(/ans$/)).toBeNull();
+  });
+
+  it("gives the age after a full birthday", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 21));
+    try {
+      await renderLoggedIn("/contacts/full");
+
+      const article = await screen.findByRole("article");
+      expect(within(article).getByText("14 mars 1987").tagName).toBe("TIME");
+      expect(within(article).getByText("· 39 ans")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("renders groups as chips", async () => {

@@ -46,6 +46,21 @@ export function formatBirthday(birthday: Birthday, locale: string): string {
   return source;
 }
 
+/**
+ * The age a full birthday gives on `today`, or null without a year or a day,
+ * before a first birthday, or past any human age (a placeholder year another
+ * client stored). Born on 29 February, a person turns a year older on
+ * 1 March in a common year.
+ */
+export function ageOf(birthday: Birthday, today: Date): number | null {
+  const { year, month, day } = birthday;
+  if (year === null || month === null || day === null) return null;
+  const thisMonth = today.getMonth() + 1;
+  const hadBirthday = thisMonth > month || (thisMonth === month && today.getDate() >= day);
+  const age = today.getFullYear() - year - (hadBirthday ? 0 : 1);
+  return age >= 1 && age <= 130 ? age : null;
+}
+
 /** dateTime attribute for <time>: "1987-03-14", "--03-14" or "1987". */
 export function birthdayDateTime(birthday: Birthday): string {
   const { year, month, day } = birthday;
