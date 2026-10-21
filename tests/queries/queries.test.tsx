@@ -147,7 +147,7 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
       tel: [],
       email: [],
       nickname: "",
-      adr: null,
+      adr: [],
       bday: null,
       org: "",
       title: "",

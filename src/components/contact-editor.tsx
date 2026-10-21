@@ -8,7 +8,7 @@
 import { type Dispatch, type RefObject, useId, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
-import { type ContactDraft, kindOf, type ValidationErrors } from "@/lib/contact-edit";
+import { addressKindOf, type ContactDraft, type ValidationErrors } from "@/lib/contact-edit";
 import type { DraftAction } from "@/lib/draft-reducer";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
@@ -94,9 +94,8 @@ export function ContactEditor({
   const formRef = useRef<HTMLDivElement>(null);
 
   // A section asked for gets the focus, once it is on the page.
-  const open = (section: Optional | "adr" | "bday", sectionId: string) => {
-    if (section === "adr") dispatch({ type: "ADD_ADR" });
-    else if (section === "bday") dispatch({ type: "ADD_BDAY" });
+  const open = (section: Optional | "bday", sectionId: string) => {
+    if (section === "bday") dispatch({ type: "ADD_BDAY" });
     else setOpened((current) => new Set(current).add(section));
     requestAnimationFrame(() => {
       const field = formRef.current?.querySelector<HTMLElement>(
@@ -115,13 +114,24 @@ export function ContactEditor({
     });
   };
 
+  // A new address goes under the others, its street focused.
+  const addAddress = () => {
+    dispatch({ type: "ADD_ADR" });
+    requestAnimationFrame(() => {
+      const streets = formRef.current?.querySelectorAll<HTMLElement>(
+        '#sec-adr input[autocomplete="address-line1"]',
+      );
+      streets?.[streets.length - 1]?.focus();
+    });
+  };
+
   const nameInvalid = errors.name !== undefined;
   // The name fields come in the order the list sorts by.
   const sortBy = usePreferences((state) => state.sortBy);
   const nameOrder =
     sortBy === "given" ? (["given", "family"] as const) : (["family", "given"] as const);
   const pills: { label: TranslationKey; show: boolean; onClick: () => void }[] = [
-    { label: "add_address", show: draft.adr === null, onClick: () => open("adr", "sec-adr") },
+    { label: "add_address", show: draft.adr.length === 0, onClick: addAddress },
     { label: "add_bday", show: draft.bday === null, onClick: () => open("bday", "sec-bday") },
     { label: "add_url", show: !shown("url"), onClick: () => open("url", "sec-url") },
     {
@@ -361,68 +371,154 @@ export function ContactEditor({
           />
         </Section>
 
-        {draft.adr !== null && (
-          <Section id="sec-adr" icon={<MapPinIcon />} title={t("s_address")}>
-            <EditRow
-              type={
-                <TypeSelect
-                  field="adr"
-                  aria-label={t("label_adr_type")}
-                  value={
-                    draft.adr.label !== undefined && !draft.adr.dropLabel
-                      ? "label"
-                      : kindOf(draft.adr.type)
-                  }
-                  label={draft.adr.label}
-                  onChange={(value) => dispatch({ type: "SET_ADR_TYPE", value })}
-                />
-              }
-              wide
-            >
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  aria-label={t("label_street")}
-                  placeholder={t("label_street")}
-                  autoComplete="street-address"
-                  value={draft.adr.street}
-                  onChange={(e) => dispatch({ type: "SET_ADR_STREET", value: e.target.value })}
-                  className={fieldClass("h-11")}
-                />
-                <div className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    aria-label={t("label_postal_code")}
-                    placeholder={t("label_postal_code")}
-                    autoComplete="postal-code"
-                    value={draft.adr.postalCode}
-                    onChange={(e) =>
-                      dispatch({ type: "SET_ADR_POSTAL_CODE", value: e.target.value })
+        {draft.adr.length > 0 && (
+          <Section
+            id="sec-adr"
+            icon={<MapPinIcon />}
+            title={t(draft.adr.length > 1 ? "s_addresses" : "s_address")}
+          >
+            <div className="space-y-5 sm:space-y-4">
+              {draft.adr.map((adr, i) => (
+                // Each address's fields share their names: the group tells them apart.
+                <fieldset
+                  key={adr.id}
+                  aria-label={t("adr_group", { n: String(i + 1) })}
+                  className="min-w-0"
+                >
+                  <EditRow
+                    type={
+                      <TypeSelect
+                        field="adr"
+                        aria-label={t("label_adr_type")}
+                        value={addressKindOf(adr)}
+                        label={adr.label}
+                        custom
+                        onChange={(value) => dispatch({ type: "SET_ADR_TYPE", index: i, value })}
+                      />
                     }
-                    className={fieldClass("h-11")}
-                  />
-                  <input
-                    type="text"
-                    aria-label={t("label_locality")}
-                    placeholder={t("label_locality")}
-                    autoComplete="address-level2"
-                    value={draft.adr.locality}
-                    onChange={(e) => dispatch({ type: "SET_ADR_LOCALITY", value: e.target.value })}
-                    className={fieldClass("h-11")}
-                  />
-                </div>
-                <input
-                  type="text"
-                  aria-label={t("label_country")}
-                  placeholder={t("label_country")}
-                  autoComplete="country-name"
-                  value={draft.adr.country}
-                  onChange={(e) => dispatch({ type: "SET_ADR_COUNTRY", value: e.target.value })}
-                  className={fieldClass("h-11")}
-                />
-              </div>
-            </EditRow>
+                    remove={
+                      <RemoveButton
+                        label={t("remove_adr")}
+                        onClick={() => dispatch({ type: "REMOVE_ADR", index: i })}
+                      />
+                    }
+                    error={
+                      errors[`adr_${i}`] && (
+                        <ErrorText id={`err-adr-${i}`}>
+                          {t(errors[`adr_${i}`] as TranslationKey)}
+                        </ErrorText>
+                      )
+                    }
+                    wide
+                  >
+                    <div className="space-y-2">
+                      {adr.customLabel !== undefined && (
+                        <input
+                          type="text"
+                          aria-label={t("label_adr_label")}
+                          aria-invalid={errors[`adr_${i}`] !== undefined || undefined}
+                          aria-describedby={errors[`adr_${i}`] ? `err-adr-${i}` : undefined}
+                          placeholder={t("label_adr_label")}
+                          value={adr.customLabel}
+                          onChange={(e) =>
+                            dispatch({ type: "SET_ADR_LABEL", index: i, value: e.target.value })
+                          }
+                          className={fieldClass("h-11")}
+                        />
+                      )}
+                      <input
+                        type="text"
+                        aria-label={t("label_extended")}
+                        placeholder={t("label_extended")}
+                        autoComplete="address-line2"
+                        value={adr.extended}
+                        onChange={(e) =>
+                          dispatch({
+                            type: "SET_ADR_PART",
+                            index: i,
+                            part: "extended",
+                            value: e.target.value,
+                          })
+                        }
+                        className={fieldClass("h-11")}
+                      />
+                      <input
+                        type="text"
+                        aria-label={t("label_street")}
+                        placeholder={t("label_street")}
+                        autoComplete="address-line1"
+                        value={adr.street}
+                        onChange={(e) =>
+                          dispatch({
+                            type: "SET_ADR_PART",
+                            index: i,
+                            part: "street",
+                            value: e.target.value,
+                          })
+                        }
+                        className={fieldClass("h-11")}
+                      />
+                      <div className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          aria-label={t("label_postal_code")}
+                          placeholder={t("label_postal_code")}
+                          autoComplete="postal-code"
+                          value={adr.postalCode}
+                          onChange={(e) =>
+                            dispatch({
+                              type: "SET_ADR_PART",
+                              index: i,
+                              part: "postalCode",
+                              value: e.target.value,
+                            })
+                          }
+                          className={fieldClass("h-11")}
+                        />
+                        <input
+                          type="text"
+                          aria-label={t("label_locality")}
+                          placeholder={t("label_locality")}
+                          autoComplete="address-level2"
+                          value={adr.locality}
+                          onChange={(e) =>
+                            dispatch({
+                              type: "SET_ADR_PART",
+                              index: i,
+                              part: "locality",
+                              value: e.target.value,
+                            })
+                          }
+                          className={fieldClass("h-11")}
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        aria-label={t("label_country")}
+                        placeholder={t("label_country")}
+                        autoComplete="country-name"
+                        value={adr.country}
+                        onChange={(e) =>
+                          dispatch({
+                            type: "SET_ADR_PART",
+                            index: i,
+                            part: "country",
+                            value: e.target.value,
+                          })
+                        }
+                        className={fieldClass("h-11")}
+                      />
+                    </div>
+                  </EditRow>
+                </fieldset>
+              ))}
+            </div>
+            <AddPill
+              label={t("add_address")}
+              onClick={addAddress}
+              className="mt-3 w-full justify-center"
+            />
           </Section>
         )}
 

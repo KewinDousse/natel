@@ -160,7 +160,7 @@ doesn't navigate.
 `/contacts/new` is the form on a blank vCard 3.0 card, with no reading view to go back to. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page, read; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
 
 ### Sections
-Both states group values in the same sections, in the same order: phones, e-mails, address, birthday, groups, website, nickname (form only; the reading view shows it under the name), note. A section opens with a light rule (it separates without outweighing the values) and a title line led by its icon; the title's right slot holds the section's action. Titles follow the number of values ("Phone" / "Phones").
+Both states group values in the same sections, in the same order: phones, e-mails, addresses, birthday, groups, website, nickname (form only; the reading view shows it under the name), note. A section opens with a light rule (it separates without outweighing the values) and a title line led by its icon; the title's right slot holds the section's action. Titles follow the number of values ("Phone" / "Phones").
 
 ### Reading view, top to bottom
 1. Mobile only: a top bar, back left, "Edit" right.
@@ -171,7 +171,7 @@ Both states group values in the same sections, in the same order: phones, e-mail
 6. The sections the card has, and only those. A section's pencil opens the form on that section; on devices that hover, it shows on hover or focus, on touch it always shows.
 7. Rows: type | value | copy button, the button right after the value so it reads as its own. A birthday, and a website without a label, have no type. A value too long to sit beside its type goes under it on phones. No copy button on a phone's touch screen: a long press on a link already offers to copy.
    - Phones and e-mails are `tel:` and `mailto:` links. The primary number (first `TYPE=cell`, else the first number) is larger and bold.
-   - The address is one block, as on an envelope, each line only when the card has it; copying joins the lines with commas.
+   - Each address is one block, as on an envelope, each line only when the card has it; copying joins the lines with commas.
    - A website is a link only for `http(s)`: another scheme could open a local application.
    - Groups are chips, with no action. The note keeps its line breaks.
 
@@ -181,16 +181,16 @@ Dotted leaders are used in the list only: they need right-aligned values.
 1. Mobile only: the top bar, back left.
 2. Photo, with change and remove buttons beside it.
 3. Given name and family name, in the order the list sorts by, then organisation and job title, two by two on every screen so the top stays short. A card needs one of the three names: with none, all three are invalid under one message. An organisation's card is named after it: when an edit changes its organisation or clears the person's name, `FN` follows `ORG` (unless it was a name of its own).
-4. Phones and e-mails always, each with a dashed "Add" button under its last row: the new row appears right above it and takes the focus. Address and birthday when the card has them; groups on an existing card; website, nickname and note when the card has them or the user opened them.
+4. Phones and e-mails always, each with a dashed "Add" button under its last row: the new row appears right above it and takes the focus. Addresses when the card has them, with the same button, the new address's street taking the focus. Birthday when the card has one; groups on an existing card; website, nickname and note when the card has them or the user opened them.
 5. Rows: type menu | field | remove button, wrapping under the menu when the field would get narrower than 10rem. A row without a remove button keeps its room, so fields line up. Picking a type rewrites only the card's `cell`/`work`/`home` types and keeps the others (`INTERNET`, `PREF`, `VOICE`…); a type the menu doesn't offer still shows as it is. Phones offer mobile, work, home and other; e-mails, addresses and websites offer home, work and other.
-   - Address: street, then postal code and locality on one line, then country.
+   - Address: the extended line (c/o, building), then street, then postal code and locality on one line, then country, in the order the reading view shows them. A post office box and a region stay as the card has them.
    - Birthday: day / month / year.
    - Groups (ADR 022): chips with a ×, and a field suggesting the book's other groups. Group cards never show in the list.
 6. Below the sections, so nothing above shifts: one dashed button per empty optional section, which opens it and focuses its first field, the information-not-shown link (see States), move, and delete.
 7. A sticky bottom bar at the foot of the screen, even when the form is shorter: the error count after a failed save on the left, Cancel / Save on the right. Conflicts and errors show **inside this bar**, so they never push the form.
 
 ### Grouped contact labels (`X-ABLABEL`)
-For a phone, e-mail, the first address and the first website, a non-empty
+For a phone, e-mail, address and the first website, a non-empty
 `X-ABLABEL` in the same vCard group replaces the row's type. Apple built-in
 labels are translated; unknown built-ins show without their wrapper. Custom
 labels show as stored.
@@ -198,8 +198,17 @@ labels show as stored.
 The row's type menu offers its label first, selected, then the usual types.
 Choosing a type removes the group's `X-ABLABEL` on save, even when that type
 matches the underlying `TYPE`; reselecting the label cancels that. Editing a
-value keeps the label. Natel does not create custom labels. Displayed labels
-are left out of the information-not-shown dialog.
+value keeps the label. Displayed labels are left out of the
+information-not-shown dialog.
+
+### Custom address labels
+An address's type menu ends with "Custom…" (ADR 036), which shows a
+label field above the address, filled with the address's own label when it
+has one other than Apple's built-ins. The label is saved as the group's
+`X-ABLABEL`; the address's `TYPE` stays as it was. Left empty, the field
+removes the label. A label over an empty address is an error under the
+field, since saving drops an empty address. Phones, e-mails and websites
+don't offer it.
 
 ### Switching
 - Enter: "Edit", the `E` key, a section's pencil, or `?edit` in the URL (the same route on mobile).

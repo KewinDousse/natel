@@ -54,7 +54,7 @@ function makeContact(overrides: ContactOverrides = {}): Contact {
       tel: rest.tel ?? [],
       email: rest.email ?? [],
       nickname: "",
-      adr: null,
+      adr: [],
       bday: null,
       org: Array.isArray(org) ? (org[0] ?? "") : (org ?? ""),
       title: "",

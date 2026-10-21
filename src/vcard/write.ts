@@ -1,18 +1,33 @@
 /**
  * Writes the edited subset back onto the card's own properties, in place:
- * text properties, name, address, birthday and organisation.
+ * text properties, name, addresses, birthday and organisation.
  */
 
 import ICAL from "ical.js";
-import type { EditableFields, RawComponent, RawProperty } from "../model/contact";
+import type {
+  EditableFields,
+  RawComponent,
+  RawProperty,
+  VCardAddressField,
+} from "../model/contact";
 import {
   APPLE_NO_YEAR,
   APPLE_OMIT_YEAR,
   dateValueTypeOf,
   writesAppleYearless,
 } from "./apple-birthday";
-import { componentText, N_KEYS } from "./fields";
-import { readAddress, readBirthday } from "./read";
+import {
+  addressCodesOf,
+  appleLabelOf,
+  componentText,
+  dropAppleLabel,
+  groupOf,
+  moveToFreeGroup,
+  N_KEYS,
+  setAppleLabel,
+  sharesLabel,
+} from "./fields";
+import { addressPartsOf, addressTypesOf, readBirthday, structuredValue } from "./read";
 
 /**
  * Update or remove a single-string property (NICKNAME, TITLE).
@@ -129,14 +144,146 @@ export function updateNameProperty(raw: RawComponent, n: EditableFields["n"]): v
 }
 
 /**
- * Update the first ADR property in place. Only the parts and TYPE the user
- * changed are rewritten, so untouched components (including list values like
- * "Rue A,Bât B") and parameter order survive. Other ADR properties remain
- * untouched.
+ * Writes the edited addresses onto the card's ADR properties. Each address
+ * goes back on the property it was read from, found by its value and
+ * parameters whatever its group, so it keeps that property's group, label
+ * and X-ABADR (ADR 036). One changed elsewhere since (ADR 013) takes the
+ * property left in its group if that group's X-ABADR is unchanged, any other
+ * gets a new one, and the rest go.
  */
-export function updateAddressProperty(raw: RawComponent, adr: EditableFields["adr"]): void {
-  if (adr === null) return;
-  const edited = [
+export function updateAddressProperties(raw: RawComponent, adrs: VCardAddressField[]): void {
+  const kept = adrs.filter(writesAddress);
+  const unclaimed = raw.getAllProperties("adr");
+  const claim = (match: (prop: RawProperty) => boolean) => {
+    const i = unclaimed.findIndex(match);
+    return i >= 0 ? unclaimed.splice(i, 1)[0] : undefined;
+  };
+  // Every address looks where it was read before any looks further.
+  const found: (RawProperty | undefined)[] = [];
+  for (const groups of [SAME_GROUP, SAME_GROUPING, ANY_GROUP]) {
+    kept.forEach((adr, i) => {
+      found[i] ??= claim((p) => isReadFrom(p, adr, groups));
+    });
+  }
+  // One changed elsewhere since it was read takes what is left in its group,
+  // if the group still holds the X-ABADR it was read with: what is left, there
+  // or elsewhere, may be another address's, regrouped, added elsewhere or
+  // removed by the user.
+  kept.forEach((adr, i) => {
+    const group = adr.source && sourceGroupOf(adr.source.params);
+    const codes = JSON.stringify(adr.source?.abadr ?? []);
+    if (group === undefined || JSON.stringify(addressCodesOf(raw, group)) !== codes) return;
+    found[i] ??= claim((p) => groupOf(p) === group);
+  });
+  const placed = kept.map((adr, i): [RawProperty, VCardAddressField] => {
+    let prop = found[i];
+    if (prop === undefined) {
+      prop = new ICAL.Property("adr");
+      raw.addProperty(prop);
+    }
+    return [prop, adr];
+  });
+  for (const prop of unclaimed) raw.removeProperty(prop);
+  // An overwrite can add one before the card's own: the list keeps its order.
+  const order = raw.getAllProperties("adr");
+  if (placed.some(([prop], i) => order[i] !== prop)) {
+    for (const [prop] of placed) {
+      raw.removeProperty(prop);
+      raw.addProperty(prop);
+    }
+  }
+  for (const [prop, adr] of placed) writeAddress(prop, adr);
+  for (const [prop, adr] of placed) writeAddressLabel(raw, prop, adr);
+}
+
+/** Whether a property's group fits the group an address was read in. */
+type GroupMatch = (read: string | undefined, now: string | undefined) => boolean;
+const SAME_GROUP: GroupMatch = (read, now) => read === now;
+/** Another group for one read in a group, still none for one read without. */
+const SAME_GROUPING: GroupMatch = (read, now) => (read === undefined) === (now === undefined);
+const ANY_GROUP: GroupMatch = () => true;
+
+function isReadFrom(prop: RawProperty, adr: VCardAddressField, groups: GroupMatch): boolean {
+  if (adr.source === undefined) return false;
+  const [, params] = prop.toJSON() as [string, Record<string, string | string[]>];
+  return (
+    groups(sourceGroupOf(adr.source.params), groupOf(prop)) &&
+    JSON.stringify(prop.getFirstValue()) === JSON.stringify(adr.source.value) &&
+    JSON.stringify(withoutGroup(params)) === JSON.stringify(withoutGroup(adr.source.params))
+  );
+}
+
+function sourceGroupOf(params: Record<string, string | string[]>): string | undefined {
+  const group = params.group ?? params.GROUP;
+  return typeof group === "string" && group.length > 0 ? group.toLowerCase() : undefined;
+}
+
+function withoutGroup(params: Record<string, string | string[]>) {
+  const { group: _g, GROUP: _G, ...rest } = params;
+  return rest;
+}
+
+/** False for an address the user emptied, or a new one left blank: a save drops it. */
+export function writesAddress(adr: VCardAddressField): boolean {
+  const parts = editedParts(adr);
+  if (parts.some((part) => part.length > 0)) return true;
+  return adr.source !== undefined && sameParts(addressPartsOf(adr.source.value), parts);
+}
+
+/**
+ * Puts `adr` on `prop`: the parameters and value it was read with, then
+ * what the user changed. Only the parts and TYPE edited are
+ * rewritten, so untouched components (including list values like
+ * "Rue A,Bât B") and parameter order survive.
+ */
+function writeAddress(prop: RawProperty, adr: VCardAddressField): void {
+  const read = adr.source === undefined ? [] : addressPartsOf(adr.source.value);
+  const edited = editedParts(adr);
+  const params = withoutGroup(adr.source?.params ?? {});
+  if (!sameParts(addressTypesOf(params), adr.type)) {
+    delete params.type;
+    delete params.TYPE;
+    const [only] = adr.type;
+    if (adr.type.length > 1) params.type = adr.type;
+    else if (only !== undefined) params.type = only;
+  }
+  const value =
+    adr.source !== undefined && sameParts(read, edited)
+      ? adr.source.value
+      : keepUneditedParts(structuredValue(adr.source?.value), read, edited);
+
+  const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
+  const current = jcal[1] ?? {};
+  for (const key of Object.keys(current)) {
+    if (!(key in params) && key.toLowerCase() !== "group") prop.removeParameter(key);
+  }
+  for (const [key, param] of Object.entries(params)) {
+    if (JSON.stringify(current[key]) !== JSON.stringify(param)) prop.setParameter(key, param);
+  }
+  if (JSON.stringify(prop.getFirstValue()) !== JSON.stringify(value)) prop.setValue(value);
+}
+
+/**
+ * Gives the address the label it is saved with. A group shared with another
+ * property keeps its label: the address moves out of it instead.
+ */
+function writeAddressLabel(raw: RawComponent, prop: RawProperty, adr: VCardAddressField): void {
+  const label = savedLabelOf(adr);
+  if (appleLabelOf(raw, prop) === label) return;
+  if (label !== undefined) setAppleLabel(raw, prop, label);
+  else if (sharesLabel(raw, prop)) moveToFreeGroup(raw, prop);
+  else dropAppleLabel(raw, groupOf(prop));
+}
+
+/** The label an address is saved with: one being typed, else the card's unless a type replaces it. */
+export function savedLabelOf(adr: VCardAddressField): string | undefined {
+  const custom = adr.customLabel?.trim();
+  if (custom !== undefined) return custom.length > 0 ? custom : undefined;
+  return adr.dropLabel ? undefined : adr.label;
+}
+
+function editedParts(adr: VCardAddressField): string[] {
+  return [
     adr.poBox,
     adr.extended,
     adr.street,
@@ -146,54 +293,10 @@ export function updateAddressProperty(raw: RawComponent, adr: EditableFields["ad
     adr.country,
     ...adr.extraParts,
   ];
-  const current = readAddress(raw);
-  const currentParts =
-    current === null
-      ? []
-      : [
-          current.poBox,
-          current.extended,
-          current.street,
-          current.locality,
-          current.region,
-          current.postalCode,
-          current.country,
-          ...current.extraParts,
-        ];
-  const typeChanged = JSON.stringify(current?.type ?? []) !== JSON.stringify(adr.type);
-  const partsChanged = JSON.stringify(currentParts) !== JSON.stringify(edited);
-  if (current !== null && !typeChanged && !partsChanged) return;
+}
 
-  let prop = raw.getFirstProperty("adr");
-  if (!edited.some((p) => p.length > 0) && adr.extraParts.length === 0) {
-    if (prop) raw.removeProperty(prop);
-    return;
-  }
-  if (!prop) {
-    prop = new ICAL.Property("adr");
-    raw.addProperty(prop);
-  }
-
-  if (partsChanged) {
-    const parsed = prop.getFirstValue();
-    prop.setValue(keepUneditedParts(Array.isArray(parsed) ? parsed : [], currentParts, edited));
-  }
-
-  if (typeChanged) {
-    // Clear both spellings ical.js may hold, then set from the field
-    const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
-    for (const key of Object.keys(jcal[1] ?? {})) {
-      if (key.toLowerCase() === "type") {
-        prop.removeParameter(key);
-      }
-    }
-    const [only] = adr.type;
-    if (adr.type.length > 1) {
-      prop.setParameter("type", adr.type);
-    } else if (only !== undefined) {
-      prop.setParameter("type", only);
-    }
-  }
+function sameParts(a: readonly string[], b: readonly string[]): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** Reconstruct a BDAY date string from year/month/day parts. */

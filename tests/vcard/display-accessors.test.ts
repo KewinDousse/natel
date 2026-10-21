@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { addressOf, birthdayOf, groupsOf, jobTitleOf, noteOf, parse, serialise } from "@/vcard";
+import { addressesOf, birthdayOf, groupsOf, jobTitleOf, noteOf, parse, serialise } from "@/vcard";
 
 const CARD_RICH = [
   "BEGIN:VCARD",
@@ -34,33 +34,50 @@ describe("jobTitleOf", () => {
   });
 });
 
-describe("addressOf", () => {
+describe("addressesOf", () => {
   it("exposes the structured parts of ADR as a plain object", () => {
-    const address = addressOf(parse(CARD_RICH));
-    expect(address).toEqual({
-      poBox: "",
-      extended: "",
-      street: "Place du Bastion 2",
-      locality: "Noxus",
-      region: "NX",
-      postalCode: "0000",
-      country: "Runeterra",
-      extraParts: [],
-      type: ["WORK"],
-    });
+    const addresses = addressesOf(parse(CARD_RICH));
+    expect(addresses).toEqual([
+      {
+        source: {
+          value: ["", "", "Place du Bastion 2", "Noxus", "NX", "0000", "Runeterra"],
+          params: { type: "WORK" },
+        },
+        poBox: "",
+        extended: "",
+        street: "Place du Bastion 2",
+        locality: "Noxus",
+        region: "NX",
+        postalCode: "0000",
+        country: "Runeterra",
+        extraParts: [],
+        type: ["WORK"],
+      },
+    ]);
   });
 
-  it("returns null when ADR is absent", () => {
+  it("reads every ADR, in order", () => {
+    const card = CARD_RICH.replace(
+      "\r\nBDAY:",
+      "\r\nADR;TYPE=HOME:;;Rue des Lames 7;Noxus;;0001;Runeterra\r\nBDAY:",
+    );
+    expect(addressesOf(parse(card)).map(({ street }) => street)).toEqual([
+      "Place du Bastion 2",
+      "Rue des Lames 7",
+    ]);
+  });
+
+  it("returns none when ADR is absent", () => {
     const card = CARD_RICH.replace(
       "\r\nADR;TYPE=WORK:;;Place du Bastion 2;Noxus;NX;0000;Runeterra",
       "",
     );
-    expect(addressOf(parse(card))).toBeNull();
+    expect(addressesOf(parse(card))).toEqual([]);
   });
 
   it("reads the TYPE parameter as an array", () => {
     const card = CARD_RICH.replace("ADR;TYPE=WORK:", "ADR;TYPE=HOME:");
-    expect(addressOf(parse(card))?.type).toEqual(["HOME"]);
+    expect(addressesOf(parse(card))[0]?.type).toEqual(["HOME"]);
   });
 });
 
@@ -142,7 +159,7 @@ describe("read-only guarantee", () => {
     const contact = parse(CARD_RICH);
     const before = serialise(contact);
     jobTitleOf(contact);
-    addressOf(contact);
+    addressesOf(contact);
     birthdayOf(contact);
     noteOf(contact);
     groupsOf(contact);

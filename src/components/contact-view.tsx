@@ -1,7 +1,7 @@
 /**
  * ContactView — the contact page in reading mode (DESIGN.md "Contact page").
  * Laid out for reading, separately from the edit form: only what the card
- * has, compact rows, the address as one block. "Modifier", `E` or a section's
+ * has, compact rows, each address as one block. "Modifier", `E` or a section's
  * pencil switch to the form.
  */
 
@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { usePreferences } from "@/store/preferences";
 import {
-  addressOf,
+  addressesOf,
   birthdayOf,
   jobTitleOf,
   noteOf,
@@ -63,8 +63,9 @@ export function ContactView({
   const org = orgOf(contact);
   const primary = primaryNumberOf(contact);
   const firstEmail = contact.fields.email[0];
-  const address = addressOf(contact);
-  const addressLines = address ? addressLinesOf(address) : [];
+  const addresses = addressesOf(contact)
+    .map((address) => ({ address, lines: addressLinesOf(address) }))
+    .filter(({ lines }) => lines.length > 0);
   const birthday = birthdayOf(contact);
   const note = noteOf(contact);
   const nickname = contact.fields.nickname;
@@ -200,29 +201,35 @@ export function ContactView({
           </Section>
         )}
 
-        {address && addressLines.length > 0 && (
+        {addresses.length > 0 && (
           <Section
             id="sec-adr"
             icon={<MapPinIcon />}
-            title={t("s_address")}
+            title={t(addresses.length > 1 ? "s_addresses" : "s_address")}
             action={
-              <SectionEditButton label={t("edit_address")} onClick={() => onEdit("sec-adr")} />
+              <SectionEditButton
+                label={t(addresses.length > 1 ? "edit_addresses" : "edit_address")}
+                onClick={() => onEdit("sec-adr")}
+              />
             }
           >
-            <Row
-              label={<TypeLabel types={address.type} label={address.label} />}
-              action={
-                <CopyButton label={t("copy_adr")} onCopy={() => onCopy(addressLines.join(", "))} />
-              }
-            >
-              <address className="not-italic leading-snug lg:text-body">
-                {keyed(addressLines, (line) => line).map(([key, line]) => (
-                  <span key={key} className="block break-words">
-                    {line}
-                  </span>
-                ))}
-              </address>
-            </Row>
+            {keyed(addresses, ({ lines }) => lines.join("\n")).map(([key, { address, lines }]) => (
+              <Row
+                key={key}
+                label={<TypeLabel types={address.type} label={address.label} />}
+                action={
+                  <CopyButton label={t("copy_adr")} onCopy={() => onCopy(lines.join(", "))} />
+                }
+              >
+                <address className="not-italic leading-snug lg:text-body">
+                  {keyed(lines, (line) => line).map(([key, line]) => (
+                    <span key={key} className="block break-words">
+                      {line}
+                    </span>
+                  ))}
+                </address>
+              </Row>
+            ))}
           </Section>
         )}
 

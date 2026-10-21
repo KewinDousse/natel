@@ -6,6 +6,11 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A contact can have several addresses, each with an extended line (c/o,
+  building) and a label of its own, such as "Chalet".
+
 ### Changed
 
 - The header loses its red band along the top, a decoration the contact,

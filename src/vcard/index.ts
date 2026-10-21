@@ -27,9 +27,9 @@ import {
   unescapeDataUriSemicolons,
 } from "./ical-workarounds";
 import { updatePhotoProperty } from "./photo";
-import { groupCardOf, readAddress, readBirthday, readNote, readOrg, readTitle } from "./read";
+import { groupCardOf, readAddresses, readBirthday, readNote, readOrg, readTitle } from "./read";
 import {
-  updateAddressProperty,
+  updateAddressProperties,
   updateBdayProperty,
   updateFirstStringProperty,
   updateNameProperty,
@@ -39,7 +39,8 @@ import {
 
 export { canReplacePhoto, type Photo, photoOf, sniffImageType } from "./photo";
 export {
-  addressOf,
+  addressesOf,
+  addressTypesOf,
   type Birthday,
   birthdayOf,
   groupCardOf,
@@ -52,6 +53,7 @@ export {
   typeValuesOf,
   type VCardAddress,
 } from "./read";
+export { savedLabelOf, writesAddress } from "./write";
 
 // Patches ical.js's text decoder before any parse (ADR 024).
 decodeEscapedSemicolons();
@@ -98,7 +100,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
     tel,
     email,
     nickname: String(raw.getFirstPropertyValue("nickname") ?? ""),
-    adr: readAddress(raw),
+    adr: readAddresses(raw),
     bday: readBirthday(raw),
     org: readOrg(raw),
     title: readTitle(raw),
@@ -117,6 +119,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
 const SHOWN_ALL = new Set([
   "tel",
   "email",
+  "adr",
   "categories",
   // The photo control shows one and replaces them all (ADR 023).
   "photo",
@@ -127,7 +130,7 @@ const SHOWN_ALL = new Set([
 ]);
 
 /** Properties the contact page reads once: a later occurrence isn't shown. */
-const SHOWN_FIRST = new Set(["fn", "n", "nickname", "adr", "bday", "org", "title", "url", "note"]);
+const SHOWN_FIRST = new Set(["fn", "n", "nickname", "bday", "org", "title", "url", "note"]);
 
 /**
  * The card's properties the contact page neither shows nor edits, each as
@@ -139,7 +142,7 @@ export function unshownPropertiesOf(contact: Contact): string[] {
   const labels = new Set<RawProperty>();
   for (const name of ["tel", "email", "adr", "url"]) {
     const properties = contact.raw.getAllProperties(name);
-    for (const prop of name === "tel" || name === "email" ? properties : properties.slice(0, 1)) {
+    for (const prop of name === "url" ? properties.slice(0, 1) : properties) {
       if (appleLabelOf(contact.raw, prop) === undefined) continue;
       const label = appleLabelProperty(contact.raw, prop);
       if (label) labels.add(label);
@@ -397,18 +400,6 @@ export function newUid(): string {
 export function serialise(contact: Contact): string {
   const { raw, fields } = contact;
 
-  for (const field of [...fields.tel, ...fields.email]) {
-    if (field.dropLabel) dropAppleLabel(raw, field.params?.group ?? field.params?.GROUP);
-  }
-  if (fields.adr?.dropLabel) {
-    const prop = raw.getFirstProperty("adr");
-    if (prop) dropAppleLabel(raw, groupOf(prop));
-  }
-  if (fields.urlField?.dropLabel) {
-    const prop = raw.getFirstProperty("url");
-    if (prop) dropAppleLabel(raw, groupOf(prop));
-  }
-
   // --- Update FN ---
   let fnProp = raw.getFirstProperty("fn");
   if (!fnProp) {
@@ -430,8 +421,16 @@ export function serialise(contact: Contact): string {
   // --- Update NICKNAME ---
   updateStringProperty(raw, "nickname", fields.nickname);
 
-  // --- Update ADR (first property only) ---
-  updateAddressProperty(raw, fields.adr);
+  // --- Update ADR properties, each in place ---
+  updateAddressProperties(raw, fields.adr);
+  // After the addresses, which compare their labels with the card's.
+  for (const field of [...fields.tel, ...fields.email]) {
+    if (field.dropLabel) dropAppleLabel(raw, field.params?.group ?? field.params?.GROUP);
+  }
+  if (fields.urlField?.dropLabel) {
+    const prop = raw.getFirstProperty("url");
+    if (prop) dropAppleLabel(raw, groupOf(prop));
+  }
 
   // --- Update BDAY (first property only) ---
   updateBdayProperty(raw, fields.bday);
@@ -469,7 +468,7 @@ export function serialise(contact: Contact): string {
   // The saved Contact is also the query cache's value.
   fields.tel = raw.getAllProperties("tel").map((prop) => labelledField(raw, prop));
   fields.email = raw.getAllProperties("email").map((prop) => labelledField(raw, prop));
-  fields.adr = readAddress(raw);
+  fields.adr = readAddresses(raw);
   const savedUrl = raw.getFirstProperty("url");
   fields.urlField = savedUrl ? labelledField(raw, savedUrl) : undefined;
   fields.url = String(raw.getFirstPropertyValue("url") ?? "");

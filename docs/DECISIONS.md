@@ -490,7 +490,8 @@ as an `X-ABLABEL` grouped with their `TEL`.
 **Decision.** `appleLabelOf` in `src/vcard/` reads a property's label by its
 group. The UI shows it in place of the row's type (DESIGN.md "Grouped
 contact labels"). Choosing another type writes `TYPE` and drops the label;
-changing only the value keeps it. Creating custom labels is out of scope.
+changing only the value keeps it. Creating custom labels is out of scope;
+ADR 036 amends this for addresses.
 
 **Consequences.** Labels show on their field rather than among the
 information not shown, and survive every save.
@@ -603,3 +604,36 @@ and it keeps a build option only the demo uses.
 **Consequences.** The address stays if the repository moves. The demo
 build is closer to the normal one, and its e2e tests run at the root. The
 `natel.app` DNS zone now serves the demo too.
+
+## 036 — Custom address labels as a grouped `X-ABLABEL`
+
+**Context.** Users want to name an address ("Chalet", "Atelier") rather
+than pick home, work or other. vCard has no property for that name; ADR 030
+reads the one Apple and DAVx⁵ write, an `X-ABLABEL` in the address's group.
+
+**Decision.** The address's type menu offers a custom label. Natel writes
+it as the `X-ABLABEL` of the `ADR`'s group, giving an ungrouped `ADR` the
+first free `itemN` group, and leaves `TYPE` as it was. An empty label
+removes the `X-ABLABEL`. Phones, e-mails and websites keep ADR 030's
+behaviour.
+Each address is written back on the `ADR` it was read from, found by its
+value and parameters whatever its group, so it keeps that property's group,
+`X-ABLABEL` and `X-ABADR`. An address sharing its group with another
+property, shown or not (a phone, `IMPP`, `X-ABRELATEDNAMES`), moves to a
+group of its own, with its `X-ABADR`, before its label is set or removed,
+so the other keeps its label. The label is vCard text, its commas,
+semicolons and backslashes escaped.
+
+**Consequences.** The label takes the form Apple and DAVx⁵ write theirs
+in; a client that ignores `X-ABLABEL` shows the address's type. Naming an
+ungrouped address adds a group prefix to its `ADR` line. Removing an
+address leaves the rest of its group, its label included, as removing a
+phone does. On an overwrite (ADR 013), the addresses are written whole,
+labels included, as phones and e-mails are: one added or edited elsewhere
+is replaced by the user's list. An address the other client changed takes
+the `ADR` left in the group it was read from, if that group still holds the
+`X-ABADR` it was read with, keeping that property's group and `X-ABADR`.
+Any other gets a new `ADR`: an `ADR` left, in its group or another, may be
+another address's, regrouped or added elsewhere, or removed by the user.
+So does one whose `X-ABADR` changed elsewhere with its country: its old
+group keeps that `X-ABADR` and the label, which shows twice on the card.

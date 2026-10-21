@@ -13,6 +13,7 @@ import type {
   VCardAddressField,
   VCardBirthdayField,
 } from "@/model/contact";
+import { savedLabelOf, writesAddress } from "@/vcard";
 
 // ---------------------------------------------------------------------------
 // Draft type — the shape the UI works with during editing
@@ -24,9 +25,7 @@ export type ContactDraft = {
   tel: DraftField[];
   email: DraftField[];
   nickname: string;
-  /** null when the card has no address; may have partial content. */
-  adr: VCardAddressField | null;
-  adrLabelType?: string[];
+  adr: DraftAddress[];
   /** null when the card has no birthday. */
   bday: DraftBirthday | null;
   org: string;
@@ -49,6 +48,9 @@ export type DraftBirthday = {
   month: string;
   day: string;
 };
+
+/** An address in the draft, with a stable id for React keys. */
+export type DraftAddress = VCardAddressField & { id: string };
 
 /** A TEL or EMAIL field in the draft, with a stable id for React keys. */
 export type DraftField = {
@@ -88,16 +90,57 @@ export function rebaseDraft(
 ): ContactDraft {
   const rebased = buildDraft(saved);
   if (current === sent) return rebased;
+  const savedAdr = rebased.adr;
   for (const key of Object.keys(current) as (keyof ContactDraft)[]) {
     if (current[key] !== sent[key]) Object.assign(rebased, { [key]: current[key] });
   }
+  if (current.adr !== sent.adr) rebased.adr = withSavedSources(current.adr, sent.adr, savedAdr);
   // Fields kept from `current` hold ids from before the rebuild: new ones
   // must not reuse them.
-  for (const field of [...rebased.tel, ...rebased.email]) {
+  for (const field of [...rebased.tel, ...rebased.email, ...rebased.adr]) {
     const n = Number(field.id.slice(2));
     if (Number.isFinite(n) && n > _counter) _counter = n;
   }
   return rebased;
+}
+
+/**
+ * Addresses edited during a save, each given the property the save wrote it
+ * to: it may have gained a group there, which the next save must keep.
+ * That property is found by what the address sent, since a card fetched
+ * again (no ETag) can hold another client's changes; an address it no
+ * longer holds keeps its source.
+ */
+function withSavedSources(
+  current: DraftAddress[],
+  sent: DraftAddress[],
+  saved: DraftAddress[],
+): DraftAddress[] {
+  const unmatched = [...saved];
+  const written = new Map<string, DraftAddress>();
+  for (const adr of sent.filter(writesAddress)) {
+    const i = unmatched.findIndex((savedAdr) => samePlace(adr, savedAdr));
+    const match = i >= 0 ? unmatched.splice(i, 1)[0] : undefined;
+    if (match !== undefined) written.set(adr.id, match);
+  }
+  return current.map((adr) => {
+    const match = written.get(adr.id);
+    return match === undefined ? adr : { ...adr, source: match.source, label: match.label };
+  });
+}
+
+const PLACE_PARTS = [
+  "poBox",
+  "extended",
+  "street",
+  "locality",
+  "region",
+  "postalCode",
+  "country",
+] as const;
+
+function samePlace(a: VCardAddressField, b: VCardAddressField | undefined): boolean {
+  return b !== undefined && PLACE_PARTS.every((part) => a[part] === b[part]);
 }
 
 /** Build a draft from a contact's fields. Each field gets a stable id. */
@@ -109,8 +152,7 @@ export function buildDraft(contact: Contact): ContactDraft {
     tel: contact.fields.tel.map(toDraftField),
     email: contact.fields.email.map(toDraftField),
     nickname: contact.fields.nickname,
-    adr: contact.fields.adr ? { ...contact.fields.adr } : null,
-    adrLabelType: contact.fields.adr?.label === undefined ? undefined : contact.fields.adr.type,
+    adr: contact.fields.adr.map(toDraftAddress),
     bday: contact.fields.bday ? toDraftBirthday(contact.fields.bday) : null,
     org: contact.fields.org,
     title: contact.fields.title,
@@ -119,6 +161,42 @@ export function buildDraft(contact: Contact): ContactDraft {
     note: contact.fields.note,
     photo: contact.fields.photo,
   };
+}
+
+function toDraftAddress(adr: VCardAddressField): DraftAddress {
+  return { ...adr, id: nextId() };
+}
+
+function fromDraftAddress({ id: _id, ...adr }: DraftAddress): VCardAddressField {
+  return adr;
+}
+
+/** A blank address, as "Ajouter une adresse" gives. */
+export function newDraftAddress(): DraftAddress {
+  return {
+    id: nextId(),
+    poBox: "",
+    extended: "",
+    street: "",
+    locality: "",
+    region: "",
+    postalCode: "",
+    country: "",
+    type: [],
+    extraParts: [],
+  };
+}
+
+/** Apple's built-in label name (`_$!<Home>!$_` gives "Home"), undefined for any other. */
+export function appleBuiltInOf(label: string): string | undefined {
+  return /^_\$!<(.*)>!\$_$/.exec(label)?.[1];
+}
+
+/** What an address's type menu shows: its label, a label being typed, or a kind. */
+export function addressKindOf(adr: VCardAddressField): AddressKind {
+  if (adr.customLabel !== undefined) return "custom";
+  if (adr.label !== undefined && !adr.dropLabel) return "label";
+  return kindOf(adr.type);
 }
 
 function toDraftBirthday(bday: VCardBirthdayField): DraftBirthday {
@@ -218,19 +296,20 @@ function photosDiffer(orig: PhotoEdit, draft: PhotoEdit): boolean {
   );
 }
 
-function addressesDiffer(orig: VCardAddressField | null, draft: VCardAddressField | null): boolean {
-  if (orig === null && draft === null) return false;
-  if (orig === null || draft === null) return true;
+function addressesDiffer(originals: VCardAddressField[], drafts: DraftAddress[]): boolean {
+  if (originals.length !== drafts.length) return true;
+  return originals.some((orig, i) => {
+    const draft = drafts[i];
+    return draft === undefined || addressDiffers(orig, draft);
+  });
+}
+
+function addressDiffers(orig: VCardAddressField, draft: DraftAddress): boolean {
   return (
-    orig.poBox !== draft.poBox ||
-    orig.extended !== draft.extended ||
-    orig.street !== draft.street ||
-    orig.locality !== draft.locality ||
-    orig.region !== draft.region ||
-    orig.postalCode !== draft.postalCode ||
-    orig.country !== draft.country ||
+    !samePlace(orig, draft) ||
     JSON.stringify(orig.type) !== JSON.stringify(draft.type) ||
-    !!orig.dropLabel !== !!draft.dropLabel
+    savedLabelOf(orig) !== savedLabelOf(draft) ||
+    (orig.source !== draft.source && JSON.stringify(orig.source) !== JSON.stringify(draft.source))
   );
 }
 
@@ -277,6 +356,13 @@ export function validateDraft(draft: ContactDraft, dirty?: DirtyFields): Validat
       errors[`email_${i}`] = "field_email_invalid";
     }
   }
+
+  // A label alone isn't an address: a save would drop it with the label.
+  draft.adr.forEach((adr, i) => {
+    if ((adr.customLabel?.trim() ?? "").length > 0 && !writesAddress(adr)) {
+      errors[`adr_${i}`] = "field_adr_empty";
+    }
+  });
 
   // URL format validation (lenient)
   if (draft.url.length > 0 && !isWebUrl(draft.url)) {
@@ -421,7 +507,7 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
   if (take("tel")) f.tel = draft.tel.map(fromDraftField);
   if (take("email")) f.email = draft.email.map(fromDraftField);
   if (take("nickname")) f.nickname = draft.nickname;
-  if (take("adr")) f.adr = draft.adr !== null ? { ...draft.adr } : null;
+  if (take("adr")) f.adr = draft.adr.map(fromDraftAddress);
   if (take("bday")) f.bday = draft.bday !== null ? fromDraftBirthday(draft.bday) : null;
   if (take("org")) f.org = draft.org;
   // An organisation's card is named after it, once this edit changes a name.
@@ -558,6 +644,8 @@ function fromDraftField(field: DraftField): ContactField {
 export const KINDS = ["cell", "work", "home"] as const;
 export type Kind = (typeof KINDS)[number] | "";
 export type FieldKind = Kind | "label";
+/** An address's type menu also offers a label of the user's own (ADR 036). */
+export type AddressKind = FieldKind | "custom";
 
 function isKind(type: string): boolean {
   return (KINDS as readonly string[]).includes(type.toLowerCase());

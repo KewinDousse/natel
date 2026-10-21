@@ -38,7 +38,7 @@ describe("grouped X-ABLABEL", () => {
     const { fields } = parse(CARD);
     expect(fields.tel[0]?.label).toBe("Chalet");
     expect(fields.email[0]?.label).toBe("Cabane");
-    expect(fields.adr?.label).toBe("Atelier");
+    expect(fields.adr[0]?.label).toBe("Atelier");
     expect(fields.urlField?.label).toBe("_$!<HomePage>!$_");
   });
 
@@ -71,7 +71,7 @@ describe("grouped X-ABLABEL", () => {
       "EMAIL;TYPE=WORK,INTERNET:ada@example.com",
     ],
     [
-      { type: "SET_ADR_TYPE", value: "home" },
+      { type: "SET_ADR_TYPE", index: 0, value: "home" },
       "ITEM3",
       "ADR;TYPE=HOME:;;Rue 1;Lausanne;;1000;Suisse",
     ],
@@ -112,10 +112,79 @@ describe("grouped X-ABLABEL", () => {
   it("restores an address's original type when the label is reselected", () => {
     const contact = parse(CARD);
     let draft = buildDraft(contact);
-    draft = draftReducer(draft, { type: "SET_ADR_TYPE", value: "work" });
-    draft = draftReducer(draft, { type: "SET_ADR_TYPE", value: "label" });
+    draft = draftReducer(draft, { type: "SET_ADR_TYPE", index: 0, value: "work" });
+    draft = draftReducer(draft, { type: "SET_ADR_TYPE", index: 0, value: "label" });
     expect(dirtyDiff(contact, draft).adr).toBe(false);
     expect(serialise(applyDraft(contact, draft))).toContain("ITEM3.X-ABLABEL:Atelier");
+  });
+
+  it("labels an address without a group in a group of its own", () => {
+    const contact = parse(CARD.replace("UID:labels", "UID:labels\r\nADR:;;Quai 2;Genève;;1201;"));
+    const out = serialise(
+      applyDraft(
+        contact,
+        [
+          { type: "SET_ADR_TYPE", index: 0, value: "custom" },
+          { type: "SET_ADR_LABEL", index: 0, value: " Bateau " },
+        ].reduce<ReturnType<typeof buildDraft>>(
+          (draft, action) => draftReducer(draft, action as DraftAction),
+          buildDraft(contact),
+        ),
+      ),
+    );
+    expect(out).toContain("ITEM7.ADR:;;Quai 2;Genève;;1201;");
+    expect(out).toContain("ITEM7.X-ABLABEL:Bateau");
+    expect(out).toContain("ITEM3.X-ABLABEL:Atelier");
+    expect(parse(out).fields.adr.map((adr) => adr.label)).toEqual(["Bateau", "Atelier"]);
+  });
+
+  it("renames an address's own label in place, starting from it", () => {
+    const contact = parse(CARD);
+    let draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "custom",
+    });
+    expect(draft.adr[0]?.customLabel).toBe("Atelier");
+    expect(dirtyDiff(contact, draft).adr).toBe(false);
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 0, value: "Forge" });
+    expect(dirtyDiff(contact, draft).adr).toBe(true);
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM3.X-ABLABEL:Forge");
+    expect(out).not.toContain("Atelier");
+    expect(out).toContain("ITEM3.ADR;TYPE=HOME:;;Rue 1;Lausanne;;1000;Suisse");
+  });
+
+  it("moves an address sharing a phone's group to its own before labelling it", () => {
+    const contact = parse(CARD.replace("item3.ADR", "item1.ADR"));
+    let draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "custom",
+    });
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 0, value: "Bateau" });
+    const out = parse(serialise(applyDraft(contact, draft)));
+    expect(out.fields.tel[0]?.label).toBe("Chalet");
+    expect(out.fields.adr[0]?.label).toBe("Bateau");
+  });
+
+  it("drops an address's label when the custom one is left empty", () => {
+    const out = edit([
+      { type: "SET_ADR_TYPE", index: 0, value: "custom" },
+      { type: "SET_ADR_LABEL", index: 0, value: "  " },
+    ]);
+    expect(out).not.toContain("ITEM3.X-ABLABEL");
+    expect(out).toContain("ITEM3.ADR;TYPE=HOME:;;Rue 1;Lausanne;;1000;Suisse");
+  });
+
+  it("starts a custom label empty from one of Apple's built-in labels", () => {
+    const contact = parse(CARD.replace("X-ABLABEL:Atelier", "X-ABLABEL:_$!<Work>!$_"));
+    const draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "custom",
+    });
+    expect(draft.adr[0]?.customLabel).toBe("");
   });
 
   it("drops the right label when another phone row is removed", () => {
@@ -141,7 +210,7 @@ describe("grouped X-ABLABEL", () => {
     serialise(applyDraft(contact, draft));
     expect(contact.fields.tel[0]?.label).toBeUndefined();
     expect(contact.fields.email[0]?.label).toBeUndefined();
-    expect(contact.fields.adr?.label).toBeUndefined();
+    expect(contact.fields.adr[0]?.label).toBeUndefined();
     expect(contact.fields.tel[0]?.dropLabel).toBeUndefined();
     expect(isDirty(dirtyDiff(contact, buildDraft(contact)))).toBe(false);
   });

@@ -6,7 +6,7 @@
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
-import { type FieldKind, type Kind, kindOf } from "@/lib/contact-edit";
+import { type AddressKind, appleBuiltInOf, type Kind, kindOf } from "@/lib/contact-edit";
 import { cn } from "@/lib/utils";
 import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
 import { CopyIcon, PencilIcon, PlusIcon, TrashIcon } from "./ui/icons";
@@ -54,7 +54,7 @@ const APPLE_LABELS: Record<string, TranslationKey> = {
 };
 
 export function appleLabelText(label: string, t: (key: TranslationKey) => string): string {
-  const builtIn = /^_\$!<(.*)>!\$_$/.exec(label)?.[1];
+  const builtIn = appleBuiltInOf(label);
   if (builtIn === undefined) return label;
   const name = builtIn.toLowerCase();
   const key = Object.hasOwn(APPLE_LABELS, name) ? APPLE_LABELS[name] : undefined;
@@ -65,28 +65,36 @@ export function appleLabelText(label: string, t: (key: TranslationKey) => string
 const PHONE_KINDS: Kind[] = ["cell", "work", "home", ""];
 const PLACE_KINDS: Kind[] = ["home", "work", ""];
 
-export function TypeSelect({
+/**
+ * A row's type menu. With `custom` (addresses only, ADR 036), it ends with a
+ * label of the user's own, which the row then asks for.
+ */
+export function TypeSelect<K extends AddressKind>({
   field,
   value,
   label,
+  custom = false,
   onChange,
   "aria-label": ariaLabel,
 }: {
   field: "tel" | "email" | "adr" | "url";
-  value: FieldKind;
+  value: K;
   label?: string;
-  onChange: (kind: FieldKind) => void;
+  custom?: boolean;
+  onChange: (kind: K) => void;
   "aria-label": string;
 }) {
   const { t } = useI18n();
   const kinds = field === "tel" ? PHONE_KINDS : PLACE_KINDS;
+  const shown: AddressKind = value;
   // A kind the menu doesn't offer for this field still shows as it is.
-  const options = value === "label" || kinds.includes(value) ? kinds : [value, ...kinds];
+  const options =
+    shown === "label" || shown === "custom" || kinds.includes(shown) ? kinds : [shown, ...kinds];
   return (
     <select
       aria-label={ariaLabel}
       value={value}
-      onChange={(event) => onChange(event.target.value as FieldKind)}
+      onChange={(event) => onChange(event.target.value as K)}
       className={fieldClass("h-11 px-2.5 text-sm text-muted-foreground lg:text-sm")}
     >
       {label !== undefined && <option value="label">{appleLabelText(label, t)}</option>}
@@ -95,6 +103,7 @@ export function TypeSelect({
           {t(kindLabelKey(kind))}
         </option>
       ))}
+      {custom && <option value="custom">{t("t_custom")}</option>}
     </select>
   );
 }

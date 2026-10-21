@@ -11,6 +11,8 @@
 
 /** Minimal structural type for a vCard property. Only methods used by src/vcard/ are declared. */
 export interface RawProperty {
+  /** Lower case, as ical.js stores it. */
+  readonly name: string;
   toJSON(): unknown;
   getFirstValue(): unknown;
   /** All values of a multi-value property (e.g. CATEGORIES). */
@@ -62,7 +64,7 @@ export type EditableFields = {
   tel: ContactField[];
   email: ContactField[];
   nickname: string;
-  adr: VCardAddressField | null;
+  adr: VCardAddressField[];
   bday: VCardBirthdayField | null;
   org: string;
   title: string;
@@ -88,6 +90,8 @@ export type PhotoEdit =
 
 /** A single ADR property as stored in EditableFields. */
 export type VCardAddressField = {
+  /** The ADR property as read, which a save writes back from: absent on a new address. */
+  source?: AddressSource;
   poBox: string;
   extended: string;
   street: string;
@@ -99,10 +103,24 @@ export type VCardAddressField = {
   /** Any extra components beyond the standard 7 (some clients add a
    *  formatted-address component). These are preserved as-is. */
   extraParts: string[];
-  /** The `X-ABLABEL` of the property's group (ADR 030), read-only. */
+  /** The `X-ABLABEL` of the property's group (ADR 030). */
   label?: string;
   /** Set when the user picks a type instead of the label: the save drops that `X-ABLABEL`. */
   dropLabel?: true;
+  /** A label typed by the user, written as the property's `X-ABLABEL` (ADR 036). */
+  customLabel?: string;
+};
+
+/**
+ * An ADR property as parsed: its value and its parameters, group included.
+ * An address carries it so a save writes it back whole, wherever the
+ * property now sits on the card.
+ */
+export type AddressSource = {
+  value: unknown;
+  params: Record<string, string | string[]>;
+  /** The `X-ABADR` values of its group, absent when it has none. */
+  abadr?: string[];
 };
 
 /** A single BDAY property as stored in EditableFields. */

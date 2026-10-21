@@ -316,6 +316,48 @@ describe("edit mode — address type", () => {
   });
 });
 
+describe("edit mode — addresses", () => {
+  it("adds an address with a custom label and a complement, then saves both", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+    const section = article.querySelector<HTMLElement>("#sec-adr");
+    if (!section) throw new Error("no address section");
+
+    await user.type(within(section).getByLabelText("Complément (c/o, bâtiment…)"), "c/o Vi");
+    await user.click(within(section).getByRole("button", { name: "Ajouter une adresse" }));
+    const streets = within(section).getAllByLabelText("Rue");
+    expect(streets).toHaveLength(2);
+    await waitFor(() => expect(document.activeElement).toBe(streets[1]));
+    expect(within(article).getByRole("heading", { name: "Adresses" })).toBeTruthy();
+
+    await user.type(streets[1] as HTMLElement, "Quai 2");
+    await user.type(within(section).getAllByLabelText("Localité")[1] as HTMLElement, "Zaun");
+    const types = within(section).getAllByRole("combobox", { name: "Type d’adresse" });
+    await user.selectOptions(types[1] as HTMLElement, "Libellé…");
+    await user.type(within(section).getByLabelText("Libellé"), "Atelier");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    const sent = mockUpdateCard.mock.calls[0]?.[3] ?? "";
+    expect(sent).toContain("ADR;TYPE=HOME:;c/o Vi;123 Main St;Springfield;;12345;US");
+    expect(sent).toContain("ITEM1.ADR:;;Quai 2;Zaun;;;");
+    expect(sent).toContain("ITEM1.X-ABLABEL:Atelier");
+  });
+
+  it("removes an address, and offers to add one again once none is left", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+
+    await user.click(within(article).getByRole("button", { name: "Supprimer l’adresse" }));
+    expect(article.querySelector("#sec-adr")).toBeNull();
+    expect(within(article).getByText("Ajouter une adresse")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    expect(mockUpdateCard.mock.calls[0]?.[3]).not.toContain("ADR");
+  });
+});
+
 describe("edit mode — validation", () => {
   it("rejects invalid email on save", async () => {
     await renderEditView("editable");

@@ -4,7 +4,20 @@
  */
 
 import type { PhotoEdit } from "@/model/contact";
-import { type ContactDraft, type FieldKind, nextId, withKind } from "./contact-edit";
+import { addressTypesOf } from "@/vcard";
+import {
+  type AddressKind,
+  appleBuiltInOf,
+  type ContactDraft,
+  type DraftAddress,
+  type FieldKind,
+  newDraftAddress,
+  nextId,
+  withKind,
+} from "./contact-edit";
+
+/** The parts of an address the form edits. */
+export type AddressPart = "extended" | "street" | "postalCode" | "locality" | "country";
 
 export type DraftAction =
   | { type: "REBUILD"; draft: ContactDraft }
@@ -19,11 +32,10 @@ export type DraftAction =
   | { type: "SET_EMAIL_TYPE"; index: number; value: FieldKind }
   | { type: "REMOVE_EMAIL"; index: number }
   | { type: "SET_NICKNAME"; value: string }
-  | { type: "SET_ADR_TYPE"; value: FieldKind }
-  | { type: "SET_ADR_STREET"; value: string }
-  | { type: "SET_ADR_POSTAL_CODE"; value: string }
-  | { type: "SET_ADR_LOCALITY"; value: string }
-  | { type: "SET_ADR_COUNTRY"; value: string }
+  | { type: "SET_ADR_TYPE"; index: number; value: AddressKind }
+  | { type: "SET_ADR_PART"; index: number; part: AddressPart; value: string }
+  | { type: "SET_ADR_LABEL"; index: number; value: string }
+  | { type: "REMOVE_ADR"; index: number }
   | { type: "ADD_ADR" }
   | { type: "SET_BDAY_YEAR"; value: string }
   | { type: "SET_BDAY_MONTH"; value: string }
@@ -87,42 +99,34 @@ export function draftReducer(state: ContactDraft, action: DraftAction): ContactD
     case "SET_NICKNAME":
       return { ...state, nickname: action.value };
     case "SET_ADR_TYPE":
-      if (!state.adr) return state;
-      return {
-        ...state,
-        adr:
-          action.value === "label"
-            ? { ...state.adr, type: state.adrLabelType ?? state.adr.type, dropLabel: undefined }
-            : {
-                ...state.adr,
-                type: withKind(state.adr.type, action.value),
-                dropLabel: state.adr.label === undefined ? undefined : true,
-              },
-      };
-    case "SET_ADR_STREET":
-      return { ...state, adr: state.adr ? { ...state.adr, street: action.value } : null };
-    case "SET_ADR_POSTAL_CODE":
-      return { ...state, adr: state.adr ? { ...state.adr, postalCode: action.value } : null };
-    case "SET_ADR_LOCALITY":
-      return { ...state, adr: state.adr ? { ...state.adr, locality: action.value } : null };
-    case "SET_ADR_COUNTRY":
-      return { ...state, adr: state.adr ? { ...state.adr, country: action.value } : null };
+      return withAddress(state, action.index, (adr) => {
+        if (action.value === "custom") {
+          return { ...adr, customLabel: customLabelOf(adr.label), dropLabel: undefined };
+        }
+        if (action.value === "label") {
+          return {
+            ...adr,
+            // The label goes with the TYPE it was read with.
+            type: adr.source === undefined ? adr.type : addressTypesOf(adr.source.params),
+            customLabel: undefined,
+            dropLabel: undefined,
+          };
+        }
+        return {
+          ...adr,
+          type: withKind(adr.type, action.value),
+          customLabel: undefined,
+          dropLabel: adr.label === undefined ? undefined : true,
+        };
+      });
+    case "SET_ADR_PART":
+      return withAddress(state, action.index, (adr) => ({ ...adr, [action.part]: action.value }));
+    case "SET_ADR_LABEL":
+      return withAddress(state, action.index, (adr) => ({ ...adr, customLabel: action.value }));
+    case "REMOVE_ADR":
+      return { ...state, adr: state.adr.filter((_, i) => i !== action.index) };
     case "ADD_ADR":
-      if (state.adr) return state;
-      return {
-        ...state,
-        adr: {
-          poBox: "",
-          extended: "",
-          street: "",
-          locality: "",
-          region: "",
-          postalCode: "",
-          country: "",
-          type: [],
-          extraParts: [],
-        },
-      };
+      return { ...state, adr: [...state.adr, newDraftAddress()] };
     case "SET_BDAY_YEAR":
       return { ...state, bday: state.bday ? { ...state.bday, year: action.value } : null };
     case "SET_BDAY_MONTH":
@@ -148,4 +152,20 @@ export function draftReducer(state: ContactDraft, action: DraftAction): ContactD
     case "SET_PHOTO":
       return { ...state, photo: action.value };
   }
+}
+
+function withAddress(
+  state: ContactDraft,
+  index: number,
+  change: (adr: DraftAddress) => DraftAddress,
+): ContactDraft {
+  const adr = [...state.adr];
+  const item = adr[index];
+  if (item) adr[index] = change(item);
+  return { ...state, adr };
+}
+
+/** A card's label to start a custom one from; Apple's built-in ones are its own types. */
+function customLabelOf(label: string | undefined): string {
+  return label === undefined || appleBuiltInOf(label) !== undefined ? "" : label;
 }

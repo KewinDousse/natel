@@ -11,7 +11,15 @@
 
 import ICAL from "ical.js";
 import { describe, expect, it } from "vitest";
-import { applyDraft, buildDraft, validateDraft } from "../../src/lib/contact-edit";
+import {
+  applyDraft,
+  buildDraft,
+  dirtyDiff,
+  newDraftAddress,
+  rebaseDraft,
+  validateDraft,
+} from "../../src/lib/contact-edit";
+import { draftReducer } from "../../src/lib/draft-reducer";
 import { parse, serialise } from "../../src/vcard";
 
 // ---------------------------------------------------------------------------
@@ -301,17 +309,20 @@ END:VCARD`;
   it("creates ADR on a card that lacks it", () => {
     const contact = parse(MINIMAL);
     const draft = buildDraft(contact);
-    draft.adr = {
-      poBox: "",
-      extended: "",
-      street: "123 Main St",
-      locality: "Springfield",
-      region: "",
-      postalCode: "12345",
-      country: "US",
-      type: ["HOME"],
-      extraParts: [],
-    };
+    draft.adr = [
+      {
+        id: "a",
+        poBox: "",
+        extended: "",
+        street: "123 Main St",
+        locality: "Springfield",
+        region: "",
+        postalCode: "12345",
+        country: "US",
+        type: ["HOME"],
+        extraParts: [],
+      },
+    ];
     applyDraft(contact, draft);
     const result = serialise(contact);
     expect(contains(result, "ADR;TYPE=HOME:;;123 Main St;Springfield;;12345;US")).toBe(true);
@@ -871,9 +882,885 @@ describe("ADR via real parse()", () => {
     it("editing the locality keeps the other parts and parameters as parsed", () => {
       const card = adrCard('ADR;TYPE=HOME;LABEL="x":;;Rue A,Bât B;Piltover;;0000;RT', version);
       const result = editField(card, (draft) => {
-        if (draft.adr) draft.adr.locality = "Zaun";
+        if (draft.adr[0]) draft.adr[0].locality = "Zaun";
       });
       expect(adrLineOf(result)).toBe("ADR;TYPE=HOME;LABEL=x:;;Rue A,Bât B;Zaun;;0000;RT");
     });
+
+    it("removing the first address leaves the second as parsed, with its group", () => {
+      const second = "item1.ADR;TYPE=WORK;X-KEEP=yes:;;Quai A,Quai B;Zaun;;0001;RT";
+      const card = adrCard(`ADR;TYPE=HOME:;;1 Rue;Piltover;;0000;RT\r\n${second}`, version);
+      const result = editField(card, (draft) => {
+        draft.adr.shift();
+      });
+      const lines = result.split("\r\n").filter((l) => /^(item1\.)?ADR/i.test(l));
+      expect(lines).toEqual([
+        untouched(card)
+          .split("\r\n")
+          .find((l) => /^item1\./i.test(l)),
+      ]);
+    });
+
+    it("editing the second address leaves the first as parsed", () => {
+      const first = 'ADR;TYPE=HOME;LABEL="1 Rue":;;Rue A,Bât B;Piltover;;0000;RT';
+      const card = adrCard(`${first}\r\nADR:;;Quai 2;Zaun;;0001;RT`, version);
+      const result = editField(card, (draft) => {
+        if (draft.adr[1]) draft.adr[1].extended = "c/o Vi";
+      });
+      const lines = result.split("\r\n").filter((l) => l.startsWith("ADR"));
+      expect(lines).toEqual([
+        untouched(card)
+          .split("\r\n")
+          .find((l) => l.startsWith("ADR;")),
+        "ADR:;c/o Vi;Quai 2;Zaun;;0001;RT",
+      ]);
+    });
+
+    it("adds a new address after the card's own", () => {
+      const card = adrCard("ADR;TYPE=HOME:;;1 Rue;Piltover;;0000;RT", version);
+      const result = editField(card, (draft) => {
+        draft.adr.push({ ...newDraftAddress(), street: "Quai 2", locality: "Zaun" });
+      });
+      expect(result.split("\r\n").filter((l) => l.startsWith("ADR"))).toEqual([
+        "ADR;TYPE=HOME:;;1 Rue;Piltover;;0000;RT",
+        "ADR:;;Quai 2;Zaun;;;",
+      ]);
+    });
+
+    it("adds no property for a new address left blank", () => {
+      const card = adrCard("ADR;TYPE=HOME:;;1 Rue;Piltover;;0000;RT", version);
+      const result = editField(card, (draft) => {
+        draft.adr.push(newDraftAddress());
+      });
+      expect(result).toBe(untouched(card));
+    });
+  });
+});
+
+describe("ADR: each address keeps its own property", () => {
+  const A = "item1.ADR;TYPE=HOME:;;Rue A;Piltover;;0000;RT";
+  const B = "item2.ADR;TYPE=WORK;X-B=b:;;Quai B,Quai C;Zaun;;0001;RT";
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-identity",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+  const adrLines = (text: string) => text.split("\r\n").filter((l) => /^(item\d+\.)?ADR/i.test(l));
+  const labelledLines = (text: string) =>
+    text.split("\r\n").filter((l) => /^(item\d+\.)?(ADR|X-ABLABEL)/i.test(l));
+
+  it.each([
+    ["an unstructured value", "ADR:Just text"],
+    ["an empty grouped one", "item1.ADR;TYPE=HOME;X-K=1:;;;;;;\r\nitem1.X-ABLABEL:Lab"],
+  ])("keeps %s when another field is edited", (_name, lines) => {
+    const text = card(lines);
+    const result = editField(text, (draft) => {
+      draft.given = "Violet";
+    });
+    expect(labelledLines(result)).toEqual(labelledLines(untouched(text)));
+  });
+
+  it("overwrites onto a card whose earlier address went elsewhere without mixing them", () => {
+    const mine = parse(card(A, "item1.X-ABLABEL:Maison", B, "item2.X-ABLABEL:Bureau"));
+    const draft = buildDraft(mine);
+    if (draft.adr[1]) draft.adr[1].locality = "Zaun-Bas";
+    const theirs = parse(card(B, "item2.X-ABLABEL:Bureau"));
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const lines = adrLines(serialise(theirs));
+    expect(lines).toEqual([
+      "ITEM1.ADR;TYPE=HOME:;;Rue A;Piltover;;0000;RT",
+      "ITEM2.ADR;TYPE=WORK;X-B=b:;;Quai B,Quai C;Zaun-Bas;;0001;RT",
+    ]);
+  });
+
+  it("overwrites onto a card with an address added elsewhere without moving its data", () => {
+    const mine = parse(card(A, B));
+    const draft = buildDraft(mine);
+    if (draft.adr[0]) draft.adr[0].street = "Rue A bis";
+    const theirs = parse(card("item3.ADR;X-C=c:;;Cave;Zaun;;;", "item3.X-ABLABEL:Cave", A, B));
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    expect(adrLines(serialise(theirs))).toEqual([
+      "ITEM1.ADR;TYPE=HOME:;;Rue A bis;Piltover;;0000;RT",
+      "ITEM2.ADR;TYPE=WORK;X-B=b:;;Quai B,Quai C;Zaun;;0001;RT",
+    ]);
+  });
+
+  it("keeps an address edited during a save that removed another on its own property", () => {
+    const contact = parse(card(A, B, "item2.X-ABLABEL:Bureau"));
+    const sent = buildDraft(contact);
+    sent.adr.shift();
+    const current = { ...sent, adr: sent.adr.map((adr) => ({ ...adr, locality: "Zaun-Haut" })) };
+    applyDraft(contact, sent);
+    const saved = parse(serialise(contact));
+    const next = rebaseDraft(sent, current, saved);
+    applyDraft(saved, next);
+    const out = serialise(saved);
+    expect(adrLines(out)).toEqual(["ITEM2.ADR;TYPE=WORK;X-B=b:;;Quai B,Quai C;Zaun-Haut;;0001;RT"]);
+    expect(parse(out).fields.adr[0]?.label).toBe("Bureau");
+  });
+});
+
+describe("ADR: values and labels across saves", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-saves",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+  const lines = (text: string, pattern: RegExp) =>
+    text.split("\r\n").filter((l) => pattern.test(l));
+
+  it("reads a value that isn't structured as its first part, and keeps it on an edit", () => {
+    const contact = parse(card("ADR;TYPE=HOME:Just text here"));
+    expect(contact.fields.adr[0]?.poBox).toBe("Just text here");
+    const draft = buildDraft(contact);
+    if (draft.adr[0]) draft.adr[0].street = "Rue 1";
+    applyDraft(contact, draft);
+    expect(lines(serialise(contact), /^ADR/)).toEqual(["ADR;TYPE=HOME:Just text here;;Rue 1;;;;"]);
+  });
+
+  it("labels an address in its own group once an earlier address is removed", () => {
+    const contact = parse(
+      card(
+        "item1.ADR;TYPE=HOME:;;Rue A;Piltover;;;",
+        "item1.X-ABLABEL:Maison",
+        "item2.ADR;TYPE=WORK:;;Quai B;Zaun;;;",
+        "item2.X-ABLABEL:Bureau",
+        "item2.X-ABADR:ch",
+      ),
+    );
+    let draft = buildDraft(contact);
+    draft = draftReducer(draft, { type: "REMOVE_ADR", index: 0 });
+    draft = draftReducer(draft, { type: "SET_ADR_TYPE", index: 0, value: "custom" });
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 0, value: "Atelier" });
+    const out = serialise(applyDraft(contact, draft));
+    expect(lines(out, /^ITEM2\./)).toEqual([
+      "ITEM2.ADR;TYPE=WORK:;;Quai B;Zaun;;;",
+      "ITEM2.X-ABLABEL:Atelier",
+      "ITEM2.X-ABADR:ch",
+    ]);
+    expect(out).not.toContain("ITEM3");
+  });
+
+  it("writes a label's commas, semicolons and backslashes as vCard text", () => {
+    const contact = parse(card("ADR:;;Quai 2;Genève;;;"));
+    let draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "custom",
+    });
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 0, value: "Lac, nord; a\\b" });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain(String.raw`ITEM1.X-ABLABEL:Lac\, nord\; a\\b`);
+    expect(parse(out).fields.adr[0]?.label).toBe("Lac, nord; a\\b");
+  });
+
+  it("keeps the group a save gave an address when it was edited during that save", () => {
+    const contact = parse(card());
+    let sent = draftReducer(buildDraft(contact), { type: "ADD_ADR" });
+    sent = draftReducer(sent, { type: "SET_ADR_PART", index: 0, part: "street", value: "New" });
+    sent = draftReducer(sent, { type: "SET_ADR_TYPE", index: 0, value: "custom" });
+    sent = draftReducer(sent, { type: "SET_ADR_LABEL", index: 0, value: "Chalet" });
+    const current = draftReducer(sent, {
+      type: "SET_ADR_PART",
+      index: 0,
+      part: "locality",
+      value: "Zermatt",
+    });
+    applyDraft(contact, sent);
+    const saved = parse(serialise(contact));
+    applyDraft(saved, rebaseDraft(sent, current, saved));
+    const out = serialise(saved);
+    expect(lines(out, /ADR|ABLABEL/)).toEqual([
+      "ITEM1.ADR:;;New;Zermatt;;;",
+      "ITEM1.X-ABLABEL:Chalet",
+    ]);
+  });
+});
+
+describe("ADR: an overwrite onto a card regrouped elsewhere", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-regroup",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  it("gives an address a group of its own when its group went to a phone", () => {
+    const mine = parse(
+      card("item1.ADR:;;Rue A;Piltover;;;", "item2.ADR:;;Quai B;Zaun;;;", "item2.X-ABLABEL:Bureau"),
+    );
+    const theirs = parse(
+      card("item1.ADR:;;Rue A;Piltover;;;", "item2.TEL:+41 21 000 00 00", "item2.X-ABLABEL:Fax"),
+    );
+    const draft = buildDraft(mine);
+    if (draft.adr[1]) draft.adr[1].street = "Quai C";
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = parse(serialise(theirs));
+    expect(out.fields.tel[0]?.label).toBe("Fax");
+    expect(out.fields.adr.map((adr) => [adr.street, adr.label])).toEqual([
+      ["Rue A", undefined],
+      ["Quai C", "Bureau"],
+    ]);
+  });
+});
+
+describe("ADR: labels and sources at the edges", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-edges",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  it("reads another client's escaped phone label as text, and keeps its line on an edit", () => {
+    const contact = parse(card("item1.TEL:111", String.raw`item1.X-ABLABEL:a\,b\;c\\d`));
+    expect(contact.fields.tel[0]?.label).toBe(String.raw`a,b;c\d`);
+    const draft = buildDraft(contact);
+    draft.given = "Vy";
+    applyDraft(contact, draft);
+    expect(serialise(contact)).toContain(String.raw`X-ABLABEL:a\,b\;c\\d`);
+  });
+
+  it("flags a label with no address under it", () => {
+    let draft = draftReducer(buildDraft(parse(card())), { type: "ADD_ADR" });
+    draft = draftReducer(draft, { type: "SET_ADR_TYPE", index: 0, value: "custom" });
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 0, value: "Chalet" });
+    expect(validateDraft(draft).adr_0).toBe("field_adr_empty");
+    draft = draftReducer(draft, { type: "SET_ADR_PART", index: 0, part: "street", value: "Rue 1" });
+    expect(validateDraft(draft).adr_0).toBeUndefined();
+  });
+
+  it("finds the saved property by what an address sent, among another client's", () => {
+    const contact = parse(card("item1.ADR:;;Rue A;;;;"));
+    const sent = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_PART",
+      index: 0,
+      part: "locality",
+      value: "Zaun",
+    });
+    const current = draftReducer(sent, {
+      type: "SET_ADR_PART",
+      index: 0,
+      part: "postalCode",
+      value: "1000",
+    });
+    const saved = parse(card("item7.ADR:;;Quai Z;;;;", "item1.ADR:;;Rue A;Zaun;;;"));
+    const rebased = rebaseDraft(sent, current, saved).adr[0];
+    expect(rebased?.source?.params.group).toBe("item1");
+    expect(rebased?.postalCode).toBe("1000");
+  });
+});
+
+describe("ADR: a group shared with another labelled property", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-shared",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  it("leaves the phone its label when the address picks a type", () => {
+    const contact = parse(card("item1.ADR:;;Rue A;;;;", "item1.TEL:123", "item1.X-ABLABEL:Shared"));
+    const draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "work",
+    });
+    const out = parse(serialise(applyDraft(contact, draft)));
+    expect(out.fields.tel[0]?.label).toBe("Shared");
+    expect(out.fields.adr[0]?.label).toBeUndefined();
+  });
+
+  it("writes an address's own label back over a rename elsewhere, in its group", () => {
+    const mine = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABLABEL:Chalet",
+        "item1.X-ABADR:ch",
+        "item2.ADR:;;Quai B;;;;",
+      ),
+    );
+    const theirs = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABLABEL:Maison de vacances",
+        "item1.X-ABADR:ch",
+        "item2.ADR:;;Quai B;;;;",
+      ),
+    );
+    const draft = buildDraft(mine);
+    if (draft.adr[1]) draft.adr[1].street = "Quai C";
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("ITEM1.ADR:;;Rue A;;;;");
+    expect(out).toContain("ITEM1.X-ABLABEL:Chalet");
+    expect(out).toContain("ITEM1.X-ABADR:ch");
+    expect(out).not.toContain("Maison de vacances");
+    expect(out).not.toContain("ITEM3");
+  });
+});
+
+describe("ADR: an overwrite onto groups changed elsewhere", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-renumbered",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+  const labels = (text: string) => parse(text).fields.adr.map((adr) => [adr.street, adr.label]);
+
+  it("gives each address its own label when another client renumbered the groups", () => {
+    const mine = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABLABEL:Chalet",
+        "item2.ADR:;;Quai B;;;;",
+        "item2.X-ABLABEL:Atelier",
+      ),
+    );
+    const theirs = parse(card("item1.ADR:;;Quai B;;;;", "item1.X-ABLABEL:Atelier"));
+    const draft = buildDraft(mine);
+    if (draft.adr[1]) draft.adr[1].street = "Quai C";
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(labels(out)).toEqual([
+      ["Rue A", "Chalet"],
+      ["Quai C", "Atelier"],
+    ]);
+    expect(out.match(/X-ABLABEL/g)).toHaveLength(2);
+  });
+
+  it("brings back the label of an address deleted elsewhere", () => {
+    const mine = parse(
+      card("item1.ADR:;;Rue A;;;;", "item2.ADR:;;Quai B;;;;", "item2.X-ABLABEL:Atelier"),
+    );
+    const theirs = parse(card("item1.ADR:;;Rue A;;;;"));
+    const draft = buildDraft(mine);
+    if (draft.adr[1]) draft.adr[1].street = "Quai C";
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    expect(labels(serialise(theirs))).toEqual([
+      ["Rue A", undefined],
+      ["Quai C", "Atelier"],
+    ]);
+  });
+
+  it("finds a grouped address in its new group before an identical one without a group", () => {
+    const mine = parse(card("ADR:;;Rue A;;;;", "item1.ADR:;;Rue A;;;;", "item1.X-ABADR:ch"));
+    const theirs = parse(card("ADR:;;Rue A;;;;", "item2.ADR:;;Rue A;;;;", "item2.X-ABADR:ch"));
+    const draft = draftReducer(buildDraft(mine), { type: "REMOVE_ADR", index: 0 });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("ITEM2.ADR:;;Rue A;;;;\r\nITEM2.X-ABADR:ch");
+    expect(out).not.toContain("\r\nADR:");
+  });
+
+  it("gives an address deleted elsewhere a property of its own, not one added elsewhere", () => {
+    const mine = parse(card("item1.ADR:;;Rue A;;;;", "item1.X-ABADR:fr"));
+    const theirs = parse(card("item2.ADR:;;Cave;;;;", "item2.X-ABADR:de"));
+    const draft = draftReducer(buildDraft(mine), {
+      type: "SET_ADR_PART",
+      index: 0,
+      part: "street",
+      value: "Rue A2",
+    });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("\r\nADR:;;Rue A2;;;;");
+    expect(out).not.toContain("ITEM2.ADR");
+  });
+
+  it("leaves an address changed elsewhere off its group once another address holds it", () => {
+    const mine = parse(
+      card(
+        "item1.ADR;TYPE=HOME:;;Rue A;Lausanne;;1000;Suisse",
+        "item1.X-ABADR:ch",
+        "item2.ADR;TYPE=WORK:;;Rue B;Paris;;75000;France",
+        "item2.X-ABADR:fr",
+        "item2.X-ABLABEL:Bureau",
+      ),
+    );
+    const theirs = parse(
+      card(
+        "item2.ADR;TYPE=HOME:;;Rue A 2;Lausanne;;1000;Suisse",
+        "item2.X-ABADR:ch",
+        "item1.ADR;TYPE=WORK:;;Rue B;Paris;;75000;France",
+        "item1.X-ABADR:fr",
+        "item1.X-ABLABEL:Bureau",
+      ),
+    );
+    const draft = draftReducer(buildDraft(mine), { type: "REMOVE_ADR", index: 1 });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("\r\nADR;TYPE=HOME:;;Rue A;Lausanne;;1000;Suisse");
+    expect(out).not.toContain("ITEM1.ADR");
+  });
+
+  it("gives no address another's X-ABADR when groups were renumbered and both changed elsewhere", () => {
+    const mine = parse(
+      card(
+        "item1.TEL:+41 1",
+        "item1.X-ABLABEL:Bureau",
+        "item2.ADR;TYPE=HOME:;;Rue A;Lausanne;;1000;Suisse",
+        "item2.X-ABADR:ch",
+        "item3.ADR;TYPE=WORK:;;Rue B;Paris;;75000;France",
+        "item3.X-ABADR:fr",
+      ),
+    );
+    const theirs = parse(
+      card(
+        "item1.ADR;TYPE=HOME:;;Rue A 2;Lausanne;;1000;Suisse",
+        "item1.X-ABADR:ch",
+        "item2.ADR;TYPE=WORK:;;Rue B 2;Paris;;75000;France",
+        "item2.X-ABADR:fr",
+      ),
+    );
+    const draft = draftReducer(buildDraft(mine), {
+      type: "SET_ADR_PART",
+      index: 0,
+      part: "extended",
+      value: "c/o X",
+    });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("\r\nADR;TYPE=HOME:;c/o X;Rue A;Lausanne;;1000;Suisse");
+    expect(out).toContain("\r\nADR;TYPE=WORK:;;Rue B;Paris;;75000;France");
+    expect(out).not.toMatch(/ITEM\d\.ADR/);
+  });
+
+  it("gives an address deleted elsewhere a property of its own, not one the user removed", () => {
+    const mine = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABADR:fr",
+        "item2.ADR:;;Quai B;;;;",
+        "item2.X-ABADR:ch",
+      ),
+    );
+    const theirs = parse(card("item1.ADR:;;Rue A;;;;", "item1.X-ABADR:fr"));
+    let draft = draftReducer(buildDraft(mine), { type: "REMOVE_ADR", index: 0 });
+    draft = draftReducer(draft, { type: "SET_ADR_TYPE", index: 0, value: "work" });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("\r\nADR;TYPE=work:;;Quai B;;;;");
+    expect(out).not.toContain("ITEM1.ADR");
+  });
+
+  it("finds a later address's saved property when an earlier one was changed elsewhere", () => {
+    const contact = parse(card("item1.ADR:;;Rue A;;;;"));
+    let sent = draftReducer(buildDraft(contact), { type: "ADD_ADR" });
+    sent = draftReducer(sent, { type: "SET_ADR_PART", index: 1, part: "street", value: "New" });
+    sent = draftReducer(sent, { type: "SET_ADR_TYPE", index: 1, value: "custom" });
+    sent = draftReducer(sent, { type: "SET_ADR_LABEL", index: 1, value: "Chalet" });
+    const current = draftReducer(sent, {
+      type: "SET_ADR_PART",
+      index: 1,
+      part: "locality",
+      value: "Zermatt",
+    });
+    const saved = parse(
+      card("item1.ADR:;;Rue A bis;;;;", "item2.ADR:;;New;;;;", "item2.X-ABLABEL:Chalet"),
+    );
+    applyDraft(saved, rebaseDraft(sent, current, saved));
+    const out = serialise(saved);
+    expect(out).toContain("ITEM2.ADR:;;New;Zermatt;;;");
+    expect(out.match(/X-ABLABEL/g)).toHaveLength(1);
+  });
+
+  it("leaves an unchanged custom label in place on a group shared with a phone", () => {
+    const contact = parse(
+      card("item1.ADR:;;Rue A;;;;", "item1.TEL:123", "item1.X-ABLABEL:Shared", "ADR:;;Quai B;;;;"),
+    );
+    let draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "custom",
+    });
+    draft = draftReducer(draft, {
+      type: "SET_ADR_PART",
+      index: 1,
+      part: "street",
+      value: "Quai C",
+    });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM1.ADR:;;Rue A;;;;");
+    expect(out.match(/X-ABLABEL/g)).toHaveLength(1);
+  });
+});
+
+describe("ADR: a group shared with a property Natel doesn't show", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-unshown",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  it("leaves an IMPP its label when the address sharing its group is labelled", () => {
+    const contact = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABADR:ch",
+        "item1.IMPP:xmpp:vi@example.org",
+        "item1.X-ABLABEL:Jabber",
+      ),
+    );
+    let draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "custom",
+    });
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 0, value: "Chalet" });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM1.IMPP:xmpp:vi@example.org");
+    expect(out).toContain("ITEM1.X-ABLABEL:Jabber");
+    expect(out).toContain("ITEM2.ADR:;;Rue A;;;;");
+    expect(out).toContain("ITEM2.X-ABADR:ch");
+    expect(out).toContain("ITEM2.X-ABLABEL:Chalet");
+  });
+
+  it("leaves a relation its label on an overwrite onto a group renumbered elsewhere", () => {
+    const mine = parse(card("item1.ADR:;;Rue A;;;;", "item1.X-ABLABEL:Chalet"));
+    const theirs = parse(
+      card("item1.X-ABRELATEDNAMES:Mom", "item1.X-ABLABEL:_$!<Mother>!$_", "ADR:;;Rue A;;;;"),
+    );
+    const draft = buildDraft(mine);
+    if (draft.adr[0]) draft.adr[0].street = "Rue B";
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("ITEM1.X-ABRELATEDNAMES:Mom");
+    expect(out).toContain("ITEM1.X-ABLABEL:_$!<Mother>!$_");
+    expect(parse(out).fields.adr.map((adr) => [adr.street, adr.label])).toEqual([
+      ["Rue B", "Chalet"],
+    ]);
+  });
+});
+
+describe("ADR: an overwrite onto a group given to an unlabelled property", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-unlabelled",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  it.each([["item1.IMPP:xmpp:a@example.org"], ["item1.TEL:123"]])(
+    "moves the address and its label away from %s",
+    (other) => {
+      const mine = parse(card("item1.ADR:;;Rue A;P;;;", "item1.X-ABLABEL:Chalet"));
+      const theirs = parse(card(other, "item2.ADR:;;Rue A;P;;;", "item2.X-ABLABEL:Chalet"));
+      const draft = buildDraft(mine);
+      if (draft.adr[0]) draft.adr[0].street = "Rue A2";
+      applyDraft(theirs, draft, dirtyDiff(mine, draft));
+      const out = serialise(theirs);
+      expect(out).toContain(other.replace("item1", "ITEM1"));
+      expect(out).not.toMatch(/ITEM1\.(ADR|X-ABLABEL)/);
+      expect(parse(out).fields.adr.map((adr) => [adr.street, adr.label])).toEqual([
+        ["Rue A2", "Chalet"],
+      ]);
+    },
+  );
+});
+
+describe("ADR: X-ABADR follows the address it belongs to", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-abadr",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  it("stays in a group another address still holds", () => {
+    const contact = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.ADR:;;Quai B;;;;",
+        "item1.X-ABADR:ch",
+        "item1.X-ABLABEL:Shared",
+      ),
+    );
+    let draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 1,
+      value: "custom",
+    });
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 1, value: "Atelier" });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM1.X-ABADR:ch");
+    expect(out).toContain("ITEM1.X-ABLABEL:Shared");
+    expect(out).toContain("ITEM2.ADR:;;Quai B;;;;");
+    expect(out).toContain("ITEM2.X-ABLABEL:Atelier");
+  });
+
+  it("moves with an address that leaves an IMPP's group for a type", () => {
+    const contact = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABADR:ch",
+        "item1.IMPP:xmpp:a@example.org",
+        "item1.X-ABLABEL:Jabber",
+      ),
+    );
+    const draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "work",
+    });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM1.IMPP:xmpp:a@example.org");
+    expect(out).toContain("ITEM1.X-ABLABEL:Jabber");
+    expect(out).toContain("ITEM2.ADR;TYPE=work:;;Rue A;;;;");
+    expect(out).toContain("ITEM2.X-ABADR:ch");
+  });
+});
+
+describe("ADR: a label this save drops with another property's type", () => {
+  const card = (...lines: string[]) =>
+    [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:adr-dropped",
+      "FN:Vi",
+      "N:;Vi;;;",
+      ...lines,
+      "END:VCARD",
+      "",
+    ].join("\r\n");
+
+  it("drops it for an address sharing an e-mail's group, which stays put", () => {
+    const contact = parse(
+      card("item1.EMAIL:a@example.org", "item1.ADR:;;Rue A;;;;", "item1.X-ABLABEL:Chalet"),
+    );
+    const draft = draftReducer(buildDraft(contact), {
+      type: "SET_EMAIL_TYPE",
+      index: 0,
+      value: "work",
+    });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM1.ADR:;;Rue A;;;;");
+    expect(out).not.toContain("X-ABLABEL");
+  });
+
+  it("moves an address picking a type out of a website's group, whose label goes", () => {
+    const contact = parse(
+      card("item1.URL:https://a.example", "item1.ADR:;;Rue A;;;;", "item1.X-ABLABEL:Chalet"),
+    );
+    let draft = draftReducer(buildDraft(contact), { type: "SET_URL_TYPE", value: "work" });
+    draft = draftReducer(draft, { type: "SET_ADR_TYPE", index: 0, value: "work" });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM1.URL;TYPE=work:https://a.example");
+    expect(out).toContain("ITEM2.ADR;TYPE=work:;;Rue A;;;;");
+    expect(out).not.toContain("X-ABLABEL");
+  });
+
+  it("keeps an address's own label on an overwrite onto a website's group, groups swapped elsewhere", () => {
+    const mine = parse(
+      card(
+        "item1.URL:https://a.example",
+        "item1.X-ABLABEL:_$!<HomePage>!$_",
+        "item2.ADR:;;Rue A;;;;",
+        "item2.X-ABLABEL:Chalet",
+      ),
+    );
+    const theirs = parse(
+      card(
+        "item2.URL:https://a.example",
+        "item2.X-ABLABEL:_$!<HomePage>!$_",
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABLABEL:Chalet",
+      ),
+    );
+    let draft = draftReducer(buildDraft(mine), { type: "SET_URL_TYPE", value: "work" });
+    draft = draftReducer(draft, {
+      type: "SET_ADR_PART",
+      index: 0,
+      part: "street",
+      value: "Rue A2",
+    });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(parse(out).fields.adr.map((adr) => [adr.street, adr.label])).toEqual([
+      ["Rue A2", "Chalet"],
+    ]);
+    expect(parse(out).fields.urlField?.label).toBeUndefined();
+  });
+
+  it("keeps the label of an address whose group took a website's same label elsewhere", () => {
+    const mine = parse(
+      card(
+        "item1.URL:https://a.example",
+        "item1.X-ABLABEL:Chalet",
+        "item2.ADR:;;Rue A;;;;",
+        "item2.X-ABLABEL:Chalet",
+      ),
+    );
+    const theirs = parse(
+      card(
+        "item2.URL:https://a.example",
+        "item2.X-ABLABEL:Chalet",
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABLABEL:Chalet",
+      ),
+    );
+    let draft = draftReducer(buildDraft(mine), { type: "SET_URL_TYPE", value: "work" });
+    draft = draftReducer(draft, {
+      type: "SET_ADR_PART",
+      index: 0,
+      part: "street",
+      value: "Rue A2",
+    });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    expect(parse(serialise(theirs)).fields.adr.map((adr) => [adr.street, adr.label])).toEqual([
+      ["Rue A2", "Chalet"],
+    ]);
+  });
+
+  it("keeps each address's X-ABADR on an overwrite onto renumbered groups", () => {
+    const mine = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABADR:fr",
+        "item2.ADR:;;Quai B;;;;",
+        "item2.X-ABADR:ch",
+      ),
+    );
+    const theirs = parse(
+      card(
+        "item1.ADR:;;Quai B;;;;",
+        "item1.X-ABADR:ch",
+        "item2.ADR:;;Rue A;;;;",
+        "item2.X-ABADR:fr",
+      ),
+    );
+    const draft = draftReducer(buildDraft(mine), {
+      type: "SET_ADR_PART",
+      index: 1,
+      part: "street",
+      value: "Quai C",
+    });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("ITEM1.ADR:;;Quai C;;;;");
+    expect(out).toContain("ITEM1.X-ABADR:ch");
+    expect(out).toContain("ITEM2.ADR:;;Rue A;;;;");
+    expect(out).toContain("ITEM2.X-ABADR:fr");
+  });
+
+  it("gives each of two identical addresses its own group back when another client regrouped one", () => {
+    const mine = parse(
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABADR:fr",
+        "item1.X-ABLABEL:L1",
+        "item2.ADR:;;Rue A;;;;",
+        "item2.X-ABADR:ch",
+        "item2.X-ABLABEL:L2",
+        "ADR:;;Rue C;;;;",
+      ),
+    );
+    const theirs = parse(
+      card(
+        "item2.ADR:;;Rue A;;;;",
+        "item2.X-ABADR:ch",
+        "item2.X-ABLABEL:L2",
+        "item3.ADR:;;Rue A;;;;",
+        "item3.X-ABADR:fr",
+        "item3.X-ABLABEL:L1",
+        "ADR:;;Rue C;;;;",
+      ),
+    );
+    const draft = draftReducer(buildDraft(mine), {
+      type: "SET_ADR_PART",
+      index: 2,
+      part: "street",
+      value: "Rue D",
+    });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).toContain("ITEM2.X-ABADR:ch\r\nITEM2.X-ABLABEL:L2");
+    expect(out).toContain("ITEM3.X-ABADR:fr\r\nITEM3.X-ABLABEL:L1");
+    expect(out).toContain("ADR:;;Rue D;;;;");
+  });
+
+  it("renames the label the address shows when an empty one comes first in its group", () => {
+    const contact = parse(
+      card("item1.ADR:;;Rue A;;;;", "item1.X-ABLABEL:", "item1.X-ABLABEL:Deux"),
+    );
+    let draft = draftReducer(buildDraft(contact), {
+      type: "SET_ADR_TYPE",
+      index: 0,
+      value: "custom",
+    });
+    draft = draftReducer(draft, { type: "SET_ADR_LABEL", index: 0, value: "Neuf" });
+    const out = serialise(applyDraft(contact, draft));
+    expect(out).toContain("ITEM1.X-ABLABEL:Neuf");
+    expect(out).not.toContain("Deux");
+  });
+
+  it("puts an address changed elsewhere back in its own group when the user removed an earlier one", () => {
+    const lines = (b: string) =>
+      card(
+        "item1.ADR:;;Rue A;;;;",
+        "item1.X-ABADR:fr",
+        "item1.X-ABLABEL:LA",
+        `item2.ADR:;;${b};;;;`,
+        "item2.X-ABADR:ch",
+        "item2.X-ABLABEL:LB",
+        "item3.ADR:;;Rue C;;;;",
+      );
+    const mine = parse(lines("Rue B"));
+    const theirs = parse(lines("Rue B2"));
+    const draft = draftReducer(buildDraft(mine), { type: "REMOVE_ADR", index: 0 });
+    applyDraft(theirs, draft, dirtyDiff(mine, draft));
+    const out = serialise(theirs);
+    expect(out).not.toContain("ITEM1.ADR");
+    expect(out).toContain("ITEM1.X-ABLABEL:LA");
+    expect(out).toContain("ITEM2.ADR:;;Rue B;;;;\r\nITEM2.X-ABADR:ch\r\nITEM2.X-ABLABEL:LB");
   });
 });

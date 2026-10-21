@@ -3,9 +3,15 @@
  * address, birthday, note and groups.
  */
 
-import type { Contact, RawComponent } from "../model/contact";
+import type {
+  AddressSource,
+  Contact,
+  RawComponent,
+  RawProperty,
+  VCardAddressField,
+} from "../model/contact";
 import { appleOmittedYear } from "./apple-birthday";
-import { appleLabelOf } from "./fields";
+import { addressCodesOf, appleLabelOf, groupOf } from "./fields";
 
 export type TypedProp = { params?: Record<string, string | string[]> };
 
@@ -62,44 +68,56 @@ export function readTitle(raw: RawComponent): string {
   return typeof value === "string" ? value : "";
 }
 
-/** The 7 structured parts of an ADR property, as a plain object. */
-export type VCardAddress = {
-  poBox: string;
-  extended: string;
-  street: string;
-  locality: string;
-  region: string;
-  postalCode: string;
-  country: string;
-  /** TYPE parameter values (e.g. ["HOME"]) — used for the row label. */
-  type: string[];
-  /** Extra components beyond the standard 7 (e.g. formatted-address in
-   *  some vCard 3.0 exports). These are always preserved as-is. */
-  extraParts: string[];
-  label?: string;
+/** An ADR property as read: its parts, type and label, with the property itself. */
+export type VCardAddress = Omit<VCardAddressField, "source" | "dropLabel" | "customLabel"> & {
+  source: AddressSource;
 };
 
-/** ADR parts of the first ADR property, or null when the card has none. */
-export function addressOf(contact: Contact): VCardAddress | null {
-  return readAddress(contact.raw);
+/** Every ADR property of the card, in order. */
+export function addressesOf(contact: Contact): VCardAddress[] {
+  return readAddresses(contact.raw);
 }
 
-/** @internal Read first ADR from a raw component. */
-export function readAddress(raw: RawComponent): VCardAddress | null {
-  const prop = raw.getFirstProperty("adr");
-  if (!prop) return null;
-  const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
-  const rawParts = Array.isArray(prop.getFirstValue())
-    ? (prop.getFirstValue() as unknown[]).map((part) => String(part ?? ""))
-    : [];
-  const rawParams = jcal[1] ?? {};
-  const rawType = rawParams.TYPE ?? rawParams.type;
-  const type = Array.isArray(rawType)
+/** @internal Read every ADR from a raw component. */
+export function readAddresses(raw: RawComponent): VCardAddress[] {
+  return raw.getAllProperties("adr").map((prop) => readAddress(raw, prop));
+}
+
+/**
+ * An ADR value's parts as text: the seven of RFC 6350, empty when absent,
+ * then any extra ones. A value that isn't structured is its first part, as
+ * for N.
+ */
+export function addressPartsOf(value: unknown): string[] {
+  const parts = structuredValue(value).map((part) => String(part ?? ""));
+  return [...Array.from({ length: 7 }, (_, i) => parts[i] ?? ""), ...parts.slice(7)];
+}
+
+/** A value as its parts: one that isn't structured is its first part. */
+export function structuredValue(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  return value === undefined || value === null ? [] : [value];
+}
+
+/** TYPE values among an ADR's parameters, as written. */
+export function addressTypesOf(params: Record<string, string | string[]>): string[] {
+  const rawType = params.TYPE ?? params.type;
+  return Array.isArray(rawType)
     ? rawType.map((v) => String(v))
     : typeof rawType === "string"
       ? [rawType]
       : [];
+}
+
+function readAddress(raw: RawComponent, prop: RawProperty): VCardAddress {
+  const jcal = prop.toJSON() as [string, Record<string, string | string[]>, string, unknown];
+  const value = prop.getFirstValue();
+  const params = { ...(jcal[1] ?? {}) };
+  const rawParts = addressPartsOf(value);
+  const label = appleLabelOf(raw, prop);
+  const abadr = addressCodesOf(raw, groupOf(prop));
   return {
+    source: { value, params, ...(abadr.length > 0 ? { abadr } : {}) },
     poBox: rawParts[0] ?? "",
     extended: rawParts[1] ?? "",
     street: rawParts[2] ?? "",
@@ -108,8 +126,8 @@ export function readAddress(raw: RawComponent): VCardAddress | null {
     postalCode: rawParts[5] ?? "",
     country: rawParts[6] ?? "",
     extraParts: rawParts.slice(7),
-    type,
-    ...(appleLabelOf(raw, prop) === undefined ? {} : { label: appleLabelOf(raw, prop) }),
+    type: addressTypesOf(params),
+    ...(label === undefined ? {} : { label }),
   };
 }
 

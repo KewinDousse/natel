@@ -28,6 +28,10 @@ Open a contact, then choose **Edit**. Changes are sent when you choose
 when it has changed. Fields Natel does not display are preserved on save;
 vCard formatting can be normalised.
 
+A contact can have several addresses. Each one can take an extended line
+(c/o, building) and, from its type menu, a label of your own, such as
+"Chalet", saved the way Apple Contacts and DAVx⁵ save theirs.
+
 Use **New contact** to create a card in the selected book. In edit mode,
 **Move to another address book** moves the card between existing books.
 **Delete contact** removes it from the server and therefore from your other

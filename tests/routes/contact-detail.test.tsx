@@ -538,6 +538,35 @@ describe("avatar and special sections", () => {
     );
   });
 
+  it("shows every address, each with its type or label", async () => {
+    const card = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:lune",
+      "FN:Lune",
+      "N:;Lune;;;",
+      "ADR;TYPE=HOME:;c/o Esquie;Rue du Monolithe 1;Lumière;;;",
+      "item1.ADR:;;Phare 3;Vieux Lumière;;;",
+      "item1.X-ABLABEL:Atelier",
+      "END:VCARD",
+    ].join("\r\n");
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
+    loadCards({ lune: card });
+    renderApp("/contacts/lune");
+
+    const article = await screen.findByRole("article");
+    expect(within(article).getByRole("heading", { name: "Adresses" })).toBeTruthy();
+    expect([...article.querySelectorAll("address")].map((a) => a.textContent)).toEqual([
+      "c/o EsquieRue du Monolithe 1Lumière",
+      "Phare 3Vieux Lumière",
+    ]);
+    expect(within(article).getByText("Domicile")).toBeTruthy();
+    expect(within(article).getByText("Atelier")).toBeTruthy();
+    expect(within(article).getAllByRole("button", { name: "Copier l’adresse" })).toHaveLength(2);
+    expect(within(article).getByRole("button", { name: "Modifier les adresses" })).toBeTruthy();
+  });
+
   it("names the browser tab after the contact", async () => {
     await renderLoggedIn("/contacts/full");
 

@@ -35,8 +35,7 @@ const CARD = [
 describe("unshownPropertiesOf", () => {
   it("lists what the page doesn't show, each as its vCard line", () => {
     const lines = unshownPropertiesOf(parse(CARD));
-    expect(lines).toHaveLength(6);
-    expect(lines.some((line) => line.startsWith("ADR;TYPE=WORK:"))).toBe(true);
+    expect(lines).toHaveLength(5);
     expect(lines).toContain("URL:https://example.org/other");
     expect(lines).toContain("NOTE:Seconde note");
     expect(lines.some((line) => line.startsWith("LOGO"))).toBe(true);
@@ -44,9 +43,9 @@ describe("unshownPropertiesOf", () => {
     expect(lines.some((line) => line.startsWith("X-SOCIALPROFILE"))).toBe(true);
   });
 
-  it("leaves out what the page shows, every phone, e-mail and group included", () => {
+  it("leaves out what the page shows, every phone, e-mail, address and group included", () => {
     const lines = unshownPropertiesOf(parse(CARD)).join("\n");
-    for (const shown of ["TEL", "EMAIL", "CATEGORIES", "FN", "N:", "Rue du Lac", "Première"]) {
+    for (const shown of ["TEL", "EMAIL", "ADR", "CATEGORIES", "FN", "N:", "Première"]) {
       expect(lines).not.toContain(shown);
     }
   });

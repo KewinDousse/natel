@@ -68,7 +68,21 @@ export function appleLabelProperty(raw: RawComponent, prop: RawProperty): RawPro
 
 export function appleLabelOf(raw: RawComponent, prop: RawProperty): string | undefined {
   const value = appleLabelProperty(raw, prop)?.getFirstValue();
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return typeof value === "string" && value.length > 0 ? unescapeLabel(value) : undefined;
+}
+
+/**
+ * ical.js keeps an `X-` value as written, escapes included: a label is
+ * vCard text (RFC 6350 §3.4), so it is read and written as such.
+ */
+function unescapeLabel(value: string): string {
+  return value.replace(/\\([\\,;nN])/g, (_, char: string) =>
+    char === "n" || char === "N" ? "\n" : char,
+  );
+}
+
+function escapeLabel(text: string): string {
+  return text.replace(/[\\,;]/g, (char) => `\\${char}`).replace(/\r?\n/g, "\\n");
 }
 
 export function labelledField(raw: RawComponent, prop: RawProperty): ContactField {
@@ -82,6 +96,80 @@ export function dropAppleLabel(raw: RawComponent, group: string | string[] | und
   for (const prop of raw.getAllProperties("x-ablabel")) {
     if (groupOf(prop) === group.toLowerCase()) raw.removeProperty(prop);
   }
+}
+
+/**
+ * Gives `prop` the label `text` (ADR 036): the `X-ABLABEL` of its group, in
+ * a group of its own when it has none, or shares it with another property,
+ * whose label would change too.
+ */
+export function setAppleLabel(raw: RawComponent, prop: RawProperty, text: string): void {
+  if (appleLabelOf(raw, prop) === text) return;
+  let group = groupOf(prop);
+  if (group === undefined || sharesLabel(raw, prop)) group = moveToFreeGroup(raw, prop);
+  const current =
+    appleLabelProperty(raw, prop) ??
+    raw.getAllProperties("x-ablabel").find((label) => groupOf(label) === group);
+  if (current !== undefined) {
+    current.setValue(escapeLabel(text));
+    return;
+  }
+  const label = new ICAL.Property("x-ablabel");
+  label.setParameter("group", group);
+  label.setValue(escapeLabel(text));
+  raw.addProperty(label);
+}
+
+/** Apple's companion of an address in its group: it goes where the address goes. */
+const ADDRESS_COMPANION = "x-abadr";
+
+/** The `X-ABADR` values of a group, as written. */
+export function addressCodesOf(raw: RawComponent, group: string | undefined): string[] {
+  if (group === undefined) return [];
+  return raw
+    .getAllProperties(ADDRESS_COMPANION)
+    .filter((prop) => groupOf(prop) === group)
+    .map((prop) => String(prop.getFirstValue() ?? ""));
+}
+
+/**
+ * True when another property shares `prop`'s group, and so its label:
+ * shown or not (`IMPP`, `X-ABRELATEDNAMES`…), it keeps that label.
+ */
+export function sharesLabel(raw: RawComponent, prop: RawProperty): boolean {
+  const group = groupOf(prop);
+  if (group === undefined) return false;
+  const isAddress = prop.name === "adr";
+  return raw.getAllProperties().some((other) => {
+    if (other === prop || groupOf(other) !== group || other.name === "x-ablabel") return false;
+    return !(isAddress && other.name === ADDRESS_COMPANION);
+  });
+}
+
+/**
+ * Moves `prop` to a group no other property uses, with an address's
+ * companions when no other address is left to own them. Returns the group.
+ */
+export function moveToFreeGroup(raw: RawComponent, prop: RawProperty): string {
+  const from = groupOf(prop);
+  const to = freeGroup(raw);
+  prop.setParameter("group", to);
+  if (from === undefined || prop.name !== "adr") return to;
+  if (raw.getAllProperties("adr").some((other) => groupOf(other) === from)) return to;
+  for (const companion of raw.getAllProperties()) {
+    if (groupOf(companion) === from && companion.name === ADDRESS_COMPANION) {
+      companion.setParameter("group", to);
+    }
+  }
+  return to;
+}
+
+/** The first `itemN` group no property of the card uses, as Apple names them. */
+function freeGroup(raw: RawComponent): string {
+  const used = new Set(raw.getAllProperties().map(groupOf));
+  let n = 1;
+  while (used.has(`item${n}`)) n++;
+  return `item${n}`;
 }
 
 /** Rebuild a RawProperty from a ContactField. */

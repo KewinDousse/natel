@@ -27,7 +27,7 @@ describe("newContact", () => {
     expect(fields.n.given).toBe("");
     expect(fields.tel).toEqual([]);
     expect(fields.email).toEqual([]);
-    expect(fields.adr).toBeNull();
+    expect(fields.adr).toEqual([]);
     expect(fields.bday).toBeNull();
   });
 });
