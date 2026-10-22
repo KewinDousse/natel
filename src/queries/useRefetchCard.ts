@@ -1,7 +1,8 @@
 /**
  * useRefetchCard — fetches a fresh copy of a single vCard from the server.
  *
- * Used by the conflict-overwrite flow to obtain a fresh ETag before the PUT.
+ * Used after a 412, to compare the lists the user changed with the card's
+ * (ADR 038), and by the overwrite to obtain a fresh ETag before the PUT.
  * Throws DavError on network/auth failures.
  */
 import { fetchCard } from "@/dav";

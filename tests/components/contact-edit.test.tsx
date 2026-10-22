@@ -787,6 +787,86 @@ describe("edit mode — conflict", () => {
   });
 });
 
+describe("edit mode — conflict on a list changed elsewhere (ADR 038)", () => {
+  const phonesElsewhere = CARD_EDITABLE.replace("+1-555-222-2222", "+1-555-333-3333");
+  const fetched = (vcardText: string) => ({
+    href: "https://dav.example.org/dav/books/a/editable.vcf",
+    etag: '"elsewhere"',
+    vcardText,
+  });
+
+  async function saveAPhone() {
+    mockUpdateCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
+    await renderEditView("editable");
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("+1-555-111-1111"), "9");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    return user;
+  }
+
+  it("offers only to reload when the phones changed elsewhere too", async () => {
+    mockFetchCard.mockResolvedValue(fetched(phonesElsewhere));
+    await saveAPhone();
+
+    await waitFor(() =>
+      expect(screen.getByText(/Modifiés ici et ailleurs : Téléphones\./)).toBeTruthy(),
+    );
+    expect(screen.getByRole("button", { name: "Recharger" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /écraser/i })).toBeNull();
+  });
+
+  it("offers to overwrite when only other fields changed elsewhere", async () => {
+    mockFetchCard.mockResolvedValue(
+      fetched(CARD_EDITABLE.replace("BDAY:1987-03-14", "BDAY:1988-03-14")),
+    );
+    await saveAPhone();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /écraser/i })).toBeTruthy());
+    expect(screen.queryByText(/ici et ailleurs/)).toBeNull();
+  });
+
+  it("keeps saving while it reads the card again", async () => {
+    let answer: (card: ReturnType<typeof fetched>) => void = () => {};
+    mockFetchCard.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const user = await saveAPhone();
+
+    await waitFor(() => expect(mockFetchCard).toHaveBeenCalled());
+    const save = screen.getByRole("button", { name: /Enregistre/ }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    await user.click(save);
+    answer(fetched(phonesElsewhere));
+
+    await waitFor(() => expect(screen.getByText(/Modifiés ici et ailleurs/)).toBeTruthy());
+    expect(mockUpdateCard).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks the lists again before overwriting when it couldn't read the card", async () => {
+    mockFetchCard
+      .mockRejectedValueOnce(new DavError("Offline", "NETWORK"))
+      .mockResolvedValue(fetched(phonesElsewhere));
+    const user = await saveAPhone();
+    await user.click(await screen.findByRole("button", { name: /écraser/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Modifiés ici et ailleurs : Téléphones\./)).toBeTruthy(),
+    );
+    expect(mockUpdateCard).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses the overwrite when the phones changed after the warning", async () => {
+    mockFetchCard
+      .mockResolvedValueOnce(fetched(CARD_EDITABLE))
+      .mockResolvedValue(fetched(phonesElsewhere));
+    const user = await saveAPhone();
+    await user.click(await screen.findByRole("button", { name: /écraser/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Modifiés ici et ailleurs : Téléphones\./)).toBeTruthy(),
+    );
+    expect(mockUpdateCard).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("edit mode — save success", () => {
   it("returns to view mode with the saved toast, no error", async () => {
     const { article } = await renderEditView("editable");

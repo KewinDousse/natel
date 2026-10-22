@@ -20,6 +20,9 @@ Notable changes to Natel. The format follows
 
 - The header loses its red band along the top, a decoration the contact,
   settings and new-contact screens on phones didn't have.
+- After a conflict, overwriting is no longer offered when the phones,
+  e-mails or addresses the user changed were changed elsewhere too: the
+  warning names them and offers to reload.
 
 ## [0.3.1] - 2026-10-20
 

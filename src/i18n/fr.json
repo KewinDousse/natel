@@ -120,6 +120,7 @@
   "conflict_title": "Ce contact a été modifié ailleurs.",
   "conflict_reload": "Recharger",
   "conflict_overwrite": "Écraser avec ma version",
+  "conflict_lists_hint": "Modifiés ici et ailleurs : {sections}. Rechargez pour voir l'autre version, puis refaites vos modifications.",
   "edit_kbd": "Modifier (E)",
   "close": "Fermer",
   "shortcuts_title": "Raccourcis clavier",

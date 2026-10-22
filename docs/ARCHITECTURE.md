@@ -132,10 +132,12 @@ byte-equal where the library allows it.
    made since, becomes the cache and the next edit's base. An ETag read on
    its own is never paired with the text sent: it may name that other
    change, and the next save would write over it.
-4. `412` → show the conflict ([DESIGN.md](DESIGN.md#states)): reloading
-   takes the server version, overwriting refetches for a fresh ETag and
-   applies only the fields the user changed (ADR 013). Never auto-merge in
-   v0.x.
+4. `412` → read the card again, then show the conflict
+   ([DESIGN.md](DESIGN.md#states)): reloading takes the server version,
+   overwriting refetches for a fresh ETag and applies only the fields the
+   user changed (ADR 013). Overwriting is offered only while the phone,
+   e-mail and address lists the user changed are as read (ADR 038). Never
+   auto-merge in v0.x.
 5. Delete: `DELETE` with `If-Match`. `412` → the same conflict, with reload
    only.
 

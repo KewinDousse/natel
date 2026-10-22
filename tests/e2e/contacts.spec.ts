@@ -157,37 +157,41 @@ test("creates a contact", async ({ page }) => {
   expect(cards.find((c) => c.includes("N:Hopper;Grace"))).toContain("VERSION:3.0");
 });
 
-/** Edits the phone number while another client changes the card, then saves. */
-async function saveOverConcurrentEdit(page: Page): Promise<void> {
+/**
+ * Edits the phone number while another client writes `theirs`, which changes
+ * the organisation, then saves.
+ */
+async function saveOverConcurrentEdit(page: Page, theirs: string): Promise<void> {
   await signIn(page);
   await openAda(page);
   await startEditing(page);
 
   // Another client edits the card while this one is editing it.
-  await putCard(
-    "ada",
-    ADA.replace("+41 79 000 00 01", "+41 79 000 00 21").replace(
-      "ORG:Analytical Engines",
-      "ORG:Difference Engines",
-    ),
-  );
+  await putCard("ada", theirs);
 
   await primaryPhoneInput(page).fill("+41 79 000 00 22");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("This contact was modified elsewhere.")).toBeVisible();
   // Nothing was written over the other client's version.
-  expect(await getCard("ada")).toContain("+41 79 000 00 21");
+  expect(await getCard("ada")).toContain("ORG:Difference Engines");
 }
 
-test("reloads the server version after a conflict", async ({ page }) => {
-  await saveOverConcurrentEdit(page);
+const ORG_ELSEWHERE = ADA.replace("ORG:Analytical Engines", "ORG:Difference Engines");
+
+test("offers only to reload when the other client changed the phones too", async ({ page }) => {
+  await saveOverConcurrentEdit(page, ORG_ELSEWHERE.replace("+41 79 000 00 01", "+41 79 000 00 21"));
+  // Writing this list over theirs would mean guessing which phone is which (ADR 038).
+  await expect(
+    page.getByText("Changed here and elsewhere: Phones.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Overwrite with my version" })).toHaveCount(0);
   await page.getByRole("button", { name: "Reload" }).click();
   await expect(page.getByText("This contact was modified elsewhere.")).toBeHidden();
   await expect(page.getByRole("link", { name: "079 000 00 21" }).first()).toBeVisible();
 });
 
 test("overwrites only the fields the user changed after a conflict", async ({ page }) => {
-  await saveOverConcurrentEdit(page);
+  await saveOverConcurrentEdit(page, ORG_ELSEWHERE);
   await page.getByRole("button", { name: "Overwrite with my version" }).click();
   // The banner goes away as the PUT starts; the toast shows once it has landed.
   await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();

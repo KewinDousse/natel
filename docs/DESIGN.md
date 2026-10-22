@@ -221,6 +221,7 @@ don't offer it.
 ### States
 - **Field error**: validated on blur and on save, not on each keystroke. A save that finds errors sends nothing, counts them in the bottom bar, scrolls the first one to the middle of the screen and focuses it.
 - **ETag conflict (412)**: a warning in the bottom bar, offering to reload or to overwrite with the user's version. Never overwrite silently.
+- **List changed on both sides (412, ADR 038)**: when a phone, e-mail or address list the user changed was changed elsewhere too, the warning names those sections, says to reload and make the changes again, and offers to reload only.
 - **Dialogs** (`src/components/ui/dialog.tsx`): a bottom sheet on phones, centred from `sm`. Focus stays inside; `Esc` or a click outside closes, except while something runs. The discard dialog offers to keep editing or to discard (destructive).
 - **Move** (ADR 021): above delete, absent on a new contact and with a single book, disabled while the draft has unsaved changes. Its dialog lists the other books as radio buttons; while the move runs, the focus goes to the dialog's panel. Success lands on the contact's page in the target book, now selected. A card changed or gone elsewhere shows the conflict with "Reload" only.
 - **Delete**: the form's last element, absent on a new contact. The dialog names the contact and says it goes from every synced device. A 412 offers "Reload" only: there is no version of the user's to push, and deleting a card changed elsewhere unseen is exactly what the ETag prevents.

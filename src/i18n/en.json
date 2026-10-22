@@ -120,6 +120,7 @@
   "conflict_title": "This contact was modified elsewhere.",
   "conflict_reload": "Reload",
   "conflict_overwrite": "Overwrite with my version",
+  "conflict_lists_hint": "Changed here and elsewhere: {sections}. Reload to see the other version, then make your changes again.",
   "edit_kbd": "Edit (E)",
   "close": "Close",
   "shortcuts_title": "Keyboard shortcuts",

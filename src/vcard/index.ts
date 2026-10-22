@@ -132,6 +132,34 @@ const SHOWN_ALL = new Set([
 /** Properties the contact page reads once: a later occurrence isn't shown. */
 const SHOWN_FIRST = new Set(["fn", "n", "nickname", "bday", "org", "title", "url", "note"]);
 
+const COMPANIONS = ["x-ablabel", "x-abadr"];
+
+/** A phone, e-mail or address list, as the overwrite compares it (ADR 038). */
+export type ContactList = "tel" | "email" | "adr";
+
+/**
+ * The lists of `lists` that `fetched` no longer holds as `read` did: their
+ * properties, parameters and groups, and those groups' `X-ABLABEL` and
+ * `X-ABADR`, in order. The overwrite writes only lists found unchanged
+ * (ADR 038).
+ */
+export function changedLists(read: Contact, fetched: Contact, lists: ContactList[]): ContactList[] {
+  const listOf = (contact: Contact, name: ContactList) =>
+    JSON.stringify(
+      contact.raw.getAllProperties(name).map((prop) => {
+        const group = groupOf(prop);
+        const companions = contact.raw
+          .getAllProperties()
+          .filter(
+            (other) =>
+              COMPANIONS.includes(other.name) && group !== undefined && groupOf(other) === group,
+          );
+        return [prop.toJSON(), ...companions.map((other) => other.toJSON())];
+      }),
+    );
+  return lists.filter((name) => listOf(read, name) !== listOf(fetched, name));
+}
+
 /**
  * The card's properties the contact page neither shows nor edits, each as
  * its vCard line, for whoever wants to look: a save writes them back as they

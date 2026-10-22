@@ -8,11 +8,18 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import { DavError, type GroupFailure } from "@/queries";
+import type { ContactList } from "@/vcard";
 import { buttonClass } from "./ui/button";
 import { SpinnerIcon } from "./ui/icons";
 
 /** The same column as the form, so the buttons line up with its right edge. */
 const COLUMN = "mx-auto w-full max-w-[44rem] px-5 sm:px-8 lg:px-10 xl:px-14";
+
+const LIST_TITLES: Record<ContactList, TranslationKey> = {
+  tel: "s_phones",
+  email: "s_emails",
+  adr: "s_addresses",
+};
 
 export function ContactEditBar({
   conflict,
@@ -29,8 +36,11 @@ export function ContactEditBar({
   onOverwrite,
   onGroupOverwrite,
 }: {
-  /** The card changed elsewhere since the edit began (412 on save). */
-  conflict: boolean;
+  /**
+   * The card changed elsewhere since the edit began (412 on save): the lists
+   * changed on both sides (ADR 038), empty when overwriting is offered.
+   */
+  conflict: ContactList[] | null;
   /** A 412 on delete or move: only reloading makes sense. */
   deleteConflict: "delete" | "move" | null;
   groupFailures: GroupFailure[];
@@ -55,18 +65,27 @@ export function ContactEditBar({
     <div className="sticky bottom-0 z-30 mt-auto border-t bg-background py-3 shadow-float">
       <div className={COLUMN}>
         {conflict && (
-          <Notice title={t("conflict_title")}>
+          <Notice title={t("conflict_title")} alert={conflict.length > 0}>
+            {conflict.length > 0 && (
+              <p className="mt-1 text-sm text-destructive">
+                {t("conflict_lists_hint", {
+                  sections: conflict.map((list) => t(LIST_TITLES[list])).join(", "),
+                })}
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap gap-2">
               <button type="button" onClick={onReload} className={buttonClass({ size: "sm" })}>
                 {t("conflict_reload")}
               </button>
-              <button
-                type="button"
-                onClick={onOverwrite}
-                className={buttonClass({ variant: "outline", size: "sm" })}
-              >
-                {t("conflict_overwrite")}
-              </button>
+              {conflict.length === 0 && (
+                <button
+                  type="button"
+                  onClick={onOverwrite}
+                  className={buttonClass({ variant: "outline", size: "sm" })}
+                >
+                  {t("conflict_overwrite")}
+                </button>
+              )}
             </div>
           </Notice>
         )}
