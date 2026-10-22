@@ -7,8 +7,10 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useBlocker, useRouter } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useContactGroupEdits } from "@/hooks/use-contact-group-edits";
+import { useContactNavigation } from "@/hooks/use-contact-navigation";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import { usePhotoChoice } from "@/hooks/use-photo-choice";
 import { useI18n } from "@/i18n/react";
@@ -33,18 +35,14 @@ import {
   type DavAddressBook,
   type DavAuth,
   DavError,
-  type GroupFailure,
-  groupDelta,
   hasGroupChanges,
   type LoadFullBookResult,
   moveContact,
-  retryGroupFailures,
   useAddressBooks,
   useCreateContact,
   useDeleteContact,
   useRefetchCard,
   useUpdateContact,
-  writeGroupChanges,
 } from "@/queries";
 import { contactsKey } from "@/queries/keys";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
@@ -172,17 +170,6 @@ function NotFoundView() {
   );
 }
 
-/** The element that scrolls `element`: the detail pane from lg, the page below. */
-function scrollParentOf(element: HTMLElement): HTMLElement | Window {
-  for (let node = element.parentElement; node; node = node.parentElement) {
-    const { overflowY } = getComputedStyle(node);
-    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
-      return node;
-    }
-  }
-  return window;
-}
-
 // ---------------------------------------------------------------------------
 // The page
 // ---------------------------------------------------------------------------
@@ -276,21 +263,22 @@ function ContactFiche({
   );
   const [saveError, setSaveError] = useState<string | null>(null);
   const showToast = useToast();
-  const [showDiscard, setShowDiscard] = useState(false);
   const [showUnshown, setShowUnshown] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const changePhotoRef = useRef<HTMLButtonElement>(null);
 
-  // Dirty detection
-  // Group names are edited beside the draft: the base is the names at the
-  // start of the edit, the draft the names shown; a save writes the delta.
-  const [editGroups, setEditGroups] = useState(groups);
-  const [draftGroups, setDraftGroups] = useState(groups);
-  const [groupFailures, setGroupFailures] = useState<GroupFailure[]>([]);
-  // Group cards whose create failed, by name, until written or dropped: a
-  // retry writes the same card again, so a create that did land isn't doubled.
-  const groupRetries = useRef(new Map<string, Contact>());
-  const delta = useMemo(() => groupDelta(editGroups, draftGroups), [editGroups, draftGroups]);
+  // Bumped whenever edit mode ends, so late results are ignored.
+  const editSession = useRef(0);
+  const {
+    draftGroups,
+    setDraftGroups,
+    groupFailures,
+    delta,
+    reset: resetGroups,
+    clearFailures: clearGroupFailures,
+    save: saveGroups,
+    overwrite: overwriteGroups,
+  } = useContactGroupEdits(auth, groups, groupCards, editSession);
 
   const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
   const dirtyLists = useMemo(() => LISTS.filter((name) => dirty[name]), [dirty]);
@@ -303,17 +291,11 @@ function ContactFiche({
     if (edit && !prevEdit.current) {
       setEditBase(contact);
       dispatch({ type: "REBUILD", draft: buildDraft(contact) });
-      setEditGroups(groups);
-      setDraftGroups(groups);
-      setGroupFailures([]);
-      groupRetries.current = new Map();
+      resetGroups(groups);
     }
     prevEdit.current = edit;
-  }, [edit, contact, groups]);
+  }, [edit, contact, groups, resetGroups]);
 
-  // Exit edit mode
-  // Bumped whenever edit mode ends, so a save that settles afterwards is ignored.
-  const editSession = useRef(0);
   useEffect(
     () => () => {
       editSession.current++;
@@ -330,7 +312,7 @@ function ContactFiche({
       editSession.current++;
       dispatch({ type: "REBUILD", draft: buildDraft(contact) });
       setDraftGroups(groups);
-      setGroupFailures([]);
+      clearGroupFailures();
       setErrors({});
       setInvalidCount(0);
       setConflict(null);
@@ -353,59 +335,20 @@ function ContactFiche({
         ignoreBlocker: true,
       });
     },
-    [contact, groups, router, routeId, isNew, setChosenPhoto],
+    [contact, groups, router, routeId, isNew, setChosenPhoto, setDraftGroups, clearGroupFailures],
   );
 
-  // Enter edit mode, keeping `anchor` (a section, or the top of the page) where
-  // it is on the screen, and on a section the focus goes to its first field.
-  const enterEdit = useCallback(
-    (sectionId?: string) => {
-      if (edit) return;
-      const anchor = document.getElementById(sectionId ?? "fiche-top");
-      const top = anchor?.getBoundingClientRect().top;
-      router.navigate({
-        to: "/contacts/$id",
-        params: { id: routeId },
-        search: { edit: true },
-        replace: true,
-      });
-      requestAnimationFrame(() => {
-        const moved = document.getElementById(sectionId ?? "fiche-top");
-        if (moved && top !== undefined) {
-          scrollParentOf(moved).scrollBy(0, moved.getBoundingClientRect().top - top);
-        }
-        if (sectionId) {
-          moved?.querySelector<HTMLElement>("input, textarea")?.focus({ preventScroll: true });
-        }
-      });
-    },
-    [edit, router, routeId],
-  );
-
-  const handleToggleEdit = useCallback(() => {
-    if (edit) exitEdit();
-    else enterEdit();
-  }, [edit, exitEdit, enterEdit]);
-
-  // Cancel / Esc
-  const handleCancel = useCallback(() => {
-    if (hasChanges) {
-      setShowDiscard(true);
-    } else {
-      exitEdit();
-    }
-  }, [hasChanges, exitEdit]);
-
-  // History blocker — intercept back/forward when dirty using TanStack Router's blocker API
-  const blocker = useBlocker({
-    shouldBlockFn: () => hasChanges,
-    enableBeforeUnload: () => hasChanges,
-    disabled: !edit,
-    withResolver: true,
-  });
+  const {
+    enterEdit,
+    handleCancel,
+    showDiscard,
+    setShowDiscard,
+    closeDiscard,
+    discard,
+    blockerActive,
+  } = useContactNavigation({ edit, hasChanges, routeId, onExit: exitEdit });
 
   // When the blocker fires, show the discard dialog
-  const blockerActive = blocker?.status === "blocked";
   useEffect(() => {
     if (blockerActive) {
       setShowDelete(false);
@@ -413,12 +356,12 @@ function ContactFiche({
       setChosenPhoto(null);
       setShowDiscard(true);
     }
-  }, [blockerActive, setChosenPhoto]);
+  }, [blockerActive, setChosenPhoto, setShowDiscard]);
 
-  const closeDiscard = useCallback(() => {
-    setShowDiscard(false);
-    if (blockerActive) blocker?.reset?.();
-  }, [blockerActive, blocker]);
+  const handleToggleEdit = useCallback(() => {
+    if (edit) exitEdit();
+    else enterEdit();
+  }, [edit, exitEdit, enterEdit]);
 
   // Esc closes the open dialog (photo, delete, move or discard), otherwise it
   // cancels editing.
@@ -454,20 +397,6 @@ function ContactFiche({
     if (invalidCount > 0) setInvalidCount(Object.keys(validation).length);
   }, [draft, dirty, invalidCount]);
 
-  // Puts the group cards written (ADR 022) into the book's cached groups.
-  const cacheGroupCards = useCallback(
-    (written: Contact[]) => {
-      if (written.length === 0 || !selectedBook) return;
-      queryClient.setQueryData<LoadFullBookResult>(contactsKey(auth, selectedBook), (old) => {
-        if (!old) return old;
-        const byHref = new Map(old.groups.map((card) => [card.href, card]));
-        for (const card of written) byHref.set(card.href, card);
-        return { ...old, groups: [...byHref.values()] };
-      });
-    },
-    [auth, selectedBook, queryClient],
-  );
-
   // After the contact's card: its group changes, then the end of the save.
   // Group changes that fail leave the save in place and stay pending, in
   // edit mode, with the bottom bar saying which and why.
@@ -492,29 +421,10 @@ function ContactFiche({
         return;
       }
       if (hasGroupChanges(pending) && selectedBook) {
-        const retries = groupRetries.current;
-        const { written, failures } = await writeGroupChanges(
-          auth,
-          selectedBook.href,
-          saved.uid,
-          pending,
-          groupCards,
-          retries,
-        );
-        // What the server took belongs in the cache even once the edit is gone.
-        cacheGroupCards(written);
+        const complete = await saveGroups(saved.uid, pending, session);
         if (session !== editSession.current) return;
-        for (const name of pending.added) retries.delete(name);
-        for (const f of failures) if (f.newCard) retries.set(f.name, f.newCard);
-        const failedAdded = failures.filter((f) => f.kind === "add").map((f) => f.name);
-        const failedRemoved = failures.filter((f) => f.kind === "remove").map((f) => f.name);
-        setEditGroups((base) => [
-          ...base.filter((name) => !pending.removed.includes(name) || failedRemoved.includes(name)),
-          ...pending.added.filter((name) => !failedAdded.includes(name)),
-        ]);
-        if (failures.length > 0) {
+        if (!complete) {
           keepEditing();
-          setGroupFailures(failures);
           setSaveStatus("idle");
           return;
         }
@@ -522,7 +432,7 @@ function ContactFiche({
       showToast(t("saved"));
       exitEdit(savedId);
     },
-    [auth, selectedBook, groupCards, cacheGroupCards, showToast, t, exitEdit],
+    [selectedBook, saveGroups, showToast, t, exitEdit],
   );
 
   // The lists the draft changed that the card on the server no longer holds
@@ -548,7 +458,7 @@ function ContactFiche({
       setSaveError(null);
       setConflict(null);
       setDeleteConflict(null);
-      setGroupFailures([]);
+      clearGroupFailures();
       let saved: Contact;
       try {
         saved = (await put()) ?? editBase;
@@ -600,6 +510,7 @@ function ContactFiche({
       onIdChange,
       locale,
       listsChangedElsewhere,
+      clearGroupFailures,
     ],
   );
 
@@ -681,51 +592,15 @@ function ContactFiche({
   const handleGroupOverwrite = useCallback(async () => {
     const session = editSession.current;
     setSaveStatus("saving");
-    // Only what the draft still asks for: a chip taken back since is dropped.
-    const wanted = groupFailures.filter((f) =>
-      (f.kind === "add" ? delta.added : delta.removed).includes(f.name),
-    );
-    const { written, remaining } = await retryGroupFailures(
-      auth,
-      wanted,
-      editBase.uid,
-      groupRetries.current,
-    );
-    cacheGroupCards(written);
+    const complete = await overwriteGroups(editBase.uid, session);
     if (session !== editSession.current) return;
-    const done = wanted.filter(
-      (f) => !remaining.some((r) => r.name === f.name && r.kind === f.kind),
-    );
-    const base = [
-      ...editGroups.filter((name) => !done.some((f) => f.kind === "remove" && f.name === name)),
-      ...done.filter((f) => f.kind === "add").map((f) => f.name),
-    ];
-    setEditGroups(base);
-    setGroupFailures(remaining);
     setSaveStatus("idle");
     // Changes made since the failure are still the user's to save.
-    if (
-      remaining.length === 0 &&
-      !isDirty(dirty) &&
-      !hasGroupChanges(groupDelta(base, draftGroups))
-    ) {
+    if (complete && !isDirty(dirty)) {
       showToast(t("saved"));
       exitEdit(routeId);
     }
-  }, [
-    auth,
-    groupFailures,
-    delta,
-    editGroups,
-    draftGroups,
-    dirty,
-    editBase,
-    cacheGroupCards,
-    showToast,
-    t,
-    exitEdit,
-    routeId,
-  ]);
+  }, [overwriteGroups, dirty, editBase, showToast, t, exitEdit, routeId]);
 
   // Delete — a conditional DELETE with the ETag of the version being edited,
   // so a card changed elsewhere since is never deleted unseen (412).
@@ -985,14 +860,7 @@ function ContactFiche({
           continueLabel={t("discard_continue")}
           confirmLabel={t("discard_abandon")}
           onContinue={closeDiscard}
-          onConfirm={() => {
-            setShowDiscard(false);
-            if (blockerActive) {
-              blocker?.proceed?.();
-            } else {
-              exitEdit();
-            }
-          }}
+          onConfirm={discard}
         />
       )}
     </article>
