@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ChosenPhoto } from "@/hooks/use-photo-choice";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import {
@@ -32,11 +33,6 @@ import { bitmapSize, PhotoError, type PreparedPhoto, preparePhoto } from "@/lib/
 import { cn } from "@/lib/utils";
 import { buttonClass, FOCUS_RING } from "./ui/button";
 import { Dialog, DialogActions, DialogTitle } from "./ui/dialog";
-
-/** The chosen file, decoded, or why it couldn't be. */
-export type ChosenPhoto =
-  | { bytes: Uint8Array; bitmap: ImageBitmap; url: string }
-  | { error: PhotoError };
 
 const ERROR_KEYS: Record<PhotoError["code"], TranslationKey> = {
   UNDECODABLE: "photo_err_undecodable",

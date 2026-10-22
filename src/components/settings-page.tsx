@@ -7,12 +7,12 @@
 
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useI18n } from "@/i18n/react";
 import { APP_REVISION, APP_VERSION } from "@/lib/app-info";
 import type { SortBy } from "@/lib/contact-list";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
-import { useSignOut } from "@/queries";
 import { usePreferences } from "@/store/preferences";
 import { useAuth } from "@/store/session";
 import { openShortcuts } from "./keyboard-shortcuts";

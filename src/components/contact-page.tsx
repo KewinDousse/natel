@@ -36,15 +36,13 @@ import {
   type DavAuth,
   DavError,
   hasGroupChanges,
-  type LoadFullBookResult,
-  moveContact,
   useAddressBooks,
   useCreateContact,
   useDeleteContact,
+  useMoveContact,
   useRefetchCard,
   useUpdateContact,
 } from "@/queries";
-import { contactsKey } from "@/queries/keys";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
   type ContactList,
@@ -204,6 +202,7 @@ function ContactFiche({
   const isNew = onCreate !== undefined;
   const updateContact = useUpdateContact(auth);
   const deleteContact = useDeleteContact(auth);
+  const moveContact = useMoveContact(auth);
   const refetchCard = useRefetchCard(auth);
   const queryClient = useQueryClient();
 
@@ -636,12 +635,11 @@ function ContactFiche({
       setSaveError(null);
       setConflict(null);
       setDeleteConflict(null);
-      const sourceKey = contactsKey(auth, selectedBook);
-      const targetKey = contactsKey(auth, target);
-      const reload = (...keys: (typeof sourceKey)[]) => {
-        for (const key of keys) void queryClient.invalidateQueries({ queryKey: key });
-      };
-      const outcome = await moveContact(auth, editBase, target.href);
+      const outcome = await moveContact.mutateAsync({
+        contact: editBase,
+        sourceBook: selectedBook,
+        targetBook: target,
+      });
       if (session !== editSession.current) return;
       setShowMove(false);
 
@@ -654,16 +652,7 @@ function ContactFiche({
         setConflict(null);
         setDeleteConflict(null);
         setShowDelete(false);
-        const moved = parse(outcome.text, outcome.href, outcome.etag);
-        queryClient.setQueryData<LoadFullBookResult>(
-          sourceKey,
-          (old) =>
-            old && { ...old, contacts: old.contacts.filter((c) => c.href !== editBase.href) },
-        );
-        queryClient.setQueryData<LoadFullBookResult>(
-          targetKey,
-          (old) => old && { ...old, contacts: [...old.contacts, moved] },
-        );
+        const moved = outcome.contact;
         selectBook(target);
         showToast(t("moved_to", { name: bookName(target) }));
         router.navigate({
@@ -685,11 +674,9 @@ function ContactFiche({
           break;
         case "exists":
           setSaveError(t("err_move_exists"));
-          reload(targetKey);
           break;
         case "create_uncertain":
           setSaveError(t("err_move_create_uncertain"));
-          reload(sourceKey, targetKey);
           break;
         case "delete_refused":
           if (outcome.error.code === "AUTH") setSaveError(t("err_save_auth"));
@@ -697,15 +684,13 @@ function ContactFiche({
           break;
         case "in_both":
           setSaveError(t("err_move_in_both"));
-          reload(sourceKey, targetKey);
           break;
         case "delete_uncertain":
           setSaveError(t("err_move_delete_uncertain"));
-          reload(sourceKey, targetKey);
           break;
       }
     },
-    [auth, editBase, selectedBook, selectBook, queryClient, router, showToast, t, locale],
+    [moveContact, editBase, selectedBook, selectBook, router, showToast, t, locale],
   );
 
   // Copy handler

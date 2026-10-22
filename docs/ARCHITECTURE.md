@@ -63,13 +63,14 @@ src/
   routes/        TanStack Router file-based routes (thin: compose components, no logic)
   components/    UI components, built by hand. The contact page is
                  contact-page.tsx (state, saves, dialogs) over contact-view.tsx
-                 (reading) and contact-editor.tsx (form)
+                 (reading) and contact-editor.tsx (form). contacts-screen.tsx
+                 composes the directory screen
     ui/          the shared controls: button.ts, icons.tsx, dialog.tsx,
                  toast.tsx. A shadcn component, when one is needed, goes here
                  too, added with `pnpm dlx shadcn@latest add` (the CLI is not
                  a dependency)
-  hooks/         React hooks for the list's and contact page's keys, and the
-                 photo picked for cropping
+  hooks/         UI orchestration: navigation, keyboard shortcuts, contact
+                 group edits, book import/export, sign-out and photo choice
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.
                  The ONLY module that imports tsdav, through internal.ts;
                  errors.ts maps its errors and proxy-hrefs.ts translates hrefs
@@ -159,3 +160,16 @@ with `sync-token` incremental sync if that assumption breaks.
 
 A card keeps the version it came in, and new cards are 3.0, the version
 Baïkal and DAVx⁵ speak (ADR 008).
+
+## Import and export
+
+`hooks/use-book-transfer.ts` owns import/export progress, file reading and
+notifications. `queries/vcfImport.ts` and `queries/vcfExport.ts` perform the
+CardDAV operations without React. The hook remembers imported cards the
+list cannot parse, so repeated imports still recognise their UIDs.
+
+## Moving contacts
+
+`queries/useMoveContact.ts` keeps the source and target caches in step with
+`moveContact.ts`'s outcome. The contact page handles the messages, selected
+book and navigation.

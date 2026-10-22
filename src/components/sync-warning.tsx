@@ -7,8 +7,8 @@
  */
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useI18n } from "@/i18n/react";
-import { useSignOut } from "@/queries";
 import { buttonClass } from "./ui/button";
 import { AlertIcon, RefreshIcon, SpinnerIcon } from "./ui/icons";
 

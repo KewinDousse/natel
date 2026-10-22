@@ -3,9 +3,9 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useRef } from "react";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
-import { useSignOut } from "@/queries";
 import { buttonClass } from "./ui/button";
 import { PlusIcon, UploadIcon } from "./ui/icons";
 

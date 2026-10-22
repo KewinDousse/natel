@@ -7,7 +7,7 @@
 
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
-import { isWebUrl, valueHref } from "@/lib/contact-edit";
+import { isWebUrl, valueHref } from "@/lib/contact-links";
 import {
   isOrgCard,
   isUnnamed,

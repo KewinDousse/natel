@@ -5,16 +5,12 @@
  */
 
 import { type KeyboardEvent, useEffect, useId, useRef } from "react";
+import type { ImportState } from "@/hooks/use-book-transfer";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
-import type { ImportFailureReason, ImportResult } from "@/queries";
+import type { ImportFailureReason } from "@/queries";
 import { buttonClass } from "./ui/button";
 import { Dialog, DialogActions, DialogTitle } from "./ui/dialog";
-
-export type ImportState =
-  | { phase: "running"; done: number; total: number }
-  | { phase: "done"; result: ImportResult }
-  | { phase: "error"; message: string };
 
 const REASON_KEYS: Record<ImportFailureReason, TranslationKey> = {
   unreadable: "import_reason_unreadable",
