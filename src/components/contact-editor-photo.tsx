@@ -56,7 +56,13 @@ export function ContactEditorPhoto({
                 <button
                   ref={photo.buttonRef}
                   type="button"
-                  onClick={() => photo.inputRef.current?.click()}
+                  onClick={() => {
+                    const input = photo.inputRef.current;
+                    if (!input) return;
+                    // Reset before selection so the chosen file stays available while it is read.
+                    input.value = "";
+                    input.click();
+                  }}
                   className={buttonClass({ variant: "outline", size: "sm" }, "pl-2.5")}
                 >
                   <ImageIcon />
@@ -69,8 +75,6 @@ export function ContactEditorPhoto({
                   hidden
                   onChange={(event) => {
                     const file = event.target.files?.[0];
-                    // Choosing the same file again should reopen the dialog.
-                    event.target.value = "";
                     if (file) photo.onFile(file);
                   }}
                 />

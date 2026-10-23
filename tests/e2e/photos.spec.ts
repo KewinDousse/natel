@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { putCard, resetBook, vcard } from "./dav";
+import { getCard, putCard, resetBook, vcard } from "./dav";
 import { PASSWORD, SERVER_NAME, USER } from "./env";
 
 const bytes = JSON.parse(
@@ -65,4 +65,33 @@ test("falls back to the initials when a photo doesn't load", async ({ page }) =>
   const row = page.getByRole("link", { name: /Lovelace/ });
   await expect(row.getByText("AL", { exact: true })).toBeVisible();
   await expect(row.locator("img")).toHaveCount(0);
+});
+
+test("opens the crop dialog and can choose the same photo again", async ({ page }) => {
+  await putCard("ada", vcard(["UID:ada", "FN:Ada Lovelace", "N:Lovelace;Ada;;;"]));
+  await signIn(page);
+  await page.getByRole("link", { name: /Lovelace/ }).click();
+  await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
+  const image = {
+    name: "camera.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from(bytes.jpeg ?? "", "base64"),
+  };
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const picker = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Change photo" }).click();
+    await (await picker).setFiles(image);
+    const dialog = page.getByRole("dialog", { name: "Crop photo" });
+    await expect(dialog).toBeVisible();
+    await expect
+      .poll(() => dialog.locator("img").evaluate((img) => (img as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0);
+    await dialog.getByRole("button", { name: "Use photo" }).click();
+    await expect(dialog).toBeHidden();
+  }
+
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect.poll(() => getCard("ada")).toMatch(/PHOTO;ENCODING=b;TYPE=JPEG:/);
 });

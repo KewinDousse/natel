@@ -470,6 +470,8 @@ unchanged birthday is left as it is (ADR 012).
 through a save. A 3.0 card with `--MMDD` gets Apple's form once its birthday
 is edited.
 
+Amended by ADR 039 for iOS cards without the omitted-year marker.
+
 ## 029 — `REV` moves to the time of each save
 
 **Context.** After an edit in Natel, a card kept the `REV` another client had
@@ -681,3 +683,24 @@ clients change the same list at once, the user loses their changes to it
 and types them again after reloading, rather than another client's data
 being changed unseen.
 
+## 039 — iOS 3.0 birthdays without the omitted-year marker
+
+**Context.** During the 2026-10-23 iPhone SE check, iOS 26.6.1 wrote a
+birthday without a year as `BDAY;VALUE=date:1604-07-14`, omitting
+`X-APPLE-OMIT-YEAR`. Natel read the placeholder as a birth year. ADR 028
+requires the marker.
+
+**Decision.** Without an explicit omitted-year marker, a complete date
+whose year is 1604 reads without a year only on a vCard 3.0 whose `PRODID`
+has Apple's `-//Apple Inc.//iOS <numeric version>//EN` form. Other years,
+partial dates, versions and producers keep their year. An unrelated edit
+leaves the birthday property as parsed. Editing its day or month without
+entering a year uses ADR 028's Apple form.
+
+**Rejected.** Treating every unmarked 1604 as a placeholder would change
+cards without evidence of this iOS convention.
+
+**Consequences.** A real 1604 birth year on a matching iOS card is also
+shown without a year. `PRODID` identifies the recorded producer, not
+necessarily its latest editor. This narrow interpretation does not restore
+parameters removed by another client or rewrite the card merely on read.

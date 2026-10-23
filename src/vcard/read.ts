@@ -173,7 +173,7 @@ export function readBirthday(raw: RawComponent): Birthday | null {
       month: typeof t.month === "number" ? t.month : null,
       day: typeof t.day === "number" ? t.day : null,
     };
-    return { source, valueType, ...parts, year: appleOmittedYear(jcal[1], parts) };
+    return { source, valueType, ...parts, year: appleOmittedYear(raw, jcal[1], parts) };
   }
   return { source, valueType, year: null, month: null, day: null };
 }

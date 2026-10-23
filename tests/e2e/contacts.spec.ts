@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { getCard, listCards, putCard, resetBook, vcard } from "./dav";
 import { PASSWORD, SERVER, USER } from "./env";
@@ -19,6 +21,11 @@ const ADA = vcard([
   "TEL;TYPE=CELL;X-SOURCE=phone:+41 79 000 00 01",
   ...UNKNOWN,
 ]);
+
+const IOS_BIRTHDAY = readFileSync(
+  resolve(import.meta.dirname, "../fixtures/public/ios-birthday-no-marker.vcf"),
+  "utf8",
+);
 
 /**
  * Property and group names are case-insensitive (RFC 6350 §3.3), and both
@@ -107,6 +114,26 @@ test("edits a phone number and keeps unknown properties", async ({ page }) => {
   const saved = await getCard("ada");
   expect(saved).toContain("TEL;TYPE=CELL;X-SOURCE=phone:+41 79 000 00 00");
   expectUnknownKept(saved);
+});
+
+test("reads an unmarked iOS birthday without a year and preserves it on an unrelated save", async ({
+  page,
+}) => {
+  await putCard("ios-birthday", IOS_BIRTHDAY);
+  await signIn(page);
+  await page.getByRole("link", { name: /Nora Example/ }).click();
+  await expect(page.locator("#sec-bday time")).toHaveText("July 14");
+  await startEditing(page);
+  await expect(page.getByLabel("Year", { exact: true })).toHaveValue("");
+  await page.getByLabel("Note", { exact: true }).fill("Birthday unchanged");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+
+  const saved = await getCard("ios-birthday");
+  expect(saved).toMatch(/^BDAY;VALUE=DATE:16040714\r?$/im);
+  expect(saved).not.toContain("X-APPLE-OMIT-YEAR");
+  expect(saved).toContain("X-PRESERVE;X-CUSTOM=keep:untouched");
+  await expect(page.locator("#sec-bday time")).toHaveText("July 14");
 });
 
 test("shows a semicolon the server escaped, and saves it without adding a backslash", async ({

@@ -20,8 +20,32 @@ how to configure Baïkal's discovery.
 The manual Android checks use Google Contacts and DAVx⁵. Public fixtures
 include cards exported by iCloud and written by DAVx⁵. They exercise photos,
 custom labels, birthdays without a year and properties Natel does not edit.
-Native iPhone and Mac photo checks, including WebP, remain to be completed:
+Native Mac photo checks, including WebP, remain to be completed:
 iCloud export/import does not validate those applications.
+
+### iPhone SE with iOS 26.6.1
+
+A manual check on 2026-10-23 used Natel 0.3.1 with Radicale 3.8.3. Native
+Contacts displayed the JPEG, PNG and WebP test photos. Notes synced in both
+directions; group membership, deletion, conflict handling and installation
+from Safari were checked. Choosing a photo from the photo library, cropping
+it in Safari and reading it back in Contacts worked. Importing a `.vcf`
+through Safari's file picker was not tested.
+
+Taking a new photo directly from Safari returned to the form without a crop
+dialog or preview. The photo-file handling changes need another check on a
+physical iPhone; automated WebKit tests do not validate that native picker.
+The [short iPhone recheck](ios-device-recheck.md) covers that path and the
+birthday after the changes.
+
+The iOS-written card also omitted `X-APPLE-OMIT-YEAR` from a birthday whose
+stored year was 1604. The exports isolate that omission before the next
+Natel save. Natel recognizes this unmarked 1604 only on complete dates
+in iOS-produced vCard 3.0 cards (ADR 039); unrelated edits leave the stored
+birthday alone. The isolated note edit in Natel retained the other fields and
+the Apple photo's bytes. Later iOS-written cards held JPEGs in place of
+their PNG and WebP photos, so the check does not establish that their bytes
+survive every client write.
 
 ## Groups
 

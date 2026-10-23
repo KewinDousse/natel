@@ -29,12 +29,13 @@ export function usePhotoChoice(editSession: RefObject<number>) {
       let chosen: ChosenPhoto;
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
-        const bitmap = await decodeImage(file);
+        const source = new Blob([bytes], { type: file.type });
+        const bitmap = await decodeImage(source);
         if (session !== editSession.current) {
           bitmap.close();
           return;
         }
-        chosen = { bytes, bitmap, url: URL.createObjectURL(file) };
+        chosen = { bytes, bitmap, url: URL.createObjectURL(source) };
       } catch (err) {
         chosen = { error: err instanceof PhotoError ? err : new PhotoError("UNDECODABLE", err) };
       }

@@ -3,14 +3,18 @@
  * year, so Apple writes year 1604 with `X-APPLE-OMIT-YEAR=1604`.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyDraft, buildDraft, type ContactDraft } from "../../src/lib/contact-edit";
+import { formatBirthday } from "../../src/lib/format-birthday";
 import { birthdayOf, parse, serialise } from "../../src/vcard";
 
-function card(bdayLine: string, version = "3.0"): string {
+function card(bdayLine: string, version = "3.0", prodid?: string): string {
   return [
     "BEGIN:VCARD",
     `VERSION:${version}`,
+    ...(prodid ? [`PRODID:${prodid}`] : []),
     "FN:Bob Pommé",
     "N:Pommé;Bob;;;",
     bdayLine,
@@ -29,6 +33,11 @@ function bdayLineAfter(text: string, change: (draft: ContactDraft) => void): str
 }
 
 const APPLE = "BDAY;X-APPLE-OMIT-YEAR=1604;VALUE=date:1604-07-14";
+const IOS = "-//Apple Inc.//iOS 26.6.1//EN";
+const IOS_NO_MARKER = readFileSync(
+  resolve(import.meta.dirname, "../fixtures/public/ios-birthday-no-marker.vcf"),
+  "utf8",
+);
 
 describe("reading", () => {
   it("reads Apple's omitted year as no year", () => {
@@ -48,9 +57,84 @@ describe("reading", () => {
   it("shows an empty year in the form", () => {
     expect(buildDraft(parse(card(APPLE))).bday).toMatchObject({ year: "", month: "7", day: "14" });
   });
+
+  it("reads the iOS 3.0 placeholder without the marker as no year", () => {
+    const contact = parse(IOS_NO_MARKER);
+    const birthday = birthdayOf(contact);
+    expect(birthday).toMatchObject({ year: null, month: 7, day: 14 });
+    expect(buildDraft(contact).bday).toMatchObject({ year: "", month: "7", day: "14" });
+    expect(birthday && formatBirthday(birthday, "fr")).toBe("14 juillet");
+  });
+
+  it.each([
+    undefined,
+    "-//Apple Inc.//macOS 26.6.1//EN",
+    "+//IDN bitfire.at//DAVx5//EN",
+    "-//Example//iOS 26.6.1//EN",
+    "-//Apple Inc.//iOSish 26.6.1//EN",
+  ])("keeps a literal 1604 outside an iOS card (%s)", (prodid) => {
+    expect(birthdayOf(parse(card("BDAY;VALUE=date:1604-07-14", "3.0", prodid)))).toMatchObject({
+      year: 1604,
+      month: 7,
+      day: 14,
+    });
+  });
+
+  it.each(["not-a-date", "2026-01-01"])(
+    "does not decode a producer carrying an unexpected value type (%s)",
+    (prodid) => {
+      const text = card("BDAY;VALUE=date:1604-07-14", "3.0", prodid).replace(
+        "PRODID:",
+        "PRODID;VALUE=date:",
+      );
+      const contact = parse(text);
+      expect(birthdayOf(contact)).toMatchObject({ year: 1604, month: 7, day: 14 });
+      expect(contact.raw.getFirstProperty("prodid")?.toJSON()).toEqual([
+        "prodid",
+        {},
+        "date",
+        prodid,
+      ]);
+    },
+  );
+
+  it.each([
+    ["BDAY:1604-07-14", "4.0", 1604, 7, 14],
+    ["BDAY:1604-07", "3.0", 1604, 7, null],
+    ["BDAY:1604", "3.0", 1604, null, null],
+    ["BDAY;X-APPLE-OMIT-YEAR=1987:1604-07-14", "3.0", 1604, 7, 14],
+    ["BDAY:1987-07-14", "3.0", 1987, 7, 14],
+  ])(
+    "keeps the year outside the complete unmarked 3.0 placeholder (%s)",
+    (line, version, year, month, day) => {
+      expect(birthdayOf(parse(card(line, version, IOS)))).toMatchObject({ year, month, day });
+    },
+  );
 });
 
 describe("writing", () => {
+  it("does not add the missing iOS marker when only a note changes", () => {
+    const line = bdayLineAfter(IOS_NO_MARKER, (draft) => {
+      draft.note = "Changed note";
+    });
+    expect(line).toBe("BDAY;VALUE=DATE:16040714");
+  });
+
+  it("writes the Apple marker when the marker-less birthday's day is edited", () => {
+    const line = bdayLineAfter(IOS_NO_MARKER, (draft) => {
+      if (draft.bday) draft.bday.day = "15";
+    });
+    expect(line).toContain("X-APPLE-OMIT-YEAR=1604");
+    expect(line).toMatch(/:16040715$/);
+  });
+
+  it("writes a year entered on the marker-less iOS birthday", () => {
+    const line = bdayLineAfter(IOS_NO_MARKER, (draft) => {
+      if (draft.bday) draft.bday.year = "1990";
+    });
+    expect(line).toBe("BDAY;VALUE=DATE:19900714");
+  });
+
   it("leaves the birthday as Apple wrote it when another field changes", () => {
     const line = bdayLineAfter(card(APPLE), (draft) => {
       draft.note = "Ligne";
