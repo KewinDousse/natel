@@ -532,7 +532,7 @@ describe("avatar and special sections", () => {
 
     const article = await screen.findByRole("article");
     const address = article.querySelector("address");
-    expect(address?.textContent).toBe("Ferme des Champs-DorésGrande-Cité");
+    expect(address?.textContent).toBe("Ferme des Champs-Dorés Grande-Cité");
     expect(within(address as HTMLElement).getByText("Grande-Cité").className).not.toContain(
       "truncate",
     );
@@ -627,8 +627,8 @@ describe("avatar and special sections", () => {
     const article = await screen.findByRole("article");
     expect(within(article).getByRole("heading", { name: "Adresses" })).toBeTruthy();
     expect([...article.querySelectorAll("address")].map((a) => a.textContent)).toEqual([
-      "c/o EsquieRue du Monolithe 1Lumière",
-      "Phare 3Vieux Lumière",
+      "c/o Esquie Rue du Monolithe 1 Lumière",
+      "Phare 3 Vieux Lumière",
     ]);
     expect(within(article).getByText("Domicile")).toBeTruthy();
     expect(within(article).getByText("Atelier")).toBeTruthy();

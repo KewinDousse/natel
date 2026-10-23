@@ -414,8 +414,9 @@ export function addressLinesOf(address: VCardAddress): string[] {
 function AddressBlock({ lines }: { lines: string[] }) {
   return (
     <address className="not-italic leading-snug lg:text-body">
-      {keyed(lines, (line) => line).map(([key, line]) => (
+      {keyed(lines, (line) => line).map(([key, line], index) => (
         <span key={key} className="block break-words">
+          {index > 0 && " "}
           {line}
         </span>
       ))}
