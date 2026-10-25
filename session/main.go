@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -28,6 +29,15 @@ func main() {
 }
 
 func run(log *slog.Logger, command []string) int {
+	updatesEnabled := true
+	if raw := os.Getenv("NATEL_UPDATE_CHECKS"); raw != "" {
+		var err error
+		updatesEnabled, err = strconv.ParseBool(raw)
+		if err != nil {
+			log.Error("NATEL_UPDATE_CHECKS must be true or false")
+			return 1
+		}
+	}
 	addr := os.Getenv("NATEL_SESSION_ADDR")
 	if addr == "" {
 		addr = defaultAddr
@@ -71,7 +81,7 @@ func run(log *slog.Logger, command []string) int {
 	}
 	st := newStore(time.Now)
 	srv := &http.Server{
-		Handler:           (&server{store: st, verifier: v, log: log, secret: secret}).routes(),
+		Handler:           (&server{store: st, verifier: v, log: log, secret: secret, updateChecker: newUpdateChecker(updatesEnabled)}).routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),

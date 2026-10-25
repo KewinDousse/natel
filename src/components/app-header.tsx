@@ -4,11 +4,8 @@
  * DESIGN.md "Header". Signing out is in the settings, so the bar keeps its
  * room for the book's name.
  *
- * `--header-h` (defined in src/index.css :root) is the mobile header height
- * used by sticky group letters (`top-[var(--header-h)]`): 56px bar + search
- * row = 7rem, at every phone width. On lg+ the header is static
- * (`lg:static`) and the letters use `lg:top-2`, so the property is only
- * meaningful below lg.
+ * The measured header height sets `--header-h` for mobile sticky letters,
+ * including a release notice that wraps. Desktop letters use `lg:top-2`.
  */
 
 import { Link } from "@tanstack/react-router";
@@ -22,6 +19,7 @@ import { DemoMark, DemoNotice } from "./demo-notice";
 import { type SyncState, SyncWarning } from "./sync-warning";
 import { buttonClass } from "./ui/button";
 import { GearIcon, PlusIcon, SearchIcon, XIcon } from "./ui/icons";
+import { UpdateNotice } from "./update-notice";
 
 type AppHeaderProps = {
   books: DavAddressBook[] | undefined;
@@ -60,6 +58,7 @@ export function AppHeader({
   hiddenOnMobile,
 }: AppHeaderProps) {
   const { t } = useI18n();
+  const headerRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLAnchorElement>(null);
 
@@ -82,6 +81,20 @@ export function AppHeader({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      const height = header.getBoundingClientRect().height;
+      if (height > 0) document.documentElement.style.setProperty("--header-h", `${height}px`);
+    });
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--header-h");
+    };
+  }, []);
+
   function clearSearch() {
     onQueryChange("");
     searchRef.current?.focus();
@@ -89,6 +102,7 @@ export function AppHeader({
 
   return (
     <header
+      ref={headerRef}
       id="app-header"
       className={cn(
         "sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 lg:static",
@@ -193,6 +207,7 @@ export function AppHeader({
         </div>
       </div>
       <DemoNotice />
+      <UpdateNotice onDismiss={() => settingsRef.current?.focus()} />
     </header>
   );
 }

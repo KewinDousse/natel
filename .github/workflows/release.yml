@@ -1,0 +1,303 @@
+name: Release
+run-name: Release ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact version without v (for example 0.4.0 or 0.4.0-rc.1)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse' && 'release-publication' || format('rejected-release-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'KewinDousse/natel' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.prepare.outputs.sha }}
+      version: ${{ steps.prepare.outputs.version }}
+      tag_exists: ${{ steps.prepare.outputs.tag_exists }}
+      artifact: release-candidate-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - id: prepare
+        run: node scripts/release.mjs prepare "$VERSION"
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          GIT_AUTHOR_NAME: ${{ github.actor }}
+          GIT_AUTHOR_EMAIL: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-candidate-${{ github.run_attempt }}
+          path: ../candidate.bundle
+          retention-days: 7
+
+  test:
+    if: github.repository == 'KewinDousse/natel' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse'
+    needs: prepare
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      candidate_sha: ${{ needs.prepare.outputs.sha }}
+      candidate_artifact: ${{ needs.prepare.outputs.artifact }}
+      release_version: ${{ needs.prepare.outputs.version }}
+
+  approve:
+    if: github.repository == 'KewinDousse/natel' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse'
+    needs: [prepare, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: mkdir -p "$RUNNER_TEMP/release-tools" && cp scripts/release.mjs scripts/changes.mjs "$RUNNER_TEMP/release-tools/"
+      - uses: ./.github/actions/release-candidate
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          artifact: ${{ needs.prepare.outputs.artifact }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Create release token after approval
+        if: needs.prepare.outputs.tag_exists == 'false'
+        id: release-app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          repositories: natel
+          permission-contents: write
+      - name: Publish approved commit and immutable tag
+        run: node "$RUNNER_TEMP/release-tools/release.mjs" publish "$VERSION"
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          CANDIDATE_SHA: ${{ needs.prepare.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG_TOKEN: ${{ steps.release-app.outputs.token }}
+
+  publish:
+    # Publish the immutable image without running repository code.
+    # Only this repository publishes the image; a copy of it doesn't.
+    if: github.repository == 'KewinDousse/natel' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse'
+    needs: [prepare, test, approve]
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write
+      # Signs the provenance attestation and stores it.
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.test.outputs.image_artifact }}
+      - run: echo "$TOKEN" | skopeo login ghcr.io --username "$ACTOR" --password-stdin
+        env:
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # --all keeps both platforms under each tag. Every tag gets the same
+      # index, whose digest the attestation below names.
+      - id: push
+        run: |
+          set -euo pipefail
+          version_image="ghcr.io/kewindousse/natel:$VERSION"
+          tested_digest=$(skopeo inspect oci-archive:image.tar:ci | jq -r '.Digest')
+          if skopeo inspect "docker://$version_image" > existing.json 2> inspect-error.txt; then
+            test "$(jq -r '.Labels["org.opencontainers.image.revision"]' existing.json)" = "$REVISION"
+            test "$(jq -r '.Digest' existing.json)" = "$tested_digest"
+            jq -r '.Digest' existing.json > digest
+          else
+            # A registry error must not be treated as an absent immutable version.
+            if ! grep -qiE 'manifest unknown|name unknown' inspect-error.txt; then
+              cat inspect-error.txt >&2
+              exit 1
+            fi
+            skopeo copy --all --preserve-digests --digestfile digest oci-archive:image.tar:ci "docker://$version_image"
+          fi
+          echo "digest=$(cat digest)" >> "$GITHUB_OUTPUT"
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          REVISION: ${{ needs.prepare.outputs.sha }}
+      # The attestation's push to the registry reads Docker's credentials,
+      # not skopeo's.
+      - if: ${{ !github.event.repository.private }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+        env:
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Lets users check the image came from this workflow:
+      # gh attestation verify oci://ghcr.io/kewindousse/natel:<tag> --owner KewinDousse
+      # GitHub attests only for public repositories on this plan.
+      - name: Describe the tested candidate source
+        run: |
+          jq -n --arg commit "$CANDIDATE_SHA" --arg version "$VERSION" \
+            --arg repository "https://github.com/$GITHUB_REPOSITORY" \
+            --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
+            '{buildDefinition: {
+              buildType: "https://actions.github.io/buildtypes/workflow/v1",
+              externalParameters: {workflow: {repository: $repository, path: ".github/workflows/release.yml", ref: "refs/heads/main"}, version: $version},
+              internalParameters: {},
+              resolvedDependencies: [{uri: ("git+" + $repository + "@refs/tags/v" + $version), digest: {gitCommit: $commit}}]
+            }, runDetails: {builder: {id: "https://github.com/actions/runner/github-hosted"}, metadata: {invocationId: $run}}}' > provenance.json
+        env:
+          CANDIDATE_SHA: ${{ needs.prepare.outputs.sha }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+      - if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/kewindousse/natel
+          subject-digest: ${{ steps.push.outputs.digest }}
+          predicate-type: https://slsa.dev/provenance/v1
+          predicate-path: provenance.json
+          push-to-registry: true
+
+  release-record:
+    if: github.repository == 'KewinDousse/natel' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse'
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/release-candidate
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          artifact: ${{ needs.prepare.outputs.artifact }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: node scripts/release.mjs record "$VERSION"
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+
+  promote-image:
+    needs: [prepare, publish, release-record]
+    if: github.repository == 'KewinDousse/natel' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - run: echo "$TOKEN" | skopeo login ghcr.io --username "$ACTOR" --password-stdin
+        env:
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote released image aliases
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" == *-* ]]; then exit 0; fi
+          # Read again on every attempt: partial reruns retain successful job outputs.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name | select(test("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")) | ltrimstr("v")' > stable-versions
+          latest=$( { cat stable-versions; echo "$VERSION"; } | sort -V | tail -n 1)
+          minor="${VERSION%.*}"
+          minor_latest=$( { awk -v prefix="$minor." 'index($0, prefix) == 1' stable-versions; echo "$VERSION"; } | sort -V | tail -n 1)
+          immutable="ghcr.io/kewindousse/natel@$DIGEST"
+          if [ "$minor_latest" = "$VERSION" ]; then
+            skopeo copy --all "docker://$immutable" "docker://ghcr.io/kewindousse/natel:$minor"
+          fi
+          if [ "$latest" = "$VERSION" ]; then
+            skopeo copy --all "docker://$immutable" "docker://ghcr.io/kewindousse/natel:latest"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+
+  demo:
+    # The demo (ADR 025) on this repository's GitHub Pages site, at
+    # demo.natel.app, at each release; a pre-release (a tag with a suffix)
+    # leaves it as it is.
+    if: github.repository == 'KewinDousse/natel' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && github.actor_id == '1529017' && github.actor == 'KewinDousse' && github.triggering_actor == 'KewinDousse' && !contains(needs.prepare.outputs.version, '-')
+    needs: [prepare, promote-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # One deploy at a time, so two tags close together land in order.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/release-candidate
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          artifact: ${{ needs.prepare.outputs.artifact }}
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      # No cache: this job publishes approved releases and what it builds
+      # (see the image job).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build --outDir dist-demo
+        env:
+          NATEL_REVISION: ${{ needs.prepare.outputs.sha }}
+          VITE_DEMO: "1"
+          DEMO_URL: https://demo.natel.app/
+      - name: Recheck stable promotion
+        id: promotion
+        run: node scripts/release.mjs plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      - run: node scripts/release.mjs manifest "$VERSION"
+        if: steps.promotion.outputs.latest == 'true'
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: steps.promotion.outputs.latest == 'true'
+        with:
+          path: dist-demo
+      - id: deploy
+        if: steps.promotion.outputs.latest == 'true'
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

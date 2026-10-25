@@ -96,6 +96,13 @@ export function devSession(davOrigin: string | undefined, davMethods: string[]):
 
   function handle(req: IncomingMessage, res: ServerResponse, next: () => void): void {
     const path = (req.url ?? "/").split("?")[0];
+    if (path === "/updates") {
+      res.setHeader("Cache-Control", "no-store");
+      if (req.method !== "GET") end(res, 405);
+      else if (!lookup(req)) end(res, 401);
+      else json(res, { enabled: false });
+      return;
+    }
     if (path === "/session") {
       session(req, res);
       return;

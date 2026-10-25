@@ -93,3 +93,17 @@ On a desktop, press **?** to see keyboard shortcuts. **/** focuses search,
 To install Natel, use the browser's install command or **Add to Home Screen**
 where available. The installed app still needs network access and follows
 the same session rules as a browser tab.
+
+## Update notifications
+
+When your server's update checks are enabled, Natel can show a notice that a newer
+release is available. Open its release notes to see what changed. Ignoring a version
+hides that notice on this browser; another release can show a new notice.
+The ignored version is stored as a browser preference. If browser storage is
+unavailable, the dismissal lasts for this tab only.
+
+Settings shows the installed version, whether checks are enabled and the latest
+release when known, including one you ignored. A failed check is silent and does
+not mean the installation is up to date. The person hosting Natel controls checks
+in the [deployment configuration](deployment.md#update-checks) and installs updates.
+The notice is hidden in the demo.

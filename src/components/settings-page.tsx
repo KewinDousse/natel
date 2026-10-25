@@ -11,8 +11,10 @@ import { useSignOut } from "@/hooks/use-sign-out";
 import { useI18n } from "@/i18n/react";
 import { APP_REVISION, APP_VERSION } from "@/lib/app-info";
 import type { SortBy } from "@/lib/contact-list";
+import { IS_DEMO } from "@/lib/demo";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
+import { useUpdates } from "@/queries/useUpdates";
 import { usePreferences } from "@/store/preferences";
 import { useAuth } from "@/store/session";
 import { openShortcuts } from "./keyboard-shortcuts";
@@ -30,6 +32,7 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const signOut = useSignOut();
   const auth = useAuth();
+  const updates = useUpdates();
   const { sortBy, setSortBy, theme, setTheme, mapApp, setMapApp } = usePreferences();
 
   useEffect(() => {
@@ -131,6 +134,30 @@ export function SettingsPage() {
               </>
             )}
           </p>
+          {!IS_DEMO && (
+            <p className="text-sm text-muted-foreground">
+              {t(
+                updates.data?.enabled === false
+                  ? "update_disabled"
+                  : updates.data?.enabled
+                    ? "update_enabled"
+                    : "update_unavailable",
+              )}
+              {updates.data?.version && (
+                <>
+                  {" "}
+                  <a
+                    href={updates.data.releaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`underline underline-offset-2 ${FOCUS_RING}`}
+                  >
+                    {t("update_latest", { version: updates.data.version })}
+                  </a>
+                </>
+              )}
+            </p>
+          )}
           <ul className="space-y-3 text-sm">
             <li>
               <Link

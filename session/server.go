@@ -25,9 +25,10 @@ const (
 )
 
 type server struct {
-	store    *store
-	verifier *verifier
-	log      *slog.Logger
+	updateChecker *updateChecker
+	store         *store
+	verifier      *verifier
+	log           *slog.Logger
 	// secret is what Caddy sends /auth, so a local process that got hold of
 	// a session cookie can't read the password from the loopback.
 	secret string
@@ -39,6 +40,7 @@ func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /session", s.signIn)
 	mux.HandleFunc("GET /session", s.current)
+	mux.HandleFunc("GET /updates", s.updates)
 	mux.HandleFunc("DELETE /session", s.signOut)
 	mux.HandleFunc("GET /auth", s.authorize)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {

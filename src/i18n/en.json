@@ -306,5 +306,12 @@
   "book_incomplete": "Incomplete list",
   "book_skipped_1": "1 card could not be displayed.",
   "book_skipped_n": "{n} cards could not be displayed.",
-  "book_incomplete_body": "The list is incomplete. Retry or check the cards with another CardDAV client."
+  "book_incomplete_body": "The list is incomplete. Retry or check the cards with another CardDAV client.",
+  "update_available": "Natel {version} is available.",
+  "update_notes": "See what’s new",
+  "update_ignore": "Ignore this version",
+  "update_disabled": "Update checks are disabled on this server.",
+  "update_enabled": "This server checks for new releases automatically.",
+  "update_unavailable": "Update information is unavailable.",
+  "update_latest": "Latest release: {version}"
 }

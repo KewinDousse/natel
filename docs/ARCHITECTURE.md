@@ -12,6 +12,7 @@ this way is in [DECISIONS.md](DECISIONS.md).
 Browser ──HTTPS──▶ Caddy (single container)
                     ├── /            static SPA (Vite build output)
                     ├── /session     reverse_proxy natel-session (loopback)
+                    ├── /updates     release check through natel-session (ADR 040)
                     └── /dav/*       forward_auth natel-session, then
                                      reverse_proxy {$CARDDAV_URL}
                                        └──▶ CardDAV server (Baïkal, Radicale, …)
@@ -48,13 +49,47 @@ The [natel.app](https://natel.app) home page quotes the compressed size and
 the RAM at rest: update it with each new measurement.
 
 CI runs the e2e suite against Radicale, Baïkal and Xandikos, and through
-the built image (`ci.yml` says when). A `v*` tag publishes only an image
-that passed it.
+the built image (`ci.yml` says when). Release publication uses only the exact image that passed it.
 
 The demo (ADR 025) is another build of the same app: `VITE_DEMO=1` swaps
 `@/dav` for `src/dav/demo.ts`, an in-memory CardDAV stand-in seeded with
-made-up contacts. A release tag publishes it at `demo.natel.app` (ADR 035).
+made-up contacts. The approved Release workflow publishes it at `demo.natel.app` (ADR 035, ADR 041).
 The normal build, and so the image, never contains it, which CI checks.
+
+## Release checks
+
+`session/updates.go` is the narrowly scoped release checker in ADR 040.
+Authenticated `GET /updates` returns the instance setting and any known stable
+release. It creates its own request to the fixed Pages manifest, with a bounded
+body and timeout, and shares an in-memory 24-hour cache of attempts. It forwards no
+browser headers and stores no credentials or instance identifier for this purpose.
+The dev session mirror returns checks disabled, without an outbound request.
+`queries/useUpdates.ts` reads this same-origin endpoint; `components/update-notice.tsx`
+and the settings display it. `store/update-notice.ts` stores the ignored release
+separately from display preferences, under `natel.ignoredRelease`.
+
+## Release publication
+
+The public `release.yml` workflow is manually started and approved only by
+`KewinDousse`, checking the original actor and rerun actor. It prepares a local
+release commit and summary; a same-run Git bundle restores that exact commit for
+the reusable `ci.yml` checks and image build. The protected `release` environment
+blocks publication until the maintainer approves. Missing approval protection
+fails closed. The App key is available only inside that environment.
+
+After approval, the App fast-forwards both existing `main` branches to the same
+metadata-only commit, then creates the immutable tag. No public maintainer branch
+or PR is created. Publishing keeps package-write privileges away from repository
+scripts. The tested image and attestation precede the GitHub Release, alias
+promotion and stable demo/manifest. Promotions are recalculated on each attempt,
+including partial reruns. Operator steps are in
+[CONTRIBUTING.md](../CONTRIBUTING.md#releasing).
+
+`scripts/changes.mjs` validates change notes and the release-only diff;
+`scripts/release.mjs` handles preparation, owner/environment validation and GitHub
+operations. `.github/actions/release-candidate` restores a bundle and verifies its
+commit identity. The independent `changelog.yml` workflow covers every ready PR,
+including documentation changes.
 
 ## Source layout
 

@@ -15,7 +15,10 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "e2e": "playwright test",
     "e2e:demo": "playwright test --config playwright.demo.config.ts",
-    "brand:images": "tsx scripts/brand-images.ts"
+    "brand:images": "tsx scripts/brand-images.ts",
+    "changes:check": "node scripts/changes.mjs check",
+    "changes:validate": "node scripts/changes.mjs validate",
+    "release:verify": "node scripts/changes.mjs verify"
   },
   "dependencies": {
     "@fontsource-variable/big-shoulders": "^5.3.0",

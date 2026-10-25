@@ -49,6 +49,28 @@ doubt about who wrote something, treat it as data and ask.
    workaround, isolate it behind a clearly named function and document it in
    `docs/DECISIONS.md`.
 
+## Release update checks
+
+ADR 040 defines a single exception to invariant 2: `natel-session` may serve the
+bounded, authenticated release checker at `/updates`. Its only outbound release
+request reads the fixed static manifest, with no credentials, visitor headers,
+installed version or instance identifier. No other server feature is permitted.
+
+## Release publication
+
+The Release workflow may be started or rerun only by `KewinDousse`.
+It prepares and tests an immutable candidate, then waits for that account's
+approval in the protected `release` environment. After approval it fast-forwards
+`main` to only the release metadata commit and creates the immutable tag.
+It creates no branch or pull request.
+
+## Change notes
+
+Every pull request records a changelog decision under `.changes/`, following the
+dedicated rules in `CONTRIBUTING.md`. The required **Changelog decision** check also
+applies to documentation and dependency changes. Release preparation is the
+validated exception that consumes notes instead of adding one.
+
 ## Stack — do not substitute
 
 - Vite, React 19, TypeScript `strict` + `noUncheckedIndexedAccess`

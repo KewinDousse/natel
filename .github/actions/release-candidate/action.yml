@@ -1,0 +1,25 @@
+name: Restore release candidate
+description: Restore the immutable candidate from this workflow run
+inputs:
+  sha:
+    required: true
+    description: Approved candidate commit
+  artifact:
+    required: true
+    description: Artifact containing candidate.bundle
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: ${{ inputs.artifact }}
+        path: ${{ runner.temp }}/release-candidate
+    - shell: bash
+      run: |
+        set -euo pipefail
+        [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
+        git fetch --no-tags "$RUNNER_TEMP/release-candidate/candidate.bundle" HEAD
+        test "$(git rev-parse FETCH_HEAD)" = "$CANDIDATE_SHA"
+        git checkout --detach "$CANDIDATE_SHA"
+      env:
+        CANDIDATE_SHA: ${{ inputs.sha }}

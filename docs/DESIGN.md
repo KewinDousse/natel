@@ -146,6 +146,21 @@ In settings, an "About and help" section shows the version, and the source
 revision when the build has one. The user guide opens inside the app, at `/contacts/settings/help`;
 the bug form stays external, with `noopener noreferrer`.
 
+### Update notifications
+
+A quiet, full-width notice below the header's search row announces a newer stable
+release, with a link opening the release notes in another tab and an "Ignore this
+version" button. It uses ink on `bg-muted`, a bottom border and the shared focus
+styles, without red or a shadow. Its text and actions wrap on phones. The notice
+belongs to the list header, so it is hidden with that header on phone detail pages.
+The header's measured height sets the sticky letter offset when the notice wraps.
+A persistent polite status region announces it without moving focus.
+
+Ignoring stores only the version in this browser. The settings retain a link to the
+latest known release after dismissal, show whether server checks are enabled, and
+make no "up to date" claim after a failed check. The demo shows neither the notice
+nor the server check status. A check never prevents contact use or asks for a reload.
+
 ### Embedded user guide
 `/contacts/settings/help` uses the contact page's column and top bar. The
 content is `docs/user-guide.md`, imported at build time, English only and

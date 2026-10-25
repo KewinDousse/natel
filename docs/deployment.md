@@ -22,6 +22,30 @@ this repository's CI:
 gh attestation verify oci://ghcr.io/kewindousse/natel:X.Y.Z --owner KewinDousse
 ```
 
+## Update checks
+
+`NATEL_UPDATE_CHECKS` defaults to `true`. Set it to `false` to disable all
+release checks before starting Natel; restart Natel after changing it.
+Development, preview and demo builds perform no external release checks.
+
+When a signed-in user opens the app, Natel can fetch
+`https://demo.natel.app/version.json` from GitHub Pages. The server shares an
+in-memory result for 24 hours across users and tabs. Failed attempts count toward
+this interval too. No checks run while the app is unused. Restarting Natel clears
+the cache, so the next use can check again.
+
+The request contains no contacts, credentials, visitor IP addresses, installed
+version or instance identifier. GitHub Pages receives the server's public outbound
+IP address and may log it. The browser only contacts the Natel instance.
+A failed check never blocks contact loading or editing; it does not establish that
+the installation is up to date. The check has a five-second timeout, follows no
+redirects and accepts only a small release manifest from the fixed address.
+
+The settings show whether checks are enabled. A newer stable release can display
+a dismissible notice; see [update notifications](user-guide.md#update-notifications).
+The application does not install updates itself.
+
+
 ## Configuration
 
 | Variable                | Default               |                                                                                                                                                                                                                                                                                                                                                     |

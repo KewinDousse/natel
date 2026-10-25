@@ -65,7 +65,15 @@ Your password never touches a disk. Natel checks it with your CardDAV
 server when you sign in and keeps it in memory until the
 [session](docs/user-guide.md#sign-in-and-sign-out) ends. The only things
 Natel stores about you in your browser are a session cookie that page
-scripts can't read, and your display settings.
+scripts can't read, your display settings and the release version you choose
+to ignore.
+
+## Update notifications
+
+Natel checks for new releases from your server by default. You can disable
+these checks in the [deployment configuration](docs/deployment.md#update-checks).
+No contacts or credentials are sent; GitHub Pages receives the server's public
+IP address and may log it.
 
 ## Quick start
 

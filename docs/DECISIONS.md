@@ -524,7 +524,8 @@ server, which Caddy doesn't hold (ADR 002).
 
 **Decision.** `natel-session`, a Go binary with only the standard library
 (`session/`), is the container's entrypoint and runs Caddy as its child. It
-holds sign-in sessions in memory and does nothing else.
+holds sign-in sessions in memory. ADR 040 defines its additional, bounded
+release-check duty.
 - `POST /session` checks the credentials with a `PROPFIND` on the CardDAV
   server and sets an `HttpOnly`, `SameSite=Strict` cookie, `Secure` and
   `__Host-` over HTTPS. The app keeps only the username.
@@ -704,3 +705,57 @@ cards without evidence of this iOS convention.
 shown without a year. `PRODID` identifies the recorded producer, not
 necessarily its latest editor. This narrow interpretation does not restore
 parameters removed by another client or rewrite the card merely on read.
+
+## 040 — Optional server-side release checks from a static manifest
+
+**Context.** Self-hosted installations need to discover releases without making
+visitors contact a third party. The maintainer accepted server-side checks enabled
+by default, a static Pages manifest and a per-browser dismissible notice.
+
+**Decision.** The existing Go process serves authenticated `GET /updates` through
+Caddy. It fetches only `https://demo.natel.app/version.json`, on demand, caching
+attempts in memory for 24 hours, including failures. `NATEL_UPDATE_CHECKS=false`
+disables all requests. A fresh request sends no visitor headers, credentials,
+installed version or instance identifier; it has a five-second timeout, no redirects
+and a 4 KiB limit. Only a stable semantic version with its exact Natel release link
+is accepted. The browser contacts only Natel. Development, preview and demo checks
+are disabled. Ignoring stores the release version in the browser; settings still
+link to the known release.
+
+**Rejected.** Browser-side requests: they disclose visitors' outbound addresses.
+A new server process or Caddy module: neither is needed for this bounded function.
+
+**Consequences.** This is the sole release-check exception to invariant 2 and amends
+ADR 032. GitHub Pages can log the server's outbound IP. Operators can opt out before
+first use; a restart clears the cache. Failed checks do not affect contact use.
+The documentation and natel.app explain the external request at appropriate lengths.
+
+## 041 — Collected change notes and approved single-action releases
+
+**Context.** Public releases need readable notes and a procedure that
+accounts for every change. The maintainer wants to start a release once,
+read a summary and approve it, with no one else able to start or approve
+one.
+
+**Decision.**
+- Every pull request adds a note under `.changes/`: user-facing text in a
+  category, or `None` with a reason. The release collects them into
+  `CHANGELOG.md`.
+- The Release action, started by hand with a version, prepares the release
+  commit and its summary, freezes it in a Git bundle, and runs the whole CI
+  and image build on that exact commit.
+- The protected `release` environment then waits for the maintainer's
+  approval: sole reviewer, no administrator bypass, `main` only. Every job
+  checks who started the run and who reran it.
+- After approval, a GitHub App's short-lived token fast-forwards `main` to
+  the release commit, never by force, and creates the
+  immutable tag. The image and its attestation come first, then the GitHub
+  Release, the aliases, and the demo with `version.json`.
+- Existing tags, notes and images are never overwritten, and a retry
+  resumes where the run stopped. A prerelease or an older maintenance
+  release never moves `latest` or the stable demo.
+
+**Consequences.** The notes are still written by hand; the release only
+assembles and publishes them after approval. A candidate waits at most
+seven days for approval. Pushing `main` and creating the tag aren't atomic,
+but a failed run resumes while `main` still matches.

@@ -306,5 +306,12 @@
   "book_incomplete": "Liste incomplète",
   "book_skipped_1": "1 fiche n’a pas pu être affichée.",
   "book_skipped_n": "{n} fiches n’ont pas pu être affichées.",
-  "book_incomplete_body": "La liste est incomplète. Réessayez ou vérifiez les fiches avec un autre client CardDAV."
+  "book_incomplete_body": "La liste est incomplète. Réessayez ou vérifiez les fiches avec un autre client CardDAV.",
+  "update_available": "Natel {version} est disponible.",
+  "update_notes": "Voir les nouveautés",
+  "update_ignore": "Ignorer cette version",
+  "update_disabled": "La vérification des mises à jour est désactivée sur ce serveur.",
+  "update_enabled": "Ce serveur vérifie automatiquement les nouvelles versions.",
+  "update_unavailable": "Les informations de mise à jour sont indisponibles.",
+  "update_latest": "Dernière version\u00a0: {version}"
 }

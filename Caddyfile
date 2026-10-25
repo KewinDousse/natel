@@ -202,6 +202,11 @@
     import security_headers
   }
 
+  handle /updates {
+    reverse_proxy {$NATEL_SESSION_ADDR:127.0.0.1:2020}
+    import security_headers
+  }
+
   # ---------------------------------------------------------------
   # Static SPA — serve the Vite build output (catch-all)
   # ---------------------------------------------------------------
