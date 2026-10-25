@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -305,17 +305,27 @@ describe("the single public release workflow", () => {
     expect(gh.read().pushes).toEqual([]);
   });
 
-  it("prepares a frozen summary and a restorable bundle without any remote write", () => {
+  it("prepares a restorable bundle at the workflow's valid artifact upload path", () => {
     const f = fixture();
     const gh = github(f);
-    gh.run("prepare");
+    const workflow = readFileSync(
+      new URL("../../.github/workflows/release.yml", import.meta.url),
+      "utf8",
+    );
+    const uploadPath = /^ {10}path: (.+)$/m.exec(workflow)?.[1];
+    const bundlePath = /^ {10}CANDIDATE_BUNDLE: (.+)$/m.exec(workflow)?.[1];
+    if (!uploadPath || !bundlePath) throw new Error("The workflow must configure its bundle paths");
+    expect(uploadPath).not.toMatch(/(^|\/)\.\.?($|\/)/);
+    const resolveTemp = (path: string) =>
+      path.replaceAll(/\$\{\{\s*runner\.temp\s*\}\}/g, dirname(gh.bundle));
+    gh.run("prepare", { CANDIDATE_BUNDLE: resolveTemp(bundlePath) });
     const sha = f.git("rev-parse", "HEAD");
     expect(gh.summary()).toContain(sha);
     expect(gh.summary()).toContain("A user-visible feature.");
     expect(gh.read().calls.every((call) => call.method === "GET")).toBe(true);
     expect(gh.read().pushes).toEqual([]);
     f.git("checkout", "--detach", f.base);
-    f.git("fetch", gh.bundle, "HEAD");
+    f.git("fetch", resolveTemp(uploadPath), "HEAD");
     expect(f.git("rev-parse", "FETCH_HEAD")).toBe(sha);
     f.git("checkout", "--detach", "FETCH_HEAD");
     expect(f.run('console.log(changes.verifyPrepared("0.4.0"))')).toContain(
