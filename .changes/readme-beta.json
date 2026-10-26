@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Calls Natel beta software in the README and points its demo link at /contacts, where the demo skips its sign-in form; the application is unchanged."
+}

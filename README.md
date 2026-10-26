@@ -13,8 +13,8 @@ keeps your contacts in sync across your phones and computers, but often
 gives you nowhere to edit them in a browser. Natel fills that gap: one small
 container, contacts only, pointed at the server you already run.
 
-**[Try the demo](https://demo.natel.app/)** (made-up contacts, edits reset
-on reload) · [Quick start](#quick-start) · [Documentation](#documentation-and-help)
+**[Try the demo](https://demo.natel.app/contacts)** (made-up contacts, edits
+reset on reload) · [Quick start](#quick-start) · [Documentation](#documentation-and-help)
 
 <p>
   <img alt="The contact list and a contact's page, on a desktop screen." src="docs/screenshots/desktop.png" width="74%">
@@ -22,7 +22,7 @@ on reload) · [Quick start](#quick-start) · [Documentation](#documentation-and-
 </p>
 
 > [!WARNING]
-> Natel is alpha software, and it edits the contacts your other devices
+> Natel is beta software, and it edits the contacts your other devices
 > sync. Before your first edit, export each address book from the
 > address-book menu, or back up your CardDAV server. The
 > [compatibility notes](docs/compatibility.md) list what is tested and what
