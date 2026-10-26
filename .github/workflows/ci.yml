@@ -128,7 +128,28 @@ jobs:
           cache-dependency-path: tests/e2e/requirements.txt
       - run: pip install -r tests/e2e/requirements.txt
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium firefox webkit
+      # The browsers' system packages come from the Ubuntu mirror, which now
+      # and then stalls a runner for longer than the job's timeout. A stalled
+      # download fails fast and is retried, and the packages are cached: apt
+      # checks each cached one against the signed index before installing it.
+      - id: playwright
+        run: |
+          printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::Retries "5";' \
+            'APT::Keep-Downloaded-Packages "true";' |
+            sudo tee /etc/apt/apt.conf.d/99natel-ci >/dev/null
+          version=$(node -p "require('@playwright/test/package.json').version")
+          echo "key=playwright-apt-$ImageOS-$version-$ImageVersion" >> "$GITHUB_OUTPUT"
+          echo "prefix=playwright-apt-$ImageOS-$version-" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: ${{ steps.playwright.outputs.key }}
+          restore-keys: ${{ steps.playwright.outputs.prefix }}
+      - run: |
+          mkdir -p ~/apt-archives
+          sudo find ~/apt-archives -name '*.deb' -exec cp -t /var/cache/apt/archives {} +
+          pnpm exec playwright install --with-deps chromium firefox webkit
+          find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp -t ~/apt-archives {} +
       - run: pnpm e2e
         env:
           E2E_SERVER: ${{ matrix.server }}
