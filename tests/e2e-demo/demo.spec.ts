@@ -51,6 +51,11 @@ test("opens the contact list directly without signing in", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Sign in" })).not.toBeVisible();
 });
 
+test("ships the contact list as a page of its own", async ({ request }) => {
+  const response = await request.get("./contacts.html");
+  expect(response.ok()).toBe(true);
+});
+
 test("opens a contact deep link directly without signing in", async ({ page }) => {
   await page.goto("./contacts/p01");
   await expect(page).toHaveURL(/\/contacts\/p01$/);

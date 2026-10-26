@@ -47,7 +47,8 @@ const OG_IMAGE = "og-image.png";
 /**
  * What a static host can't send as headers: the CSP as a meta tag (without
  * frame-ancestors, which a meta tag can't set), and a 404.html that loads
- * the app on a deep link. With DEMO_URL, also the link preview's image.
+ * the app on a deep link. The README links to /contacts, so that one page
+ * also exists as contacts.html, which GitHub Pages serves with a 200. With DEMO_URL, also the link preview's image.
  */
 function demoStaticHost(): Plugin {
   let outDir = "dist";
@@ -89,6 +90,7 @@ function demoStaticHost(): Plugin {
     writeBundle() {
       if (existsSync(`${outDir}/index.html`)) {
         copyFileSync(`${outDir}/index.html`, `${outDir}/404.html`);
+        copyFileSync(`${outDir}/index.html`, `${outDir}/contacts.html`);
       }
     },
   };
