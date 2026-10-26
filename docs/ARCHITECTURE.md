@@ -65,8 +65,10 @@ body and timeout, and shares an in-memory 24-hour cache of attempts. It forwards
 browser headers and stores no credentials or instance identifier for this purpose.
 The dev session mirror returns checks disabled, without an outbound request.
 `queries/useUpdates.ts` reads this same-origin endpoint; `components/update-notice.tsx`
-and the settings display it. `store/update-notice.ts` stores the ignored release
-separately from display preferences, under `natel.ignoredRelease`.
+puts a dot on the header's settings link and the release status in the settings.
+`store/update-notice.ts` stores the ignored release and the last release the
+settings showed separately from display preferences, under `natel.ignoredRelease`
+and `natel.seenRelease`.
 
 ## Release publication
 

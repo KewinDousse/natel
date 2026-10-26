@@ -24,9 +24,8 @@ test("update metadata requires a session", async ({ request }) => {
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`announces and dismisses releases without an external browser request, ${colorScheme}`, async ({
+  test(`badges, highlights and ignores releases without an external browser request, ${colorScheme}`, async ({
     page,
-    isMobile,
   }) => {
     await page.emulateMedia({ colorScheme });
     let version = "999.0.0";
@@ -39,40 +38,42 @@ for (const colorScheme of ["light", "dark"] as const) {
     );
     await signIn(page.request);
     await page.goto("/contacts");
+    const badged = page.getByRole("link", { name: "Settings, new version available" });
+    const settings = page.getByRole("link", { name: "Settings", exact: true });
     const notes = page.getByRole("link", { name: "See what’s new", exact: true });
-    await expect(notes).toBeVisible();
+    await expect(badged).toBeVisible();
+    await expect(notes).toHaveCount(0);
+    const axe = () =>
+      new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+        .exclude("[data-logotype]")
+        .analyze();
+    expect((await axe()).violations.map((item) => item.id)).toEqual([]);
+
+    await badged.click();
     await expect(notes).toHaveAttribute("href", releaseUrl(version));
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    const header = page.locator("#app-header");
-    if (isMobile) {
-      const offset = await page.evaluate(() =>
-        parseFloat(document.documentElement.style.getPropertyValue("--header-h")),
-      );
-      expect(offset).toBeCloseTo((await header.boundingBox())?.height ?? 0, 0);
-    }
-    const { violations } = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .exclude("[data-logotype]")
-      .analyze();
-    expect(violations.map((item) => item.id)).toEqual([]);
+    expect((await axe()).violations.map((item) => item.id)).toEqual([]);
+    await page.goto("/contacts");
+    await expect(page.getByRole("link", { name: /Ada Lovelace/ })).toBeVisible();
+    await expect(settings).toBeVisible();
+
+    await settings.click();
     await page.getByRole("button", { name: "Ignore this version" }).click();
     await expect(notes).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Settings", exact: true })).toBeFocused();
+    const latest = page.getByRole("link", { name: "Latest release: 999.0.0" });
+    await expect(latest).toHaveAttribute("href", releaseUrl(version));
+    await expect(latest).toBeFocused();
     await page.reload();
-    await expect(page.getByRole("link", { name: /Ada Lovelace/ })).toBeVisible();
+    await expect(latest).toBeVisible();
     await expect(notes).toHaveCount(0);
-    await page.getByRole("link", { name: "Settings", exact: true }).click();
-    await expect(page.getByRole("link", { name: "Latest release: 999.0.0" })).toHaveAttribute(
-      "href",
-      releaseUrl(version),
-    );
+
     version = "999.1.0";
     await page.goto("/contacts");
     await page.reload();
-    await expect(notes).toBeVisible();
-    await expect(notes).toHaveAttribute("href", releaseUrl(version));
+    await expect(badged).toBeVisible();
     expect(external).toEqual([]);
   });
 }

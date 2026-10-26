@@ -64,7 +64,7 @@ Sticky offsets use `--header-h`, never hardcoded pixels.
 - Book menu, below the books (ADR 020): export the selected book as `<name>.vcf` (disabled, still focusable, while the book shows no contact) and import a `.vcf` file.
 - Import dialog: shows progress while cards are sent and can't be dismissed meanwhile; then the counts (imported, already in the book, failed) and each failed card with its reason. The list behind fills in as contacts are created.
 - Search: `/` focuses it, `Esc` clears it; a `/` hint on desktop while empty, a clear button while not.
-- Settings: a gear link, always present, even with no address book. Signing out lives in the settings, so the bar keeps its room for the book's name. Being a link, it gets the discard dialog first when an edit is unsaved.
+- Settings: a gear link, always present, even with no address book. Signing out lives in the settings, so the bar keeps its room for the book's name. Being a link, it gets the discard dialog first when an edit is unsaved. It carries the dot of Update notifications.
 - Sync warning, only when the contacts shown couldn't be reloaded: an alert button before the settings link, in `text-warning`, its label from `xl`. Its panel says when the last sync worked and offers to retry, or, when the server refused the session, to sign in again. A reload that works closes it and confirms in a toast. Nothing shows while sync works; a book that never loaded shows the list's failed state instead.
 - New contact: a round ink "+" link, a labelled pill from `lg`, once the server has an address book.
 
@@ -135,9 +135,10 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 
 ### Settings
 `/contacts/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
-- Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
 - Account: who is signed in, and sign-out. When the server doesn't confirm the sign-out, the user stays signed in and a toast says so.
+- Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
 - Keyboard shortcuts, desktop only.
+- About and help, last (see below).
 
 Back, or `Esc` on desktop, returns to `/contacts`.
 
@@ -148,18 +149,19 @@ the bug form stays external, with `noopener noreferrer`.
 
 ### Update notifications
 
-A quiet, full-width notice below the header's search row announces a newer stable
-release, with a link opening the release notes in another tab and an "Ignore this
-version" button. It uses ink on `bg-muted`, a bottom border and the shared focus
-styles, without red or a shadow. Its text and actions wrap on phones. The notice
-belongs to the list header, so it is hidden with that header on phone detail pages.
-The header's measured height sets the sticky letter offset when the notice wraps.
-A persistent polite status region announces it without moving focus.
+A newer stable release puts a small ink dot on the header's settings gear, at its
+top right, ringed with the background colour; the link's label becomes "Settings,
+new version available". The dot goes away once the settings have shown that
+release, and comes back only for a later one. Nothing else in the list announces it.
 
-Ignoring stores only the version in this browser. The settings retain a link to the
-latest known release after dismissal, show whether server checks are enabled, and
-make no "up to date" claim after a failed check. The demo shows neither the notice
-nor the server check status. A check never prevents contact use or asks for a reload.
+In the settings' "About and help", the release has a block with a border, without a
+shadow, in `bg-muted` on phones and in `bg-background` on the desktop's muted pane:
+"Natel X is available." in bold, a link opening the release notes in another tab
+and an "Ignore this version" button. Ignoring stores only the version in this browser and
+focuses the line that replaces the block, which links to the latest known release.
+That line also says whether server checks are enabled, and makes no "up to date"
+claim after a failed check. The demo shows neither the dot nor the server check
+status. A check never prevents contact use or asks for a reload.
 
 ### Embedded user guide
 `/contacts/settings/help` uses the contact page's column and top bar. The

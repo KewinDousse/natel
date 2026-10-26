@@ -178,6 +178,7 @@
   "conflict_delete_hint": "Reload it to see the changes before deleting it.",
   "lang_browser": "Browser language",
   "settings": "Settings",
+  "settings_update": "Settings, new version available",
   "menu_export": "Export “{name}”",
   "menu_import": "Import a .vcf file…",
   "import_title": "Import into “{name}”",

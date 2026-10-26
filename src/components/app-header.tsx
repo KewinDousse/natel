@@ -4,8 +4,8 @@
  * DESIGN.md "Header". Signing out is in the settings, so the bar keeps its
  * room for the book's name.
  *
- * The measured header height sets `--header-h` for mobile sticky letters,
- * including a release notice that wraps. Desktop letters use `lg:top-2`.
+ * The measured header height sets `--header-h` for mobile sticky letters.
+ * Desktop letters use `lg:top-2`.
  */
 
 import { Link } from "@tanstack/react-router";
@@ -19,7 +19,7 @@ import { DemoMark, DemoNotice } from "./demo-notice";
 import { type SyncState, SyncWarning } from "./sync-warning";
 import { buttonClass } from "./ui/button";
 import { GearIcon, PlusIcon, SearchIcon, XIcon } from "./ui/icons";
-import { UpdateNotice } from "./update-notice";
+import { UpdateBadge, useUpdateBadge } from "./update-notice";
 
 type AppHeaderProps = {
   books: DavAddressBook[] | undefined;
@@ -61,6 +61,8 @@ export function AppHeader({
   const headerRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLAnchorElement>(null);
+  const updateBadge = useUpdateBadge();
+  const settingsLabel = t(updateBadge ? "settings_update" : "settings");
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -184,11 +186,12 @@ export function AppHeader({
           <Link
             ref={settingsRef}
             to="/contacts/settings"
-            aria-label={t("settings")}
-            title={t("settings")}
-            className={buttonClass({ variant: "ghost", size: "icon" })}
+            aria-label={settingsLabel}
+            title={settingsLabel}
+            className={buttonClass({ variant: "ghost", size: "icon" }, "group relative")}
           >
             <GearIcon />
+            {updateBadge && <UpdateBadge />}
           </Link>
           {books !== undefined && books.length > 0 && (
             // Round "+" on phones; labelled from lg, where there is room.
@@ -207,7 +210,6 @@ export function AppHeader({
         </div>
       </div>
       <DemoNotice />
-      <UpdateNotice onDismiss={() => settingsRef.current?.focus()} />
     </header>
   );
 }

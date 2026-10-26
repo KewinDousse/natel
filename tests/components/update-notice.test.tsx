@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UpdateNotice } from "@/components/update-notice";
+import { UpdateStatus, useUpdateBadge } from "@/components/update-notice";
 import { I18nProvider } from "@/i18n/react";
 import { compareVersions, releaseUrl } from "@/lib/release-version";
 import { fetchUpdates } from "@/queries/useUpdates";
@@ -11,42 +11,73 @@ vi.mock("@/lib/app-info", () => ({ APP_VERSION: "0.3.1" }));
 
 beforeEach(() => {
   localStorage.clear();
-  useUpdateNotice.setState({ ignored: null });
+  useUpdateNotice.setState({ ignored: null, seen: null });
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
-function view(version: string) {
+function Badge() {
+  return <p>{useUpdateBadge() ? "badge" : "no badge"}</p>;
+}
+
+function view(version: string, settings = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(["updates"], { enabled: true, version, releaseUrl: releaseUrl(version) });
   return render(
     <QueryClientProvider client={client}>
       <I18nProvider>
-        <UpdateNotice />
+        <Badge />
+        {settings && <UpdateStatus />}
       </I18nProvider>
     </QueryClientProvider>,
   );
 }
 
 describe("update notifications", () => {
-  it("shows newer releases and ignores only the chosen version", async () => {
-    const result = view("0.10.0");
-    expect(screen.getByRole("link").getAttribute("href")).toBe(releaseUrl("0.10.0"));
-    fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => expect(screen.queryByRole("link")).toBeNull());
-    expect(localStorage.getItem("natel.ignoredRelease")).toBe("0.10.0");
+  it("badges a newer release until the settings show it", () => {
+    let result = view("0.10.0");
+    expect(screen.getByText("badge")).toBeTruthy();
+    result.unmount();
+    result = view("0.10.0", true);
+    expect(screen.getByText("no badge")).toBeTruthy();
+    expect(localStorage.getItem("natel.seenRelease")).toBe("0.10.0");
     result.unmount();
     view("0.11.0");
-    expect(screen.getByRole("link").textContent).toBeTruthy();
+    expect(screen.getByText("badge")).toBeTruthy();
+  });
+  it("keeps the badge hidden for an ignored or an older release", () => {
+    useUpdateNotice.setState({ ignored: "0.10.0" });
+    let result = view("0.10.0");
+    expect(screen.getByText("no badge")).toBeTruthy();
+    result.unmount();
+    useUpdateNotice.setState({ ignored: null, seen: "0.11.0" });
+    result = view("0.10.0");
+    expect(screen.getByText("no badge")).toBeTruthy();
+  });
+  it("highlights a newer release in the settings until it is ignored", () => {
+    const result = view("0.10.0", true);
+    const notes = screen.getByRole("link", { name: /what’s new|nouveautés/ });
+    expect(notes.getAttribute("href")).toBe(releaseUrl("0.10.0"));
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(localStorage.getItem("natel.ignoredRelease")).toBe("0.10.0");
+    const latest = screen.getByRole("link");
+    expect(latest.getAttribute("href")).toBe(releaseUrl("0.10.0"));
+    expect(document.activeElement).toBe(latest);
+    result.unmount();
+    view("0.11.0", true);
+    expect(screen.getByRole("button")).toBeTruthy();
   });
   it("does not announce an older or the installed release", () => {
-    const result = view("0.3.1");
-    expect(screen.queryByRole("link")).toBeNull();
+    const result = view("0.3.1", true);
+    expect(screen.getByText("no badge")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
     result.unmount();
-    view("0.2.0");
-    expect(screen.queryByRole("link")).toBeNull();
+    view("0.2.0", true);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(localStorage.getItem("natel.seenRelease")).toBeNull();
   });
   it("orders numeric versions and prerelease identifiers", () => {
     expect(compareVersions("0.10.0", "0.9.0")).toBe(1);

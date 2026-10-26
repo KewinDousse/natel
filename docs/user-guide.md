@@ -96,14 +96,15 @@ the same session rules as a browser tab.
 
 ## Update notifications
 
-When your server's update checks are enabled, Natel can show a notice that a newer
-release is available. Open its release notes to see what changed. Ignoring a version
-hides that notice on this browser; another release can show a new notice.
-The ignored version is stored as a browser preference. If browser storage is
-unavailable, the dismissal lasts for this tab only.
+When your server's update checks are enabled, a small dot on the settings icon
+tells you a newer release is available. It goes away once you have opened the
+settings. There, under About and help, the new release stands out with a link to
+its release notes. Ignoring a version stops highlighting it on this browser;
+another release is highlighted again. The seen and ignored versions are stored as
+browser preferences. If browser storage is unavailable, they last for this tab only.
 
-Settings shows the installed version, whether checks are enabled and the latest
-release when known, including one you ignored. A failed check is silent and does
-not mean the installation is up to date. The person hosting Natel controls checks
+Settings also shows the installed version, whether checks are enabled and the
+latest release when known, including one you ignored. A failed check is silent and
+does not mean the installation is up to date. The person hosting Natel controls checks
 in the [deployment configuration](deployment.md#update-checks) and installs updates.
-The notice is hidden in the demo.
+The dot is hidden in the demo.

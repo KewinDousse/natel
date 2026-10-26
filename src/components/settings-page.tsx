@@ -1,8 +1,8 @@
 /**
- * SettingsPage — display preferences (ADR 019) and the account, in the detail
- * pane on desktop and as its own screen on phones. One labelled select per
- * preference; a change applies at once, with no save button. Back, or Esc
- * on desktop, returns to the list.
+ * SettingsPage — the account, display preferences (ADR 019), shortcuts and
+ * app information, in the detail pane on desktop and as its own screen on
+ * phones. One labelled select per preference; a change applies at once, with
+ * no save button. Back, or Esc on desktop, returns to the list.
  */
 
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -14,7 +14,6 @@ import type { SortBy } from "@/lib/contact-list";
 import { IS_DEMO } from "@/lib/demo";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
-import { useUpdates } from "@/queries/useUpdates";
 import { usePreferences } from "@/store/preferences";
 import { useAuth } from "@/store/session";
 import { openShortcuts } from "./keyboard-shortcuts";
@@ -22,6 +21,7 @@ import { LanguageSelect } from "./language-select";
 import { MobileTopBar } from "./mobile-top-bar";
 import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
 import { LogoutIcon } from "./ui/icons";
+import { UpdateStatus } from "./update-notice";
 
 const SYSTEM = "system";
 const AUTO = "auto";
@@ -32,7 +32,6 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const signOut = useSignOut();
   const auth = useAuth();
-  const updates = useUpdates();
   const { sortBy, setSortBy, theme, setTheme, mapApp, setMapApp } = usePreferences();
 
   useEffect(() => {
@@ -57,6 +56,22 @@ export function SettingsPage() {
         <h1 className="font-display text-title-sm font-bold leading-none sm:text-title lg:text-person">
           {t("settings")}
         </h1>
+
+        <SettingsSection title={t("settings_account")}>
+          {auth && (
+            <p className="text-base lg:text-body">
+              {t("signed_in_as")} <b className="font-bold">{auth.username}</b>
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className={buttonClass({ variant: "outline" }, "pl-3")}
+          >
+            <LogoutIcon className="size-4" />
+            {t("logout")}
+          </button>
+        </SettingsSection>
 
         <SettingsSection title={t("settings_display")}>
           <Field id="setting-language" label={t("lang_label")}>
@@ -108,19 +123,14 @@ export function SettingsPage() {
           </Field>
         </SettingsSection>
 
-        <SettingsSection title={t("settings_account")}>
-          {auth && (
-            <p className="text-base lg:text-body">
-              {t("signed_in_as")} <b className="font-bold">{auth.username}</b>
-            </p>
-          )}
+        {/* Keys are for a keyboard: from lg, like the rest of the hints. */}
+        <SettingsSection title={t("shortcuts_title")} className="hidden lg:block">
           <button
             type="button"
-            onClick={() => void signOut()}
-            className={buttonClass({ variant: "outline" }, "pl-3")}
+            onClick={openShortcuts}
+            className={buttonClass({ variant: "outline" })}
           >
-            <LogoutIcon className="size-4" />
-            {t("logout")}
+            {t("shortcuts_show")}
           </button>
         </SettingsSection>
 
@@ -134,30 +144,7 @@ export function SettingsPage() {
               </>
             )}
           </p>
-          {!IS_DEMO && (
-            <p className="text-sm text-muted-foreground">
-              {t(
-                updates.data?.enabled === false
-                  ? "update_disabled"
-                  : updates.data?.enabled
-                    ? "update_enabled"
-                    : "update_unavailable",
-              )}
-              {updates.data?.version && (
-                <>
-                  {" "}
-                  <a
-                    href={updates.data.releaseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`underline underline-offset-2 ${FOCUS_RING}`}
-                  >
-                    {t("update_latest", { version: updates.data.version })}
-                  </a>
-                </>
-              )}
-            </p>
-          )}
+          {!IS_DEMO && <UpdateStatus />}
           <ul className="space-y-3 text-sm">
             <li>
               <Link
@@ -178,17 +165,6 @@ export function SettingsPage() {
               </a>
             </li>
           </ul>
-        </SettingsSection>
-
-        {/* Keys are for a keyboard: from lg, like the rest of the hints. */}
-        <SettingsSection title={t("shortcuts_title")} className="hidden lg:block">
-          <button
-            type="button"
-            onClick={openShortcuts}
-            className={buttonClass({ variant: "outline" })}
-          >
-            {t("shortcuts_show")}
-          </button>
         </SettingsSection>
       </div>
     </>

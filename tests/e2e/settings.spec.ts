@@ -108,10 +108,16 @@ test("picks the language on the sign-in screen", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
 });
 
-test("shows the running version and safe links to help", async ({ page }) => {
+test("shows the running version and safe links to help", async ({ page, isMobile }) => {
   await signIn(page);
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page.getByText(`Version ${version}`, { exact: false })).toBeVisible();
+  const column = page.getByRole("heading", { name: "Settings", level: 1 }).locator("..");
+  await expect(column.getByRole("heading", { level: 2 })).toHaveText(
+    isMobile
+      ? ["Account", "Display", "About and help"]
+      : ["Account", "Display", "Keyboard shortcuts", "About and help"],
+  );
   const bug = page.getByRole("link", { name: "Report a bug", exact: true });
   await expect(bug).toHaveAttribute(
     "href",
