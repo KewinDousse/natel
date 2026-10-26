@@ -161,27 +161,14 @@ jobs:
       # Lets users check the image came from this workflow:
       # gh attestation verify oci://ghcr.io/kewindousse/natel:<tag> --owner KewinDousse
       # GitHub attests only for public repositories on this plan.
-      - name: Describe the tested candidate source
-        run: |
-          jq -n --arg commit "$CANDIDATE_SHA" --arg version "$VERSION" \
-            --arg repository "https://github.com/$GITHUB_REPOSITORY" \
-            --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
-            '{buildDefinition: {
-              buildType: "https://actions.github.io/buildtypes/workflow/v1",
-              externalParameters: {workflow: {repository: $repository, path: ".github/workflows/release.yml", ref: "refs/heads/main"}, version: $version},
-              internalParameters: {},
-              resolvedDependencies: [{uri: ("git+" + $repository + "@refs/tags/v" + $version), digest: {gitCommit: $commit}}]
-            }, runDetails: {builder: {id: "https://github.com/actions/runner/github-hosted"}, metadata: {invocationId: $run}}}' > provenance.json
-        env:
-          CANDIDATE_SHA: ${{ needs.prepare.outputs.sha }}
-          VERSION: ${{ needs.prepare.outputs.version }}
+      # For the workflow build type, GitHub's attestation API requires its
+      # own internal parameters, so the action generates the predicate; the
+      # image's revision label names the tested candidate commit.
       - if: ${{ !github.event.repository.private }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/kewindousse/natel
           subject-digest: ${{ steps.push.outputs.digest }}
-          predicate-type: https://slsa.dev/provenance/v1
-          predicate-path: provenance.json
           push-to-registry: true
 
   release-record:

@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Lets GitHub generate the release image's provenance attestation, which its API refused when the workflow wrote it; installed applications are unchanged."
+}
