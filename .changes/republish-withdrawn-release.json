@@ -1,4 +1,0 @@
-{
-  "type": "Upgrade notes",
-  "text": "Natel 0.4.1 replaces 0.4.0, whose tag and GitHub release were withdrawn the day it was published. The `:0.4.0` image runs the same application: coming from it, nothing else changes."
-}
