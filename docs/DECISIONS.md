@@ -1,5 +1,12 @@
 # Decisions
 
+Why Natel works the way it does. AI agents write these entries, as they
+write the code; the choices that call for a decision are the maintainer's.
+The entries that keep contacts safe are 005 (data Natel doesn't edit), 006
+and 013 (conflicts), 016 (no duplicate on a retried save), 020 (import),
+021 (moving a contact), 032 (where the password lives) and 038 (overwriting
+after a conflict).
+
 One entry per decision, newest last. Each entry stays under about 350
 words, and most need less than 150: the context in a sentence or two, the
 decision, and the consequences. A rejected alternative is named only when
@@ -115,7 +122,8 @@ redistribution. The name is short and available on npm/Docker Hub.
 **Context.** Phase 1's exit criterion: real vCards round-trip through the
 parser.
 
-**Decision.** Met. 387 vCards (381 from Baïkal and DAVx⁵, 6 synthetic)
+**Decision.** Met. 387 vCards (381 real ones from the author's Baïkal and DAVx⁵, checked
+locally and never committed, 6 synthetic)
 round-trip in `tests/vcard/` with the same properties and, once folding and
 known ical.js differences are normalised, the same bytes. On 2026-09-23, a
 live Baïkal (sabre/dav 4.7.0) answered 412 to a stale `If-Match`, and the
@@ -665,7 +673,7 @@ corrects.
 or address list the user changed onto the card fetched again. vCard
 properties carry no identifier that Apple or DAVx⁵ write, so placing a list
 on a card another client changed means guessing which property is which.
-Each guess that #226 and its fix needed misplaced another client's labels,
+Each way of guessing that was tried misplaced another client's labels,
 groups or `X-` lines in some case.
 
 **Decision.** The overwrite is offered only when every phone, e-mail or
@@ -675,11 +683,12 @@ read: same properties, parameters, groups, and the `X-ABLABEL` and
 and names the sections changed on both sides. Other fields keep ADR 013.
 
 **Rejected.** Matching each property to the one it was read from, by
-value, parameters and group: the reviews of #222 and #227 kept finding
+value, parameters and group: reviews kept finding
 cases where it changed what the other client wrote.
 
 **Consequences.** An overwrite writes these lists onto the properties they
-were read from, as a plain save does, and #226 cannot occur. When two
+were read from, as a plain save does, and a list can no longer land on
+another client's properties. When two
 clients change the same list at once, the user loses their changes to it
 and types them again after reloading, rather than another client's data
 being changed unseen.
