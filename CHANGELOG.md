@@ -6,6 +6,8 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-26
+
 ### Upgrade notes
 
 - Update checks are enabled by default. Your Natel server consults a static version file hosted on GitHub Pages at most once per 24 hours while the app is used. Set `NATEL_UPDATE_CHECKS=false` to disable these external requests; no contacts or credentials are sent.

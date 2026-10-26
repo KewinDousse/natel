@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "CI only: the end-to-end jobs retry stalled package downloads and cache the browsers' system packages; the application is unchanged."
-}

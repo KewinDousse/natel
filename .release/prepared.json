@@ -1,11 +1,12 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "date": "2026-10-26",
-  "baseCommit": "dab6b929b430053334a76c653141ddc7257f5524",
+  "baseCommit": "fc99d85dfd286def6856d670db8e00fbaebc0d37",
   "fragments": [
-    ".changes/discreet-update-notice.json",
-    ".changes/release-candidate-artifact-path.json",
-    ".changes/update-checks-default.json",
-    ".changes/update-notifications.json"
+    ".changes/ci-browser-packages.json",
+    ".changes/demo-contacts-page.json",
+    ".changes/readable-decisions.json",
+    ".changes/readme-beta.json",
+    ".changes/release-default-provenance.json"
   ]
 }
