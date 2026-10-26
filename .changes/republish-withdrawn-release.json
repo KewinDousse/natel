@@ -1,4 +1,4 @@
 {
   "type": "Upgrade notes",
-  "text": "Natel 0.4.1 is the application of 0.4.0, published again under a new tag: the 0.4.0 tag and GitHub release were withdrawn, and the `:0.4.0` image stays available. What 0.4.0 changed is listed [below](CHANGELOG.md#040---2026-10-26)."
+  "text": "Natel 0.4.1 is the 0.4.0 application, published again under a new tag: the 0.4.0 tag and GitHub release were withdrawn, and the `:0.4.0` image stays available. The [changelog](CHANGELOG.md#040---2026-10-26) lists what 0.4.0 changed."
 }
