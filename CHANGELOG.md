@@ -6,23 +6,24 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-26
+
+### Upgrade notes
+
+- Update checks are enabled by default. Your Natel server consults a static version file hosted on GitHub Pages at most once per 24 hours while the app is used. Set `NATEL_UPDATE_CHECKS=false` to disable these external requests; no contacts or credentials are sent.
+
 ### Added
 
-- A contact can have several addresses, each with an extended line (c/o,
-  building) and a label of its own, such as "Chalet".
-- A contact's address opens a map search for it: by default Apple Maps on
-  Apple devices, the device's maps app on Android, OpenStreetMap elsewhere.
-  The settings choose another, Google Maps included.
+- A contact can have several addresses, each with an extended line (c/o, building) and a label of its own, such as "Chalet".
+- A contact's address opens a map search for it: by default Apple Maps on Apple devices, the device's maps app on Android, OpenStreetMap elsewhere. The settings choose another, Google Maps included.
 - A group on a contact's page filters the list on that group.
 - A full birthday shows the age.
+- A dot on the settings icon tells you when a newer release is available; the settings link to its release notes and let you ignore that version on this browser.
 
 ### Changed
 
-- The header loses its red band along the top, a decoration the contact,
-  settings and new-contact screens on phones didn't have.
-- After a conflict, overwriting is no longer offered when the phones,
-  e-mails or addresses the user changed were changed elsewhere too: the
-  warning names them and offers to reload.
+- The header loses its red band along the top, a decoration the contact, settings and new-contact screens on phones didn't have.
+- After a conflict, overwriting is no longer offered when the phones, e-mails or addresses the user changed were changed elsewhere too: the warning names them and offers to reload.
 
 ## [0.3.1] - 2026-10-20
 

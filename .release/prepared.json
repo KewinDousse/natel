@@ -1,0 +1,11 @@
+{
+  "version": "0.4.0",
+  "date": "2026-10-26",
+  "baseCommit": "dab6b929b430053334a76c653141ddc7257f5524",
+  "fragments": [
+    ".changes/discreet-update-notice.json",
+    ".changes/release-candidate-artifact-path.json",
+    ".changes/update-checks-default.json",
+    ".changes/update-notifications.json"
+  ]
+}

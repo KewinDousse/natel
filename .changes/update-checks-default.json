@@ -1,4 +1,0 @@
-{
-  "type": "Upgrade notes",
-  "text": "Update checks are enabled by default. Your Natel server consults a static version file hosted on GitHub Pages at most once per 24 hours while the app is used. Set `NATEL_UPDATE_CHECKS=false` to disable these external requests; no contacts or credentials are sent."
-}

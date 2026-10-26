@@ -86,7 +86,7 @@ path):
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.3.1
+    image: ghcr.io/kewindousse/natel:0.4.0
     environment:
       CARDDAV_URL: https://dav.example.com
     ports:

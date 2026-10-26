@@ -111,7 +111,7 @@ container must share a network with Traefik:
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.3.1
+    image: ghcr.io/kewindousse/natel:0.4.0
     environment:
       CARDDAV_URL: https://dav.example.com
       # Only Traefik reaches Natel, on their shared network: no port is published.
@@ -174,7 +174,7 @@ reads the API and would then fail:
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.3.1
+    image: ghcr.io/kewindousse/natel:0.4.0
     network_mode: host
     environment:
       CARDDAV_URL: https://dav.example.com
@@ -210,7 +210,7 @@ books you want to back up. For a complete backup, use your CardDAV
 server's own backup procedure: Natel has no contact database of its own.
 
 Change the image tag in your `compose.yaml` to the release you have chosen,
-such as `ghcr.io/kewindousse/natel:0.3.1`. With the repository's root
+such as `ghcr.io/kewindousse/natel:0.4.0`. With the repository's root
 `compose.yaml`, set it as `NATEL_IMAGE` in the `.env` file next to it
 instead. Then run:
 
