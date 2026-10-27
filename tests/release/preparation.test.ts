@@ -33,6 +33,10 @@ function fixture() {
   mkdirSync(join(cwd, "docs"));
   mkdirSync(join(cwd, ".changes"));
   writeFileSync(
+    join(cwd, "biome.json"),
+    readFileSync(new URL("../../biome.json", import.meta.url)),
+  );
+  writeFileSync(
     join(cwd, "package.json"),
     `${JSON.stringify({ version: "0.3.1", dependencies: { example: "1.0.0" } }, null, 2)}\n`,
   );
@@ -319,6 +323,10 @@ describe("the single public release workflow", () => {
     const resolveTemp = (path: string) =>
       path.replaceAll(/\$\{\{\s*runner\.temp\s*\}\}/g, dirname(gh.bundle));
     gh.run("prepare", { CANDIDATE_BUNDLE: resolveTemp(bundlePath) });
+    execFileSync("biome", ["check", ".release/prepared.json"], {
+      cwd: f.cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     const sha = f.git("rev-parse", "HEAD");
     expect(gh.summary()).toContain(sha);
     expect(gh.summary()).toContain("A user-visible feature.");

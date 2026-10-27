@@ -129,6 +129,9 @@ function prepareRelease(version) {
       const meta = prepare(version);
       mkdirSync(".release", { recursive: true });
       writeFileSync(".release/prepared.json", `${JSON.stringify(meta, null, 2)}\n`);
+      execFileSync("biome", ["format", "--write", ".release/prepared.json"], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
       git(
         "add",
         "--",

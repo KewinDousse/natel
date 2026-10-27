@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Formats generated release metadata before committing it so maintainer-only release preparation passes the repository checks."
+}
