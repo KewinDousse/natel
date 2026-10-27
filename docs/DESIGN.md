@@ -183,7 +183,7 @@ doesn't navigate.
 Both states group values in the same sections, in the same order: phones, e-mails, addresses, birthday, groups, website, nickname (form only; the reading view shows it under the name), note. A section opens with a light rule (it separates without outweighing the values) and a title line led by its icon; the title's right slot holds the section's action. Titles follow the number of values ("Phone" / "Phones").
 
 ### Reading view, top to bottom
-1. Mobile only: a top bar, back left, "Edit" right.
+1. Mobile only: a top bar, back left, "Edit" right. The back link names the selected book, so the page says which book it belongs to; with no book, it reads "Contacts".
 2. Photo, initials, or the building icon. Desktop: the "Edit" pill top right.
 3. The name, in the text face and in ink, in the order the list sorts by. It is the page's identity: no part of it is muted.
 4. Under it, muted: job title · organisation (the organisation is left out on an organisation's own card), then the nickname.
@@ -325,7 +325,7 @@ The shortcuts dialog shows `⌘` on Apple devices and `Ctrl` elsewhere, and on p
 
 ## Copy and i18n
 - FR and EN from day one; FR is ~30% longer. No fixed-width buttons. Every icon-only button has a translated `aria-label`.
-- Only list-row names and trailing values truncate, plus the header's book name on phones. UI labels wrap.
+- Only list-row names and trailing values truncate, plus the book's name on phones, in the header and in the top bar's back link. UI labels wrap.
 - French typography: `’` apostrophe, « » with non-breaking spaces, a non-breaking space before `?` and `:`.
 - The mobile phone type is labelled "Mobile" in both languages: "Natel", the Swiss word for it, would read as the app's name.
 - The French "E-mail" keeps its hyphen on one line: the strings put a word joiner (U+2060) on each side of it, since Work Sans has no non-breaking hyphen.

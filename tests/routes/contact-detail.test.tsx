@@ -745,12 +745,12 @@ describe("loading, not-found and mobile top bar", () => {
     expect(screen.queryByRole("article")).toBeNull();
   });
 
-  it("mobile top bar is a router Link back to the list", async () => {
+  it("mobile top bar is a router Link back to the list, named after the book", async () => {
     const router = await renderLoggedIn("/contacts/full");
     const user = userEvent.setup();
 
-    const back = await screen.findByRole("link", { name: "Retour aux contacts" });
-    expect(back.textContent).toContain("Contacts");
+    const back = await screen.findByRole("link", { name: "Retour à «\u00a0Perso\u00a0»" });
+    expect(back.textContent).toBe("Perso");
     await user.click(back);
     await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
   });
@@ -758,7 +758,7 @@ describe("loading, not-found and mobile top bar", () => {
   it("keeps the back bar visible in the not-found state", async () => {
     await renderLoggedIn("/contacts/unknown");
 
-    expect(await screen.findByRole("link", { name: "Retour aux contacts" })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: "Retour à «\u00a0Perso\u00a0»" })).toBeTruthy();
   });
 });
 

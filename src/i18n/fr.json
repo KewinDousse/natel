@@ -70,6 +70,7 @@
   "no_books": "Aucun carnet d’adresses trouvé sur ce serveur.",
   "select_contact": "Sélectionnez un contact",
   "back_to_list": "Retour aux contacts",
+  "back_to_book": "Retour à «\u00a0{name}\u00a0»",
   "list_label": "Contacts",
   "call": "Appeler",
   "sms": "SMS",

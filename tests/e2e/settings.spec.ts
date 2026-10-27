@@ -85,7 +85,7 @@ test("goes back to the list from the phone's top bar", async ({ page, isMobile }
   test.skip(!isMobile, "the top bar is phone only");
   await signIn(page);
   await page.getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("link", { name: "Back to contacts" }).click();
+  await page.getByRole("link", { name: "Back to “Contacts”" }).click();
   await expect(page.getByRole("link", { name: /Lovelace/ })).toBeVisible();
 });
 

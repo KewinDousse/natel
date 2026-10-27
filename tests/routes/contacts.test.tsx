@@ -325,6 +325,15 @@ describe("address books", () => {
 
     expect(await screen.findByText("Aucun carnet d’adresses trouvé sur ce serveur.")).toBeTruthy();
   });
+
+  it("names the list in the top bar when the server has no book", async () => {
+    useSessionStore.setState({ auth: AUTH, selectedBook: null });
+    mockDiscoverAddressBooks.mockResolvedValue([]);
+    renderApp("/contacts/settings");
+
+    const back = await screen.findByRole("link", { name: "Retour aux contacts" });
+    expect(back.textContent).toBe("Contacts");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -396,9 +405,9 @@ describe("list grouping and rail", () => {
       await screen.findByRole("heading", { level: 1, name: "Lightshield Jarvan" }),
     ).toBeTruthy();
     // The back affordance exists on mobile.
-    expect(screen.getByRole("link", { name: "Retour aux contacts" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Retour à «\u00a0Perso\u00a0»" })).toBeTruthy();
 
-    await user.click(screen.getByRole("link", { name: "Retour aux contacts" }));
+    await user.click(screen.getByRole("link", { name: "Retour à «\u00a0Perso\u00a0»" }));
     expect(
       screen.getByRole("link", { name: /Lightshield Jarvan/ }).getAttribute("aria-current"),
     ).toBeNull();

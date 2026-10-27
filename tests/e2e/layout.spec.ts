@@ -79,7 +79,9 @@ test("never scrolls sideways on the sign-in, list and contact screens", async ({
       await page.getByRole("link", { name: /^(Settings|Paramètres)$/ }).click();
       await expect(page.getByRole("combobox", { name: /^(Language|Langue)$/ })).toBeVisible();
       expect(await horizontalOverflow(page), `${at} settings`).toBe(0);
-      await page.getByRole("link", { name: /^(Back to contacts|Retour aux contacts)$/ }).click();
+      await page
+        .getByRole("link", { name: /^(Back to “Contacts”|Retour à «\sContacts\s»)$/ })
+        .click();
       await page.getByRole("link", { name: /Lovelace/ }).click();
       await expect(page.getByRole("heading", { level: 1 })).toBeAttached();
       expect(await horizontalOverflow(page), `${at} contact`).toBe(0);

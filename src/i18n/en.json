@@ -70,6 +70,7 @@
   "no_books": "No address books found on this server.",
   "select_contact": "Select a contact",
   "back_to_list": "Back to contacts",
+  "back_to_book": "Back to “{name}”",
   "list_label": "Contacts",
   "call": "Call",
   "sms": "Text",

@@ -84,7 +84,7 @@ test("signs in, opens a contact and signs out", async ({ page }) => {
   await expect(page.getByRole("link", { name: "079 000 00 01" }).first()).toBeVisible();
   // On a phone the contact is its own screen, without the header.
   if (test.info().project.name === "mobile") {
-    await page.getByRole("link", { name: "Back to contacts" }).filter({ visible: true }).click();
+    await page.getByRole("link", { name: "Back to “Contacts”" }).filter({ visible: true }).click();
   }
   await page.getByRole("link", { name: "Settings" }).filter({ visible: true }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
