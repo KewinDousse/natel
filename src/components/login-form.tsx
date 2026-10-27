@@ -14,7 +14,7 @@ import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { DavError, useLogin } from "@/queries";
 import { useSessionStore } from "@/store/session";
-import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
+import { buttonClass, FIELD_BUTTON_HIT_AREA, FOCUS_RING, fieldClass } from "./ui/button";
 import { AlertIcon, EyeIcon, LockIcon, SpinnerIcon } from "./ui/icons";
 
 type FieldName = "username" | "password";
@@ -169,7 +169,7 @@ export function LoginForm() {
               onClick={() => setShowPassword((show) => !show)}
               className={buttonClass(
                 { variant: "ghost" },
-                "absolute inset-y-1.5 right-1.5 gap-1.5 px-3 text-sm focus-visible:ring-offset-0",
+                `absolute inset-y-0 right-1.5 my-auto h-8 gap-1.5 px-2.5 text-sm ${FIELD_BUTTON_HIT_AREA} focus-visible:ring-offset-0`,
               )}
             >
               <EyeIcon />

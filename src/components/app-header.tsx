@@ -17,7 +17,7 @@ import type { DavAddressBook } from "@/queries";
 import { BookSwitcher } from "./book-switcher";
 import { DemoMark, DemoNotice } from "./demo-notice";
 import { type SyncState, SyncWarning } from "./sync-warning";
-import { buttonClass } from "./ui/button";
+import { buttonClass, FIELD_BUTTON_HIT_AREA } from "./ui/button";
 import { GearIcon, PlusIcon, SearchIcon, XIcon } from "./ui/icons";
 import { UpdateBadge, useUpdateBadge } from "./update-notice";
 
@@ -166,8 +166,8 @@ export function AppHeader({
               aria-label={t("clear")}
               onClick={clearSearch}
               className={buttonClass(
-                { variant: "ghost" },
-                "absolute inset-y-1 right-1 w-9 focus-visible:ring-offset-0",
+                { variant: "ghost", size: "icon-sm" },
+                `absolute inset-y-0 right-1.5 my-auto size-8 ${FIELD_BUTTON_HIT_AREA} focus-visible:ring-offset-0`,
               )}
             >
               <XIcon />

@@ -113,6 +113,9 @@ Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). On
 
 Touch targets are ≥ 40px (44–48px on mobile forms). Every interactive element shows keyboard focus: `FOCUS_RING` by default, an inset ring on contact rows, the muted background on menu items.
 
+### Buttons inside a field
+The password's show button and the search's clear button are ghost buttons 32px high, centred vertically in the field, so they never touch its border. `FIELD_BUTTON_HIT_AREA` extends their touch target to 44px in height without drawing it, and never over the field's text.
+
 ### Form fields
 `fieldClass()`. Labels above, in bold; hints and error messages below, linked with `aria-describedby`. Invalid fields take `aria-invalid="true"` and a red border. A focused field's border turns ink, doubled by a 1px ring (red when invalid), with the mouse as with the keyboard. Mobile inputs stay at 16px so iOS doesn't zoom.
 

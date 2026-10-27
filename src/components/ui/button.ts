@@ -9,6 +9,14 @@ import { cn } from "@/lib/utils";
 export const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
+/**
+ * A button inside a field is drawn at 32px so it sits within the field's
+ * border, and keeps a 44px touch target through this invisible extension.
+ * It grows only in height, so a click beside it still reaches the text.
+ */
+export const FIELD_BUTTON_HIT_AREA =
+  "after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']";
+
 type Variant = "primary" | "outline" | "destructive" | "ghost";
 type Size = "sm" | "md" | "lg" | "icon" | "icon-sm";
 
