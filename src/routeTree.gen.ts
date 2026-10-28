@@ -10,22 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as DirectoryRouteImport } from './routes/_directory'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
-import { Route as ContactsIdRouteImport } from './routes/contacts/$id'
-import { Route as ContactsNewRouteImport } from './routes/contacts/new'
-import { Route as ContactsSettingsRouteImport } from './routes/contacts/settings'
-import { Route as ContactsSettingsHelpRouteImport } from './routes/contacts/settings_.help'
+import { Route as DirectorySettingsRouteImport } from './routes/_directory/settings'
+import { Route as DirectoryContactsIndexRouteImport } from './routes/_directory/contacts/index'
+import { Route as DirectoryContactsBookRouteImport } from './routes/_directory/contacts/$book'
+import { Route as DirectorySettingsHelpRouteImport } from './routes/_directory/settings_.help'
+import { Route as DirectoryContactsBookIdRouteImport } from './routes/_directory/contacts/$book/$id'
+import { Route as DirectoryContactsBookNewRouteImport } from './routes/_directory/contacts/$book/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ContactsRoute = ContactsRouteImport.update({
-  id: '/contacts',
-  path: '/contacts',
+const DirectoryRoute = DirectoryRouteImport.update({
+  id: '/_directory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -38,94 +39,113 @@ const LogoutRoute = LogoutRouteImport.update({
   path: '/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ContactsIdRoute = ContactsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ContactsRoute,
-} as any)
-const ContactsNewRoute = ContactsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => ContactsRoute,
-} as any)
-const ContactsSettingsRoute = ContactsSettingsRouteImport.update({
+const DirectorySettingsRoute = DirectorySettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => ContactsRoute,
+  getParentRoute: () => DirectoryRoute,
 } as any)
-const ContactsSettingsHelpRoute = ContactsSettingsHelpRouteImport.update({
+const DirectoryContactsIndexRoute = DirectoryContactsIndexRouteImport.update({
+  id: '/contacts/',
+  path: '/contacts/',
+  getParentRoute: () => DirectoryRoute,
+} as any)
+const DirectoryContactsBookRoute = DirectoryContactsBookRouteImport.update({
+  id: '/contacts/$book',
+  path: '/contacts/$book',
+  getParentRoute: () => DirectoryRoute,
+} as any)
+const DirectorySettingsHelpRoute = DirectorySettingsHelpRouteImport.update({
   id: '/settings_/help',
   path: '/settings/help',
-  getParentRoute: () => ContactsRoute,
+  getParentRoute: () => DirectoryRoute,
 } as any)
+const DirectoryContactsBookIdRoute = DirectoryContactsBookIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => DirectoryContactsBookRoute,
+} as any)
+const DirectoryContactsBookNewRoute =
+  DirectoryContactsBookNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => DirectoryContactsBookRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/contacts': typeof ContactsRouteWithChildren
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
-  '/contacts/$id': typeof ContactsIdRoute
-  '/contacts/new': typeof ContactsNewRoute
-  '/contacts/settings': typeof ContactsSettingsRoute
-  '/contacts/settings/help': typeof ContactsSettingsHelpRoute
+  '/settings': typeof DirectorySettingsRoute
+  '/contacts/$book': typeof DirectoryContactsBookRouteWithChildren
+  '/settings/help': typeof DirectorySettingsHelpRoute
+  '/contacts/': typeof DirectoryContactsIndexRoute
+  '/contacts/$book/$id': typeof DirectoryContactsBookIdRoute
+  '/contacts/$book/new': typeof DirectoryContactsBookNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/contacts': typeof ContactsRouteWithChildren
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
-  '/contacts/$id': typeof ContactsIdRoute
-  '/contacts/new': typeof ContactsNewRoute
-  '/contacts/settings': typeof ContactsSettingsRoute
-  '/contacts/settings/help': typeof ContactsSettingsHelpRoute
+  '/settings': typeof DirectorySettingsRoute
+  '/contacts/$book': typeof DirectoryContactsBookRouteWithChildren
+  '/settings/help': typeof DirectorySettingsHelpRoute
+  '/contacts': typeof DirectoryContactsIndexRoute
+  '/contacts/$book/$id': typeof DirectoryContactsBookIdRoute
+  '/contacts/$book/new': typeof DirectoryContactsBookNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/contacts': typeof ContactsRouteWithChildren
+  '/_directory': typeof DirectoryRouteWithChildren
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
-  '/contacts/$id': typeof ContactsIdRoute
-  '/contacts/new': typeof ContactsNewRoute
-  '/contacts/settings': typeof ContactsSettingsRoute
-  '/contacts/settings_/help': typeof ContactsSettingsHelpRoute
+  '/_directory/settings': typeof DirectorySettingsRoute
+  '/_directory/contacts/$book': typeof DirectoryContactsBookRouteWithChildren
+  '/_directory/settings_/help': typeof DirectorySettingsHelpRoute
+  '/_directory/contacts/': typeof DirectoryContactsIndexRoute
+  '/_directory/contacts/$book/$id': typeof DirectoryContactsBookIdRoute
+  '/_directory/contacts/$book/new': typeof DirectoryContactsBookNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/contacts'
     | '/login'
     | '/logout'
-    | '/contacts/$id'
-    | '/contacts/new'
-    | '/contacts/settings'
-    | '/contacts/settings/help'
+    | '/settings'
+    | '/contacts/$book'
+    | '/settings/help'
+    | '/contacts/'
+    | '/contacts/$book/$id'
+    | '/contacts/$book/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/contacts'
     | '/login'
     | '/logout'
-    | '/contacts/$id'
-    | '/contacts/new'
-    | '/contacts/settings'
-    | '/contacts/settings/help'
+    | '/settings'
+    | '/contacts/$book'
+    | '/settings/help'
+    | '/contacts'
+    | '/contacts/$book/$id'
+    | '/contacts/$book/new'
   id:
     | '__root__'
     | '/'
-    | '/contacts'
+    | '/_directory'
     | '/login'
     | '/logout'
-    | '/contacts/$id'
-    | '/contacts/new'
-    | '/contacts/settings'
-    | '/contacts/settings_/help'
+    | '/_directory/settings'
+    | '/_directory/contacts/$book'
+    | '/_directory/settings_/help'
+    | '/_directory/contacts/'
+    | '/_directory/contacts/$book/$id'
+    | '/_directory/contacts/$book/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ContactsRoute: typeof ContactsRouteWithChildren
+  DirectoryRoute: typeof DirectoryRouteWithChildren
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
 }
@@ -139,11 +159,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/contacts': {
-      id: '/contacts'
-      path: '/contacts'
-      fullPath: '/contacts'
-      preLoaderRoute: typeof ContactsRouteImport
+    '/_directory': {
+      id: '/_directory'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DirectoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -160,58 +180,87 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/contacts/$id': {
-      id: '/contacts/$id'
-      path: '/$id'
-      fullPath: '/contacts/$id'
-      preLoaderRoute: typeof ContactsIdRouteImport
-      parentRoute: typeof ContactsRoute
-    }
-    '/contacts/new': {
-      id: '/contacts/new'
-      path: '/new'
-      fullPath: '/contacts/new'
-      preLoaderRoute: typeof ContactsNewRouteImport
-      parentRoute: typeof ContactsRoute
-    }
-    '/contacts/settings': {
-      id: '/contacts/settings'
+    '/_directory/settings': {
+      id: '/_directory/settings'
       path: '/settings'
-      fullPath: '/contacts/settings'
-      preLoaderRoute: typeof ContactsSettingsRouteImport
-      parentRoute: typeof ContactsRoute
+      fullPath: '/settings'
+      preLoaderRoute: typeof DirectorySettingsRouteImport
+      parentRoute: typeof DirectoryRoute
     }
-    '/contacts/settings_/help': {
-      id: '/contacts/settings_/help'
+    '/_directory/contacts/': {
+      id: '/_directory/contacts/'
+      path: '/contacts'
+      fullPath: '/contacts/'
+      preLoaderRoute: typeof DirectoryContactsIndexRouteImport
+      parentRoute: typeof DirectoryRoute
+    }
+    '/_directory/contacts/$book': {
+      id: '/_directory/contacts/$book'
+      path: '/contacts/$book'
+      fullPath: '/contacts/$book'
+      preLoaderRoute: typeof DirectoryContactsBookRouteImport
+      parentRoute: typeof DirectoryRoute
+    }
+    '/_directory/settings_/help': {
+      id: '/_directory/settings_/help'
       path: '/settings/help'
-      fullPath: '/contacts/settings/help'
-      preLoaderRoute: typeof ContactsSettingsHelpRouteImport
-      parentRoute: typeof ContactsRoute
+      fullPath: '/settings/help'
+      preLoaderRoute: typeof DirectorySettingsHelpRouteImport
+      parentRoute: typeof DirectoryRoute
+    }
+    '/_directory/contacts/$book/$id': {
+      id: '/_directory/contacts/$book/$id'
+      path: '/$id'
+      fullPath: '/contacts/$book/$id'
+      preLoaderRoute: typeof DirectoryContactsBookIdRouteImport
+      parentRoute: typeof DirectoryContactsBookRoute
+    }
+    '/_directory/contacts/$book/new': {
+      id: '/_directory/contacts/$book/new'
+      path: '/new'
+      fullPath: '/contacts/$book/new'
+      preLoaderRoute: typeof DirectoryContactsBookNewRouteImport
+      parentRoute: typeof DirectoryContactsBookRoute
     }
   }
 }
 
-interface ContactsRouteChildren {
-  ContactsIdRoute: typeof ContactsIdRoute
-  ContactsNewRoute: typeof ContactsNewRoute
-  ContactsSettingsRoute: typeof ContactsSettingsRoute
-  ContactsSettingsHelpRoute: typeof ContactsSettingsHelpRoute
+interface DirectoryContactsBookRouteChildren {
+  DirectoryContactsBookIdRoute: typeof DirectoryContactsBookIdRoute
+  DirectoryContactsBookNewRoute: typeof DirectoryContactsBookNewRoute
 }
 
-const ContactsRouteChildren: ContactsRouteChildren = {
-  ContactsIdRoute: ContactsIdRoute,
-  ContactsNewRoute: ContactsNewRoute,
-  ContactsSettingsRoute: ContactsSettingsRoute,
-  ContactsSettingsHelpRoute: ContactsSettingsHelpRoute,
+const DirectoryContactsBookRouteChildren: DirectoryContactsBookRouteChildren = {
+  DirectoryContactsBookIdRoute: DirectoryContactsBookIdRoute,
+  DirectoryContactsBookNewRoute: DirectoryContactsBookNewRoute,
 }
 
-const ContactsRouteWithChildren = ContactsRoute._addFileChildren(
-  ContactsRouteChildren,
+const DirectoryContactsBookRouteWithChildren =
+  DirectoryContactsBookRoute._addFileChildren(
+    DirectoryContactsBookRouteChildren,
+  )
+
+interface DirectoryRouteChildren {
+  DirectorySettingsRoute: typeof DirectorySettingsRoute
+  DirectoryContactsBookRoute: typeof DirectoryContactsBookRouteWithChildren
+  DirectorySettingsHelpRoute: typeof DirectorySettingsHelpRoute
+  DirectoryContactsIndexRoute: typeof DirectoryContactsIndexRoute
+}
+
+const DirectoryRouteChildren: DirectoryRouteChildren = {
+  DirectorySettingsRoute: DirectorySettingsRoute,
+  DirectoryContactsBookRoute: DirectoryContactsBookRouteWithChildren,
+  DirectorySettingsHelpRoute: DirectorySettingsHelpRoute,
+  DirectoryContactsIndexRoute: DirectoryContactsIndexRoute,
+}
+
+const DirectoryRouteWithChildren = DirectoryRoute._addFileChildren(
+  DirectoryRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ContactsRoute: ContactsRouteWithChildren,
+  DirectoryRoute: DirectoryRouteWithChildren,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
 }

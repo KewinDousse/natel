@@ -11,6 +11,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { useI18n } from "@/i18n/react";
+import { bookParam } from "@/lib/book-param";
 import { isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import type { DavAddressBook } from "@/queries";
@@ -185,7 +186,7 @@ export function AppHeader({
           {/* A link, so an unsaved edit gets the discard dialog first. */}
           <Link
             ref={settingsRef}
-            to="/contacts/settings"
+            to="/settings"
             aria-label={settingsLabel}
             title={settingsLabel}
             className={buttonClass({ variant: "ghost", size: "icon" }, "group relative")}
@@ -193,10 +194,11 @@ export function AppHeader({
             <GearIcon />
             {updateBadge && <UpdateBadge />}
           </Link>
-          {books !== undefined && books.length > 0 && (
+          {selectedBook !== null && (
             // Round "+" on phones; labelled from lg, where there is room.
             <Link
-              to="/contacts/new"
+              to="/contacts/$book/new"
+              params={{ book: bookParam(selectedBook) }}
               aria-label={t("new_contact")}
               title={t("new_contact")}
               className={buttonClass({ size: "icon" }, "lg:w-auto lg:pl-3 lg:pr-4")}

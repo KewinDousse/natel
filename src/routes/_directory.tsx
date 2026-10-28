@@ -4,17 +4,20 @@ import { ToastProvider } from "@/components/ui/toast";
 import { IS_DEMO } from "@/lib/demo";
 import { useSessionStore } from "@/store/session";
 
-export const Route = createFileRoute("/contacts")({
-  beforeLoad: () => {
+/** The directory's pages, /contacts and /settings: the list beside each of them. */
+export const Route = createFileRoute("/_directory")({
+  beforeLoad: ({ location }) => {
     if (IS_DEMO && !useSessionStore.getState().auth) {
       useSessionStore.getState().login({ username: "demo" });
     }
-    if (!useSessionStore.getState().auth) throw redirect({ to: "/login" });
+    if (!useSessionStore.getState().auth) {
+      throw redirect({ to: "/login", search: { redirect: location.href } });
+    }
   },
-  component: ContactsRoute,
+  component: DirectoryRoute,
 });
 
-function ContactsRoute() {
+function DirectoryRoute() {
   return (
     <ToastProvider>
       <ContactsScreen />

@@ -20,12 +20,18 @@ export function useArrowNavigation(groups: ContactGroup[]) {
       if (isTyping(event.target) || isInMenu(event.target) || isDialogOpen() || !isDesktop())
         return;
       const leafRoute = router.state.matches.at(-1)?.routeId;
-      if (leafRoute !== "/contacts" && leafRoute !== "/contacts/$id") return;
+      if (
+        leafRoute !== "/_directory/contacts/$book" &&
+        leafRoute !== "/_directory/contacts/$book/$id"
+      )
+        return;
+      const book = router.state.matches.at(-1)?.params.book;
+      if (book === undefined) return;
       const ids = groups.flatMap((group) => group.contacts.map(contactIdOf));
       if (ids.length === 0) return;
       // The latest location, not the rendered one: a key pressed right after
       // the last one must move on from where that one went.
-      const match = /^\/contacts\/([^/]+)$/.exec(router.latestLocation.pathname);
+      const match = /^\/contacts\/[^/]+\/([^/]+)$/.exec(router.latestLocation.pathname);
       const at = match?.[1] ? ids.indexOf(decodeURIComponent(match[1])) : -1;
       const next =
         event.key === "ArrowDown"
@@ -39,7 +45,7 @@ export function useArrowNavigation(groups: ContactGroup[]) {
       if (target === undefined || next === at) return;
       event.preventDefault();
       const rowFocused = document.activeElement?.closest("#list") != null;
-      void router.navigate({ to: "/contacts/$id", params: { id: target } }).then(() => {
+      void router.navigate({ to: "/contacts/$book/$id", params: { book, id: target } }).then(() => {
         // A navigation the discard dialog held back settles only with a
         // later one: act only if this row is still the open contact.
         const row = document.querySelector<HTMLElement>(

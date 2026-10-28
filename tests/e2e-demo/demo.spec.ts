@@ -17,7 +17,7 @@ test("signs in with any credentials, and says on every screen that it is a demo"
   await signIn(page);
   await expect(page.getByText("Demo: nothing is saved, change anything you like.")).toBeVisible();
   await page.getByRole("link", { name: /Luxanna Crownguard/ }).click();
-  await expect(page).toHaveURL(/\/contacts\/p01$/);
+  await expect(page).toHaveURL(/\/contacts\/runeterra\/p01$/);
   await expect(page.getByText("Demo", { exact: true }).filter({ visible: true })).toBeVisible();
 });
 
@@ -45,7 +45,7 @@ test("gives link previews an absolute image it serves", async ({ page, request, 
 
 test("opens the contact list directly without signing in", async ({ page }) => {
   await page.goto("./contacts");
-  await expect(page).toHaveURL(/\/contacts$/);
+  await expect(page).toHaveURL(/\/contacts\/runeterra$/);
   await expect(page.getByRole("link", { name: /Luxanna Crownguard/ })).toBeVisible();
   await expect(page.getByText("Demo: nothing is saved, change anything you like.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).not.toBeVisible();
@@ -57,14 +57,14 @@ test("ships the contact list as a page of its own", async ({ request }) => {
 });
 
 test("opens a contact deep link directly without signing in", async ({ page }) => {
-  await page.goto("./contacts/p01");
-  await expect(page).toHaveURL(/\/contacts\/p01$/);
+  await page.goto("./contacts/runeterra/p01");
+  await expect(page).toHaveURL(/\/contacts\/runeterra\/p01$/);
   await expect(page.getByRole("heading", { name: /Luxanna Crownguard/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).not.toBeVisible();
 });
 
 test("signs out of a session opened by a direct link", async ({ page }) => {
-  await page.goto("./contacts/settings");
+  await page.goto("./settings");
   await expect(page.getByText("demo", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
@@ -82,7 +82,7 @@ test("forgets an edit on reload", async ({ page }) => {
   await expect(page.getByRole("link", { name: "079 000 99 99" }).first()).toBeVisible();
 
   await page.reload();
-  await expect(page).toHaveURL(/\/contacts\/p01$/);
+  await expect(page).toHaveURL(/\/contacts\/runeterra\/p01$/);
   await expect(page.getByRole("link", { name: "079 000 00 01" }).first()).toBeVisible();
 });
 

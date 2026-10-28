@@ -802,3 +802,29 @@ cards of the same file that look alike aren't flagged; duplicate merging
 stays out of scope. A foreign number written without its country
 code reads as Swiss, and may flag an unrelated contact: the box is
 unticked by default for such misses.
+
+## 043 — The address book in the path of every page's address
+
+**Context.** A reload opened the first book whatever book was shown, and a
+contact's address, `/contacts/<id>`, names a card only within a book.
+
+**Decision.**
+- A book's pages sit under `/contacts/<book>`, `<book>` being the last
+  segment of its href: the list there, a contact at `/contacts/<book>/<id>`,
+  a new contact at `/contacts/<book>/new`. The address decides the book
+  shown, and switching books is a navigation.
+- The settings and the user guide belong to no book and sit at `/settings`
+  and `/settings/help`, so no book's name can clash with a page.
+- `/contacts`, or a book the server doesn't have, opens the selected book,
+  else the first. `/contacts/<id>`, a contact's address from before this
+  entry, opens that contact in the selected book, else the first, which is
+  where it opened then. An id that is also a book's segment opens that book.
+
+**Rejected.** The book as a search param (`/contacts/<id>?book=<book>`): a
+smaller change, but it reads as optional while the contact's id depends on
+it.
+
+**Consequences.** Every link into a book carries its segment. Two books
+with the same last segment, under different parents, share an address: the
+first one discovered opens, and the others can't be opened. The former
+`/contacts/settings` and `/contacts/new` open the first book's list.

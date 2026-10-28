@@ -22,7 +22,8 @@ type FieldErrors = Partial<Record<FieldName, string>>;
 
 type FormError = { title: string; body?: string };
 
-export function LoginForm() {
+/** `next` is the page to open once signed in. */
+export function LoginForm({ next }: { next: string }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
@@ -72,7 +73,7 @@ export function LoginForm() {
     try {
       const { auth } = await loginMutation.mutateAsync({ username: username.trim(), password });
       login(auth);
-      await navigate({ to: "/contacts" });
+      await navigate({ href: next });
     } catch (err) {
       setFormError(mapLoginError(err));
     }

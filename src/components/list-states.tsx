@@ -6,6 +6,7 @@ import { useRef } from "react";
 import { useSignOut } from "@/hooks/use-sign-out";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
+import { useBookParam } from "@/store/session";
 import { buttonClass } from "./ui/button";
 import { PlusIcon, UploadIcon } from "./ui/icons";
 
@@ -33,7 +34,7 @@ export function SignInAgain() {
   const { t } = useI18n();
   const signOut = useSignOut();
   return (
-    <button type="button" onClick={() => void signOut()} className={buttonClass()}>
+    <button type="button" onClick={() => void signOut({ resume: true })} className={buttonClass()}>
       {t("sign_in_again")}
     </button>
   );
@@ -42,13 +43,16 @@ export function SignInAgain() {
 /** A new book's first screen: what to do with it. */
 export function EmptyBook({ onImport }: { onImport?: (file: File) => void }) {
   const { t } = useI18n();
+  const book = useBookParam();
   const fileRef = useRef<HTMLInputElement>(null);
   return (
     <StateBox title={t("book_empty")} hint={t("book_empty_hint")}>
-      <Link to="/contacts/new" className={buttonClass({}, "pl-3")}>
-        <PlusIcon className="size-4" />
-        {t("new_contact")}
-      </Link>
+      {book !== undefined && (
+        <Link to="/contacts/$book/new" params={{ book }} className={buttonClass({}, "pl-3")}>
+          <PlusIcon className="size-4" />
+          {t("new_contact")}
+        </Link>
+      )}
       {onImport && (
         <>
           <button

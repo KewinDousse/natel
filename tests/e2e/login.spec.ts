@@ -72,7 +72,7 @@ test("stays signed in when the sign-out doesn't reach the server", async ({ page
   await expect(
     page.getByText("Couldn’t sign out: check the connection and try again."),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/contacts\/settings$/);
+  await expect(page).toHaveURL(/\/settings$/);
   await page.unroute("**/session");
   await page.reload();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
@@ -96,6 +96,25 @@ test("asks to sign in again once the session ended on the server", async ({ page
   await page.reload();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   await signIn(page);
+});
+
+test("opens the page asked for once signed in", async ({ page }) => {
+  await resetBook();
+  await putCard("ada", vcard(["UID:ada", "FN:Ada Lovelace", "N:Lovelace;Ada;;;"]));
+  await signIn(page);
+  await page.getByRole("link", { name: /Lovelace/ }).click();
+  await expect(page).toHaveURL(/\/contacts\/contacts\/ada$/);
+  const contactUrl = page.url();
+  await page.context().clearCookies();
+
+  await page.reload();
+  await expect(page).toHaveURL(/\/login\?redirect=/);
+  await page.getByLabel("Username").fill(USER);
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeAttached();
+  expect(page.url()).toBe(contactUrl);
 });
 
 // The thumb-index tabs are decoration: screen readers skip them, and on the

@@ -140,17 +140,17 @@ Why read first: people mostly look up, call and copy. Numbers must stay `tel:` l
 The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`. The tab title is the card's `FN` followed by " · Natel". Both states share one column and `src/components/contact-fields.tsx`: sections, type labels and menus, the row buttons.
 
 ### Settings
-`/contacts/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
+`/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
 - Account: who is signed in, and sign-out. When the server doesn't confirm the sign-out, the user stays signed in and a toast says so.
 - Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
 - Keyboard shortcuts, desktop only.
 - About and help, last (see below).
 
-Back, or `Esc` on desktop, returns to `/contacts`.
+Back, or `Esc` on desktop, returns to the selected book's list.
 
 ### App information and help
 In settings, an "About and help" section shows the version, and the source
-revision when the build has one. The user guide opens inside the app, at `/contacts/settings/help`;
+revision when the build has one. The user guide opens inside the app, at `/settings/help`;
 the bug form stays external, with `noopener noreferrer`.
 
 ### Update notifications
@@ -170,7 +170,7 @@ claim after a failed check. The demo shows neither the dot nor the server check
 status. A check never prevents contact use or asks for a reload.
 
 ### Embedded user guide
-`/contacts/settings/help` uses the contact page's column and top bar. The
+`/settings/help` uses the contact page's column and top bar. The
 content is `docs/user-guide.md`, imported at build time, English only and
 marked `lang="en"`; only the surrounding navigation is translated. Its
 renderer turns headings, paragraphs, bold, inline code and links into
@@ -180,7 +180,7 @@ heading takes focus on arrival. Arrow keys scroll natively here, and `Esc`
 doesn't navigate.
 
 ### New contact
-`/contacts/new` is the form on a blank vCard 3.0 card, with no reading view to go back to. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page, read; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
+`/contacts/<book>/new` is the form on a blank vCard 3.0 card, with no reading view to go back to. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page, read; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
 
 ### Sections
 Both states group values in the same sections, in the same order: phones, e-mails, addresses, birthday, groups, website, nickname (form only; the reading view shows it under the name), note. A section opens with a light rule (it separates without outweighing the values) and a title line led by its icon; the title's right slot holds the section's action. Titles follow the number of values ("Phone" / "Phones").
@@ -280,6 +280,17 @@ carry it. The one exception is the dialog overlay, which dims more in dark
   value, and add a pair when a component puts text on a new surface.
 - The PWA manifest's `background_color` stays white: a manifest can't vary
   by scheme, so an installed Natel shows a white splash in dark mode.
+
+## Addresses of pages
+
+### Address book in the URL
+A book's pages sit under its own path, the last segment of its href (ADR 043): the list at `/contacts/<book>`, a contact at `/contacts/<book>/<id>`, a new contact at `/contacts/<book>/new`. A reload or a shared link opens the same book. Switching books opens the other book's list as a navigation of its own, so Back returns to the book before. `/contacts`, or a book the server no longer has, opens the selected book, else the first one.
+
+### Pages outside a book
+The settings and the user guide, at `/settings` and `/settings/help`, belong to no book: beside them, the list shows the selected book, and switching books there changes the list and leaves the page open.
+
+### Signing in to a page
+Opening a page under `/contacts` or `/settings` while signed out goes to `/login?redirect=<that page>`, and signing in opens it. "Sign in again", after the session expired, does the same for the page it was on. Only a path under `/contacts` or `/settings` is followed; anything else opens the list.
 
 ## Demo
 

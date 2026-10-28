@@ -17,7 +17,7 @@ export function HelpPage() {
     <>
       <MobileTopBar label={t("help_guide")} />
       <div className="mx-auto w-full max-w-[44rem] px-5 pb-10 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
-        <Link to="/contacts/settings" className={buttonClass({ variant: "ghost" }, "mb-6 pl-0")}>
+        <Link to="/settings" className={buttonClass({ variant: "ghost" }, "mb-6 pl-0")}>
           <ArrowLeftIcon />
           {t("help_back_settings")}
         </Link>

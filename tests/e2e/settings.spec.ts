@@ -64,7 +64,7 @@ test("opens addresses in the map the settings choose", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("combobox", { name: "Open addresses in" })).toHaveValue("geo");
 
-  await page.goto("/contacts/ada");
+  await page.goto("/contacts/contacts/ada");
   const link = page.getByRole("link", { name: /on a map$/ });
   await expect(link).toHaveAttribute("href", "geo:0,0?q=12%20St%20James's%20Square%2C%20London");
   await expect(link).not.toHaveAttribute("target");
@@ -74,11 +74,11 @@ test("goes back to the list with Esc on desktop", async ({ page, isMobile }) => 
   test.skip(isMobile, "Esc is a desktop shortcut; phones use the back link");
   await signIn(page);
   await page.getByRole("link", { name: "Settings" }).click();
-  await expect(page).toHaveURL(/\/contacts\/settings$/);
+  await expect(page).toHaveURL(/\/settings$/);
   // The URL changes before the page is drawn and listens for Esc.
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(/\/contacts$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts$/);
 });
 
 test("goes back to the list from the phone's top bar", async ({ page, isMobile }) => {
@@ -126,13 +126,13 @@ test("shows the running version and safe links to help", async ({ page, isMobile
   await expect(bug).toHaveAttribute("target", "_blank");
   await expect(bug).toHaveAttribute("rel", "noopener noreferrer");
   const guide = page.getByRole("link", { name: "User guide (English)", exact: true });
-  await expect(guide).toHaveAttribute("href", "/contacts/settings/help");
+  await expect(guide).toHaveAttribute("href", "/settings/help");
   await expect(guide).not.toHaveAttribute("target", "_blank");
   await guide.click();
   await expect(page.getByRole("heading", { level: 1, name: "Using Natel" })).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowUp");
-  await expect(page).toHaveURL(/\/contacts\/settings\/help$/);
+  await expect(page).toHaveURL(/\/settings\/help$/);
   await expect(page).toHaveTitle("User guide · Natel");
   await expect(page.getByRole("heading", { name: "Concurrent edits" })).toBeVisible();
   await expect(
@@ -154,7 +154,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     await page.getByRole("link", { name: "Settings" }).click();
     await page.getByRole("combobox", { name: "Language" }).selectOption("fr");
     await page.getByRole("link", { name: "Guide utilisateur (anglais)" }).click();
-    await expect(page).toHaveURL(/\/contacts\/settings\/help$/);
+    await expect(page).toHaveURL(/\/settings\/help$/);
     await expect(page.getByRole("heading", { level: 1, name: "Using Natel" })).toBeFocused();
     await expect(page.getByRole("heading", { name: "Sign in and sign out" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Concurrent edits" })).toBeVisible();
@@ -184,7 +184,7 @@ test("opens contacts whose UID is help", async ({ page }) => {
   await putCard("help", vcard(["UID:help", "FN:Help Example", "N:Example;Help;;;"]));
   await signIn(page);
   await page.getByRole("link", { name: /Help Example/ }).click();
-  await expect(page).toHaveURL(/\/contacts\/help$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/help$/);
   await expect(page.getByRole("heading", { level: 1, name: "Help Example" })).toBeVisible();
   await page.getByRole("button", { name: /^Edit/ }).first().click();
   await expect(page.getByLabel("Last name", { exact: true })).toHaveValue("Example");

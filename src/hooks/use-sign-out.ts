@@ -8,17 +8,19 @@ import { useSessionStore } from "@/store/session";
  * Signs out through /logout, so an unsaved edit can still be kept, then
  * drops the query cache so no contact stays in memory after the session.
  * A sign-out the server didn't confirm leaves the user on the page, told so.
+ * With `resume`, signing in again returns to the page.
  */
-export function useSignOut(): () => Promise<void> {
+export function useSignOut(): (options?: { resume?: boolean }) => Promise<void> {
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
   const showToast = useToast();
   const { t } = useI18n();
-  return async () => {
+  return async ({ resume = false } = {}) => {
     // Only this attempt's outcome counts, not one from a direct visit to /logout.
     useSessionStore.setState({ signOutFailed: false });
-    await navigate({ to: "/logout", search: { back: router.state.location.href } });
+    const back = router.state.location.href;
+    await navigate({ to: "/logout", search: resume ? { back, resume: true } : { back } });
     const { auth, signOutFailed } = useSessionStore.getState();
     if (auth === null) queryClient.clear();
     else if (signOutFailed) showToast(t("sign_out_failed"));

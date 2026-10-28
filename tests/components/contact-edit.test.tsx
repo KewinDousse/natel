@@ -217,7 +217,7 @@ beforeEach(async () => {
 });
 
 async function renderEditView(id: string) {
-  const path = `/contacts/${id}?edit=true`;
+  const path = `/contacts/a/${id}?edit=true`;
   useSessionStore.setState({ auth: AUTH, selectedBook: null });
   window.history.replaceState({}, "", path);
   const router = createRouter({
@@ -250,10 +250,10 @@ describe("edit mode — enter/leave", () => {
 
   it("renders view mode when ?edit is absent", async () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
-    window.history.replaceState({}, "", "/contacts/editable");
+    window.history.replaceState({}, "", "/contacts/a/editable");
     const router = createRouter({
       routeTree,
-      history: createMemoryHistory({ initialEntries: ["/contacts/editable"] }),
+      history: createMemoryHistory({ initialEntries: ["/contacts/a/editable"] }),
     });
     render(
       <QueryClientProvider client={createQueryClient()}>
@@ -594,7 +594,8 @@ describe("edit mode — dirty dialog", () => {
     await user.click(screen.getByRole("button", { name: "Annuler" }));
 
     await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
-    expect(router.state.location.href).toBe("/contacts/editable");
+    expect(router.state.location.pathname).toBe("/contacts/a/editable");
+    expect(router.state.location.search).not.toHaveProperty("edit");
   });
 });
 
@@ -994,7 +995,7 @@ describe("edit mode — delete", () => {
     await user.click(within(dialog).getByRole("button", { name: "Supprimer" }));
 
     await waitFor(() => expect(mockDeleteCard).toHaveBeenCalledWith(AUTH, EDITABLE_HREF, '"e"'));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
     expect(screen.getByRole("status").textContent).toBe("Contact supprimé");
   });
 
@@ -1033,7 +1034,7 @@ describe("edit mode — delete", () => {
     await waitFor(() => expect(screen.getByText(/modifié ailleurs/)).toBeTruthy());
     expect(screen.getByRole("button", { name: "Recharger" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /écraser/i })).toBeNull();
-    expect(router.state.location.pathname).toBe("/contacts/editable");
+    expect(router.state.location.pathname).toBe("/contacts/a/editable");
   });
 
   it("deletes with the loaded ETag even after edits, without the discard dialog", async () => {
@@ -1044,7 +1045,7 @@ describe("edit mode — delete", () => {
     await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Supprimer" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
     expect(mockDeleteCard).toHaveBeenCalledWith(AUTH, EDITABLE_HREF, '"e"');
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -1066,10 +1067,10 @@ describe("edit mode — delete", () => {
 
     expect(screen.getByRole("button", { name: "Annuler" })).toHaveProperty("disabled", true);
     await user.keyboard("{Escape}");
-    expect(router.state.location.pathname).toBe("/contacts/editable");
+    expect(router.state.location.pathname).toBe("/contacts/a/editable");
 
     await act(async () => finish());
-    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
     expect(screen.getByRole("status").textContent).toBe("Contact supprimé");
   });
 
@@ -1123,7 +1124,7 @@ describe("free-text birthday (VALUE=text on vCard 3.0)", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     const router = createRouter({
       routeTree,
-      history: createMemoryHistory({ initialEntries: ["/contacts/textbday"] }),
+      history: createMemoryHistory({ initialEntries: ["/contacts/a/textbday"] }),
     });
     render(
       <QueryClientProvider client={createQueryClient()}>
@@ -1183,7 +1184,7 @@ describe("toast timing", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     const router = createRouter({
       routeTree,
-      history: createMemoryHistory({ initialEntries: ["/contacts/editable"] }),
+      history: createMemoryHistory({ initialEntries: ["/contacts/a/editable"] }),
     });
     render(
       <QueryClientProvider client={createQueryClient()}>
@@ -1241,8 +1242,8 @@ describe("edit mode — cancel during an in-flight save", () => {
     });
     await act(async () => {
       await router.navigate({
-        to: "/contacts/$id",
-        params: { id: "editable" },
+        to: "/contacts/$book/$id",
+        params: { book: "a", id: "editable" },
         search: { edit: true },
       });
     });
@@ -1261,7 +1262,7 @@ describe("view mode — E shortcut", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     const router = createRouter({
       routeTree,
-      history: createMemoryHistory({ initialEntries: ["/contacts/editable"] }),
+      history: createMemoryHistory({ initialEntries: ["/contacts/a/editable"] }),
     });
     render(
       <QueryClientProvider client={createQueryClient()}>
@@ -1288,7 +1289,7 @@ describe("view mode — E shortcut", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     const router = createRouter({
       routeTree,
-      history: createMemoryHistory({ initialEntries: ["/contacts/minimal"] }),
+      history: createMemoryHistory({ initialEntries: ["/contacts/a/minimal"] }),
     });
     render(
       <QueryClientProvider client={createQueryClient()}>
@@ -1336,8 +1337,8 @@ describe("switching contacts", () => {
 
     await act(async () => {
       await router.navigate({
-        to: "/contacts/$id",
-        params: { id: "minimal" },
+        to: "/contacts/$book/$id",
+        params: { book: "a", id: "minimal" },
         search: { edit: true },
       });
     });
@@ -1385,7 +1386,7 @@ describe("edit mode — leaving for the settings, where signing out is, with uns
 
     await user.click(screen.getByRole("button", { name: "Continuer l’édition" }));
     expect(useSessionStore.getState().auth).toEqual(AUTH);
-    expect(router.state.location.pathname).toBe("/contacts/editable");
+    expect(router.state.location.pathname).toBe("/contacts/a/editable");
     expect(screen.getByDisplayValue("Johnx")).toBeTruthy();
   });
 

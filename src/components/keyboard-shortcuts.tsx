@@ -9,6 +9,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { isApple, isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
+import { useBookParam } from "@/store/session";
 import { buttonClass } from "./ui/button";
 import { Dialog, DialogActions, DialogTitle } from "./ui/dialog";
 
@@ -19,8 +20,9 @@ export function openShortcuts() {
   window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
-export function KeyboardShortcuts({ canCreate }: { canCreate: boolean }) {
+export function KeyboardShortcuts() {
   const navigate = useNavigate();
+  const book = useBookParam();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -30,9 +32,9 @@ export function KeyboardShortcuts({ canCreate }: { canCreate: boolean }) {
       if (event.key === "?") {
         event.preventDefault();
         setOpen(true);
-      } else if ((event.key === "n" || event.key === "N") && canCreate) {
+      } else if ((event.key === "n" || event.key === "N") && book !== undefined) {
         event.preventDefault();
-        void navigate({ to: "/contacts/new" });
+        void navigate({ to: "/contacts/$book/new", params: { book } });
       }
     }
     const onOpen = () => setOpen(true);
@@ -42,7 +44,7 @@ export function KeyboardShortcuts({ canCreate }: { canCreate: boolean }) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener(OPEN_EVENT, onOpen);
     };
-  }, [navigate, canCreate]);
+  }, [navigate, book]);
 
   return open ? <ShortcutsDialog onClose={() => setOpen(false)} /> : null;
 }

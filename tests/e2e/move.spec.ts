@@ -49,6 +49,19 @@ test("moves a contact to another book, card unchanged", async ({ page }) => {
   expect(await getCard("ada", EXTRA_BOOK_PATH)).toBe(ADA);
 });
 
+test("stays on the moved contact's book after a reload", async ({ page }) => {
+  await signIn(page);
+  await editAda(page);
+  await page.getByRole("button", { name: "Move to another address book" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Move" }).click();
+  await expect(page.getByText("Moved to “Work”")).toBeVisible();
+  await expect(page).toHaveURL(/\/contacts\/extra\/ada$/);
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Address book/ })).toHaveText(/Work/);
+  await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeAttached();
+});
+
 test("asks to save or cancel before moving unsaved changes", async ({ page }) => {
   await signIn(page);
   await editAda(page);

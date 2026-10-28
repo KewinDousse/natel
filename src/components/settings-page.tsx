@@ -15,7 +15,7 @@ import { IS_DEMO } from "@/lib/demo";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
 import { usePreferences } from "@/store/preferences";
-import { useAuth } from "@/store/session";
+import { useAuth, useBookParam } from "@/store/session";
 import { openShortcuts } from "./keyboard-shortcuts";
 import { LanguageSelect } from "./language-select";
 import { MobileTopBar } from "./mobile-top-bar";
@@ -30,6 +30,7 @@ const BUG_REPORT_URL = "https://github.com/KewinDousse/natel/issues/new/choose";
 export function SettingsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const book = useBookParam();
   const signOut = useSignOut();
   const auth = useAuth();
   const { sortBy, setSortBy, theme, setTheme, mapApp, setMapApp } = usePreferences();
@@ -42,12 +43,12 @@ export function SettingsPage() {
     function onKeyDown(event: KeyboardEvent) {
       const desktop = window.matchMedia?.("(min-width: 64rem)").matches ?? false;
       if (event.key === "Escape" && desktop && !event.defaultPrevented) {
-        void navigate({ to: "/contacts" });
+        void navigate(book ? { to: "/contacts/$book", params: { book } } : { to: "/contacts" });
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigate]);
+  }, [navigate, book]);
 
   return (
     <>
@@ -148,7 +149,7 @@ export function SettingsPage() {
           <ul className="space-y-3 text-sm">
             <li>
               <Link
-                to="/contacts/settings/help"
+                to="/settings/help"
                 className={`inline-flex min-h-10 items-center rounded-sm font-bold underline decoration-leader underline-offset-2 hover:decoration-foreground ${FOCUS_RING}`}
               >
                 {t("help_guide")}

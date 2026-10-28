@@ -15,11 +15,13 @@ function scrollParentOf(element: HTMLElement): HTMLElement | Window {
 export function useContactNavigation({
   edit,
   hasChanges,
+  book,
   routeId,
   onExit,
 }: {
   edit: boolean;
   hasChanges: boolean;
+  book: string;
   routeId: string;
   onExit: () => void;
 }) {
@@ -33,8 +35,8 @@ export function useContactNavigation({
       const anchor = document.getElementById(sectionId ?? "fiche-top");
       const top = anchor?.getBoundingClientRect().top;
       router.navigate({
-        to: "/contacts/$id",
-        params: { id: routeId },
+        to: "/contacts/$book/$id",
+        params: { book, id: routeId },
         search: { edit: true },
         replace: true,
       });
@@ -48,7 +50,7 @@ export function useContactNavigation({
         }
       });
     },
-    [edit, router, routeId],
+    [edit, router, book, routeId],
   );
 
   // Cancel / Esc

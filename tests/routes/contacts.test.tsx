@@ -25,8 +25,8 @@ import { useSessionStore } from "@/store/session";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockDiscoverAddressBooks, mockListContacts, mockFetchCards, mockParse } = vi.hoisted(
-  () => ({
+const { mockDiscoverAddressBooks, mockListContacts, mockFetchCards, mockParse, mockCreateCard } =
+  vi.hoisted(() => ({
     mockDiscoverAddressBooks: vi.fn<(auth: DavAuth) => Promise<DavAddressBook[]>>(),
     mockListContacts:
       vi.fn<(auth: DavAuth, bookHref: string) => Promise<{ href: string; etag: string }[]>>(),
@@ -38,8 +38,15 @@ const { mockDiscoverAddressBooks, mockListContacts, mockFetchCards, mockParse } 
         ) => Promise<Array<{ href: string; etag: string; vcardText: string }>>
       >(),
     mockParse: vi.fn<(text: string, href: string, etag: string) => Contact>(),
-  }),
-);
+    mockCreateCard:
+      vi.fn<
+        (
+          auth: DavAuth,
+          href: string,
+          vcardText: string,
+        ) => Promise<{ href: string; etag: string; vcardText: string }>
+      >(),
+  }));
 
 vi.mock("@/dav", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/dav")>();
@@ -48,6 +55,7 @@ vi.mock("@/dav", async (importOriginal) => {
     discoverAddressBooks: mockDiscoverAddressBooks,
     listContacts: mockListContacts,
     fetchCards: mockFetchCards,
+    createCard: mockCreateCard,
     // Sign-outs the server confirms.
     closeSession: async () => true,
   };
@@ -293,6 +301,14 @@ describe("route guard", () => {
     expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
   });
 
+  it("sends a logged-out visitor to /login with the page to come back to", async () => {
+    const router = renderApp("/contacts/b/abc");
+
+    expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.search).toEqual({ redirect: "/contacts/b/abc" });
+  });
+
   it("redirects logged-in / to /contacts", async () => {
     useSessionStore.setState({ auth: AUTH });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
@@ -318,6 +334,45 @@ describe("address books", () => {
     expect(count.parentElement?.getAttribute("aria-live")).toBe("polite");
   });
 
+  it("names the selected book in the URL", async () => {
+    const router = await renderLoggedIn();
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
+  });
+
+  it("opens the book the URL names, as after a reload", async () => {
+    const router = await renderLoggedIn("/contacts/b");
+
+    expect(await screen.findByText("Ce carnet est vide")).toBeTruthy();
+    expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_B.href);
+    expect(router.state.location.pathname).toBe("/contacts/b");
+  });
+
+  it("opens the selected book when the URL names one the server doesn't have", async () => {
+    const router = await renderLoggedIn("/contacts/gone/jarvan");
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
+    expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_A.href);
+  });
+
+  it("opens a contact's address from before books were in it in the first book", async () => {
+    const router = await renderLoggedIn("/contacts/jarvan");
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a/jarvan"));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Lightshield Jarvan" }),
+    ).toBeTruthy();
+  });
+
+  it("puts the book in a contact's address", async () => {
+    const router = await renderLoggedIn("/contacts/a");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("link", { name: /Lightshield Jarvan/ }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a/jarvan"));
+  });
+
   it("shows a dedicated state when discovery returns zero books", async () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([]);
@@ -329,7 +384,7 @@ describe("address books", () => {
   it("names the list in the top bar when the server has no book", async () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([]);
-    renderApp("/contacts/settings");
+    renderApp("/settings");
 
     const back = await screen.findByRole("link", { name: "Retour aux contacts" });
     expect(back.textContent).toBe("Contacts");
@@ -546,7 +601,7 @@ describe("search keyboard shortcuts", () => {
 
 describe("book switcher", () => {
   it("opens, marks the current book, switches books, and closes on Escape", async () => {
-    await renderLoggedIn();
+    const router = await renderLoggedIn();
     const user = userEvent.setup();
 
     const trigger = await screen.findByRole("button", { name: /Carnet d/ });
@@ -570,8 +625,32 @@ describe("book switcher", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "Pro" }));
 
     await waitFor(() => expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_B.href));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/b"));
     // Book B is empty in the pipeline → empty-book state.
     expect(await screen.findByText("Ce carnet est vide")).toBeTruthy();
+  });
+
+  it("leaves the open contact for the other book's list", async () => {
+    const router = await renderLoggedIn("/contacts/a/jarvan");
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { level: 1, name: "Lightshield Jarvan" });
+
+    await user.click(await screen.findByRole("button", { name: /Carnet d/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Pro" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/b"));
+    expect(await screen.findByText("Ce carnet est vide")).toBeTruthy();
+  });
+
+  it("stays on the settings, which belong to no book", async () => {
+    const router = await renderLoggedIn("/settings");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Carnet d/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Pro" }));
+
+    await waitFor(() => expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_B.href));
+    expect(router.state.location.pathname).toBe("/settings");
   });
 });
 
@@ -794,7 +873,7 @@ describe("sync", () => {
   }, 15000);
 
   it("closes the panel on a click outside, and Escape in it doesn't cancel an edit", async () => {
-    const { queryClient } = await renderLoaded("/contacts/jarvan?edit=true");
+    const { queryClient } = await renderLoaded("/contacts/a/jarvan?edit=true");
     await screen.findByRole("button", { name: "Enregistrer" });
 
     mockListContacts.mockRejectedValue(new DavError("down", "NETWORK"));
@@ -824,6 +903,8 @@ describe("sync", () => {
     await user.click(screen.getByRole("button", { name: "Se reconnecter" }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    // Signing in again comes back to the list, in the same book.
+    expect(router.state.location.search).toEqual({ redirect: "/contacts/a" });
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   }, 15000);
 });
@@ -840,7 +921,7 @@ describe("logout", () => {
     const queryClient = createQueryClient();
     const router = createRouter({
       routeTree,
-      history: createMemoryHistory({ initialEntries: ["/contacts/settings"] }),
+      history: createMemoryHistory({ initialEntries: ["/settings"] }),
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -914,9 +995,39 @@ describe("while the book loads, fails or is empty", () => {
     expect(await screen.findByText("Ce carnet est vide")).toBeTruthy();
     const list = screen.getByRole("navigation", { name: "Contacts" });
     expect(within(list).getByRole("link", { name: "Nouveau contact" }).getAttribute("href")).toBe(
-      "/contacts/new",
+      "/contacts/a/new",
     );
     expect(within(list).getByRole("button", { name: "Importer un fichier .vcf" })).toBeTruthy();
+  });
+
+  it("keeps an open import on its book when the address changes book", async () => {
+    const router = await renderLoggedIn("/contacts/b");
+    mockCreateCard.mockImplementation(async (_auth, href, vcardText) => ({
+      href,
+      etag: '"new"',
+      vcardText,
+    }));
+    const list = await screen.findByRole("navigation", { name: "Contacts" });
+    await within(list).findByText("Ce carnet est vide");
+    const input = list.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement)) throw new Error("no file input");
+    const card = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:grace\r\nFN:Grace Hopper\r\nEND:VCARD\r\n";
+    await userEvent.setup().upload(input, new File([card], "grace.vcf", { type: "text/vcard" }));
+    const dialog = await screen.findByRole("dialog", { name: "Importer dans «\u00a0Pro\u00a0»" });
+
+    await router.navigate({ to: "/contacts/$book", params: { book: "a" } });
+    await waitFor(() => expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_A.href));
+    expect(dialog.isConnected).toBe(true);
+    expect(within(dialog).getByRole("heading").textContent).toBe("Importer dans «\u00a0Pro\u00a0»");
+    await userEvent
+      .setup()
+      .click(within(dialog).getByRole("button", { name: "Importer 1 contact" }));
+
+    await within(dialog).findByText(/^Importés\s: 1$/);
+    expect(mockCreateCard).toHaveBeenCalledTimes(1);
+    expect(mockCreateCard.mock.calls[0]?.[1]).toMatch(
+      /^https:\/\/dav\.example\.org\/dav\/books\/b\//,
+    );
   });
 
   it("counts a lone contact in the singular", async () => {

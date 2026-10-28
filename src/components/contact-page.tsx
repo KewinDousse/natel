@@ -7,13 +7,14 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
+import { useParams, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useContactGroupEdits } from "@/hooks/use-contact-group-edits";
 import { useContactNavigation } from "@/hooks/use-contact-navigation";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import { usePhotoChoice } from "@/hooks/use-photo-choice";
 import { useI18n } from "@/i18n/react";
+import { bookParam } from "@/lib/book-param";
 import {
   applyDraft,
   buildDraft,
@@ -81,7 +82,7 @@ type ContactPageProps = {
   contacts: Contact[] | undefined;
   /** Group cards of the selected book (ADR 022). */
   groupCards: Contact[];
-  /** The /contacts/$id route parameter. */
+  /** The /contacts/$book/$id route parameter. */
   id: string;
   /** True when ?edit is in the URL. */
   edit?: boolean;
@@ -198,6 +199,7 @@ function ContactFiche({
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
+  const { book } = useParams({ from: "/_directory/contacts/$book" });
   const isNew = onCreate !== undefined;
   const updateContact = useUpdateContact(auth);
   const deleteContact = useDeleteContact(auth);
@@ -247,7 +249,6 @@ function ContactFiche({
   // page left on it.
   const deleting = saveStatus === "deleting" || saveStatus === "moving";
   const selectedBook = useSelectedBook();
-  const selectBook = useSessionStore((state) => state.selectBook);
   const setGroupFilter = useSessionStore((state) => state.setGroupFilter);
   const booksQuery = useAddressBooks(auth);
   const otherBooks = useMemo(
@@ -317,18 +318,33 @@ function ContactFiche({
       setSaveError(null);
       setSaveStatus("idle");
       if (isNew && savedId === undefined) {
-        router.navigate({ to: "/contacts", replace: true, ignoreBlocker: true });
+        router.navigate({
+          to: "/contacts/$book",
+          params: { book },
+          replace: true,
+          ignoreBlocker: true,
+        });
         return;
       }
       router.navigate({
-        to: "/contacts/$id",
-        params: { id: savedId ?? routeId },
+        to: "/contacts/$book/$id",
+        params: { book, id: savedId ?? routeId },
         search: {},
         replace: true,
         ignoreBlocker: true,
       });
     },
-    [contact, groups, router, routeId, isNew, setChosenPhoto, setDraftGroups, clearGroupFailures],
+    [
+      contact,
+      groups,
+      router,
+      routeId,
+      isNew,
+      setChosenPhoto,
+      setDraftGroups,
+      clearGroupFailures,
+      book,
+    ],
   );
 
   const {
@@ -339,7 +355,13 @@ function ContactFiche({
     closeDiscard,
     discard,
     blockerActive,
-  } = useContactNavigation({ edit, hasChanges, routeId, onExit: exitEdit });
+  } = useContactNavigation({
+    edit,
+    hasChanges,
+    book,
+    routeId,
+    onExit: exitEdit,
+  });
 
   // When the blocker fires, show the discard dialog
   useEffect(() => {
@@ -483,8 +505,8 @@ function ContactFiche({
       if (!isNew && savedId !== routeId) {
         onIdChange?.(savedId);
         router.navigate({
-          to: "/contacts/$id",
-          params: { id: savedId },
+          to: "/contacts/$book/$id",
+          params: { book, id: savedId },
           search: { edit: true },
           replace: true,
           ignoreBlocker: true,
@@ -504,6 +526,7 @@ function ContactFiche({
       locale,
       listsChangedElsewhere,
       clearGroupFailures,
+      book,
     ],
   );
 
@@ -609,14 +632,19 @@ function ContactFiche({
       if (session !== editSession.current) return;
       editSession.current++;
       showToast(t("deleted"));
-      router.navigate({ to: "/contacts", replace: true, ignoreBlocker: true });
+      router.navigate({
+        to: "/contacts/$book",
+        params: { book },
+        replace: true,
+        ignoreBlocker: true,
+      });
     } catch (err) {
       if (session !== editSession.current) return;
       setSaveStatus("idle");
       if (err instanceof DavError && err.code === "CONFLICT") setDeleteConflict("delete");
       else setSaveError(writeErrorText(err, "delete", t, locale));
     }
-  }, [editBase, deleteContact, router, showToast, t, locale]);
+  }, [editBase, deleteContact, router, showToast, t, locale, book]);
 
   // Move (ADR 021) — the card as the server has it goes to the other book,
   // then leaves this one. After a failure the page stays in edit mode, with
@@ -647,11 +675,10 @@ function ContactFiche({
         setDeleteConflict(null);
         setShowDelete(false);
         const moved = outcome.contact;
-        selectBook(target);
         showToast(t("moved_to", { name: bookName(target) }));
         router.navigate({
-          to: "/contacts/$id",
-          params: { id: contactIdOf(moved) },
+          to: "/contacts/$book/$id",
+          params: { book: bookParam(target), id: contactIdOf(moved) },
           replace: true,
           ignoreBlocker: true,
         });
@@ -684,7 +711,7 @@ function ContactFiche({
           break;
       }
     },
-    [moveContact, editBase, selectedBook, selectBook, router, showToast, t, locale],
+    [moveContact, editBase, selectedBook, router, showToast, t, locale],
   );
 
   // Copy handler
@@ -704,9 +731,9 @@ function ContactFiche({
   const handleGroup = useCallback(
     (name: string) => {
       setGroupFilter(name);
-      if (!isDesktop()) void router.navigate({ to: "/contacts" });
+      if (!isDesktop()) void router.navigate({ to: "/contacts/$book", params: { book } });
     },
-    [setGroupFilter, router],
+    [setGroupFilter, router, book],
   );
 
   const canChangePhoto = canReplacePhoto(editBase);

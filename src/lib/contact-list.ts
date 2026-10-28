@@ -307,7 +307,7 @@ export function buildGroups(contacts: Contact[], sortBy: SortBy, query: string):
 const URL_SAFE_ID = /^[A-Za-z0-9._~-]+$/;
 
 /**
- * Stable, URL-safe id for the /contacts/$id route. Uses the vCard UID when it
+ * Stable, URL-safe id for the /contacts/$book/$id route. Uses the vCard UID when it
  * is already URL-safe; otherwise a 32-bit FNV-1a hash of the uid/href, which
  * DAVx⁵ and Baïkal never produce (they use UUIDs).
  */

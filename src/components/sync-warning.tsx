@@ -163,7 +163,7 @@ export function SyncWarning({
                     ref={actionRef}
                     type="button"
                     aria-describedby="sync-panel-body"
-                    onClick={() => void signOut()}
+                    onClick={() => void signOut({ resume: true })}
                     className={buttonClass({ size: "sm" })}
                   >
                     {t("sign_in_again")}

@@ -12,7 +12,7 @@ import { ContactPage } from "@/components/contact-page";
 import { useContacts } from "@/queries";
 import { useAuth, useSelectedBook } from "@/store/session";
 
-export const Route = createFileRoute("/contacts/$id")({
+export const Route = createFileRoute("/_directory/contacts/$book/$id")({
   // Leaving edit mode drops the param entirely rather than leaving ?edit=false.
   validateSearch: (search: Record<string, unknown>): { edit?: true } =>
     search.edit === "true" || search.edit === true ? { edit: true } : {},

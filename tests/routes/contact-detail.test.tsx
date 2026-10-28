@@ -202,7 +202,7 @@ beforeEach(() => {
 
 describe("contact page content", () => {
   it("renders every populated section in DESIGN order with translated labels", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     const titles = within(article)
@@ -219,7 +219,7 @@ describe("contact page content", () => {
   });
 
   it("hides empty sections entirely", async () => {
-    await renderLoggedIn("/contacts/phone-only");
+    await renderLoggedIn("/contacts/a/phone-only");
 
     const article = await screen.findByRole("article");
     const titles = within(article)
@@ -230,7 +230,7 @@ describe("contact page content", () => {
   });
 
   it("titles a section in the plural only for several values", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     expect(within(article).getByRole("heading", { level: 2, name: "Téléphones" })).toBeTruthy();
@@ -240,7 +240,7 @@ describe("contact page content", () => {
   });
 
   it("hides the job/org row when neither is present", async () => {
-    await renderLoggedIn("/contacts/phone-only");
+    await renderLoggedIn("/contacts/a/phone-only");
 
     const article = await screen.findByRole("article");
     // The phone still drives the action row…
@@ -269,7 +269,7 @@ describe("web address", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ site: card });
-    renderApp("/contacts/site");
+    renderApp("/contacts/a/site");
   }
 
   it.each([["https://example.org/luc"], ["http://example.org/luc"]])("links %s", async (url) => {
@@ -292,7 +292,7 @@ describe("web address", () => {
 
 describe("phones and action row", () => {
   it("formats the displayed number but keeps tel:/sms:/mailto: hrefs raw", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const callLink = await screen.findByRole("link", { name: "079 000 00 01" });
     expect(callLink.getAttribute("href")).toBe("tel:+41790000001");
@@ -327,7 +327,7 @@ describe("phones and action row", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ fields: card });
-    renderApp("/contacts/fields");
+    renderApp("/contacts/a/fields");
 
     const write = await screen.findByRole("link", { name: "E\u2060-\u2060mail" });
     expect(write.getAttribute("href")).toBe(
@@ -342,7 +342,7 @@ describe("phones and action row", () => {
   });
 
   it("marks the primary number (first TYPE=cell) text-xl font-bold, others not", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const primary = await screen.findByRole("link", { name: "079 000 00 01" });
     expect(primary.className).toContain("text-xl");
@@ -355,7 +355,7 @@ describe("phones and action row", () => {
   });
 
   it("omits the SMS button when the contact has no number", async () => {
-    await renderLoggedIn("/contacts/phone-only");
+    await renderLoggedIn("/contacts/a/phone-only");
 
     // phone-only still has a phone → SMS present.
     expect(await screen.findByRole("link", { name: "SMS" })).toBeTruthy();
@@ -363,7 +363,7 @@ describe("phones and action row", () => {
   });
 
   it("shows no action pill at all for an org-only card (no number, no email)", async () => {
-    await renderLoggedIn("/contacts/org-card");
+    await renderLoggedIn("/contacts/a/org-card");
 
     expect(await screen.findByRole("article")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "SMS" })).toBeNull();
@@ -372,7 +372,7 @@ describe("phones and action row", () => {
   });
 
   it("translates the mobile type label to Mobile and the others", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     expect(within(article).getByText("Mobile")).toBeTruthy();
@@ -382,7 +382,7 @@ describe("phones and action row", () => {
   });
 
   it("falls back to Autre when no TYPE param is present", async () => {
-    await renderLoggedIn("/contacts/phone-only");
+    await renderLoggedIn("/contacts/a/phone-only");
 
     const article = await screen.findByRole("article");
     expect(within(article).getByText("Autre")).toBeTruthy();
@@ -395,7 +395,7 @@ describe("phones and action row", () => {
 
 describe("copy buttons", () => {
   it("renders a copy button for every value row (tel, email, address, bday)", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     // Tel section: 2 buttons (primary + work number)
@@ -412,7 +412,7 @@ describe("copy buttons", () => {
 
 describe("avatar and special sections", () => {
   it("shows initials on the card's own tint for a person card", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     const avatar = within(article).getByText("DK");
@@ -421,7 +421,7 @@ describe("avatar and special sections", () => {
   });
 
   it("shows the building icon for an organisation-only card", async () => {
-    await renderLoggedIn("/contacts/org-card");
+    await renderLoggedIn("/contacts/a/org-card");
 
     const article = await screen.findByRole("article");
     // Once as the page's accessible name, once as the visible org line.
@@ -449,7 +449,7 @@ describe("avatar and special sections", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ atelier: card });
-    renderApp("/contacts/atelier");
+    renderApp("/contacts/a/atelier");
 
     const article = await screen.findByRole("article");
     const visible = within(article)
@@ -460,7 +460,7 @@ describe("avatar and special sections", () => {
   });
 
   it("writes the name and the initials in the order the list sorts by", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
     const article = await screen.findByRole("article");
     expect(within(article).getByText("Du Couteau Katarina", { selector: "p" })).toBeTruthy();
 
@@ -482,7 +482,7 @@ describe("avatar and special sections", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ acme: card });
-    renderApp("/contacts/acme");
+    renderApp("/contacts/a/acme");
 
     const article = await screen.findByRole("article");
     const names = within(article)
@@ -504,7 +504,7 @@ describe("avatar and special sections", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ jinx: card });
-    renderApp("/contacts/jinx");
+    renderApp("/contacts/a/jinx");
 
     const article = await screen.findByRole("article");
     const name = within(article)
@@ -528,7 +528,7 @@ describe("avatar and special sections", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ sciel: card });
-    renderApp("/contacts/sciel");
+    renderApp("/contacts/a/sciel");
 
     const article = await screen.findByRole("article");
     const address = article.querySelector("address");
@@ -541,7 +541,7 @@ describe("avatar and special sections", () => {
   it("links the address to OpenStreetMap, in a new tab, on a desktop", async () => {
     // jsdom's user agent names neither Android nor an Apple device.
     expect(navigator.userAgent).not.toMatch(/Android|iPhone|iPad|Macintosh/);
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     const link = within(article).getByRole("link", {
@@ -557,7 +557,7 @@ describe("avatar and special sections", () => {
 
   it("opens the map the settings choose, in the same tab for the device's app", async () => {
     usePreferences.setState({ mapApp: "geo" });
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     const link = within(article).getByRole("link", { name: /sur une carte$/ });
@@ -589,7 +589,7 @@ describe("avatar and special sections", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ verso: card, box });
-    const router = renderApp("/contacts/verso");
+    const router = renderApp("/contacts/a/verso");
 
     const article = await screen.findByRole("article");
     expect(
@@ -598,7 +598,9 @@ describe("avatar and special sections", () => {
         .getAttribute("href"),
     ).toBe("https://www.openstreetmap.org/search?query=Rue%20du%20Monolithe%201%2C%20Lumi%C3%A8re");
 
-    await act(() => router.navigate({ to: "/contacts/$id", params: { id: "box" } }));
+    await act(() =>
+      router.navigate({ to: "/contacts/$book/$id", params: { book: "a", id: "box" } }),
+    );
     await waitFor(() =>
       expect(screen.getByRole("article").querySelector("address")?.textContent).toBe(
         "Case postale 12",
@@ -622,7 +624,7 @@ describe("avatar and special sections", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadCards({ lune: card });
-    renderApp("/contacts/lune");
+    renderApp("/contacts/a/lune");
 
     const article = await screen.findByRole("article");
     expect(within(article).getByRole("heading", { name: "Adresses" })).toBeTruthy();
@@ -637,14 +639,14 @@ describe("avatar and special sections", () => {
   });
 
   it("names the browser tab after the contact", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     await screen.findByRole("article");
     await waitFor(() => expect(document.title).toBe("Du Couteau Katarina · Natel"));
   });
 
   it("renders a month-day birthday without a year, and so without an age", async () => {
-    await renderLoggedIn("/contacts/bday-md");
+    await renderLoggedIn("/contacts/a/bday-md");
 
     const article = await screen.findByRole("article");
     const time = within(article).getByText("14 mars");
@@ -657,7 +659,7 @@ describe("avatar and special sections", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 9, 21));
     try {
-      await renderLoggedIn("/contacts/full");
+      await renderLoggedIn("/contacts/a/full");
 
       const article = await screen.findByRole("article");
       expect(within(article).getByText("14 mars 1987").tagName).toBe("TIME");
@@ -668,7 +670,7 @@ describe("avatar and special sections", () => {
   });
 
   it("renders groups as chips", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     const chips = within(article)
@@ -684,19 +686,19 @@ describe("avatar and special sections", () => {
 
   it("filters the list on a group's chip, beside the contact on desktop", async () => {
     const user = userEvent.setup();
-    const router = await renderLoggedIn("/contacts/full");
+    const router = await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     await user.click(within(article).getByRole("button", { name: "Afficher le groupe Travail" }));
 
     expect(useSessionStore.getState().groupFilter).toBe("Travail");
     expect(screen.getByRole("button", { name: "Filtrer par groupe\u00a0: Travail" })).toBeTruthy();
-    expect(router.state.location.pathname).toBe("/contacts/full");
+    expect(router.state.location.pathname).toBe("/contacts/a/full");
   });
 
   it("goes back to the filtered list on a group's chip on a phone", async () => {
     const user = userEvent.setup();
-    const router = await renderLoggedIn("/contacts/full");
+    const router = await renderLoggedIn("/contacts/a/full");
     shimMatchMedia(false);
 
     const article = await screen.findByRole("article");
@@ -705,11 +707,11 @@ describe("avatar and special sections", () => {
     );
 
     expect(useSessionStore.getState().groupFilter).toBe("Fosse de Noxus");
-    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
   });
 
   it("preserves note whitespace with pre-wrap", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     // getByText normalises whitespace, so match the collapsed form.
@@ -730,7 +732,7 @@ describe("loading, not-found and mobile top bar", () => {
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     mockListContacts.mockImplementation(async () => []);
     mockFetchCards.mockImplementation(() => new Promise(() => {}));
-    renderApp("/contacts/unknown");
+    renderApp("/contacts/a/unknown");
 
     await waitFor(() => expect(useSessionStore.getState().selectedBook?.href).toBe(BOOK_A.href));
     expect(document.querySelector("article")).toBeNull();
@@ -738,7 +740,7 @@ describe("loading, not-found and mobile top bar", () => {
   });
 
   it("shows an honest not-found state for an id outside the book", async () => {
-    await renderLoggedIn("/contacts/unknown");
+    await renderLoggedIn("/contacts/a/unknown");
 
     expect(await screen.findByText("Contact introuvable")).toBeTruthy();
     expect(screen.getByText("Ce contact n’est pas dans ce carnet.")).toBeTruthy();
@@ -746,17 +748,17 @@ describe("loading, not-found and mobile top bar", () => {
   });
 
   it("mobile top bar is a router Link back to the list, named after the book", async () => {
-    const router = await renderLoggedIn("/contacts/full");
+    const router = await renderLoggedIn("/contacts/a/full");
     const user = userEvent.setup();
 
     const back = await screen.findByRole("link", { name: "Retour à «\u00a0Perso\u00a0»" });
     expect(back.textContent).toBe("Perso");
     await user.click(back);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
   });
 
   it("keeps the back bar visible in the not-found state", async () => {
-    await renderLoggedIn("/contacts/unknown");
+    await renderLoggedIn("/contacts/a/unknown");
 
     expect(await screen.findByRole("link", { name: "Retour à «\u00a0Perso\u00a0»" })).toBeTruthy();
   });
@@ -768,7 +770,7 @@ describe("loading, not-found and mobile top bar", () => {
 
 describe("edit-mode readiness", () => {
   it("page root is an article with data-mode=view", async () => {
-    await renderLoggedIn("/contacts/full");
+    await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
     expect(article.getAttribute("data-mode")).toBe("view");

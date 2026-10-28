@@ -16,6 +16,7 @@ import {
 } from "@/lib/contact-list";
 import { formatPhone } from "@/lib/format-phone";
 import type { Contact } from "@/model/contact";
+import { useBookParam } from "@/store/session";
 import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
 
 export function GroupSection({
@@ -27,6 +28,9 @@ export function GroupSection({
   query: string;
   sortBy: SortBy;
 }) {
+  // The list only has contacts once a book is selected.
+  const book = useBookParam();
+  if (book === undefined) return null;
   return (
     <section
       id={`g-${group.letter}`}
@@ -38,7 +42,13 @@ export function GroupSection({
       {/* biome-ignore lint/a11y/noRedundantRoles: DESIGN.md mandates <ul role="list"> */}
       <ul role="list" className="min-w-0">
         {group.contacts.map((contact) => (
-          <ContactRow key={contact.href} contact={contact} query={query} sortBy={sortBy} />
+          <ContactRow
+            key={contact.href}
+            book={book}
+            contact={contact}
+            query={query}
+            sortBy={sortBy}
+          />
         ))}
       </ul>
     </section>
@@ -46,10 +56,12 @@ export function GroupSection({
 }
 
 function ContactRow({
+  book,
   contact,
   query,
   sortBy,
 }: {
+  book: string;
   contact: Contact;
   query: string;
   sortBy: SortBy;
@@ -88,8 +100,8 @@ function ContactRow({
         only the active row carries.
       */}
       <Link
-        to="/contacts/$id"
-        params={{ id }}
+        to="/contacts/$book/$id"
+        params={{ book, id }}
         data-contact-id={id}
         className="group relative flex min-h-[3.5rem] items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted data-[status=active]:bg-selection data-[status=active]:text-selection-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:min-h-[3.25rem] sm:py-0"
       >

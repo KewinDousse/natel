@@ -15,11 +15,30 @@ import { useSessionStore } from "@/store/session";
  * `brand` is allowed to mark position, never action.
  */
 export const Route = createFileRoute("/login")({
-  beforeLoad: () => {
-    if (useSessionStore.getState().auth) throw redirect({ to: "/contacts" });
+  // The page to open once signed in: one of the directory's, never another
+  // site. An invalid one is overwritten, since the root passes every param on.
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof search.redirect === "string" ? directoryPath(search.redirect) : undefined,
+  }),
+  beforeLoad: ({ search }) => {
+    if (useSessionStore.getState().auth) throw redirect({ href: search.redirect ?? "/contacts" });
   },
   component: LoginRoute,
 });
+
+/** `target` resolved, dot segments included, if it is one of the directory's pages. */
+function directoryPath(target: string): string | undefined {
+  const base = "http://natel.invalid";
+  let url: URL;
+  try {
+    url = new URL(target, base);
+  } catch {
+    return undefined;
+  }
+  if (url.origin !== base || !/^\/(?:contacts|settings)(?:\/|$)/.test(url.pathname))
+    return undefined;
+  return url.pathname + url.search + url.hash;
+}
 
 /** Restyle the language select against the red panel (CSS variable overrides). */
 const RED_PANEL_LANGUAGE_VARS = {
@@ -39,6 +58,7 @@ const CURRENT_TAB = "N–P";
 
 function LoginRoute() {
   const { t } = useI18n();
+  const { redirect: next } = Route.useSearch();
 
   return (
     <div className="min-h-dvh pb-14 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pb-0">
@@ -87,7 +107,7 @@ function LoginRoute() {
             </h1>
             <p className="mt-3 text-base leading-relaxed text-muted-foreground">{t("lede")}</p>
 
-            <LoginForm />
+            <LoginForm next={next ?? "/contacts"} />
           </div>
         </div>
       </main>

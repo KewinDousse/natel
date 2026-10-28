@@ -243,6 +243,35 @@ describe("submit", () => {
     expect(localStorage.length).toBe(0);
   });
 
+  it("opens the page the sign-in was asked for", async () => {
+    mockDiscoverAddressBooks.mockResolvedValue([]);
+    const router = renderApp("/login?redirect=%2Fcontacts%2Fb%2Fabc%3Fedit%3Dtrue");
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
+
+    await submitLogin();
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/b/abc"));
+    expect(router.state.location.search).toEqual({ edit: true });
+  });
+
+  it.each([
+    "https://evil.example/contacts",
+    "//evil.example/contacts",
+    "/logout",
+    "/contactsx",
+    "/settingsx",
+    "/contacts/../logout",
+    "/contacts/%2e%2e/logout",
+  ])("ignores a redirect outside the directory: %s", async (target) => {
+    mockDiscoverAddressBooks.mockResolvedValue([]);
+    const router = renderApp(`/login?redirect=${encodeURIComponent(target)}`);
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
+
+    await submitLogin();
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+  });
+
   it("stores only the language choice, never the credentials", async () => {
     mockDiscoverAddressBooks.mockResolvedValue([]);
     renderApp("/login");
@@ -284,6 +313,13 @@ describe("route guards", () => {
 
     expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
     expect(router.state.location.pathname).toBe("/login");
+  });
+
+  it("redirects /login to the page it was asked for when logged in", async () => {
+    useSessionStore.setState({ auth: AUTH });
+    const router = renderApp("/login?redirect=%2Fsettings");
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
   });
 
   it("redirects /login to /contacts when logged in", async () => {

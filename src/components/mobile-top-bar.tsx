@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useI18n } from "@/i18n/react";
 import { bookName } from "@/lib/vcf-file";
-import { useSelectedBook } from "@/store/session";
+import { useBookParam, useSelectedBook } from "@/store/session";
 import { DemoMark } from "./demo-notice";
 import { buttonClass } from "./ui/button";
 import { ArrowLeftIcon } from "./ui/icons";
@@ -13,12 +13,13 @@ import { ArrowLeftIcon } from "./ui/icons";
  */
 export function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: string }) {
   const { t } = useI18n();
-  const book = useSelectedBook();
-  const name = book ? bookName(book) : null;
+  const book = useBookParam();
+  const selected = useSelectedBook();
+  const name = selected ? bookName(selected) : null;
   return (
     <div className="sticky top-0 z-20 flex h-14 items-center border-b bg-muted/95 px-2 backdrop-blur lg:hidden">
       <Link
-        to="/contacts"
+        {...(book ? { to: "/contacts/$book", params: { book } } : { to: "/contacts" })}
         activeOptions={{ exact: true }}
         aria-label={name === null ? t("back_to_list") : t("back_to_book", { name })}
         className={buttonClass(

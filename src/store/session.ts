@@ -13,6 +13,7 @@
 import { create } from "zustand";
 import { clearCachedDavSessions, closeSession, currentSession } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
+import { bookParam } from "@/lib/book-param";
 
 // ---------------------------------------------------------------------------
 // State
@@ -111,4 +112,9 @@ export function useAuth(): DavAuth | null {
 /** The currently selected address book, or null. */
 export function useSelectedBook(): DavAddressBook | null {
   return useSessionStore((s) => s.selectedBook);
+}
+
+/** The selected book's `$book` param, for links into it. */
+export function useBookParam(): string | undefined {
+  return useSessionStore((s) => (s.selectedBook ? bookParam(s.selectedBook) : undefined));
 }

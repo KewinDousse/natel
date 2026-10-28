@@ -1,6 +1,6 @@
 /** The directory screen: shared list state and pane composition. */
 
-import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { ContactDetailPane } from "@/components/contact-detail";
@@ -13,24 +13,40 @@ import { useToast } from "@/components/ui/toast";
 import { useBookTransfer } from "@/hooks/use-book-transfer";
 import { useVcfDrop } from "@/hooks/use-vcf-drop";
 import { useI18n } from "@/i18n/react";
+import { bookParam, findBook } from "@/lib/book-param";
+import { contactById } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
 import { bookName } from "@/lib/vcf-file";
 import { DavError, useAddressBooks, useContacts } from "@/queries";
 import { usePreferences } from "@/store/preferences";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 
+/**
+ * The pages of the book `book` names, once ContactsScreen has selected it:
+ * until then, a contact would be looked up in another book.
+ */
+export function SelectedBookOutlet({ book }: { book: string }) {
+  const selected = useSelectedBook();
+  return selected !== null && bookParam(selected) === book ? <Outlet /> : null;
+}
+
+/** The routes that show the list alone, with nothing beside it. */
+const LIST_ROUTES = new Set(["/_directory/contacts/", "/_directory/contacts/$book"]);
+
 export function ContactsScreen() {
   const { t } = useI18n();
   const showToast = useToast();
   const navigate = useNavigate();
-  const { importState, exporting, exportBook, importFile, confirmImport, closeImport } =
+  const { importState, importBook, exporting, exportBook, importFile, confirmImport, closeImport } =
     useBookTransfer();
   const auth = useAuth();
   const selectBook = useSessionStore((state) => state.selectBook);
   const selectedBook = useSelectedBook();
-  const hasContact = useRouterState({
-    select: (state) => state.location.pathname.startsWith("/contacts/"),
+  const urlBook = useParams({ strict: false, select: (params) => params.book });
+  const leafRoute = useRouterState({
+    select: (state): string | undefined => state.matches.at(-1)?.routeId,
   });
+  const hasContact = leafRoute !== undefined && !LIST_ROUTES.has(leafRoute);
 
   const [query, setQuery] = useState("");
   const sortBy = usePreferences((state) => state.sortBy);
@@ -46,17 +62,37 @@ export function ContactsScreen() {
   const booksQuery = useAddressBooks(auth ?? undefined);
   const books = booksQuery.isPlaceholderData ? undefined : booksQuery.data;
 
-  // No book selected yet → pick the first one once discovery returns.
+  // Once discovery returns, the book the URL names. Where it names none, as
+  // on the settings, or one the server doesn't have, the selected book
+  // stays while the server still has it, else the first one.
   useEffect(() => {
-    if (books && books.length > 0 && selectedBook === null) {
-      const first = books[0];
-      if (first) selectBook(first);
-    }
-  }, [books, selectedBook, selectBook]);
+    if (!books) return;
+    const kept = books.find((book) => book.href === selectedBook?.href);
+    const book = findBook(books, urlBook) ?? kept ?? books[0];
+    if (book && book.href !== selectedBook?.href) selectBook(book);
+  }, [books, selectedBook, selectBook, urlBook]);
 
   const contactsQuery = useContacts(auth ?? undefined, selectedBook ?? undefined);
   const book = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data;
   const contacts = book?.contacts;
+
+  // /contacts, or a book the server doesn't have, opens the selected book in
+  // its place. /contacts/<id>, with no book, opens that contact in the
+  // selected book (ADR 043).
+  useEffect(() => {
+    if (!books || selectedBook === null) return;
+    const named = findBook(books, urlBook) !== undefined;
+    if (leafRoute !== "/_directory/contacts/" && (urlBook === undefined || named)) return;
+    const book = bookParam(selectedBook);
+    const legacy = leafRoute === "/_directory/contacts/$book" ? urlBook : undefined;
+    if (legacy !== undefined && contacts === undefined && !contactsQuery.isError) return;
+    if (legacy !== undefined && contacts && contactById(contacts, legacy)) {
+      void navigate({ to: "/contacts/$book/$id", params: { book, id: legacy }, replace: true });
+    } else {
+      void navigate({ to: "/contacts/$book", params: { book }, replace: true });
+    }
+  }, [books, selectedBook, urlBook, leafRoute, contacts, contactsQuery.isError, navigate]);
+
   // What the list shows while it has no contacts: a failed discovery or load
   // says so, anything else, a retry included, is still on its way.
   const loadError = booksQuery.error ?? contactsQuery.error;
@@ -90,7 +126,12 @@ export function ContactsScreen() {
         <AppHeader
           books={books}
           selectedBook={selectedBook}
-          onSelectBook={selectBook}
+          onSelectBook={(next) => {
+            if (next.href === selectedBook?.href) return;
+            // Outside a book, as on the settings, the page stays.
+            if (urlBook === undefined) selectBook(next);
+            else void navigate({ to: "/contacts/$book", params: { book: bookParam(next) } });
+          }}
           canExport={
             !exporting && contacts !== undefined && contacts.length + (book?.groups.length ?? 0) > 0
           }
@@ -142,7 +183,7 @@ export function ContactsScreen() {
           </ContactDetailPane>
         </main>
       </div>
-      <KeyboardShortcuts canCreate={books !== undefined && books.length > 0} />
+      <KeyboardShortcuts />
       {dropping && (
         // Pointer feedback only: the import dialog that follows is announced.
         <div
@@ -159,14 +200,16 @@ export function ContactsScreen() {
       )}
       {importState && (
         <ImportDialog
-          bookName={selectedBook ? bookName(selectedBook) : ""}
+          bookName={importBook ? bookName(importBook) : ""}
           state={importState}
           onConfirm={(skipSimilar) => void confirmImport(skipSimilar)}
           onCancel={closeImport}
           onClose={() => {
             closeImport();
             // Back on the list with nothing selected, as ADR 020 has it.
-            void navigate({ to: "/contacts" });
+            if (importBook) {
+              void navigate({ to: "/contacts/$book", params: { book: bookParam(importBook) } });
+            }
           }}
         />
       )}

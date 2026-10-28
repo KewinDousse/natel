@@ -23,14 +23,14 @@ test("walks the list with the arrow keys, in the order shown", async ({ page }) 
   await signIn(page);
   // By first name: Ada, Alan, Grace.
   await page.keyboard.press("ArrowDown");
-  await expect(page).toHaveURL(/\/contacts\/ada$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/ada$/);
   await page.keyboard.press("ArrowDown");
-  await expect(page).toHaveURL(/\/contacts\/alan$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/alan$/);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
-  await expect(page).toHaveURL(/\/contacts\/grace$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/grace$/);
   await page.keyboard.press("ArrowUp");
-  await expect(page).toHaveURL(/\/contacts\/alan$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/alan$/);
   await expect(page.getByRole("heading", { level: 1, name: /Turing/ })).toBeVisible();
 });
 
@@ -39,16 +39,16 @@ test("moves on from where a key just went, however fast they come", async ({ pag
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
-  await expect(page).toHaveURL(/\/contacts\/grace$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/grace$/);
 });
 
 test("hands a focused row's focus on to the next one", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: /Lovelace/ }).click();
-  await expect(page).toHaveURL(/\/contacts\/ada$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/ada$/);
   await page.getByRole("link", { name: /Lovelace/ }).focus();
   await page.keyboard.press("ArrowDown");
-  await expect(page).toHaveURL(/\/contacts\/alan$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/alan$/);
   await expect(page.getByRole("link", { name: /Turing/ })).toBeFocused();
 });
 
@@ -57,14 +57,14 @@ test("leaves the arrow keys to the search field", async ({ page }) => {
   await page.keyboard.press("/");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.type("n");
-  await expect(page).toHaveURL(/\/contacts$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts$/);
   await expect(page.getByRole("searchbox")).toHaveValue("n");
 });
 
 test("opens a new contact with N", async ({ page }) => {
   await signIn(page);
   await page.keyboard.press("n");
-  await expect(page).toHaveURL(/\/contacts\/new$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/new$/);
 });
 
 test("saves with Ctrl+Enter from a field", async ({ page }) => {
@@ -91,7 +91,7 @@ test("lists the shortcuts with ?, and gives the focus back on Esc", async ({ pag
 
   // Nothing behind the dialog reacts to its keys.
   await page.keyboard.press("n");
-  await expect(page).toHaveURL(/\/contacts$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts$/);
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
@@ -106,7 +106,7 @@ test("closes the shortcuts with Esc after a click inside them", async ({ page })
   await page.keyboard.press("e");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(page).toHaveURL(/\/contacts$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts$/);
 });
 
 test("asks before an arrow key leaves an unsaved edit", async ({ page }) => {
@@ -122,7 +122,7 @@ test("asks before an arrow key leaves an unsaved edit", async ({ page }) => {
   // Saving is not something to do from behind the dialog.
   await page.keyboard.press("Control+Enter");
   await discard.getByRole("button", { name: "Keep editing" }).click();
-  await expect(page).toHaveURL(/\/contacts\/ada\?edit=true$/);
+  await expect(page).toHaveURL(/\/contacts\/contacts\/ada\?edit=true$/);
   expect(await getCard("ada")).not.toContain("Analytical");
 });
 

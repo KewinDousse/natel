@@ -1,0 +1,4 @@
+{
+  "type": "Added",
+  "text": "The address book is in each page's address, as in /contacts/work/ada, so a reload or a shared link opens the same book, and signing in opens the page that was asked for. The settings move to /settings."
+}

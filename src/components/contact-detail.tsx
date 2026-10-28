@@ -1,6 +1,6 @@
 /**
  * ContactDetailPane — the right-hand detail pane. Holds the router Outlet so
- * /contacts/$id renders inside it; while no contact is selected it shows a
+ * /contacts/$book/$id renders inside it; while no contact is selected it shows a
  * muted empty state. On mobile the pane replaces the list (max-lg:hidden).
  *
  * The pane keeps only scroll/layout chrome: the mobile 56px top bar and the
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { Key } from "./keyboard-shortcuts";
 
 type ContactDetailPaneProps = {
-  /** True when a /contacts/$id route is active. */
+  /** True when a contact, a new contact or the settings are open. */
   hasContact: boolean;
   children: ReactNode;
 };

@@ -86,7 +86,7 @@ describe("new contact", () => {
 
     await user.click(await screen.findByRole("link", { name: "Nouveau contact" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/new"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a/new"));
     const article = await screen.findByRole("article");
     expect(article.getAttribute("data-mode")).toBe("edit");
     const [family, given] = await nameInputs();
@@ -103,7 +103,7 @@ describe("new contact", () => {
       etag: '"e1"',
       vcardText,
     }));
-    const router = renderApp("/contacts/new");
+    const router = renderApp("/contacts/a/new");
     const user = userEvent.setup();
     const [family, given] = await nameInputs();
 
@@ -121,7 +121,7 @@ describe("new contact", () => {
     expect(uid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(href).toBe(`${BOOK.href}${uid}.vcf`);
 
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/${uid}`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/a/${uid}`));
     const article = await screen.findByRole("article");
     expect(article.getAttribute("data-mode")).toBe("view");
     expect(screen.getByRole("heading", { level: 1, name: "Sarah Fortune" })).toBeTruthy();
@@ -129,7 +129,7 @@ describe("new contact", () => {
   });
 
   it("requires a name before anything is sent", async () => {
-    renderApp("/contacts/new");
+    renderApp("/contacts/a/new");
     const user = userEvent.setup();
     await nameInputs();
 
@@ -140,19 +140,19 @@ describe("new contact", () => {
   });
 
   it("goes back to the list on cancel", async () => {
-    const router = renderApp("/contacts/new");
+    const router = renderApp("/contacts/a/new");
     const user = userEvent.setup();
     await nameInputs();
 
     await user.click(screen.getByRole("button", { name: "Annuler" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/contacts/a"));
     expect(mockCreateCard).not.toHaveBeenCalled();
   });
 
   it("reports a 412 as an existing card, not as an edit conflict", async () => {
     mockCreateCard.mockRejectedValue(new DavError("exists", "CONFLICT"));
-    const router = renderApp("/contacts/new");
+    const router = renderApp("/contacts/a/new");
     const user = userEvent.setup();
     const [family] = await nameInputs();
 
@@ -161,6 +161,6 @@ describe("new contact", () => {
 
     expect(await screen.findByText(/Ce contact existe déjà sur le serveur/)).toBeTruthy();
     expect(screen.queryByText("Ce contact a été modifié ailleurs.")).toBeNull();
-    expect(router.state.location.pathname).toBe("/contacts/new");
+    expect(router.state.location.pathname).toBe("/contacts/a/new");
   });
 });

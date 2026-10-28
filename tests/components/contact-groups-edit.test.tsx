@@ -85,7 +85,7 @@ beforeEach(async () => {
 
 async function renderEdit(href: string) {
   const id = contactIdOf(parse(cards[href] ?? "", href, '"e"'));
-  const path = `/contacts/${id}?edit=true`;
+  const path = `/contacts/a/${id}?edit=true`;
   useSessionStore.setState({ auth: AUTH, selectedBook: BOOK });
   const router = createRouter({
     routeTree,
@@ -127,7 +127,7 @@ describe("a contact without UID", () => {
     expect(mocks.createCard.mock.calls[0]?.[2]).toContain(
       `X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:${uid}`,
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/${uid}`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/a/${uid}`));
     expect(screen.queryByText(/introuvable/i)).toBeNull();
   });
 
@@ -140,7 +140,7 @@ describe("a contact without UID", () => {
     await screen.findByText(/ces groupes n’ont pas été mis à jour/);
     expect(screen.getByText(/^Club · erreur réseau/)).toBeTruthy();
     const uid = /UID:([^\r\n]+)/.exec(mocks.updateCard.mock.calls[0]?.[3] as string)?.[1];
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/${uid}`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/a/${uid}`));
     expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
