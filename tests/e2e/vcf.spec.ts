@@ -67,6 +67,44 @@ test("imports new cards, skips known ones and reports failures", async ({ page }
   expect((await listCards()).length).toBe(3);
 });
 
+/** Drag `files` over the page, and drop them unless `drop` is false. */
+async function dragFiles(
+  page: Page,
+  files: { name: string; type: string; text: string }[],
+  drop = true,
+): Promise<void> {
+  const transfer = await page.evaluateHandle((list) => {
+    const data = new DataTransfer();
+    for (const { name, type, text } of list) data.items.add(new File([text], name, { type }));
+    return data;
+  }, files);
+  await page.dispatchEvent("body", "dragenter", { dataTransfer: transfer });
+  await page.dispatchEvent("body", "dragover", { dataTransfer: transfer });
+  if (drop) await page.dispatchEvent("body", "drop", { dataTransfer: transfer });
+}
+
+test("imports a .vcf file dropped on the window", async ({ page }) => {
+  await signIn(page);
+  const text = vcard(["UID:grace", "FN:Grace Hopper", "N:Hopper;Grace;;;"]);
+  await dragFiles(page, [{ name: "grace.vcf", type: "text/vcard", text }], false);
+  await expect(page.getByText(/^Drop to import into “.+”$/)).toBeVisible();
+
+  await dragFiles(page, [{ name: "grace.vcf", type: "text/vcard", text }]);
+  const dialog = page.getByRole("dialog", { name: /Import into/ });
+  await expect(dialog.getByText("Imported: 1")).toBeVisible();
+  await expect(page.getByText(/^Drop to import into/)).toBeHidden();
+  expect(await getCard("grace")).toBe(text);
+});
+
+test("refuses a dropped file that isn't a .vcf, and keeps the page", async ({ page }) => {
+  await signIn(page);
+  await dragFiles(page, [{ name: "notes.txt", type: "text/plain", text: "hello" }]);
+
+  await expect(page.getByText("Drop a single .vcf file to import it.")).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByRole("link", { name: /Lovelace/ })).toBeVisible();
+});
+
 test("says so when the file holds no contact", async ({ page }) => {
   await signIn(page);
   await openBookMenu(page);

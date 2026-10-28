@@ -68,6 +68,9 @@ Sticky offsets use `--header-h`, never hardcoded pixels.
 - Sync warning, only when the contacts shown couldn't be reloaded: an alert button before the settings link, in `text-warning`, its label from `xl`. Its panel says when the last sync worked and offers to retry, or, when the server refused the session, to sign in again. A reload that works closes it and confirms in a toast. Nothing shows while sync works; a book that never loaded shows the list's failed state instead.
 - New contact: a round ink "+" link, a labelled pill from `lg`, once the server has an address book.
 
+### Dropping a .vcf file
+Once the selected book's cards are loaded, a single `.vcf` file dropped anywhere in the window imports it into that book, as the book menu's import does. While files are dragged over the window, the whole screen is veiled behind a dashed frame with the upload icon and "Drop to import into “<book>”" in the display face; it is hidden from screen readers, which reach the import through the book menu. Another file, or several, gets a toast asking for one `.vcf` file. During an import or behind a dialog, a dropped file is refused before the drop. The browser never opens a dropped file in place of the app.
+
 ### Group (letter section)
 A two-column grid: the letter, sticky under the header, then the section's rows. The letter sits centred on its section's first row, never above it.
 

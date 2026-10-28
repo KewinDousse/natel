@@ -8,8 +8,10 @@ import { ContactList, type ListLoad } from "@/components/contact-list";
 import { ImportDialog } from "@/components/import-dialog";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import type { SyncState } from "@/components/sync-warning";
+import { UploadIcon } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
 import { useBookTransfer } from "@/hooks/use-book-transfer";
+import { useVcfDrop } from "@/hooks/use-vcf-drop";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { bookName } from "@/lib/vcf-file";
@@ -69,6 +71,13 @@ export function ContactsScreen() {
       : contactsQuery.isFetching || contactsQuery.fetchStatus === "paused"
         ? "retrying"
         : "failed";
+  // Like the book menu's import, only once the book's cards are known, and
+  // not over an import already running.
+  const dropping = useVcfDrop(
+    contacts !== undefined && importState === null ? importFile : undefined,
+    () => showToast(t("import_drop_refused")),
+  );
+
   const listLoad: ListLoad =
     loadError === null || retrying
       ? { kind: "loading" }
@@ -133,6 +142,20 @@ export function ContactsScreen() {
         </main>
       </div>
       <KeyboardShortcuts canCreate={books !== undefined && books.length > 0} />
+      {dropping && (
+        // Pointer feedback only: the import dialog that follows is announced.
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-6"
+        >
+          <div className="flex max-w-md flex-col items-center gap-4 rounded-lg border-2 border-dashed border-foreground px-8 py-10 text-center">
+            <UploadIcon className="size-8" />
+            <p className="font-display text-title-sm font-bold text-balance">
+              {t("import_drop", { name: selectedBook ? bookName(selectedBook) : "" })}
+            </p>
+          </div>
+        </div>
+      )}
       {importState && (
         <ImportDialog
           bookName={selectedBook ? bookName(selectedBook) : ""}

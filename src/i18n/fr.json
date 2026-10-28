@@ -201,6 +201,8 @@
   "import_empty": "Ce fichier ne contient aucun contact.",
   "import_unreadable_file": "Ce fichier est illisible.",
   "import_failed_generic": "Échec de l’import. Réessayez dans un instant.",
+  "import_drop": "Déposez pour importer dans «\u00a0{name}\u00a0»",
+  "import_drop_refused": "Déposez un seul fichier .vcf pour l’importer.",
   "export_incomplete": "Échec de l’export\u00a0: des cartes n’ont pas pu être récupérées ({n}). Rien n’a été enregistré.",
   "export_failed": "Échec de l’export. Réessayez dans un instant.",
   "move_contact": "Déplacer vers un autre carnet",

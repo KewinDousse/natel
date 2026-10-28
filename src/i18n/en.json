@@ -201,6 +201,8 @@
   "import_empty": "This file contains no contact.",
   "import_unreadable_file": "This file can’t be read.",
   "import_failed_generic": "Import failed. Try again in a moment.",
+  "import_drop": "Drop to import into “{name}”",
+  "import_drop_refused": "Drop a single .vcf file to import it.",
   "export_incomplete": "Export failed: some cards couldn’t be fetched ({n}). Nothing was saved.",
   "export_failed": "Export failed. Try again in a moment.",
   "move_contact": "Move to another address book",
