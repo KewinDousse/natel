@@ -68,6 +68,11 @@ export function namePartsOf(contact: Contact): NameParts {
   return { family: contact.fields.fn, given: "", display: contact.fields.fn };
 }
 
+/** A contact's page name: its own (FN), else built from its parts, else its organisation; "" for none. */
+export function pageNameOf(contact: Contact): string {
+  return contact.fields.fn.trim() || namePartsOf(contact).display || orgOf(contact);
+}
+
 /**
  * Whether a card has neither a name nor an organisation: the list and the
  * contact page then show "Contact sans nom", muted and in italics.

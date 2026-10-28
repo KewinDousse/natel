@@ -31,6 +31,9 @@ export {
   EmptyImportError,
   type ImportFailure,
   type ImportFailureReason,
+  type ImportPlan,
   type ImportResult,
-  importVcf,
+  type PlannedCard,
+  planImport,
+  runImport,
 } from "./vcfImport";

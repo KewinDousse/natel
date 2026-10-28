@@ -2,22 +2,31 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useI18n } from "@/i18n/react";
+import { pageNameOf } from "@/lib/contact-list";
+import { similarContactFinder } from "@/lib/import-similar";
 import { downloadText, exportFileName } from "@/lib/vcf-file";
 import {
   EmptyImportError,
   exportVcf,
+  type ImportPlan,
   type ImportResult,
   IncompleteExportError,
-  importVcf,
   type LoadFullBookResult,
+  type PlannedCard,
+  planImport,
+  runImport,
 } from "@/queries";
 import { contactsKey } from "@/queries/keys";
 import { useAuth, useSelectedBook } from "@/store/session";
 import { isGroupCard } from "@/vcard";
 
+/** A card to create that looks like `match`, a contact the book has. */
+export type SimilarCard = { card: PlannedCard; match: string };
+
 export type ImportState =
+  | { phase: "preview"; plan: ImportPlan; similar: SimilarCard[] }
   | { phase: "running"; done: number; total: number }
-  | { phase: "done"; result: ImportResult }
+  | { phase: "done"; result: ImportResult; skipped: number }
   | { phase: "error"; message: string };
 
 export function useBookTransfer() {
@@ -48,13 +57,10 @@ export function useBookTransfer() {
     }
   }
 
+  /** Reads the file and shows what the import would do (ADR 042). */
   async function importFile(file: File) {
     if (!auth || !selectedBook) return;
-    const key = contactsKey(auth, selectedBook);
     setImportState({ phase: "running", done: 0, total: 0 });
-    // A refetch landing mid-import would replace the list and drop the cards
-    // added to it so far.
-    await queryClient.cancelQueries({ queryKey: key });
     let text: string;
     try {
       text = await file.text();
@@ -62,45 +68,79 @@ export function useBookTransfer() {
       setImportState({ phase: "error", message: t("import_unreadable_file") });
       return;
     }
-    const cached = queryClient.getQueryData<LoadFullBookResult>(key);
+    const cached = queryClient.getQueryData<LoadFullBookResult>(contactsKey(auth, selectedBook));
     // Group cards are cards of the book too: importing one it has skips it.
     const loaded = [...(cached?.contacts ?? []), ...(cached?.groups ?? [])];
-    const bookKey = key.join("\n");
-    const created = imported.current.get(bookKey) ?? new Set<string>();
-    imported.current.set(bookKey, created);
+    let plan: ImportPlan;
     try {
-      const result = await importVcf(
-        auth,
-        selectedBook.href,
+      plan = planImport(
         text,
-        new Set([...loaded.map((contact) => contact.uid), ...created]),
-        {
-          onProgress: (done, total) => setImportState({ phase: "running", done, total }),
-          onCreated: (uid, contact) => {
-            if (!contact) created.add(uid);
-            else
-              queryClient.setQueryData<LoadFullBookResult>(
-                key,
-                (old) =>
-                  old &&
-                  (isGroupCard(contact)
-                    ? { ...old, groups: [...old.groups, contact] }
-                    : { ...old, contacts: [...old.contacts, contact] }),
-              );
-          },
-        },
+        new Set([...loaded.map((contact) => contact.uid), ...createdIn(bookKeyOf(selectedBook))]),
       );
-      setImportState({ phase: "done", result });
-      // A refetch that started during the import may have missed some cards.
-      void queryClient.invalidateQueries({ queryKey: key });
     } catch (err) {
       setImportState({
         phase: "error",
         message: err instanceof EmptyImportError ? t("import_empty") : t("import_failed_generic"),
       });
+      return;
     }
+    const similarTo = similarContactFinder(cached?.contacts ?? []);
+    const similar = plan.create.flatMap((card) => {
+      const match = card.contact && similarTo(card.contact);
+      if (!match) return [];
+      return [{ card, match: pageNameOf(match) || t("contact_unnamed") }];
+    });
+    setImportState({ phase: "preview", plan, similar });
+  }
+
+  /** Sends the previewed plan's cards, without the similar ones when `skipSimilar`. */
+  async function confirmImport(skipSimilar: boolean) {
+    if (!auth || !selectedBook || importState?.phase !== "preview") return;
+    const { plan, similar } = importState;
+    const skipped = new Set(skipSimilar ? similar.map(({ card }) => card.position) : []);
+    const cards = plan.create.filter((card) => !skipped.has(card.position));
+    const key = contactsKey(auth, selectedBook);
+    setImportState({ phase: "running", done: 0, total: cards.length });
+    // A refetch landing mid-import would replace the list and drop the cards
+    // added to it so far.
+    await queryClient.cancelQueries({ queryKey: key });
+    const created = createdIn(bookKeyOf(selectedBook));
+    let result: ImportResult;
+    try {
+      result = await runImport(auth, selectedBook.href, plan, cards, {
+        onProgress: (done, total) => setImportState({ phase: "running", done, total }),
+        onCreated: (uid, contact) => {
+          if (!contact) created.add(uid);
+          else
+            queryClient.setQueryData<LoadFullBookResult>(
+              key,
+              (old) =>
+                old &&
+                (isGroupCard(contact)
+                  ? { ...old, groups: [...old.groups, contact] }
+                  : { ...old, contacts: [...old.contacts, contact] }),
+            );
+        },
+      });
+    } catch {
+      setImportState({ phase: "error", message: t("import_failed_generic") });
+      return;
+    }
+    setImportState({ phase: "done", result, skipped: skipped.size });
+    // A refetch that started during the import may have missed some cards.
+    void queryClient.invalidateQueries({ queryKey: key });
+  }
+
+  function bookKeyOf(book: { href: string }): string {
+    return auth ? contactsKey(auth, book).join("\n") : "";
+  }
+
+  function createdIn(bookKey: string): Set<string> {
+    const created = imported.current.get(bookKey) ?? new Set<string>();
+    imported.current.set(bookKey, created);
+    return created;
   }
 
   const closeImport = () => setImportState(null);
-  return { importState, exporting, exportBook, importFile, closeImport };
+  return { importState, exporting, exportBook, importFile, confirmImport, closeImport };
 }

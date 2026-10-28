@@ -57,6 +57,10 @@ test("keeps an imported group card out of the list", async ({ page }) => {
     mimeType: "text/vcard",
     buffer: Buffer.from(club),
   });
+  await page
+    .getByRole("dialog", { name: /Import into/ })
+    .getByRole("button", { name: /^Import \d+ contacts?$/ })
+    .click();
   const dialog = page.getByRole("dialog", { name: /Import into/ });
   await expect(dialog.getByText("Imported: 1")).toBeVisible();
   await dialog.getByRole("button", { name: "Close" }).click();

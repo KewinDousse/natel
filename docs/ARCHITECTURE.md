@@ -203,7 +203,9 @@ Baïkal and DAVx⁵ speak (ADR 008).
 `hooks/use-book-transfer.ts` owns import/export progress, file reading and
 notifications. `hooks/use-vcf-drop.ts` hands a file dropped on the window to
 its import. `queries/vcfImport.ts` and `queries/vcfExport.ts` perform the
-CardDAV operations without React. The hook remembers imported cards the
+CardDAV operations without React. An import is planned from the file before
+it runs, and `lib/import-similar.ts` finds the planned cards that look like a
+contact of the book (ADR 042). The hook remembers imported cards the
 list cannot parse, so repeated imports still recognise their UIDs.
 
 ## Moving contacts

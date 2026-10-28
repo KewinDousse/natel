@@ -52,6 +52,10 @@ test("imports new cards, skips known ones and reports failures", async ({ page }
     mimeType: "text/vcard",
     buffer: Buffer.from(file),
   });
+  await page
+    .getByRole("dialog", { name: /Import into/ })
+    .getByRole("button", { name: /^Import \d+ contacts?$/ })
+    .click();
 
   const dialog = page.getByRole("dialog", { name: /Import into/ });
   await expect(dialog.getByText("Imported: 2")).toBeVisible();
@@ -91,6 +95,9 @@ test("imports a .vcf file dropped on the window", async ({ page }) => {
 
   await dragFiles(page, [{ name: "grace.vcf", type: "text/vcard", text }]);
   const dialog = page.getByRole("dialog", { name: /Import into/ });
+  await expect(dialog.getByText("To import: 1")).toBeVisible();
+  expect(await getCard("grace")).toBeNull();
+  await dialog.getByRole("button", { name: "Import 1 contact" }).click();
   await expect(dialog.getByText("Imported: 1")).toBeVisible();
   await expect(page.getByText(/^Drop to import into/)).toBeHidden();
   expect(await getCard("grace")).toBe(text);
@@ -103,6 +110,49 @@ test("refuses a dropped file that isn't a .vcf, and keeps the page", async ({ pa
   await expect(page.getByText("Drop a single .vcf file to import it.")).toBeVisible();
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(page.getByRole("link", { name: /Lovelace/ })).toBeVisible();
+});
+
+test("shows look-alikes before importing, and can leave them out", async ({ page }) => {
+  await signIn(page);
+  await openBookMenu(page);
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: "Import a .vcf file…" }).click();
+  await (await chooser).setFiles({
+    name: "phone.vcf",
+    mimeType: "text/vcard",
+    buffer: Buffer.from(
+      vcard(["UID:ada-phone", "FN:Ada Lovelace", "N:Lovelace;Ada;;;"]) +
+        vcard(["UID:grace", "FN:Grace Hopper", "N:Hopper;Grace;;;"]),
+    ),
+  });
+
+  const dialog = page.getByRole("dialog", { name: /Import into/ });
+  await expect(dialog.getByText("To import: 2")).toBeVisible();
+  await expect(dialog.getByText("like “Ada Lovelace”", { exact: false })).toBeVisible();
+  expect(await listCards()).toHaveLength(1);
+  await dialog.getByRole("checkbox", { name: "Don’t import this contact" }).check();
+  await dialog.getByRole("button", { name: "Import 1 contact" }).click();
+
+  await expect(dialog.getByText("Imported: 1")).toBeVisible();
+  await expect(dialog.getByText("Left out as look-alikes: 1")).toBeVisible();
+  expect(await getCard("ada-phone")).toBeNull();
+  expect(await getCard("grace")).not.toBeNull();
+});
+
+test("imports nothing when the preview is cancelled", async ({ page }) => {
+  await signIn(page);
+  await openBookMenu(page);
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: "Import a .vcf file…" }).click();
+  await (await chooser).setFiles({
+    name: "grace.vcf",
+    mimeType: "text/vcard",
+    buffer: Buffer.from(vcard(["UID:grace", "FN:Grace Hopper", "N:Hopper;Grace;;;"])),
+  });
+  const dialog = page.getByRole("dialog", { name: /Import into/ });
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  expect(await listCards()).toHaveLength(1);
 });
 
 test("says so when the file holds no contact", async ({ page }) => {
@@ -140,6 +190,10 @@ test("round-trips a book through export and import", async ({ page }) => {
     mimeType: "text/vcard",
     buffer: Buffer.from(exported),
   });
+  await page
+    .getByRole("dialog", { name: /Import into/ })
+    .getByRole("button", { name: /^Import \d+ contacts?$/ })
+    .click();
   await expect(page.getByRole("dialog").getByText("Imported: 2")).toBeVisible();
   expect((await listCards()).sort()).toEqual(before);
 });
@@ -170,6 +224,10 @@ test("imports a card again after it was deleted", async ({ page }) => {
       mimeType: "text/vcard",
       buffer: Buffer.from(grace),
     });
+    await page
+      .getByRole("dialog", { name: /Import into/ })
+      .getByRole("button", { name: /^Import \d+ contacts?$/ })
+      .click();
     const dialog = page.getByRole("dialog", { name: /Import into/ });
     await expect(dialog.getByText("Imported: 1")).toBeVisible();
     await dialog.getByRole("button", { name: "Close" }).click();

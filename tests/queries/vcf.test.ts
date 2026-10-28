@@ -4,7 +4,13 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DavError } from "@/dav/types";
-import { EmptyImportError, exportVcf, IncompleteExportError, importVcf } from "@/queries";
+import {
+  EmptyImportError,
+  exportVcf,
+  IncompleteExportError,
+  planImport,
+  runImport,
+} from "@/queries";
 
 const { mockCreateCard, mockListContacts, mockFetchCards } = vi.hoisted(() => ({
   mockCreateCard: vi.fn(),
@@ -29,10 +35,13 @@ function card(lines: string[]): string {
 function run(file: string, bookUids: string[] = []) {
   const created: string[] = [];
   const progress: [number, number][] = [];
-  const done = importVcf(AUTH, BOOK, file, new Set(bookUids), {
-    onProgress: (d, t) => progress.push([d, t]),
-    onCreated: (uid) => created.push(uid),
-  });
+  const done = (async () => {
+    const plan = planImport(file, new Set(bookUids));
+    return runImport(AUTH, BOOK, plan, plan.create, {
+      onProgress: (d, t) => progress.push([d, t]),
+      onCreated: (uid) => created.push(uid),
+    });
+  })();
   return { done, created, progress };
 }
 
@@ -45,7 +54,7 @@ beforeEach(() => {
   }));
 });
 
-describe("importVcf", () => {
+describe("planImport and runImport", () => {
   it("creates each card from its original text at <uid>.vcf", async () => {
     const ada = card(["UID:ada", "FN:Ada", "X-KEEP:yes"]);
     const { done, created, progress } = run(ada);
@@ -137,6 +146,43 @@ describe("importVcf", () => {
 
   it("rejects a file with no card", async () => {
     await expect(run("hello").done).rejects.toBeInstanceOf(EmptyImportError);
+  });
+
+  it("plans without any request, and parses the cards to create", () => {
+    const plan = planImport(
+      card(["UID:ada", "FN:Ada"]) + card(["UID:bob", "FN:Bob", "EMAIL:bob@example.org"]),
+      new Set(["ada"]),
+    );
+    expect(plan.existing).toBe(1);
+    expect(plan.failed).toEqual([]);
+    expect(plan.create.map(({ uid, name, position }) => ({ uid, name, position }))).toEqual([
+      { uid: "bob", name: "Bob", position: 2 },
+    ]);
+    expect(plan.create[0]?.contact?.fields.email[0]?.value).toBe("bob@example.org");
+    expect(mockCreateCard).not.toHaveBeenCalled();
+  });
+
+  it("sends only the cards it is given, and counts progress over them", async () => {
+    const plan = planImport(
+      card(["UID:ada", "FN:Ada"]) + card(["UID:bob", "FN:Bob"]) + card(["UID: ", "FN:Blank"]),
+      new Set(),
+    );
+    const progress: [number, number][] = [];
+    const result = await runImport(AUTH, BOOK, plan, plan.create.slice(1), {
+      onProgress: (d, t) => progress.push([d, t]),
+      onCreated: () => {},
+    });
+    expect(result).toEqual({
+      imported: 1,
+      existing: 0,
+      failed: [{ name: "Blank", position: 3, reason: "unreadable" }],
+    });
+    expect(mockCreateCard).toHaveBeenCalledOnce();
+    expect(mockCreateCard).toHaveBeenCalledWith(AUTH, `${BOOK}bob.vcf`, expect.any(String));
+    expect(progress).toEqual([
+      [0, 1],
+      [1, 1],
+    ]);
   });
 });
 

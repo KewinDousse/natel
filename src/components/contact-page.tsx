@@ -26,7 +26,7 @@ import {
   validateDraft,
 } from "@/lib/contact-edit";
 import { bookGroupNames, contactGroupNames } from "@/lib/contact-groups";
-import { contactById, contactIdOf, namePartsOf } from "@/lib/contact-list";
+import { contactById, contactIdOf, pageNameOf } from "@/lib/contact-list";
 import { draftReducer } from "@/lib/draft-reducer";
 import { isDesktop } from "@/lib/shortcuts";
 import { bookName } from "@/lib/vcf-file";
@@ -51,7 +51,6 @@ import {
   ensureUid,
   groupsOf,
   newContact,
-  orgOf,
   parse,
   photoOf,
   removeCategory,
@@ -206,12 +205,7 @@ function ContactFiche({
   const refetchCard = useRefetchCard(auth);
   const queryClient = useQueryClient();
 
-  // The page's name: the card's own (FN), else built from its parts.
-  const parts = useMemo(() => namePartsOf(contact), [contact]);
-  const org = useMemo(() => orgOf(contact), [contact]);
-  const pageName = isNew
-    ? t("new_contact")
-    : contact.fields.fn.trim() || parts.display || org || t("contact_unnamed");
+  const pageName = isNew ? t("new_contact") : pageNameOf(contact) || t("contact_unnamed");
   const groups = useMemo(() => contactGroupNames(contact, groupCards), [contact, groupCards]);
 
   useEffect(() => {

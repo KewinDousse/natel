@@ -68,11 +68,15 @@ selected book as a `.vcf` file. Exports can contain personal data; store them
 somewhere private. Natel reports an incomplete fetch rather than producing
 an incomplete export.
 
-**Import a .vcf file…** imports into the selected book. Cards with a UID
-already in that book are skipped, not merged or replaced. The result shows
-imported, skipped and failed cards. An import with failures is not rolled
-back; check the result before importing again. This is not duplicate
-detection by name, email or phone number.
+**Import a .vcf file…**, or a `.vcf` file dropped anywhere on the window,
+imports into the selected book. Nothing is sent before a preview shows the
+cards to import, those already in the book and those that can't be
+imported. Cards with a UID already in that book are skipped, not merged or
+replaced. Cards that look like a contact of the book, by name, email or
+phone number, are listed with that contact, and a box leaves them out of
+the import; nothing is merged. The result shows imported, skipped and
+failed cards. An import with failures is not rolled back; check the result
+before importing again.
 
 ## Concurrent edits
 

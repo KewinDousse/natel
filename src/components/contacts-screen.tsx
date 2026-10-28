@@ -23,7 +23,8 @@ export function ContactsScreen() {
   const { t } = useI18n();
   const showToast = useToast();
   const navigate = useNavigate();
-  const { importState, exporting, exportBook, importFile, closeImport } = useBookTransfer();
+  const { importState, exporting, exportBook, importFile, confirmImport, closeImport } =
+    useBookTransfer();
   const auth = useAuth();
   const selectBook = useSessionStore((state) => state.selectBook);
   const selectedBook = useSelectedBook();
@@ -160,6 +161,8 @@ export function ContactsScreen() {
         <ImportDialog
           bookName={selectedBook ? bookName(selectedBook) : ""}
           state={importState}
+          onConfirm={(skipSimilar) => void confirmImport(skipSimilar)}
+          onCancel={closeImport}
           onClose={() => {
             closeImport();
             // Back on the list with nothing selected, as ADR 020 has it.

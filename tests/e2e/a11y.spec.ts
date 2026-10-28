@@ -208,6 +208,12 @@ for (const colorScheme of ["light", "dark"] as const) {
           vcard(["UID:alan", "FN:Alan Turing", "N:Turing;Alan;;;"]) + vcard(["N:;;;;"]),
         ),
       });
+      await expect(page.getByRole("dialog").getByText(/^To import:/)).toBeVisible();
+      await expectNoViolations(page, "import preview");
+      await page
+        .getByRole("dialog", { name: /Import into/ })
+        .getByRole("button", { name: /^Import \d+ contacts?$/ })
+        .click();
       // Once finished; the counts depend on how each server takes the nameless card.
       const dialog = page.getByRole("dialog", { name: /Import into/ });
       await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();

@@ -291,6 +291,8 @@ merging, planned later.
 file isn't updated. A card added elsewhere since the book loaded shows as
 failed (a 412), and a reload settles it.
 
+ADR 042 amends this entry: the import starts once its preview is confirmed.
+
 ## 021 — Moving a contact: copy, then delete; a refused delete undoes the copy
 
 **Context.** CardDAV has no move between books that servers agree on, so a
@@ -768,3 +770,35 @@ one.
 assembles and publishes them after approval. A candidate waits at most
 seven days for approval. Pushing `main` and creating the tag aren't atomic,
 but a failed run resumes while `main` still matches.
+
+## 042 — Preview an import, and flag the cards that look like the book's
+
+**Context.** Importing a file from another client often brings people the
+book already has under another UID, which ADR 020's UID check doesn't see,
+and the user only finds the doubles once they are in the book.
+
+**Decision.**
+- Choosing or dropping a file reads it and shows what the import will do
+  before any request: the cards to create, those the book has (ADR 020) and
+  those that can't be imported. The user confirms or cancels.
+- A card to create looks like a contact of the book when it shares its
+  name (ignoring case, accents and extra spaces), an e-mail address (ignoring
+  case) or a phone number (Swiss numbers read nationally or
+  internationally). The preview lists them with the contact they look like,
+  and a box leaves them out of the import. Unticked by default, the import
+  behaves as before.
+- Nothing is merged or overwritten: a look-alike is either created as it
+  is in the file, or not at all.
+
+This amends ADR 020, whose import started on choosing the file.
+
+**Rejected.** Matching on the name alone: a shared address or number
+catches a contact renamed in the other client. Leaving look-alikes out by
+default: two people can share a name, and a silent skip loses a card.
+
+**Consequences.** An import takes one more click. Detection runs on the
+cards the list has loaded, so a card it can't parse is never flagged. Two
+cards of the same file that look alike aren't flagged; duplicate merging
+stays out of scope. A foreign number written without its country
+code reads as Swiss, and may flag an unrelated contact: the box is
+unticked by default for such misses.
