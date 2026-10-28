@@ -72,6 +72,11 @@ function demoStaticHost(): Plugin {
       return [
         {
           tag: "meta",
+          attrs: { name: "robots", content: "noindex, follow" },
+          injectTo: "head",
+        },
+        {
+          tag: "meta",
           attrs: { "http-equiv": "Content-Security-Policy", content: policy },
           injectTo: "head-prepend",
         },

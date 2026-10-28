@@ -10,6 +10,16 @@ async function signIn(page: Page): Promise<void> {
   await expect(page.getByRole("link", { name: /Luxanna Crownguard/ })).toBeVisible();
 }
 
+test("keeps the demo out of search results before JavaScript runs", async ({ request }) => {
+  for (const path of ["./", "./contacts.html", "./404.html"]) {
+    const response = await request.get(path);
+    expect(response.ok()).toBe(true);
+    expect(await response.text()).toMatch(
+      /<meta\s+name="robots"\s+content="noindex, follow"\s*\/?\s*>/,
+    );
+  }
+});
+
 test("signs in with any credentials, and says on every screen that it is a demo", async ({
   page,
 }) => {
