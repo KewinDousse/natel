@@ -383,7 +383,7 @@ several times larger.
 a card of a few hundred KB that servers and clients accept. A re-encoded
 photo loses its metadata, its HDR gain map and all but the first frame of an
 animation. Apple photos show uncropped. Checked on Android through DAVx⁵ and
-Google Contacts; Apple devices are not checked yet.
+Google Contacts, and in iPhone Contacts (`compatibility.md`).
 
 ## 024 — The escaped semicolon in text values is read as a semicolon
 

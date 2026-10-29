@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Documentation only: moves device check records to docs/device-checks/ and adds the 2026-10-29 iPhone and Android checks, with no change to Natel itself."
+}

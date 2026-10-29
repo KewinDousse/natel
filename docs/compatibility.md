@@ -1,5 +1,49 @@
 # Compatibility
 
+The summary comes first; each section below gives the claims behind it, with
+their evidence.
+
+## At a glance
+
+✅ checked · ✅¹ checked, see the note below the table · ◐ partly checked ·
+⬜ not checked · – not applicable
+
+**Servers**
+
+| Server                               | Status | Limit                               |
+| ------------------------------------ | :----: | ----------------------------------- |
+| Baïkal                               |   ✅   | Discovery to configure under a path |
+| Radicale                             |   ✅   | Not every version or configuration  |
+| Xandikos                             |   ◐    | Tested without authentication       |
+| Nextcloud and other RFC 6352 servers |   ⬜   |                                     |
+
+**Synced clients**
+
+| Feature                      | Android (DAVx⁵) | iPhone | Mac |
+| ---------------------------- | :-------------: | :----: | :-: |
+| Photos                       |       ✅        |  ✅¹   | ⬜  |
+| Photo from Safari, cropped   |        –        |   ✅   | ⬜  |
+| Birthday without a year      |       ⬜        |   ✅   | ⬜  |
+| Custom address label         |       ✅        |   ✅   | ⬜  |
+| Notes                        |       ⬜        |   ✅   | ⬜  |
+| Groups                       |      ✅²        |   ✅   | ⬜  |
+| Deletion and conflicts       |       ⬜        |   ✅   | ⬜  |
+| `.vcf` import from Safari    |        –        |   ⬜   | ⬜  |
+
+¹ iPhone photos: in both checks, the cards iOS wrote back held a JPEG, and
+an animated GIF showed still.
+
+² Android groups: DAVx⁵ in categories mode doesn't show Natel's groups.
+
+**Browsers**
+
+| Browser               | Status | Limit                                       |
+| --------------------- | :----: | ------------------------------------------- |
+| Chromium              |   ✅   |                                             |
+| Safari on iPhone      |   ✅   |                                             |
+| WebKit (Playwright)   |   ◐    | Sign-in, list, editing and photos only      |
+| Firefox               |   ◐    | Sign-in only                                |
+
 ## CardDAV servers
 
 | Server                               | Evidence                                                               | Limits                                                                                                                                |
@@ -17,35 +61,52 @@ how to configure Baïkal's discovery.
 
 ## Synced clients
 
-The manual Android checks use Google Contacts and DAVx⁵. Public fixtures
-include cards exported by iCloud and written by DAVx⁵. They exercise photos,
-custom labels, birthdays without a year and properties Natel does not edit.
-Native Mac photo checks, including WebP, remain to be completed:
-iCloud export/import does not validate those applications.
+Each claim below names the [device check](device-checks/) that supports
+it. Public fixtures include cards exported by iCloud and written by DAVx⁵.
+They exercise photos, custom labels, birthdays without a year and
+properties Natel does not edit.
 
-### iPhone SE with iOS 26.6.1
+### Android: DAVx⁵ and Google Contacts
 
-A manual check on 2026-10-23 used Natel 0.3.1 with Radicale 3.8.3. Native
-Contacts displayed the JPEG, PNG and WebP test photos. Notes synced in both
-directions; group membership, deletion, conflict handling and installation
-from Safari were checked. Choosing a photo from the photo library, cropping
-it in Safari and reading it back in Contacts worked. Importing a `.vcf`
-through Safari's file picker was not tested.
+- Photos set in Natel display (ADR 023).
+- A custom address label round-trips: Natel's shows in Google Contacts,
+  and a rename there shows in Natel
+  ([2026-10-29](device-checks/2026-10-29-android.md)).
 
-Taking a new photo directly from Safari returned to the form without a crop
-dialog or preview. The photo-file handling changes need another check on a
-physical iPhone; automated WebKit tests do not validate that native picker.
-The [short iPhone recheck](ios-device-recheck.md) covers that path and the
-birthday after the changes.
+### iPhone: Contacts and Safari
 
-The iOS-written card also omitted `X-APPLE-OMIT-YEAR` from a birthday whose
-stored year was 1604. The exports isolate that omission before the next
-Natel save. Natel recognizes this unmarked 1604 only on complete dates
-in iOS-produced vCard 3.0 cards (ADR 039); unrelated edits leave the stored
-birthday alone. The isolated note edit in Natel retained the other fields and
-the Apple photo's bytes. Later iOS-written cards held JPEGs in place of
-their PNG and WebP photos, so the check does not establish that their bytes
-survive every client write.
+Checked on an iPhone SE with iOS 26.6.1.
+
+- JPEG, PNG and WebP photos display
+  ([2026-10-23](device-checks/2026-10-23-iphone.md)), and so do GIF and
+  EXIF-oriented portrait JPEG photos, upright
+  ([2026-10-29](device-checks/2026-10-29-iphone.md)). The cards iOS wrote
+  back held a JPEG in place of the PNG and WebP photos (2026-10-23) and of
+  the GIF, an animated one showing still in Contacts (2026-10-29).
+- In Safari, a photo from the library opened the crop dialog with Natel
+  0.3.1 ([2026-10-23](device-checks/2026-10-23-iphone.md)), and so does one
+  taken with the camera from Natel 0.4.1
+  ([2026-10-29](device-checks/2026-10-29-iphone.md)). Automated WebKit
+  tests do not cover that native picker.
+- iOS writes a birthday without a year as 1604 without
+  `X-APPLE-OMIT-YEAR`. Natel reads that 1604 as no year only on complete
+  dates in iOS-produced vCard 3.0 cards, and unrelated edits leave the
+  stored birthday alone (ADR 039). An edit in Natel then in Contacts kept
+  it yearless ([2026-10-29](device-checks/2026-10-29-iphone.md)).
+- A custom address label round-trips between Natel and Contacts
+  ([2026-10-29](device-checks/2026-10-29-iphone.md)).
+- Notes sync in both directions, and a note edited alone in Natel kept the
+  other fields and the Apple photo's bytes. Group membership, deletion,
+  conflict handling and installation from Safari were checked
+  ([2026-10-23](device-checks/2026-10-23-iphone.md)).
+
+Not checked: importing a `.vcf` through Safari's file picker, other iOS
+versions, and iCloud as the server.
+
+### Mac
+
+Native Mac photo checks, including WebP, remain to be completed: iCloud
+export/import does not validate those applications.
 
 ## Groups
 
