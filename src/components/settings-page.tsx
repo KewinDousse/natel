@@ -14,8 +14,9 @@ import type { SortBy } from "@/lib/contact-list";
 import { IS_DEMO } from "@/lib/demo";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
-import { usePreferences } from "@/store/preferences";
+import { type LabelPosition, usePreferences } from "@/store/preferences";
 import { useAuth, useBookParam } from "@/store/session";
+import { ReadingRow, ReadingSection } from "./contact-reading-fields";
 import { openShortcuts } from "./keyboard-shortcuts";
 import { LanguageSelect } from "./language-select";
 import { MobileTopBar } from "./mobile-top-bar";
@@ -33,7 +34,8 @@ export function SettingsPage() {
   const book = useBookParam();
   const signOut = useSignOut();
   const auth = useAuth();
-  const { sortBy, setSortBy, theme, setTheme, mapApp, setMapApp } = usePreferences();
+  const { sortBy, setSortBy, theme, setTheme, mapApp, setMapApp, labelPosition, setLabelPosition } =
+    usePreferences();
 
   useEffect(() => {
     document.title = t("settings_doc_title");
@@ -93,6 +95,37 @@ export function SettingsPage() {
               <option value="dark">{t("theme_dark")}</option>
             </select>
           </Field>
+        </SettingsSection>
+        <SettingsSection title={t("settings_contacts")}>
+          <Field id="setting-label-position" label={t("label_position")}>
+            <select
+              id="setting-label-position"
+              aria-describedby="label-position-hint"
+              value={labelPosition}
+              onChange={(event) => setLabelPosition(event.target.value as LabelPosition)}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value="auto">{t("label_position_auto")}</option>
+              <option value="left">{t("label_position_left")}</option>
+              <option value="above">{t("label_position_above")}</option>
+            </select>
+            <p id="label-position-hint" className="text-sm text-muted-foreground">
+              {t("label_position_hint")}
+            </p>
+          </Field>
+          <figure
+            aria-label={t("label_position_preview")}
+            className="rounded-lg border bg-background p-4"
+          >
+            <figcaption className="mb-3 text-sm text-muted-foreground">
+              {t("label_position_preview")}
+            </figcaption>
+            <ReadingSection title={t("s_phones_1")} heading="h3">
+              <ReadingRow label={t("t_cell")}>
+                <span className="tabular font-bold">079 000 00 01</span>
+              </ReadingRow>
+            </ReadingSection>
+          </figure>
           <Field id="setting-sort" label={t("sort_label")}>
             <select
               id="setting-sort"
@@ -184,14 +217,14 @@ function SettingsSection({
   return (
     <section className={className}>
       <h2 className="mt-10 mb-4 border-t pt-4 text-sm font-bold text-muted-foreground">{title}</h2>
-      <div className="max-w-sm space-y-5">{children}</div>
+      <div className="space-y-5">{children}</div>
     </section>
   );
 }
 
 function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)] sm:items-center sm:gap-x-6 sm:space-y-0 [&>p]:sm:col-start-2">
       <label htmlFor={id} className="block text-sm font-bold">
         {label}
       </label>

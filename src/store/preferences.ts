@@ -12,7 +12,12 @@ import { chooseTheme, storedTheme, type Theme } from "@/lib/theme";
 
 const SORTS = ["family", "given"] as const satisfies readonly SortBy[];
 
+export type LabelPosition = "auto" | "left" | "above";
+const LABEL_POSITIONS = ["left", "above"] as const;
+
 type PreferencesState = {
+  labelPosition: LabelPosition;
+  setLabelPosition: (position: LabelPosition) => void;
   sortBy: SortBy;
   /** An explicit theme, or null for the system's. */
   theme: Theme | null;
@@ -24,6 +29,11 @@ type PreferencesState = {
 };
 
 export const usePreferences = create<PreferencesState>()((set) => ({
+  labelPosition: storedChoice("labelPosition", LABEL_POSITIONS) ?? "auto",
+  setLabelPosition: (labelPosition) => {
+    storeChoice("labelPosition", labelPosition === "auto" ? null : labelPosition);
+    set({ labelPosition });
+  },
   sortBy: storedChoice("sort", SORTS) ?? "given",
   theme: storedTheme(),
   mapApp: storedChoice("map", MAP_APPS),

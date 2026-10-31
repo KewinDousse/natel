@@ -5,7 +5,6 @@
  * pencil switch to the form.
  */
 
-import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import { isWebUrl, valueHref } from "@/lib/contact-links";
 import {
@@ -30,19 +29,11 @@ import {
   typeValuesOf,
   type VCardAddress,
 } from "@/vcard";
-import { CopyButton, Section, SectionEditButton, TypeLabel } from "./contact-fields";
+import { CopyButton, SectionEditButton, TypeLabel } from "./contact-fields";
+import { ReadingRow as Row, ReadingSection as Section } from "./contact-reading-fields";
 import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
 import { buttonClass, FOCUS_RING } from "./ui/button";
-import {
-  CakeIcon,
-  GlobeIcon,
-  MailIcon,
-  MapPinIcon,
-  MessageIcon,
-  NoteIcon,
-  PhoneIcon,
-  UsersIcon,
-} from "./ui/icons";
+import { MailIcon, MessageIcon, PhoneIcon } from "./ui/icons";
 
 export function ContactView({
   contact,
@@ -145,11 +136,10 @@ export function ContactView({
         </div>
       )}
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-6 space-y-2 lg:space-y-1">
         {contact.fields.tel.length > 0 && (
           <Section
             id="sec-tel"
-            icon={<PhoneIcon />}
             title={t(contact.fields.tel.length > 1 ? "s_phones" : "s_phones_1")}
             action={
               <SectionEditButton
@@ -181,7 +171,6 @@ export function ContactView({
         {contact.fields.email.length > 0 && (
           <Section
             id="sec-email"
-            icon={<MailIcon />}
             title={t(contact.fields.email.length > 1 ? "s_emails" : "s_emails_1")}
             action={
               <SectionEditButton
@@ -210,7 +199,6 @@ export function ContactView({
         {addresses.length > 0 && (
           <Section
             id="sec-adr"
-            icon={<MapPinIcon />}
             title={t(addresses.length > 1 ? "s_addresses" : "s_address")}
             action={
               <SectionEditButton
@@ -248,63 +236,9 @@ export function ContactView({
           </Section>
         )}
 
-        {birthday && birthday.source.length > 0 && (
-          <Section
-            id="sec-bday"
-            icon={<CakeIcon />}
-            title={t("s_bday")}
-            action={<SectionEditButton label={t("edit_bday")} onClick={() => onEdit("sec-bday")} />}
-          >
-            <Row
-              action={
-                <CopyButton
-                  label={t("copy_bday")}
-                  onCopy={() => onCopy(birthdayCopyText(birthday))}
-                />
-              }
-            >
-              <span className="lg:text-body">
-                <time dateTime={birthdayDateTime(birthday)}>
-                  {formatBirthday(birthday, locale)}
-                </time>
-                {age !== null && (
-                  <span className="text-muted-foreground">
-                    {"\u00a0· "}
-                    {t(age === 1 ? "age_1" : "age", { n: String(age) })}
-                  </span>
-                )}
-              </span>
-            </Row>
-          </Section>
-        )}
-
-        {groups.length > 0 && (
-          <Section icon={<UsersIcon />} title={t("s_groups")}>
-            <ul className="flex flex-wrap gap-2 py-1.5">
-              {groups.map((group) => (
-                <li key={group}>
-                  <button
-                    type="button"
-                    aria-label={t("group_show", { name: group })}
-                    onClick={() => onGroup(group)}
-                    // The chip stays 32px high; its target reaches 40px.
-                    className={cn(
-                      "relative inline-flex h-8 min-w-10 items-center justify-center rounded-full bg-secondary px-3 text-sm font-bold text-secondary-foreground underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:underline",
-                      FOCUS_RING,
-                    )}
-                  >
-                    {group}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
         {contact.fields.url.length > 0 && (
           <Section
             id="sec-url"
-            icon={<GlobeIcon />}
             title={t("s_url")}
             action={<SectionEditButton label={t("edit_url")} onClick={() => onEdit("sec-url")} />}
           >
@@ -334,52 +268,83 @@ export function ContactView({
             </Row>
           </Section>
         )}
+        <div
+          className={cn(
+            "space-y-2 lg:space-y-1",
+            (birthday || groups.length > 0 || note.length > 0) && "lg:mt-6 lg:border-t lg:pt-3",
+          )}
+        >
+          {birthday && birthday.source.length > 0 && (
+            <Section
+              id="sec-bday"
+              title={t("s_bday")}
+              action={
+                <SectionEditButton label={t("edit_bday")} onClick={() => onEdit("sec-bday")} />
+              }
+            >
+              <Row
+                action={
+                  <CopyButton
+                    label={t("copy_bday")}
+                    onCopy={() => onCopy(birthdayCopyText(birthday))}
+                  />
+                }
+              >
+                <span className="lg:text-body">
+                  <time dateTime={birthdayDateTime(birthday)}>
+                    {formatBirthday(birthday, locale)}
+                  </time>
+                  {age !== null && (
+                    <span className="text-muted-foreground">
+                      {"\u00a0· "}
+                      {t(age === 1 ? "age_1" : "age", { n: String(age) })}
+                    </span>
+                  )}
+                </span>
+              </Row>
+            </Section>
+          )}
 
-        {note.length > 0 && (
-          <Section
-            id="sec-note"
-            icon={<NoteIcon />}
-            title={t("s_note")}
-            action={<SectionEditButton label={t("edit_note")} onClick={() => onEdit("sec-note")} />}
-          >
-            <p className="whitespace-pre-wrap break-words py-1.5 leading-relaxed lg:text-body">
-              {note}
-            </p>
-          </Section>
-        )}
-      </div>
-    </div>
-  );
-}
+          {groups.length > 0 && (
+            <Section title={t("s_groups")}>
+              <ul className="flex flex-wrap gap-2 py-1.5">
+                {groups.map((group) => (
+                  <li key={group}>
+                    <button
+                      type="button"
+                      aria-label={t("group_show", { name: group })}
+                      onClick={() => onGroup(group)}
+                      // The chip stays 32px high; its target reaches 40px.
+                      className={cn(
+                        "relative inline-flex h-8 min-w-10 items-center justify-center rounded-full bg-secondary px-3 text-sm font-bold text-secondary-foreground underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:underline",
+                        FOCUS_RING,
+                      )}
+                    >
+                      {group}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
-/**
- * One value of a section: type, value and action on one line, the action
- * right after the value. On phones the value goes under its type when they
- * don't fit side by side, and a touch screen has no copy button: a long press
- * on a link already offers to copy.
- */
-function Row({
-  label,
-  action,
-  children,
-}: {
-  label?: ReactNode;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex min-h-11 items-center gap-x-2 py-1.5">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
-        {label !== undefined && (
-          <div className="w-[5.5rem] shrink-0 text-sm text-muted-foreground sm:w-[7.5rem]">
-            {label}
-          </div>
-        )}
-        <div className="min-w-0 max-w-full">{children}</div>
+          {note.length > 0 && (
+            <Section
+              id="sec-note"
+              title={t("s_note")}
+              action={
+                <SectionEditButton label={t("edit_note")} onClick={() => onEdit("sec-note")} />
+              }
+            >
+              <Row>
+                <p className="whitespace-pre-wrap break-words leading-relaxed lg:text-body">
+                  {note}
+                </p>
+              </Row>
+            </Section>
+          )}
+        </div>
       </div>
-      {action !== undefined && (
-        <div className="shrink-0 max-sm:[@media(hover:none)]:hidden">{action}</div>
-      )}
     </div>
   );
 }

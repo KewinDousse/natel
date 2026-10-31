@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 async function signIn(page: Page): Promise<void> {
   await expect(page.getByText("Demo: any username and password work.")).toBeVisible();
@@ -118,3 +118,75 @@ for (const colorScheme of ["light", "dark"] as const) {
     await check("list");
   });
 }
+
+test("aligns copy and edit controls beside desktop contact values", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the desktop reading layout has inline edit controls");
+  await page.goto("./contacts/runeterra/p03");
+  for (const id of ["sec-tel", "sec-email", "sec-bday"]) {
+    const section = page.locator(`#${id}`);
+    await section.hover();
+    const copy = section.getByRole("button", { name: /^Copy/ });
+    const edit = section.getByRole("button", { name: /^Edit/ });
+    await expect(copy).toBeVisible();
+    await expect(edit).toBeVisible();
+    const copyBox = await copy.boundingBox();
+    const editBox = await edit.boundingBox();
+    expect(copyBox).not.toBeNull();
+    expect(editBox).not.toBeNull();
+    if (!copyBox || !editBox) throw new Error("Missing contact control bounds");
+    expect(Math.abs(copyBox.y + copyBox.height / 2 - editBox.y - editBox.height / 2)).toBeLessThan(
+      1,
+    );
+  }
+  await page.goto("./contacts/runeterra/p02");
+  const note = page.locator("#sec-note");
+  await note.hover();
+  const noteValue = await note.locator("[data-contact-value]").boundingBox();
+  const noteEdit = await note.getByRole("button", { name: "Edit note" }).boundingBox();
+  if (!noteValue || !noteEdit) throw new Error("Missing note bounds");
+  expect(
+    Math.abs(noteValue.y + noteValue.height / 2 - noteEdit.y - noteEdit.height / 2),
+  ).toBeLessThan(1);
+  await note.getByRole("button", { name: "Edit note" }).click();
+  await expect(page.getByRole("textbox", { name: "Note", exact: true })).toBeFocused();
+});
+
+test("previews and remembers the position of row labels independently of section titles", async ({
+  page,
+  isMobile,
+}) => {
+  async function expectLabelPosition(container: Locator, above: boolean) {
+    const label = await container.locator("[data-contact-label]").first().boundingBox();
+    const value = await container.locator("[data-contact-value]").first().boundingBox();
+    if (!label || !value) throw new Error("Missing row label or value bounds");
+    if (above) {
+      expect(label.y + label.height).toBeLessThanOrEqual(value.y);
+      expect(Math.abs(label.x - value.x)).toBeLessThan(1);
+    } else {
+      expect(label.x + label.width).toBeLessThanOrEqual(value.x);
+      expect(Math.abs(label.y - value.y)).toBeLessThan(10);
+    }
+  }
+  for (const position of ["left", "above", "auto"]) {
+    await page.goto("./settings");
+    const select = page.getByRole("combobox", { name: "Label position" });
+    await select.selectOption(position);
+    const above = position === "above" || (position === "auto" && isMobile);
+    await expectLabelPosition(page.getByRole("figure", { name: "Preview" }), above);
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "Label position" })).toHaveValue(position);
+    await expectLabelPosition(page.getByRole("figure", { name: "Preview" }), above);
+    await page.goto("./contacts/runeterra/p03");
+    const section = page.locator("#sec-tel");
+    await expectLabelPosition(section, above);
+    await expect(section).toHaveCSS("display", isMobile ? "block" : "grid");
+    await section.hover();
+    if (!isMobile) {
+      const edit = await section.getByRole("button", { name: /^Edit/ }).boundingBox();
+      const copy = await section.getByRole("button", { name: /^Copy/ }).boundingBox();
+      if (!copy || !edit) throw new Error("Missing control bounds");
+      expect(Math.abs(copy.y + copy.height / 2 - edit.y - edit.height / 2)).toBeLessThan(1);
+    }
+  }
+  expect(await page.evaluate(() => localStorage.getItem("natel.preferences"))).toBeNull();
+});

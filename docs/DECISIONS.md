@@ -828,3 +828,18 @@ it.
 with the same last segment, under different parents, share an address: the
 first one discovered opens, and the others can't be opened. The former
 `/contacts/settings` and `/contacts/new` open the first book's list.
+
+## 044 — A choice of contact label positions
+
+**Context.** Labels beside values use desktop space well; labels above values
+leave more width for contact details on phones. Readers may prefer either layout.
+
+**Decision.** Offer Auto, Left and Above for row labels such as Mobile and Work.
+Auto places labels above values on small screens and to their left on large
+screens. Explicit choices override that at every width. Section titles follow
+screen width independently. A live preview illustrates the choice in settings.
+Store this browser preference alongside the other display choices.
+
+**Consequences.** Both layouts must work at every supported width and preserve
+the same information and actions. A forced left layout leaves less room for long
+values on phones. The preference affects reading contacts, not editing them.

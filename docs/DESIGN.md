@@ -183,7 +183,32 @@ doesn't navigate.
 `/contacts/<book>/new` is the form on a blank vCard 3.0 card, with no reading view to go back to. Save creates the card in the selected book (`If-None-Match: *`) and lands on its page, read; cancel goes back to the list. A 412 on create is an error, not an edit conflict.
 
 ### Sections
-Both states group values in the same sections, in the same order: phones, e-mails, addresses, birthday, groups, website, nickname (form only; the reading view shows it under the name), note. A section opens with a light rule (it separates without outweighing the values) and a title line led by its icon; the title's right slot holds the section's action. Titles follow the number of values ("Phone" / "Phones").
+The form groups values in this order: phones, e-mails, addresses, birthday, groups, website, nickname, note. The reading view uses phones, e-mails, addresses, website, birthday, groups, note; the nickname is under the name. Form sections open with a light rule and an icon-led title; the title’s right slot holds the section’s action. Titles follow the number of values ("Phone" / "Phones").
+
+### Reading view sections
+
+Below `lg`, section titles sit above the rows, without icons and with light rules.
+From `lg`, section titles sit in a left column. Copy and edit share a vertical
+centre on desktop; a section's edit action accompanies its first value. Birthday,
+groups and note form a separate area. Section layout follows screen width and is
+independent of the row label preference.
+
+### Label position preference
+
+Settings offers Auto, Left and Above for row labels such as Mobile and Work.
+Auto places labels above values below `lg`, and to their left from `lg`.
+Either explicit choice applies at every width. The choice applies immediately
+and persists in the browser; Auto is the default. It changes only row labels in
+the reading view, preserving section titles, information order and the form.
+A preview under the select shows a fictitious phone section using the same
+reading components as contact pages and updates when the choice changes.
+
+### Settings sections
+
+Account, Display, Contacts and list, Keyboard shortcuts and About and help are
+separate sections. Display holds language and appearance. Contacts and list holds
+label position, sort order and the map preference. Preference labels sit above
+controls on phones and beside them from `sm`; changes apply without a save button.
 
 ### Reading view, top to bottom
 1. Mobile only: a top bar, back left, "Edit" right. The back link names the selected book, so the page says which book it belongs to; with no book, it reads "Contacts".
@@ -192,7 +217,7 @@ Both states group values in the same sections, in the same order: phones, e-mail
 4. Under it, muted: job title · organisation (the organisation is left out on an organisation's own card), then the nickname.
 5. Call (primary), Text and Email (outline), for the first number and the first e-mail; absent when the card has neither.
 6. The sections the card has, and only those. A section's pencil opens the form on that section; on devices that hover, it shows on hover or focus, on touch it always shows.
-7. Rows: type | value | copy button, the button right after the value so it reads as its own. A birthday, and a website without a label, have no type. A value too long to sit beside its type goes under it on phones. No copy button on a phone's touch screen: a long press on a link already offers to copy.
+7. Rows show a type label, a value and its copy button. The label sits to the left or above according to the row preference. A birthday, and a website without a label, have no type. Long type labels wrap within their column. No copy button on a phone's touch screen: a long press on a link already offers to copy.
    - Phones and e-mails are `tel:` and `mailto:` links. The primary number (first `TYPE=cell`, else the first number) is larger and bold.
    - Each address is one block, as on an envelope, each line only when the card has it; copying joins the lines with commas.
    - Each address links to a map search on its street, postal code and locality, region and country: a post office box or an extended line would only blur the search. A post office box alone has no link. The map is the one the settings choose (ADR 037); a web map opens in a new tab, the device's maps app (`geo:`) in place.

@@ -38,7 +38,7 @@ beforeEach(() => {
     <meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">`;
   delete document.documentElement.dataset.theme;
   systemDark = false;
-  usePreferences.setState({ sortBy: "given", theme: null, mapApp: null });
+  usePreferences.setState({ sortBy: "given", theme: null, mapApp: null, labelPosition: "auto" });
 });
 
 afterEach(() => {
@@ -129,5 +129,17 @@ describe("what the preferences hold", () => {
     usePreferences.getState().setTheme("light");
     usePreferences.getState().setMapApp("osm");
     expect(Object.keys(stored() as object).sort()).toEqual(["map", "sort", "theme"]);
+  });
+});
+
+describe("label position", () => {
+  it("preserves other preferences and removes only the automatic choice", () => {
+    usePreferences.getState().setMapApp("osm");
+    usePreferences.getState().setLabelPosition("left");
+    expect(stored()).toEqual({ map: "osm", labelPosition: "left" });
+    usePreferences.getState().setLabelPosition("above");
+    expect(stored()).toEqual({ map: "osm", labelPosition: "above" });
+    usePreferences.getState().setLabelPosition("auto");
+    expect(stored()).toEqual({ map: "osm" });
   });
 });
