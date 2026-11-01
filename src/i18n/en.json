@@ -110,6 +110,8 @@
   "discard_abandon": "Discard",
   "add_phone": "Add phone",
   "add_email": "Add email",
+  "add_information": "Add information",
+  "contact_management": "Contact management",
   "add_address": "Add address",
   "add_bday": "Add birthday",
   "remove_tel": "Remove phone number",

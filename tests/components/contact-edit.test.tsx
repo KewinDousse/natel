@@ -298,12 +298,18 @@ describe("edit mode — add/remove fields", () => {
 
   it("shows add address button when no address", async () => {
     const { article } = await renderEditView("minimal");
-    expect(within(article).getByText("Ajouter une adresse")).toBeTruthy();
+    await userEvent
+      .setup()
+      .click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    expect(screen.getByRole("menuitem", { name: "Ajouter une adresse" })).toBeTruthy();
   });
 
   it("shows add birthday button when no birthday", async () => {
     const { article } = await renderEditView("minimal");
-    expect(within(article).getByText("Ajouter un anniversaire")).toBeTruthy();
+    await userEvent
+      .setup()
+      .click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    expect(screen.getByRole("menuitem", { name: "Ajouter un anniversaire" })).toBeTruthy();
   });
 });
 
@@ -350,7 +356,10 @@ describe("edit mode — addresses", () => {
 
     await user.click(within(article).getByRole("button", { name: "Supprimer l’adresse" }));
     expect(article.querySelector("#sec-adr")).toBeNull();
-    expect(within(article).getByText("Ajouter une adresse")).toBeTruthy();
+    await userEvent
+      .setup()
+      .click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    expect(screen.getByRole("menuitem", { name: "Ajouter une adresse" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
@@ -453,21 +462,24 @@ describe("edit mode — fields to fix on save", () => {
 });
 
 describe("edit mode — optional sections", () => {
-  it("opens the website field from its pill and focuses it", async () => {
+  it("opens the website field from the information menu and focuses it", async () => {
     const { article } = await renderEditView("minimal");
     expect(within(article).queryByLabelText("Site web")).toBeNull();
     const user = userEvent.setup();
-    await user.click(within(article).getByRole("button", { name: "Ajouter un site web" }));
+    await user.click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    await user.click(screen.getByRole("menuitem", { name: "Ajouter un site web" }));
 
     const url = within(article).getByLabelText("Site web");
     await waitFor(() => expect(document.activeElement).toBe(url));
-    expect(within(article).queryByRole("button", { name: "Ajouter un site web" })).toBeNull();
+    await user.click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    expect(screen.queryByRole("menuitem", { name: "Ajouter un site web" })).toBeNull();
   });
 
-  it("opens the note from its pill and focuses it", async () => {
+  it("opens the note from the information menu and focuses it", async () => {
     const { article } = await renderEditView("minimal");
     const user = userEvent.setup();
-    await user.click(within(article).getByRole("button", { name: "Ajouter une note" }));
+    await user.click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    await user.click(screen.getByRole("menuitem", { name: "Ajouter une note" }));
 
     const note = within(article).getByLabelText("Note");
     await waitFor(() => expect(document.activeElement).toBe(note));
@@ -478,7 +490,8 @@ describe("edit mode — optional sections after a save", () => {
   it("shows a note saved earlier when the form opens again", async () => {
     const { article } = await renderEditView("minimal");
     const user = userEvent.setup();
-    await user.click(within(article).getByRole("button", { name: "Ajouter une note" }));
+    await user.click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    await user.click(screen.getByRole("menuitem", { name: "Ajouter une note" }));
     await user.type(within(article).getByLabelText("Note"), "Rappeler lundi");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(article.getAttribute("data-mode")).toBe("view"));
@@ -488,7 +501,8 @@ describe("edit mode — optional sections after a save", () => {
     expect((within(article).getByLabelText("Note") as HTMLTextAreaElement).value).toBe(
       "Rappeler lundi",
     );
-    expect(within(article).queryByRole("button", { name: "Ajouter une note" })).toBeNull();
+    await user.click(within(article).getByRole("button", { name: "Ajouter une information" }));
+    expect(screen.queryByRole("menuitem", { name: "Ajouter une note" })).toBeNull();
   });
 });
 

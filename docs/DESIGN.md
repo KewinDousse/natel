@@ -244,8 +244,14 @@ Dotted leaders are used in the list only: they need right-aligned values.
    - Address: the extended line (c/o, building), then street, then postal code and locality on one line, then country, in the order the reading view shows them. A post office box and a region stay as the card has them.
    - Birthday: day / month / year.
    - Groups (ADR 022): chips with a ×, and a field suggesting the book's other groups. Group cards never show in the list.
-6. Below the sections, so nothing above shifts: one dashed button per empty optional section, which opens it and focuses its first field, the information-not-shown link (see States), move, and delete.
+6. Below the sections: one "Add information" menu for absent optional sections. Choosing an entry opens the section and focuses its first field. The menu disappears when every section is open. The information-not-shown link follows (see States).
 7. A sticky bottom bar at the foot of the screen, even when the form is shorter: the error count after a failed save on the left, Cancel / Save on the right. Conflicts and errors show **inside this bar**, so they never push the form.
+
+### Contact management
+
+On existing contacts, move and delete sit in a separate "Contact management"
+section below the additions and the information-not-shown link, with a divider.
+Their availability and confirmation dialogs follow States below.
 
 ### Grouped contact labels (`X-ABLABEL`)
 For a phone, e-mail, address and the first website, a non-empty

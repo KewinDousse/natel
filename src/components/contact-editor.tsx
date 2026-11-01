@@ -1,8 +1,7 @@
 /**
  * ContactEditor — the contact page's edit form (DESIGN.md "Contact page"),
  * for a contact or a new one. The sections come in the reading view's order;
- * an optional one the card doesn't have waits as a "+ Ajouter" pill under the
- * form. The page around it owns the draft, the save and the dialogs.
+ * optional sections open on demand. The page owns the draft, save and dialogs.
  */
 
 import { type Dispatch, useId, useRef, useState } from "react";
@@ -11,6 +10,7 @@ import type { TranslationKey } from "@/i18n/setup";
 import type { ContactDraft, ValidationErrors } from "@/lib/contact-edit";
 import type { DraftAction } from "@/lib/draft-reducer";
 import type { Contact } from "@/model/contact";
+import { ContactEditorAdditions } from "./contact-editor-additions";
 import { ContactEditorAddresses } from "./contact-editor-addresses";
 import { ContactEditorBirthday } from "./contact-editor-birthday";
 import { ContactEditorEmails } from "./contact-editor-emails";
@@ -18,12 +18,18 @@ import { ContactEditorIdentity } from "./contact-editor-identity";
 import { EditRow, ErrorText, GroupsEditor } from "./contact-editor-parts";
 import { ContactEditorPhones } from "./contact-editor-phones";
 import { ContactEditorPhoto, type EditorPhoto } from "./contact-editor-photo";
-import { AddPill, Section, TypeSelect } from "./contact-fields";
+import { Section, TypeSelect } from "./contact-fields";
 import { buttonClass, fieldClass } from "./ui/button";
 import { ArrowRightIcon, GlobeIcon, NoteIcon, TagIcon, TrashIcon, UsersIcon } from "./ui/icons";
 
 /** Optional sections the form shows only once they have something, or are asked for. */
 type Optional = "url" | "nickname" | "note";
+
+function focusAddedField(field: HTMLElement | null | undefined) {
+  // Keep new fields clear of the sticky edit bar.
+  field?.scrollIntoView?.({ block: "center" });
+  field?.focus({ preventScroll: true });
+}
 
 export function ContactEditor({
   contact,
@@ -78,7 +84,7 @@ export function ContactEditor({
       const field = formRef.current?.querySelector<HTMLElement>(
         `#${sectionId} input, #${sectionId} textarea`,
       );
-      field?.focus();
+      focusAddedField(field);
     });
   };
 
@@ -87,7 +93,7 @@ export function ContactEditor({
     dispatch({ type: field === "tel" ? "ADD_TEL" : "ADD_EMAIL" });
     requestAnimationFrame(() => {
       const inputs = formRef.current?.querySelectorAll<HTMLElement>(`#sec-${field} input`);
-      inputs?.[inputs.length - 1]?.focus();
+      focusAddedField(inputs?.[inputs.length - 1]);
     });
   };
 
@@ -98,11 +104,11 @@ export function ContactEditor({
       const streets = formRef.current?.querySelectorAll<HTMLElement>(
         '#sec-adr input[autocomplete="address-line1"]',
       );
-      streets?.[streets.length - 1]?.focus();
+      focusAddedField(streets?.[streets.length - 1]);
     });
   };
 
-  const pills: { label: TranslationKey; show: boolean; onClick: () => void }[] = [
+  const additions: { label: TranslationKey; show: boolean; onClick: () => void }[] = [
     { label: "add_address", show: draft.adr.length === 0, onClick: addAddress },
     { label: "add_bday", show: draft.bday === null, onClick: () => open("bday", "sec-bday") },
     { label: "add_url", show: !shown("url"), onClick: () => open("url", "sec-url") },
@@ -221,15 +227,7 @@ export function ContactEditor({
       </div>
 
       <div className="mt-8 space-y-5">
-        {pills.some((pill) => pill.show) && (
-          <div className="flex flex-wrap gap-2">
-            {pills
-              .filter((pill) => pill.show)
-              .map((pill) => (
-                <AddPill key={pill.label} label={t(pill.label)} onClick={pill.onClick} />
-              ))}
-          </div>
-        )}
+        <ContactEditorAdditions options={additions.filter((option) => option.show)} />
         {unknownCount > 0 && (
           <p className="text-sm text-muted-foreground">
             <button
@@ -243,37 +241,44 @@ export function ContactEditor({
             </button>
           </p>
         )}
-        {move && (
-          <div>
+      </div>
+      {(move || onDelete) && (
+        <section className="mt-10 space-y-4 border-t pt-6" aria-labelledby="contact-management">
+          <h2 id="contact-management" className="text-sm font-bold text-muted-foreground">
+            {t("contact_management")}
+          </h2>
+          {move && (
+            <div>
+              <button
+                type="button"
+                onClick={move.onClick}
+                disabled={move.disabled}
+                aria-describedby={move.hint ? moveHintId : undefined}
+                className={buttonClass({ variant: "outline" }, "pl-3.5")}
+              >
+                <ArrowRightIcon />
+                {t("move_contact")}
+              </button>
+              {move.hint && (
+                <p id={moveHintId} className="mt-1.5 text-caption text-muted-foreground">
+                  {t("move_disabled_hint")}
+                </p>
+              )}
+            </div>
+          )}
+          {onDelete && (
             <button
               type="button"
-              onClick={move.onClick}
-              disabled={move.disabled}
-              aria-describedby={move.hint ? moveHintId : undefined}
-              className={buttonClass({ variant: "outline" }, "pl-3.5")}
+              onClick={onDelete}
+              disabled={busy}
+              className={buttonClass({ variant: "destructive" }, "pl-3.5")}
             >
-              <ArrowRightIcon />
-              {t("move_contact")}
+              <TrashIcon />
+              {t("delete_contact")}
             </button>
-            {move.hint && (
-              <p id={moveHintId} className="mt-1.5 text-caption text-muted-foreground">
-                {t("move_disabled_hint")}
-              </p>
-            )}
-          </div>
-        )}
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={busy}
-            className={buttonClass({ variant: "destructive" }, "pl-3.5")}
-          >
-            <TrashIcon />
-            {t("delete_contact")}
-          </button>
-        )}
-      </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

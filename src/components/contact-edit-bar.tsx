@@ -62,7 +62,10 @@ export function ContactEditBar({
   );
 
   return (
-    <div className="sticky bottom-0 z-30 mt-auto border-t bg-background py-3 shadow-float">
+    <div
+      data-contact-edit-bar
+      className="sticky bottom-0 z-30 mt-auto border-t bg-background py-3 shadow-float"
+    >
       <div className={COLUMN}>
         {conflict && (
           <Notice title={t("conflict_title")} alert={conflict.length > 0}>
