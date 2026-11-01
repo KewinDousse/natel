@@ -126,7 +126,10 @@ export function ContactEditorAdditions({ options }: { options: InformationOption
             setOpen(true);
           }
         }}
-        className={buttonClass({ variant: "outline" }, "pl-3.5")}
+        className={buttonClass(
+          { variant: "ghost" },
+          "-ml-3.5 h-11 justify-start rounded-md pl-3.5",
+        )}
       >
         <PlusIcon />
         {t("add_information")}

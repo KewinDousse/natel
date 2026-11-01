@@ -271,7 +271,10 @@ export function ContactEditor({
               type="button"
               onClick={onDelete}
               disabled={busy}
-              className={buttonClass({ variant: "destructive" }, "pl-3.5")}
+              className={buttonClass(
+                { variant: "ghost" },
+                "-ml-3.5 justify-start rounded-md pl-3.5 text-destructive hover:text-destructive",
+              )}
             >
               <TrashIcon />
               {t("delete_contact")}

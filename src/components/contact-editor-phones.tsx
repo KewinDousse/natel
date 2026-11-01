@@ -2,10 +2,9 @@ import type { Dispatch } from "react";
 import { useI18n } from "@/i18n/react";
 import type { ContactDraft } from "@/lib/contact-edit";
 import type { DraftAction } from "@/lib/draft-reducer";
-import { cn } from "@/lib/utils";
 import { EditRow } from "./contact-editor-parts";
 import {
-  AddPill,
+  AddFieldButton,
   appleLabelText,
   kindLabelKey,
   RemoveButton,
@@ -63,10 +62,10 @@ export function ContactEditorPhones({
           </EditRow>
         ))}
       </div>
-      <AddPill
+      <AddFieldButton
         label={t("add_phone")}
         onClick={onAdd}
-        className={cn("w-full justify-center", fields.length > 0 && "mt-3")}
+        className={fields.length > 0 ? "mt-2" : undefined}
       />
     </Section>
   );

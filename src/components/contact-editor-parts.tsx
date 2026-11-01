@@ -93,7 +93,7 @@ export function GroupsEditor({
       {names.map((name) => (
         <li
           key={name}
-          className="inline-flex h-8 items-center gap-1 rounded-full bg-secondary pl-3 pr-1 text-sm font-bold text-secondary-foreground"
+          className="inline-flex h-8 items-center gap-1 rounded-md bg-secondary pl-3 pr-1 text-sm font-medium text-secondary-foreground"
         >
           {name}
           <button
@@ -104,7 +104,7 @@ export function GroupsEditor({
               // The chip and its button go: the focus moves to the input.
               inputRef.current?.focus();
             }}
-            className="relative inline-flex size-6 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="relative inline-flex size-6 items-center justify-center rounded-sm text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <XSmallIcon />
           </button>
@@ -128,9 +128,7 @@ export function GroupsEditor({
           }}
           onBlur={add}
           data-commit-on-blur
-          className={fieldClass(
-            "h-8 w-full min-w-44 rounded-full px-3 sm:w-56 sm:text-sm lg:text-sm",
-          )}
+          className={fieldClass("h-11 min-w-44 sm:w-56 sm:text-sm lg:text-sm")}
         />
         <datalist id={listId}>
           {suggestions

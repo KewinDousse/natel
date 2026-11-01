@@ -321,7 +321,7 @@ export function ContactView({
                       onClick={() => onGroup(group)}
                       // The chip stays 32px high; its target reaches 40px.
                       className={cn(
-                        "relative inline-flex h-8 min-w-10 items-center justify-center rounded-full bg-secondary px-3 text-sm font-bold text-secondary-foreground underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:underline",
+                        "relative inline-flex h-8 min-w-10 items-center justify-center rounded-md bg-secondary px-3 text-sm font-medium text-secondary-foreground underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:underline",
                         FOCUS_RING,
                       )}
                     >

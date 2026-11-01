@@ -239,13 +239,22 @@ Dotted leaders are used in the list only: they need right-aligned values.
 1. Mobile only: the top bar, back left.
 2. Photo, with change and remove buttons beside it.
 3. Given name and family name, in the order the list sorts by, then organisation and job title, two by two on every screen so the top stays short. A card needs one of the three names: with none, all three are invalid under one message. An organisation's card is named after it: when an edit changes its organisation or clears the person's name, `FN` follows `ORG` (unless it was a name of its own).
-4. Phones and e-mails always, each with a dashed "Add" button under its last row: the new row appears right above it and takes the focus. Addresses when the card has them, with the same button, the new address's street taking the focus. Birthday when the card has one; groups on an existing card; website, nickname and note when the card has them or the user opened them.
+4. Phones and e-mails always, each with a text "Add" button under its last row: the new row appears right above it and takes the focus. Addresses when the card has them, with the same button, the new address's street taking the focus. Birthday when the card has one; groups on an existing card; website, nickname and note when the card has them or the user opened them.
 5. Rows: type menu | field | remove button, wrapping under the menu when the field would get narrower than 10rem. A row without a remove button keeps its room, so fields line up. Picking a type rewrites only the card's `cell`/`work`/`home` types and keeps the others (`INTERNET`, `PREF`, `VOICE`…); a type the menu doesn't offer still shows as it is. Phones offer mobile, work, home and other; e-mails, addresses and websites offer home, work and other.
    - Address: the extended line (c/o, building), then street, then postal code and locality on one line, then country, in the order the reading view shows them. A post office box and a region stay as the card has them.
    - Birthday: day / month / year.
    - Groups (ADR 022): chips with a ×, and a field suggesting the book's other groups. Group cards never show in the list.
 6. Below the sections: one "Add information" menu for absent optional sections. Choosing an entry opens the section and focuses its first field. The menu disappears when every section is open. The information-not-shown link follows (see States).
 7. A sticky bottom bar at the foot of the screen, even when the form is shorter: the error count after a failed save on the left, Cancel / Save on the right. Conflicts and errors show **inside this bar**, so they never push the form.
+
+### Contact command roles
+
+On the contact page and its form, primary actions keep the ink pill. Field
+additions use a plus icon and text, without a border or fill, with a 44px target;
+"Add information" also has a chevron. Group chips are small rounded rectangles
+with medium-weight text, and the group-entry field uses the usual 44px field.
+In Contact management, Delete uses destructive text and a trash icon without
+a filled pill; its confirmation dialog keeps the destructive button.
 
 ### Contact management
 

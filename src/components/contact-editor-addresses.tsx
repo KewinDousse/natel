@@ -5,7 +5,7 @@ import type { ContactDraft, ValidationErrors } from "@/lib/contact-edit";
 import { addressKindOf } from "@/lib/contact-edit";
 import type { DraftAction } from "@/lib/draft-reducer";
 import { EditRow, ErrorText } from "./contact-editor-parts";
-import { AddPill, RemoveButton, Section, TypeSelect } from "./contact-fields";
+import { AddFieldButton, RemoveButton, Section, TypeSelect } from "./contact-fields";
 import { fieldClass } from "./ui/button";
 import { MapPinIcon } from "./ui/icons";
 
@@ -164,7 +164,7 @@ export function ContactEditorAddresses({
           </fieldset>
         ))}
       </div>
-      <AddPill label={t("add_address")} onClick={onAdd} className="mt-3 w-full justify-center" />
+      <AddFieldButton label={t("add_address")} onClick={onAdd} className="mt-2" />
     </Section>
   );
 }

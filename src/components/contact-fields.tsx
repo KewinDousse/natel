@@ -193,8 +193,8 @@ export function RemoveButton({ label, onClick }: { label: string; onClick: () =>
   );
 }
 
-/** "+ Ajouter …" for a section the form doesn't show yet. */
-export function AddPill({
+/** Adds another field to its section. */
+export function AddFieldButton({
   label,
   onClick,
   className,
@@ -208,7 +208,7 @@ export function AddPill({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-input bg-background pl-2.5 pr-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+        "inline-flex h-11 items-center gap-1.5 rounded-md -ml-2.5 pl-2.5 pr-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
         FOCUS_RING,
         className,
       )}

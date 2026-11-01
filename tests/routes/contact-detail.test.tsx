@@ -669,7 +669,7 @@ describe("avatar and special sections", () => {
     }
   });
 
-  it("renders groups as chips", async () => {
+  it("renders groups as rectangular chips", async () => {
     await renderLoggedIn("/contacts/a/full");
 
     const article = await screen.findByRole("article");
@@ -680,7 +680,7 @@ describe("avatar and special sections", () => {
       expect.arrayContaining(["Travail", "Fosse de Noxus"]),
     );
     for (const chip of chips) {
-      expect(chip.className).toContain("rounded-full");
+      expect(chip.className).toContain("rounded-md");
     }
   });
 
