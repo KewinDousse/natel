@@ -72,23 +72,36 @@ export function ContactView({
 
   return (
     <div className="mx-auto w-full max-w-[44rem] px-5 pb-16 pt-6 sm:px-8 lg:px-10 lg:pt-10 xl:px-14">
-      <div className="flex items-start justify-between gap-6">
-        <PhotoAvatar
-          contact={contact}
-          className="size-24 rounded-xl sm:size-28"
-          fallback={
-            orgCard ? (
-              <BuildingAvatar className="size-24 rounded-xl sm:size-28" />
-            ) : (
-              <InitialsAvatar
-                family={parts.family}
-                given={parts.given}
-                seed={contact.uid || contact.href}
-                className="size-24 rounded-xl text-5xl sm:size-28"
-              />
-            )
-          }
-        />
+      <div className="flex items-start justify-between gap-4">
+        <div data-contact-identity className="flex min-w-0 flex-1 items-center gap-4">
+          <PhotoAvatar
+            contact={contact}
+            className="size-24 rounded-xl sm:size-28"
+            fallback={
+              orgCard ? (
+                <BuildingAvatar className="size-16 rounded-xl" />
+              ) : (
+                <InitialsAvatar
+                  family={parts.family}
+                  given={parts.given}
+                  seed={contact.uid || contact.href}
+                  className="size-16 rounded-xl text-3xl"
+                />
+              )
+            }
+          />
+          <div className="min-w-0 break-words">
+            <ContactName contact={contact} unnamed={isUnnamed(contact)} />
+            {subtitle && (
+              <p className="mt-2 text-base text-muted-foreground lg:text-body">{subtitle}</p>
+            )}
+            {nickname && (
+              <p className="mt-1 text-base text-muted-foreground lg:text-body">
+                {t("nickname_quoted", { nickname })}
+              </p>
+            )}
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => onEdit()}
@@ -98,14 +111,6 @@ export function ContactView({
           {t("edit")}
         </button>
       </div>
-
-      <ContactName contact={contact} unnamed={isUnnamed(contact)} />
-      {subtitle && <p className="mt-2 text-base text-muted-foreground lg:text-body">{subtitle}</p>}
-      {nickname && (
-        <p className="mt-1 text-base text-muted-foreground lg:text-body">
-          {t("nickname_quoted", { nickname })}
-        </p>
-      )}
 
       {(primary || firstEmail) && (
         <div className="mt-5 flex flex-wrap gap-2">
@@ -389,7 +394,7 @@ function AddressBlock({ lines }: { lines: string[] }) {
   );
 }
 
-const NAME_CLASS = "mt-5 text-3xl font-bold leading-tight tracking-tight text-balance sm:text-4xl";
+const NAME_CLASS = "text-3xl font-bold leading-tight tracking-tight text-balance sm:text-4xl";
 
 /** The contact's name, large, in the text face, in the order the list sorts by. */
 function ContactName({ contact, unnamed }: { contact: Contact; unnamed: boolean }) {

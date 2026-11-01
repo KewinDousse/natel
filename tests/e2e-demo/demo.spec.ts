@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
@@ -189,4 +190,60 @@ test("previews and remembers the position of row labels independently of section
     }
   }
   expect(await page.evaluate(() => localStorage.getItem("natel.preferences"))).toBeNull();
+});
+
+test("keeps compact initials beside the name and preserves photo size", async ({
+  page,
+  isMobile,
+}) => {
+  for (const [id, photo] of [
+    ["p03", false],
+    ["p01", true],
+  ] as const) {
+    await page.goto(`./contacts/runeterra/${id}`);
+    const identity = page.locator("[data-contact-identity]");
+    const avatar = identity.locator(":scope > img, :scope > span");
+    const name = identity.locator('p[aria-hidden="true"]');
+    await expect(avatar).toBeVisible();
+    const avatarBox = await avatar.boundingBox();
+    const nameBox = await name.boundingBox();
+    if (!avatarBox || !nameBox) throw new Error("Missing identity bounds");
+    expect(avatarBox.width).toBe(photo ? (isMobile ? 96 : 112) : 64);
+    expect(avatarBox.height).toBe(avatarBox.width);
+    expect(avatarBox.x + avatarBox.width).toBeLessThanOrEqual(nameBox.x);
+    if (photo) {
+      await expect(avatar).toHaveJSProperty("complete", true);
+      expect(
+        await avatar.evaluate(
+          (element) => element instanceof HTMLImageElement && element.naturalWidth > 0,
+        ),
+      ).toBe(true);
+      await expect(avatar).toHaveCSS("filter", "none");
+    }
+    await page
+      .getByRole("button", { name: /^Edit(?: \(E\))?$/ })
+      .filter({ visible: true })
+      .first()
+      .click();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+    if (photo) await expect(page.getByRole("button", { name: "Change photo" })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  }
+});
+
+test("wraps long names and organisations beside compact initials", async ({ page }) => {
+  await page.goto("./contacts/runeterra/p03");
+  await page
+    .locator('input[type="file"][accept*="vcf"]')
+    .setInputFiles(resolve(import.meta.dirname, "../fixtures/public/long-contact-identity.vcf"));
+  await page.getByRole("button", { name: "Import 1 contact", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("link", { name: /Alexandrine/ }).click();
+  const identity = page.locator("[data-contact-identity]");
+  await expect(identity).toContainText("Alexandrine de Montmollin-Bernasconi");
+  await expect(identity).toContainText("Atelier des Rives et des Montagnes");
+  expect(await identity.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+    true,
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

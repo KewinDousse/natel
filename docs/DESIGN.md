@@ -185,6 +185,13 @@ doesn't navigate.
 ### Sections
 The form groups values in this order: phones, e-mails, addresses, birthday, groups, website, nickname, note. The reading view uses phones, e-mails, addresses, website, birthday, groups, note; the nickname is under the name. Form sections open with a light rule and an icon-led title; the title’s right slot holds the section’s action. Titles follow the number of values ("Phone" / "Phones").
 
+### Reading view identity
+
+The avatar and the name, organisation and nickname sit side by side at every
+width. Initials and the organisation icon are 64px; photos remain 96px below `sm`
+and 112px from `sm`, square with rounded corners. Names and subtitles wrap
+without truncation. The desktop Edit action stays at the top right.
+
 ### Reading view sections
 
 Below `lg`, section titles sit above the rows, without icons and with light rules.
