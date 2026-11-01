@@ -1,0 +1,4 @@
+{
+  "type": "Changed",
+  "text": "Contact lists hide dotted leaders when they would shorten a name, giving long names more room without changing the pane width or trailing values."
+}

@@ -80,6 +80,14 @@ A two-column grid: the letter, sticky under the header, then the section's rows.
 - Trailing value priority: first `TEL` with `TYPE=cell` → first `TEL` → first `EMAIL` → `ORG`. A phone number is in ink from `sm` (muted under the name on phones), the others muted.
 - The current contact takes the selection background and the red selection bar.
 
+### Contact row leaders
+
+A leader appears only when the full name, the trailing value, its minimum
+width and both gaps fit together. When they do not, it hides and gives its
+space to the name. Resizing, a name change or a value change recalculates it;
+the list pane width and trailing-value limits stay the same. Phones keep
+the value under the name without leaders.
+
 ### A–Z rail
 Right edge, all 26 letters; absent letters are greyed, hidden from screen readers and out of the tab order. Jumps are instant. Hidden while a search is active. Contacts whose initial isn't A–Z go into a "#" group at the end of the list, which the rail doesn't show, so it keeps its 26 plain letters.
 - Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The page doesn't scroll meanwhile.

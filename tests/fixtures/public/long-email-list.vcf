@@ -1,0 +1,7 @@
+BEGIN:VCARD
+VERSION:3.0
+UID:list-long-email
+FN:Émilie Favre
+N:Favre;Émilie;;;
+EMAIL:emilie.favre.projets-et-partenariats@example.org
+END:VCARD

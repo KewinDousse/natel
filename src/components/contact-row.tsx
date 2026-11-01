@@ -1,6 +1,7 @@
 /** The list's letter sections and their rows, with search matches marked. */
 
 import { Link } from "@tanstack/react-router";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import {
   type ContactGroup,
@@ -73,6 +74,35 @@ function ContactRow({
   const orgCard = isOrgCard(contact);
   const unnamed = isUnnamed(contact);
   const { t } = useI18n();
+  const fullName = unnamed ? t("contact_unnamed") : display;
+  const contentRef = useRef<HTMLSpanElement>(null);
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const valueRef = useRef<HTMLSpanElement>(null);
+  const leaderRef = useRef<HTMLSpanElement>(null);
+  const [showLeader, setShowLeader] = useState(true);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    const name = nameRef.current;
+    const value = valueRef.current;
+    const leader = leaderRef.current;
+    if (!content || !name || !value || !leader || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const gap = Number.parseFloat(getComputedStyle(content).columnGap) || 0;
+      const minimum = Number.parseFloat(getComputedStyle(leader).minWidth) || 0;
+      // The name keeps its space before the leader gets its minimum width and gaps.
+      setShowLeader(
+        name.scrollWidth + value.getBoundingClientRect().width + minimum + 2 * gap <=
+          content.clientWidth,
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    observer.observe(name);
+    observer.observe(value);
+    return () => observer.disconnect();
+  }, [fullName, trailing?.value]);
 
   const nameValue = unnamed ? (
     <span className="italic text-muted-foreground">{t("contact_unnamed")}</span>
@@ -126,21 +156,31 @@ function ContactRow({
             )
           }
         />
-        <span className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
-          <span
-            className="block min-w-0 truncate text-name"
-            title={unnamed ? t("contact_unnamed") : display}
-          >
+        <span ref={contentRef} className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
+          <span ref={nameRef} className="block min-w-0 truncate text-name" title={fullName}>
             {nameValue}
           </span>
-          {trailing && <span className="leader hidden sm:block" aria-hidden="true" />}
+          {trailing && (
+            <span
+              ref={leaderRef}
+              hidden={!showLeader}
+              className="leader hidden sm:block"
+              aria-hidden="true"
+            />
+          )}
           {trailing &&
             (trailing.kind === "tel" ? (
-              <span className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-foreground">
+              <span
+                ref={valueRef}
+                className="block truncate text-sm tabular text-muted-foreground sm:shrink-0 sm:text-foreground"
+              >
                 <TelMarked value={trailing.value} query={query} />
               </span>
             ) : (
-              <span className="block truncate text-sm text-muted-foreground sm:max-w-[42%] sm:shrink-0">
+              <span
+                ref={valueRef}
+                className="block truncate text-sm text-muted-foreground sm:max-w-[42%] sm:shrink-0"
+              >
                 <Marked value={trailing.value} query={query} />
               </span>
             ))}
@@ -184,10 +224,8 @@ function MarkedSegments({ segments }: { segments: HighlightSegment[] }) {
     <>
       {segments.map((segment, index) =>
         segment.hit ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static display segments
           <mark key={index}>{segment.text}</mark>
         ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: same as above
           <span key={index}>{segment.text}</span>
         ),
       )}
