@@ -29,7 +29,7 @@ RUN setcap -r /usr/bin/caddy
 
 # Runtime stage: what the official image adds to Alpine, minus curl and
 # libcap, which nothing here runs.
-FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
+FROM alpine:3.23@sha256:ff7f0c727dd796aa36787bfcd9a64bf35a6ce72a73451b3359fde849b6703d63
 # Caddy runs as an unprivileged user, owning what it writes: certificates in
 # /data, the autosaved config in /config.
 RUN apk add --no-cache ca-certificates mailcap zlib=1.3.2-r1 \
