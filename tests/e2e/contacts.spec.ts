@@ -127,9 +127,10 @@ test("reads an unmarked iOS birthday without a year and preserves it on an unrel
   await expect(page.getByLabel("Year", { exact: true })).toHaveValue("");
   await page.getByLabel("Note", { exact: true }).fill("Birthday unchanged");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
 
   const saved = await getCard("ios-birthday");
+  expect(saved).toContain("NOTE:Birthday unchanged");
   expect(saved).toMatch(/^BDAY;VALUE=DATE:16040714\r?$/im);
   expect(saved).not.toContain("X-APPLE-OMIT-YEAR");
   expect(saved).toContain("X-PRESERVE;X-CUSTOM=keep:untouched");

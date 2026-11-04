@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Refresh the pinned Caddy build image digest. The Caddy 2.11.7 binary copied into the final image is unchanged; only its intermediate build image is refreshed."
+}

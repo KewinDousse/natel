@@ -102,7 +102,7 @@ function ContactRow({
     observer.observe(name);
     observer.observe(value);
     return () => observer.disconnect();
-  }, [fullName, trailing?.value]);
+  });
 
   const nameValue = unnamed ? (
     <span className="italic text-muted-foreground">{t("contact_unnamed")}</span>
@@ -220,15 +220,18 @@ function TelMarked({ value, query }: { value: string; query: string }) {
 }
 
 function MarkedSegments({ segments }: { segments: HighlightSegment[] }) {
+  let offset = 0;
   return (
     <>
-      {segments.map((segment, index) =>
-        segment.hit ? (
-          <mark key={index}>{segment.text}</mark>
+      {segments.map((segment) => {
+        const start = offset;
+        offset += segment.text.length;
+        return segment.hit ? (
+          <mark key={start}>{segment.text}</mark>
         ) : (
-          <span key={index}>{segment.text}</span>
-        ),
-      )}
+          <span key={start}>{segment.text}</span>
+        );
+      })}
     </>
   );
 }
