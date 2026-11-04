@@ -562,6 +562,7 @@ session's lifetime. Sign-out revokes the session on the server; if that
 request fails, the user is told and stays signed in. Each `/dav` request
 costs a loopback round trip. The repository gains Go code with its own tests
 and CI job, security code reviewed before each release.
+ADR 046 amends the choice of cookie.
 
 ## 033 — The official Caddy binary on a plain Alpine base
 
@@ -843,3 +844,23 @@ Store this browser preference alongside the other display choices.
 **Consequences.** Both layouts must work at every supported width and preserve
 the same information and actions. A forced left layout leaves less room for long
 values on phones. The preference affects reading contacts, not editing them.
+
+## 046 — A setting that keeps sessions to the HTTPS cookie
+
+**Context.** Behind an untrusted TLS proxy, or with Natel's port reachable
+around it, an attacker can obtain a plain session cookie for their own
+account. A sibling subdomain can plant it in a signed-out user's browser,
+making the user work in the attacker's address book.
+
+**Decision.** `NATEL_HTTPS_ONLY_COOKIE=true` makes every sign-in get the
+`__Host-` cookie and every request refuse the plain one, regardless of
+detected HTTPS. Unset, behaviour is unchanged. Reverse-proxy examples enable
+it; documentation recommends it for HTTPS deployments. This amends ADR 032.
+
+**Rejected.** Automatic HTTPS detection: some requests lack a usable
+`Origin`, and proxy trust cannot cover a bypass. Always requiring `__Host-`:
+plain HTTP deployments must remain possible.
+
+**Consequences.** Protection requires enabling the setting. With it enabled,
+browsers cannot sign in over plain HTTP outside `localhost`; documentation
+must state this limit.
