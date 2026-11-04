@@ -1022,9 +1022,9 @@ vobject==0.9.9 \
     # via
     #   radicale
     #   xandikos
-xandikos==0.4.8 \
-    --hash=sha256:386f631007597148694aa327a8b338f60ceeb01951cc919b6115e12eab2d670e \
-    --hash=sha256:c0078b73c53142a6460491f6e08ff2a54daca4ad3ced17c32544390bba9bba94
+xandikos==0.4.10 \
+    --hash=sha256:4001da97240a66dd24068eee0d16b7bcb772f4cef77a3b02be97a375e6a8fd81 \
+    --hash=sha256:caac813eb7848dab25b253088e9e7ce189defee1a169557f94fa23625b5f3146
     # via -r requirements.in
 yarl==1.25.1 \
     --hash=sha256:0136d640dfa9b0523853e411430a99f8a91eca85774c6420285a33b755bc6de3 \

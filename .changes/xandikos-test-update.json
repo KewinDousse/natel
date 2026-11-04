@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Update the disposable Xandikos test server to 0.4.10. This changes compatibility test coverage without changing the application or deployment requirements."
+}
