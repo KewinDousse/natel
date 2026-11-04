@@ -4,7 +4,7 @@ import { deflateSync } from "node:zlib";
 import { expect, type Page, test } from "@playwright/test";
 import { stripMetadata } from "../../src/lib/photo-metadata";
 import { getCard, putCard, resetBook, vcard } from "./dav";
-import { PASSWORD, SERVER_NAME, USER } from "./env";
+import { PASSWORD, SERVER, SERVER_NAME, USER } from "./env";
 
 const photos = JSON.parse(
   readFileSync(resolve(import.meta.dirname, "../vcard/photo-bytes.json"), "utf8"),
@@ -393,7 +393,7 @@ test("removes every photo", async ({ page }) => {
   expect(await savedPhoto(page, "ada")).toEqual([]);
 });
 
-test("writes a new photo into a vCard 4.0 card as a data URI", async ({ page }) => {
+test("writes a new photo using the vCard version served by the server", async ({ page }) => {
   // sabre/dav serves every card as vCard 3.0 unless asked for 4.0.
   test.skip(SERVER_NAME === "baikal", "Baïkal hands the card over as 3.0");
   await putCard(
@@ -413,8 +413,14 @@ test("writes a new photo into a vCard 4.0 card as a data URI", async ({ page }) 
   const expected = Buffer.from(stripped?.bytes ?? []).toString("base64");
   const lines = await savedPhoto(page, "grace");
   // Radicale also escapes the semicolon when it stores the card.
-  expect(decoded(lines)).toEqual([`PHOTO:data:image/jpeg;base64,${expected}`]);
-  expect(await getCard("grace")).toMatch(/^VERSION:4\.0\r?$/m);
+  expect(decoded(lines)).toEqual([
+    SERVER.convertsVcard4
+      ? `PHOTO;ENCODING=b;TYPE=JPEG:${expected}`
+      : `PHOTO:data:image/jpeg;base64,${expected}`,
+  ]);
+  expect(await getCard("grace")).toMatch(
+    SERVER.convertsVcard4 ? /^VERSION:3\.0\r?$/m : /^VERSION:4\.0\r?$/m,
+  );
 });
 
 test("keeps a vCard 4.0 photo as the server stored it when another field is saved", async ({

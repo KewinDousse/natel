@@ -80,8 +80,8 @@ export default defineConfig({
       command: SERVER.command,
       url: `${DAV_URL}${SERVER.readyPath}`,
       env: { DAV_PORT: String(DAV_PORT), E2E_USER: USER, E2E_PASSWORD: PASSWORD },
-      // Baïkal starts from a Docker image, which a first pull makes slow.
-      timeout: 120_000,
+      // Container images may need pulling and initialising on the first run.
+      timeout: 300_000,
       // Lets `docker run` stop and remove its container.
       gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     },

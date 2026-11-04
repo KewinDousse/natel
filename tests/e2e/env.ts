@@ -22,6 +22,8 @@ type Server = {
   home: string;
   /** False when the server leaves authentication to a proxy in front of it. */
   checksPassword: boolean;
+  /** DAV responses convert vCard 4.0 fixtures to 3.0. */
+  convertsVcard4?: boolean;
 };
 
 const SERVERS = {
@@ -36,6 +38,13 @@ const SERVERS = {
     readyPath: "/.well-known/carddav",
     home: `/${USER}/contacts/`,
     checksPassword: false,
+  },
+  nextcloud: {
+    command: "tests/e2e/nextcloud.sh",
+    convertsVcard4: true,
+    readyPath: "/remote.php/dav/",
+    home: `/remote.php/dav/addressbooks/users/${USER}/`,
+    checksPassword: true,
   },
   baikal: {
     command: "tests/e2e/baikal.sh",

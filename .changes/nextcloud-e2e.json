@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Run the CardDAV compatibility suite against a disposable Nextcloud instance. This adds test coverage without changing the application or its deployment requirements."
+}

@@ -15,7 +15,8 @@ their evidence.
 | Baïkal                               |   ✅   | Discovery to configure under a path |
 | Radicale                             |   ✅   | Not every version or configuration  |
 | Xandikos                             |   ◐    | Tested without authentication       |
-| Nextcloud and other RFC 6352 servers |   ⬜   |                                     |
+| Nextcloud                            |   ✅   | Personal books; see the test setup   |
+| Other RFC 6352 servers                |   ⬜   |                                     |
 
 **Synced clients**
 
@@ -51,7 +52,8 @@ an animated GIF showed still.
 | Baïkal                               | The end-to-end suite runs in CI; manual checks also use Baïkal 0.10.1. | Configure discovery for an installation under a path. Baïkal can serve a stored 4.0 card as 3.0; Natel saves the version it receives. |
 | Radicale                             | The end-to-end suite runs locally and in CI.                           | No claim about every version or configuration.                                                                                        |
 | Xandikos                             | The same end-to-end suite runs locally and in CI.                      | The test instance has no authentication; its password checks are not exercised.                                                       |
-| Nextcloud and other RFC 6352 servers | Not in the compatibility suite.                                        | Compatibility is unverified; group formats can differ.                                                                                |
+| Nextcloud | The shared suite is configured locally and in CI; see [the Nextcloud test setup](testing/nextcloud.md). | Tested with a synthetic user and personal address books; server-generated books are disabled. Group formats differ from Nextcloud’s Contacts web app. |
+| Other RFC 6352 servers | Not in the compatibility suite. | Compatibility is unverified; group formats can differ. |
 
 Natel authenticates with a CardDAV
 [username and password](user-guide.md#sign-in-and-sign-out); SSO and
