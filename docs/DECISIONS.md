@@ -845,6 +845,23 @@ Store this browser preference alongside the other display choices.
 the same information and actions. A forced left layout leaves less room for long
 values on phones. The preference affects reading contacts, not editing them.
 
+## 045 — The image's healthcheck reads a loopback site, not the admin API
+
+**Context.** The image left Caddy's admin API on because its healthcheck read
+it. In a shared network namespace, any process there could reconfigure Caddy
+without authentication, collect passwords and read the secret `natel-session`
+gives it (ADR 032).
+
+**Decision.** The admin API is off by default. The healthcheck reads an empty
+204 that Caddy serves on `127.0.0.1`, port `NATEL_HEALTH_PORT` (2021), then
+`natel-session`'s `/healthz`.
+
+**Rejected.** The app's port: what it answers depends on `SITE_ADDRESS`. The
+admin API on a Unix socket: the image's `wget` can't reach one.
+
+**Consequences.** No setup needs `NATEL_ADMIN` or a disabled healthcheck.
+Caddy holds one more loopback port, which says nothing and is moved on a clash.
+
 ## 046 — A setting that keeps sessions to the HTTPS cookie
 
 **Context.** Behind an untrusted TLS proxy, or with Natel's port reachable

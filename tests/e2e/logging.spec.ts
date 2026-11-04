@@ -88,7 +88,7 @@ test("logs DAV status and timing without private request or response data", asyn
       "-v",
       `${root}/Caddyfile:/etc/caddy/Caddyfile:ro`,
       "-e",
-      "NATEL_ADMIN=off",
+      `NATEL_HEALTH_PORT=${await freePort()}`,
       "-e",
       `SITE_ADDRESS=${origin}`,
       "-e",

@@ -273,6 +273,22 @@ jobs:
           -e CARDDAV_URL=http://127.0.0.1:5299 -e SITE_ADDRESS=:4299
           -e NATEL_UPDATE_CHECKS=false natel:ci
       - run: curl -fsS --retry 10 --retry-connrefused --retry-delay 1 -o /dev/null http://127.0.0.1:4299/
+      # The image's healthcheck commands, run as Docker runs them.
+      - run: >
+          docker exec natel sh -c
+          'wget -q -O /dev/null "http://127.0.0.1:$NATEL_HEALTH_PORT/"
+          && wget -q -O /dev/null "http://$NATEL_SESSION_ADDR/healthz"'
+      - run: |
+          docker exec natel caddy adapt --config /etc/caddy/Caddyfile > caddy.json
+          node --input-type=module <<'JS'
+          import assert from "node:assert/strict";
+          import { readFileSync } from "node:fs";
+          const config = JSON.parse(readFileSync("caddy.json", "utf8"));
+          assert.equal(config.admin.disabled, true);
+          const listeners = Object.values(config.apps.http.servers).flatMap((server) => server.listen);
+          assert.ok(listeners.includes("127.0.0.1:2021"));
+          assert.ok(listeners.filter((address) => address.endsWith(":2021")).every((address) => address === "127.0.0.1:2021"));
+          JS
       - run: pnpm e2e
         env:
           E2E_EXTERNAL_APP: "1"

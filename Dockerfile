@@ -42,8 +42,8 @@ COPY --from=builder /app/dist /usr/share/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=session /natel-session /usr/bin/natel-session
 ENV XDG_CONFIG_HOME=/config XDG_DATA_HOME=/data \
-  NATEL_HTTP_PORT=8080 NATEL_HTTPS_PORT=8443 NATEL_ADMIN=127.0.0.1:2019 \
-  NATEL_SESSION_ADDR=127.0.0.1:2020
+  NATEL_HTTP_PORT=8080 NATEL_HTTPS_PORT=8443 \
+  NATEL_SESSION_ADDR=127.0.0.1:2020 NATEL_HEALTH_PORT=2021
 WORKDIR /srv
 USER natel
 EXPOSE 8080 8443
@@ -51,8 +51,9 @@ EXPOSE 8080 8443
 # stops the container.
 ENTRYPOINT ["/usr/bin/natel-session"]
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
-# Caddy's admin API answers once the config is loaded, whatever SITE_ADDRESS
-# the site listens on. Neither port is published.
+# Caddy's loopback health site answers once the config is loaded, whatever
+# SITE_ADDRESS the app is served at; Caddy's admin API stays off. Neither
+# port is published.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-  CMD wget -q -O /dev/null http://127.0.0.1:2019/config/ \
+  CMD wget -q -O /dev/null "http://127.0.0.1:$NATEL_HEALTH_PORT/" \
   && wget -q -O /dev/null "http://$NATEL_SESSION_ADDR/healthz" || exit 1

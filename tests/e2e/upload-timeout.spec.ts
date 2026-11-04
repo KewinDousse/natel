@@ -177,7 +177,7 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
       "-v",
       `${root}/Caddyfile:/etc/caddy/Caddyfile:ro`,
       "-e",
-      "NATEL_ADMIN=off",
+      `NATEL_HEALTH_PORT=${await freePort()}`,
       "-e",
       `SITE_ADDRESS=${origin}, ${tlsOrigin}`,
       "-e",
