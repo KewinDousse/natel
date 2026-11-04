@@ -131,6 +131,7 @@ function createTestClient(): QueryClient {
 }
 
 function wrapper(client: QueryClient): ({ children }: { children: ReactNode }) => ReactNode {
+  // biome-ignore lint/correctness/noComponentHookFactories: Each renderHook uses one stable wrapper for its isolated client.
   return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   };
