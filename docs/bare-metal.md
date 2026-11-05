@@ -115,6 +115,7 @@ Environment=CARDDAV_URL=https://dav.example.com
 Environment=NATEL_ROOT=/usr/share/natel
 Environment=NATEL_BIND=127.0.0.1
 Environment=NATEL_TRUSTED_PROXIES=127.0.0.1
+Environment=NATEL_HTTPS_ONLY_COOKIE=true
 Environment=NATEL_HTTP_PORT=8080
 ```
 
@@ -132,11 +133,22 @@ Without `natel-session`, every sign-in fails with "server can't be reached".
 | `CARDDAV_URL`                         | (required)         | Origin of your CardDAV server. Use `https://` unless the server runs on the same machine: Natel sends your password to it with every request. Natel starts without it, but the sign-in then reports that the server can't be reached.                                                                               |
 | `SITE_ADDRESS`                        | `http://`          | What Caddy serves. Exposed directly, your domain (`contacts.example.com`): Caddy gets and renews the certificate itself, on ports 80 and 443.                                                                                                                                                                        |
 | `NATEL_BIND`                          | (all interfaces)   | The interface Caddy listens on. Behind a reverse proxy on the same machine, `127.0.0.1`, so Natel can't be reached around the proxy in plain HTTP. A host in `SITE_ADDRESS` doesn't do that: Caddy still listens everywhere and only matches the `Host` header, which the client chooses.                            |
+| `NATEL_HTTPS_ONLY_COOKIE`             | `false`            | Set it to `true` for HTTPS access: see [HTTPS session cookies](#https-session-cookies). |
 | `NATEL_ROOT`                          | `/usr/share/caddy` | The folder holding the contents of `dist/`, and nothing else.                                                                                                                                                                                                                                                        |
 | `NATEL_ADMIN`                         | (off)              | Caddy's admin API, which reconfigures Caddy without authentication for anyone on the machine. Leave it unset, or set it to `off`: an empty value (`Environment=NATEL_ADMIN=`) turns it on at `localhost:2019`. It is what `caddy reload` talks to, so `systemctl reload caddy` fails: use `systemctl restart caddy`. |
 | `NATEL_HTTP_PORT`, `NATEL_HTTPS_PORT` | 80, 443            | The ports Caddy uses for HTTP and HTTPS when `SITE_ADDRESS` names none.                                                                                                                                                                                                                                              |
 | `NATEL_SESSION_ADDR`                  | `127.0.0.1:2020`   | Where `natel-session` listens for Caddy: a loopback address and a port. Change the port only if another service uses it.                                                                                                                                                                                                           |
 | `NATEL_HEALTH_PORT`                   | `2021`             | The port on `127.0.0.1` where Caddy answers the container image's healthcheck with an empty response. Nothing reads it without Docker: you can delete that site block, the first after the global options, from your copy of the Caddyfile, or change the port if another service uses it.                                         |
+
+## HTTPS session cookies
+
+`NATEL_HTTPS_ONLY_COOKIE` defaults to `false`. Set it to `true` for HTTPS
+access, whether Caddy serves TLS directly or sits behind a TLS proxy, and
+restart Natel. Sign-in then always issues the secure `__Host-` cookie and
+requests refuse the plain cookie, preventing a sibling subdomain from
+planting a session. Browsers cannot sign in over plain HTTP outside
+`localhost` with it enabled. Leave it unset or `false` for HTTP access.
+See [HTTPS session cookies](deployment.md#https-session-cookies) for details.
 
 ## Update checks
 

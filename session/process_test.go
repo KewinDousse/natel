@@ -5,8 +5,11 @@ package main
 import (
 	"bytes"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -203,5 +206,84 @@ func TestPipesAreNotTerminals(t *testing.T) {
 	defer w.Close()
 	if isTerminal(r) {
 		t.Fatal("a pipe counted as a terminal")
+	}
+}
+
+func TestBoolEnv(t *testing.T) {
+	for _, tc := range []struct {
+		raw                string
+		fallback, want, ok bool
+	}{
+		{raw: "", fallback: false, want: false, ok: true},
+		{raw: "", fallback: true, want: true, ok: true},
+		{raw: "true", fallback: false, want: true, ok: true},
+		{raw: "false", fallback: true, want: false, ok: true},
+		{raw: "tru", fallback: true, want: false, ok: false},
+	} {
+		t.Setenv("NATEL_TEST_BOOL", tc.raw)
+		got, ok := boolEnv(newLogger(io.Discard), "NATEL_TEST_BOOL", tc.fallback)
+		if got != tc.want || ok != tc.ok {
+			t.Fatalf("%q with fallback %v: got %v, %v", tc.raw, tc.fallback, got, ok)
+		}
+	}
+}
+
+func TestRunAppliesHTTPSOnlyCookieSetting(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := listener.Addr().String()
+	listener.Close()
+	t.Setenv("NATEL_SESSION_ADDR", addr)
+	t.Setenv("NATEL_SESSION_SECRET", testSecret)
+	t.Setenv("CARDDAV_URL", fakeDav(t).URL)
+	t.Setenv("NATEL_HTTPS_ONLY_COOKIE", "true")
+	logs := &lockedBuffer{}
+	ready := filepath.Join(t.TempDir(), "ready")
+	done := make(chan int, 1)
+	go func() {
+		done <- run(newLogger(logs), []string{"sh", "-c", "trap 'exit 0' TERM; touch \"$0\"; while :; do sleep 0.05; done", ready})
+	}()
+	waitForFile(t, ready)
+	defer func() {
+		if err := syscall.Kill(os.Getpid(), syscall.SIGTERM); err != nil {
+			t.Error(err)
+			return
+		}
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Error("SIGTERM didn't stop the child")
+		}
+	}()
+
+	r, err := http.NewRequest("POST", "http://"+addr+"/session", strings.NewReader(`{"username":"alice","password":"secret"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Header.Set("Origin", "http://"+addr)
+	r.Header.Set("Sec-Fetch-Site", "same-origin")
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-Forwarded-Proto", "http")
+	w, err := http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Body.Close()
+	cookies := w.Cookies()
+	if w.StatusCode != http.StatusOK || len(cookies) != 1 || cookies[0].Name != secureCookieName {
+		t.Fatalf("sign-in: %d, cookies %+v\n%s", w.StatusCode, cookies, logs.String())
+	}
+}
+
+func TestRunRefusesInvalidHTTPSOnlyCookieSetting(t *testing.T) {
+	t.Setenv("NATEL_HTTPS_ONLY_COOKIE", "tru")
+	var logs bytes.Buffer
+	if code := run(newLogger(&logs), []string{"true"}); code != 1 {
+		t.Fatalf("exit code %d", code)
+	}
+	if !bytes.Contains(logs.Bytes(), []byte("NATEL_HTTPS_ONLY_COOKIE must be true or false")) {
+		t.Fatalf("logs: %s", logs.String())
 	}
 }

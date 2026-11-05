@@ -349,3 +349,92 @@ func TestAForgedHTTPOriginStillGetsAHostCookieOverHTTPS(t *testing.T) {
 		t.Fatalf("got %d", w.Code)
 	}
 }
+
+func TestHTTPSOnlyCookie(t *testing.T) {
+	upstream, _ := url.Parse(fakeDav(t).URL)
+	signIn := `{"username":"alice","password":"secret"}`
+	signOut := func(c *http.Cookie) *http.Request {
+		r := withCookie(httptest.NewRequest("DELETE", "/session", nil), c)
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		return r
+	}
+	for mode, enabled := range map[string]bool{"disabled": false, "enabled": true} {
+		setup := func(t *testing.T) (http.Handler, *store, *http.Cookie) {
+			t.Helper()
+			st := newStore(time.Now)
+			h := (&server{store: st, verifier: newVerifier(upstream), log: newLogger(io.Discard), secret: testSecret, httpsOnlyCookie: enabled}).routes()
+			token, err := st.open("alice", basic("alice", "secret"), cookieName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return h, st, &http.Cookie{Name: cookieName, Value: token}
+		}
+		t.Run(mode+"/sign-in cookie", func(t *testing.T) {
+			h, _, _ := setup(t)
+			for _, origin := range []string{"", "null", appOrigin, "https://natel.test"} {
+				r := signInRequest(signIn)
+				r.Header.Set("Sec-Fetch-Site", "same-origin")
+				r.Header.Set("Origin", origin)
+				r.Header.Set("X-Forwarded-Proto", "http")
+				w := serve(h, r)
+				if w.Code != http.StatusOK {
+					t.Fatalf("origin %q: sign-in: %d %s", origin, w.Code, w.Body)
+				}
+				c := sessionCookie(t, w)
+				wantSecure := enabled || origin == "https://natel.test"
+				if c.Secure != wantSecure || (c.Name == secureCookieName) != wantSecure || c.Domain != "" || c.Path != "/" || !c.HttpOnly || c.SameSite != http.SameSiteStrictMode {
+					t.Fatalf("origin %q: cookie: %+v", origin, c)
+				}
+				if w := serve(h, withCookie(authRequest(), c)); w.Code != http.StatusNoContent {
+					t.Fatalf("origin %q: issued cookie refused: %d", origin, w.Code)
+				}
+			}
+		})
+		t.Run(mode+"/plain cookie on reads", func(t *testing.T) {
+			h, _, plain := setup(t)
+			for _, path := range []string{"/session", "/auth", "/updates"} {
+				r := withCookie(httptest.NewRequest("GET", path, nil), plain)
+				r.Header.Set(secretHeader, testSecret)
+				w := serve(h, r)
+				if enabled && (w.Code != http.StatusUnauthorized || w.Header().Get("Authorization") != "") {
+					t.Fatalf("plain cookie accepted on %s: %d", path, w.Code)
+				}
+				if !enabled && w.Code != http.StatusOK && w.Code != http.StatusNoContent {
+					t.Fatalf("plain cookie refused on %s: %d", path, w.Code)
+				}
+			}
+		})
+		t.Run(mode+"/plain cookie on sign-out", func(t *testing.T) {
+			h, st, plain := setup(t)
+			if w := serve(h, signOut(plain)); w.Code != http.StatusNoContent {
+				t.Fatalf("sign-out: %d", w.Code)
+			}
+			if _, exists := st.get(plain.Value, cookieName); exists != enabled {
+				t.Fatal("sign-out used an unaccepted cookie or failed to revoke an accepted one")
+			}
+		})
+		t.Run(mode+"/host cookie", func(t *testing.T) {
+			h, _, plain := setup(t)
+			r := signInRequest(signIn)
+			r.Header.Set("X-Forwarded-Proto", "https")
+			c := sessionCookie(t, serve(h, r))
+			// A planted plain cookie must not displace the host cookie.
+			r = withCookie(withCookie(authRequest(), c), plain)
+			if w := serve(h, r); w.Code != http.StatusNoContent {
+				t.Fatalf("host cookie refused beside plain cookie: %d", w.Code)
+			}
+			w := serve(h, signOut(c))
+			if w.Code != http.StatusNoContent {
+				t.Fatalf("host cookie sign-out: %d", w.Code)
+			}
+			for _, c := range w.Result().Cookies() {
+				if c.MaxAge >= 0 {
+					t.Fatalf("cookie not cleared: %+v", c)
+				}
+			}
+			if w := serve(h, withCookie(authRequest(), c)); w.Code != http.StatusUnauthorized {
+				t.Fatalf("signed-out cookie accepted: %d", w.Code)
+			}
+		})
+	}
+}

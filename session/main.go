@@ -28,15 +28,27 @@ func main() {
 	os.Exit(run(log, os.Args[1:]))
 }
 
+func boolEnv(log *slog.Logger, name string, fallback bool) (value, ok bool) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return fallback, true
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		log.Error(name + " must be true or false")
+		return false, false
+	}
+	return value, true
+}
+
 func run(log *slog.Logger, command []string) int {
-	updatesEnabled := true
-	if raw := os.Getenv("NATEL_UPDATE_CHECKS"); raw != "" {
-		var err error
-		updatesEnabled, err = strconv.ParseBool(raw)
-		if err != nil {
-			log.Error("NATEL_UPDATE_CHECKS must be true or false")
-			return 1
-		}
+	updatesEnabled, ok := boolEnv(log, "NATEL_UPDATE_CHECKS", true)
+	if !ok {
+		return 1
+	}
+	httpsOnlyCookie, ok := boolEnv(log, "NATEL_HTTPS_ONLY_COOKIE", false)
+	if !ok {
+		return 1
 	}
 	addr := os.Getenv("NATEL_SESSION_ADDR")
 	if addr == "" {
@@ -81,7 +93,7 @@ func run(log *slog.Logger, command []string) int {
 	}
 	st := newStore(time.Now)
 	srv := &http.Server{
-		Handler:           (&server{store: st, verifier: v, log: log, secret: secret, updateChecker: newUpdateChecker(updatesEnabled)}).routes(),
+		Handler:           (&server{store: st, verifier: v, log: log, secret: secret, updateChecker: newUpdateChecker(updatesEnabled), httpsOnlyCookie: httpsOnlyCookie}).routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),

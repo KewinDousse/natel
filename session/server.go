@@ -25,10 +25,11 @@ const (
 )
 
 type server struct {
-	updateChecker *updateChecker
-	store         *store
-	verifier      *verifier
-	log           *slog.Logger
+	httpsOnlyCookie bool
+	updateChecker   *updateChecker
+	store           *store
+	verifier        *verifier
+	log             *slog.Logger
 	// secret is what Caddy sends /auth, so a local process that got hold of
 	// a session cookie can't read the password from the loopback.
 	secret string
@@ -109,7 +110,7 @@ func (s *server) signIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := cookieName
-	if secure(r) {
+	if s.httpsOnlyCookie || secure(r) {
 		name = secureCookieName
 	}
 	token, err := s.store.open(creds.Username, authorization, name)
@@ -142,7 +143,7 @@ func (s *server) signOut(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	if token, _, ok := sessionToken(r); ok {
+	if token, _, ok := s.sessionToken(r); ok {
 		s.store.close(token)
 	}
 	for _, name := range []string{secureCookieName, cookieName} {
@@ -171,17 +172,23 @@ func (s *server) authorize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) lookup(r *http.Request) (session, bool) {
-	token, name, ok := sessionToken(r)
+	token, name, ok := s.sessionToken(r)
 	if !ok {
 		return session{}, false
 	}
 	return s.store.get(token, name)
 }
 
-// sessionToken reads the session cookie, the __Host- one first. Two
-// cookies of the same name mean another one was slipped in: neither counts.
-func sessionToken(r *http.Request) (token, name string, ok bool) {
-	for _, name := range []string{secureCookieName, cookieName} {
+// sessionToken reads the session cookie, the __Host- one first. With
+// httpsOnlyCookie it reads only that one, which no sibling subdomain can
+// plant. Two cookies of the same name mean another one was slipped in:
+// neither counts.
+func (s *server) sessionToken(r *http.Request) (token, name string, ok bool) {
+	names := []string{secureCookieName}
+	if !s.httpsOnlyCookie {
+		names = append(names, cookieName)
+	}
+	for _, name := range names {
 		cookies := r.CookiesNamed(name)
 		if len(cookies) == 1 {
 			return cookies[0].Value, name, true

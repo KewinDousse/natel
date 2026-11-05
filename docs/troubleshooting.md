@@ -17,6 +17,11 @@ wrong credentials, Caddy lost the secret it shares with `natel-session`:
 Caddy's secret". That follows a `caddy reload` run outside the container's
 own processes. Restart Natel.
 
+If a sign-in over plain HTTP reports wrong credentials although the password
+is right, check `NATEL_HTTPS_ONLY_COOKIE`: with it on, browsers refuse the
+secure cookie outside `localhost`. Use HTTPS, or see
+[HTTPS session cookies](deployment.md#https-session-cookies).
+
 If a Baïkal installation is under a path, configure its
 [`.well-known/carddav` redirect](deployment.md#finding-your-address-books).
 Address books are created on the CardDAV server, not in Natel.

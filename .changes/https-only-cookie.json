@@ -1,0 +1,4 @@
+{
+  "type": "Security",
+  "text": "HTTPS deployments can enable NATEL_HTTPS_ONLY_COOKIE=true to prevent a sibling subdomain from planting an attacker's session when the TLS proxy is bypassable or HTTPS is not detected. The setting defaults to false to preserve HTTP access; see [HTTPS session cookies](docs/deployment.md#https-session-cookies) before enabling it."
+}
