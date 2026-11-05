@@ -29,6 +29,7 @@ export function MoveDialog({
 }) {
   const { t } = useI18n();
   const titleId = useId();
+  const groupsHintId = useId();
   const [chosen, setChosen] = useState<string | null>(
     books.length === 1 ? (books[0]?.href ?? null) : null,
   );
@@ -59,6 +60,7 @@ export function MoveDialog({
   return (
     <Dialog
       titleId={titleId}
+      describedBy={groupsHintId}
       panelRef={panelRef}
       busy={running}
       onDismiss={onCancel}
@@ -85,6 +87,9 @@ export function MoveDialog({
           </label>
         ))}
       </fieldset>
+      <p id={groupsHintId} className="mt-4 text-sm text-muted-foreground">
+        {t("move_groups_hint")}
+      </p>
       <DialogActions>
         <button
           ref={cancelRef}

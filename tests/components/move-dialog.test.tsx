@@ -2,6 +2,7 @@
  * Tests for src/components/move-dialog.tsx — which book is chosen when it
  * opens.
  */
+import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MoveDialog } from "@/components/move-dialog";
@@ -27,6 +28,13 @@ function renderDialog(books: DavAddressBook[]) {
 afterEach(cleanup);
 
 describe("MoveDialog", () => {
+  it("explains group membership before confirming the move, including to assistive technology", () => {
+    renderDialog([WORK]);
+    expect(screen.getByRole("dialog")).toHaveAccessibleDescription(
+      "After moving, this contact may no longer appear in some groups. Check its groups in the destination address book.",
+    );
+  });
+
   it("chooses the only other book, so Move works at once", () => {
     const onMove = renderDialog([WORK]);
     expect((screen.getByRole("radio", { name: "Travail" }) as HTMLInputElement).checked).toBe(true);

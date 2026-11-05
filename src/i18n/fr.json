@@ -221,6 +221,7 @@
   "move_disabled_hint": "Enregistrez ou annulez vos modifications d’abord.",
   "move_title": "Déplacer ce contact\u00a0?",
   "move_to": "Carnet",
+  "move_groups_hint": "Après le déplacement, ce contact peut ne plus figurer dans certains groupes. Vérifiez ses groupes dans le carnet de destination.",
   "move_confirm": "Déplacer",
   "moving": "Déplacement…",
   "moved_to": "Déplacé vers «\u00a0{name}\u00a0»",

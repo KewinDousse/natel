@@ -307,6 +307,14 @@ don't offer it.
 - **Information not shown**: what the card holds that Natel doesn't show (`X-` properties, `IMPP`, `RELATED`…) is never edited and survives every save (invariant 4). A link under the form, absent at 0, counts them and opens a dialog listing them as the card writes them, so someone who knows vCard can inspect them.
 - **Group write failed**: the bottom bar says the contact is saved but some groups were not, each with its reason, and offers reload or overwrite for one changed elsewhere.
 
+### Group memberships when moving
+
+The move dialog includes a paragraph before the actions, associated with the
+modal through `aria-describedby`. It warns that the contact may no longer appear
+in some groups after moving and asks users to check its groups in the destination
+book. It appears for every move, since the server's
+current card can contain categories the loaded contact does not yet show.
+
 ## Brand assets
 
 The [brand kit](brand/README.md) holds the brand files and their rules.

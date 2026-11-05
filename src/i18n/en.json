@@ -221,6 +221,7 @@
   "move_disabled_hint": "Save or cancel your changes first.",
   "move_title": "Move this contact?",
   "move_to": "Address book",
+  "move_groups_hint": "After moving, this contact may no longer appear in some groups. Check its groups in the destination address book.",
   "move_confirm": "Move",
   "moving": "Moving…",
   "moved_to": "Moved to “{name}”",

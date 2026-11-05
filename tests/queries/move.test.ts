@@ -44,6 +44,19 @@ beforeEach(() => {
 });
 
 describe("moveContact", () => {
+  it("keeps categories in the target card and writes only the contact, leaving group cards alone", async () => {
+    const text = TEXT.replace("X-KEEP:yes", "CATEGORIES:Family,Work\nX-KEEP:yes");
+    mockFetchCard.mockResolvedValue({ href: SOURCE, etag: '"e1"', vcardText: text });
+    const contact = parse(text, SOURCE, '"e1"');
+    expect(await moveContact(AUTH, contact, TARGET)).toMatchObject({ kind: "moved" });
+    expect(mockCreateCard).toHaveBeenCalledExactlyOnceWith(
+      AUTH,
+      `${TARGET}ada.vcf`,
+      text.replaceAll("\n", "\r\n"),
+    );
+    expect(mockDeleteCard).toHaveBeenCalledExactlyOnceWith(AUTH, SOURCE, '"e1"');
+  });
+
   it("creates the card as the server has it, in CRLF, then deletes the source", async () => {
     expect(await moveContact(AUTH, source, TARGET)).toEqual({
       kind: "moved",

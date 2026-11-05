@@ -123,6 +123,19 @@ Clients store groups in two ways:
 Natel reads both forms and writes new memberships as group cards. Test the
 chosen grouping setup with your other clients before reorganising a book.
 
+## Groups when moving a contact
+
+A move copies the contact's card to the other book and leaves group cards as they are.
+The move dialog warns about this before confirmation.
+
+- Groups stored as `CATEGORIES` follow the contact, and can appear as new groups
+  in the target book.
+- Groups stored as group cards stay in the source book. The contact is not in
+  them in the target book, and is again if it moves back with the same UID.
+
+Check the contact's groups in the target book after moving it. An existing group
+card there can already include the contact's UID.
+
 ## Known interoperability behaviours
 
 ### Semicolons in Nextcloud Contacts
