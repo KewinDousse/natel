@@ -41,6 +41,19 @@ export function decodeEscapedSemicolons(): void {
   }
 }
 
+/** RFC 2426 §2.3 requires semicolons escaped in every 3.0 text value. */
+export function encodeVcard3Semicolons(): void {
+  const values = ICAL.design.vcard3.value;
+  const text = values.text;
+  if (!text) throw new Error("ical.js has no vCard 3.0 text value");
+  // The two versions share a codec; give 3.0 its own encoder.
+  values.text = {
+    ...text,
+    toICAL: (value: string, structuredEscape?: string | false) =>
+      text.toICAL(value, structuredEscape === false ? ";" : structuredEscape),
+  };
+}
+
 /**
  * ical.js's vCard 3.0 `detectType` types every BDAY as date/date-time and
  * drops `VALUE=text`, so a free-text birthday ("circa 1987") throws when
@@ -55,7 +68,7 @@ export function retypeTextBirthdays(raw: RawComponent): void {
       const jcal = prop.toJSON() as [string, unknown, string, unknown];
       const source = String(jcal[3] ?? "");
       prop.resetType("text");
-      prop.setValue(source);
+      prop.setValue(ICAL.design.vcard.value.text.fromICAL(source, ";"));
     }
   }
 }

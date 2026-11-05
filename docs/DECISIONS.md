@@ -387,6 +387,8 @@ Google Contacts, and in iPhone Contacts (`compatibility.md`).
 
 ## 024 — The escaped semicolon in text values is read as a semicolon
 
+Amended by ADR 047 for vCard 3.0 writing.
+
 **Context.** Radicale escapes every semicolon in text (`NOTE:a\;b`), as
 RFC 2426 asks, but ical.js decodes `\;` only in structured values such as
 `N`. Natel showed `a\;b`, and each save added a backslash.
@@ -881,3 +883,18 @@ plain HTTP deployments must remain possible.
 **Consequences.** Protection requires enabling the setting. With it enabled,
 browsers cannot sign in over plain HTTP outside `localhost`; documentation
 must state this limit.
+
+## 047 — Escape text semicolons in vCard 3.0
+
+**Context.** RFC 2426 §2.3 requires escaped text semicolons. ical.js 2.2.1
+shares a text encoder between vCard 3.0 and 4.0 that writes them literally.
+An unpatched decoder can display the escape and add backslashes on save;
+this affects Nextcloud Contacts (ical.js #1045).
+
+**Decision.** Write escaped semicolons in 3.0 text, including list values,
+with a version-specific encoder. Keep structured delimiters and URI values
+separate. Retain ADR 024's tolerant decoding. This amends ADR 024.
+
+**Consequences.** Natel writes standard 3.0 text even when another client's
+decoder mishandles it. The known limitation and the evidence supporting it
+are recorded in `compatibility.md`.

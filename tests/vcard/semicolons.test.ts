@@ -5,11 +5,6 @@ import { describe, expect, it } from "vitest";
 import { parse, serialise } from "@/vcard";
 
 const card = (lines: string[]) => parse(["BEGIN:VCARD", ...lines, "END:VCARD", ""].join("\r\n"));
-const line = (text: string, name: string) =>
-  text
-    .replace(/\r?\n[ \t]/g, "")
-    .split(/\r?\n/)
-    .find((l) => l.toUpperCase().startsWith(`${name}:`));
 
 describe("escaped semicolons", () => {
   for (const version of ["3.0", "4.0"]) {
@@ -29,16 +24,6 @@ describe("escaped semicolons", () => {
   it("still reads an escaped backslash before a semicolon as a backslash", () => {
     const contact = card(["VERSION:4.0", "FN:X", "NOTE:a\\\\\\;b c\\\\;d"]);
     expect(contact.fields.note).toBe("a\\;b c\\;d");
-  });
-
-  it("keeps structured values and CATEGORIES as they were", () => {
-    const contact = card(["VERSION:3.0", "FN:X", "N:Fam\\;ily;Given;;;", "CATEGORIES:a\\,b,c\\;d"]);
-    expect(contact.fields.n.family).toBe("Fam;ily");
-    expect(contact.fields.n.given).toBe("Given");
-    contact.fields.note = "edited";
-    const text = serialise(contact);
-    expect(line(text, "N")).toBe("N:Fam\\;ily;Given;;;");
-    expect(line(text, "CATEGORIES")).toBe("CATEGORIES:a\\,b,c;d");
   });
 
   it("leaves a backslash in a parameter value as written", () => {

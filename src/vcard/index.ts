@@ -23,6 +23,7 @@ import {
 } from "./fields";
 import {
   decodeEscapedSemicolons,
+  encodeVcard3Semicolons,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
 } from "./ical-workarounds";
@@ -55,8 +56,10 @@ export {
 } from "./read";
 export { savedLabelOf, writesAddress } from "./write";
 
-// Patches ical.js's text decoder before any parse (ADR 024).
+// Reserve one octet for the continuation space (RFC 6350 §3.2).
+ICAL.foldLength = 74;
 decodeEscapedSemicolons();
+encodeVcard3Semicolons();
 
 // ---------------------------------------------------------------------------
 // Public API

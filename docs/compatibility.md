@@ -123,6 +123,42 @@ Clients store groups in two ways:
 Natel reads both forms and writes new memberships as group cards. Test the
 chosen grouping setup with your other clients before reorganising a book.
 
+## Known interoperability behaviours
+
+### Semicolons in Nextcloud Contacts
+
+vCard 3.0 requires text semicolons to be written as `\;`
+([RFC 2426 §2.3](https://www.rfc-editor.org/rfc/rfc2426.html#section-2.3)).
+Natel writes that form and decodes it back to a semicolon. vCard 4.0 text
+can contain a literal semicolon.
+
+Unpatched ical.js 2.2.1 does not decode `\;` in plain text values. A client
+using that decoder can show the backslash, then double it when saving.
+Nextcloud Contacts is affected by this upstream issue
+([ical.js #1045](https://github.com/kewisch/ical.js/issues/1045)). Natel
+patches the decoder rather than writing nonconforming 3.0 text.
+
+The library behaviour was reproduced locally on 2026-11-05. The Nextcloud
+Contacts web interface was not exercised for this case; this is distinct
+from the Nextcloud CardDAV server checks above. Semicolons have not been
+checked on a physical iPhone or Mac. Avoid editing affected text in a
+client that displays an extra backslash.
+
+### Yearless birthdays from Apple Contacts
+
+Apple's unmarked year 1604 convention needs special handling in Natel
+(ADR 039); see the [iPhone checks](#iphone-contacts-and-safari).
+
+### Group formats
+
+Nextcloud Contacts and DAVx⁵ in categories mode do not show Natel's group
+cards. This is a format difference; see [Groups](#groups).
+
+### Photos rewritten by iPhone Contacts
+
+The [iPhone checks](#iphone-contacts-and-safari) found photos converted to
+JPEG and an animated GIF shown still, without establishing a standards violation.
+
 ## Browsers and installed app
 
 Automated browser tests use Chromium, with desktop and phone viewports.
@@ -146,3 +182,16 @@ case and equivalent parameter forms. See the preservation tests in
 The selected address book is loaded in full, including inline photos;
 search then runs locally. This is intended for personal address books.
 There is no published large-book benchmark or incremental synchronisation.
+
+## Standards checks
+
+[`tests/vcard/rfc.test.ts`](../tests/vcard/rfc.test.ts) checks selected
+requirements directly against expected wire text, without reparsing the
+output with the serializer's library: vCard 3.0 text escaping and structured
+delimiters (RFC 2426 §§2.3–2.5), vCard 4.0 text escaping (RFC 6350 §3.4),
+CRLF framing, unfolding and UTF-8 folding (RFC 6350 §§3.2–3.3), and parameter
+encoding (RFC 6868 §3). The suite also checks tolerance of text birthdays,
+which are outside RFC 2426's BDAY value types.
+
+These are targeted checks, not certification of full RFC compliance. The
+preservation tests and server end-to-end tests cover different guarantees.
