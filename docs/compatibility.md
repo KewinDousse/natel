@@ -214,6 +214,15 @@ RFC 6352 §8.7), encoded hrefs, XML namespaces, entity references, CDATA,
 mixed property statuses and per-resource 404 responses (RFC 4918 §§8.3,
 13–14), and conditional writes and conflicts (RFC 9110 §§13.1.1–13.1.2,
 15.5.13). These checks exercise Natel, not the servers in the matrix.
+The suite also tests multiget batches with several hrefs (RFC 6352 §8.7),
+a default DAV namespace (RFC 4918 §17), and strong entity tags returned by
+PUT (RFC 6352 §6.3.2.3).
+
+Multiget sends `Depth: 0` as required by RFC 6352 §8.7. The RFC's examples
+use `1`; [erratum 4610](https://www.rfc-editor.org/errata/eid4610) proposes
+that value but remains Reported as of 2026-11-05. The full end-to-end suite
+passed with `0` against Radicale, Xandikos, Baïkal and Nextcloud on that date.
+
 
 These are targeted checks, not certification of full RFC compliance. The
 preservation tests and server end-to-end tests cover different guarantees.

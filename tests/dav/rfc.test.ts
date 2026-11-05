@@ -168,6 +168,7 @@ describe("Selected DAV wire requirements", () => {
       await expect(action).rejects.toMatchObject({ code: "CONFLICT" });
       expect(requests).toHaveLength(3);
       expect(request(2).method).toBe(operation === "delete" ? "DELETE" : "PUT");
+      expect(request(2).url).toBe(href);
       expect(request(2).headers.get(operation === "create" ? "If-None-Match" : "If-Match")).toBe(
         operation === "create" ? "*" : '"v1"',
       );
@@ -178,3 +179,77 @@ describe("Selected DAV wire requirements", () => {
     },
   );
 });
+
+it("RFC 6352 §8.7: requests every href in a batch and matches responses out of order", async () => {
+  const client = await session();
+  const secondHref = `${book}c%20d.vcf`;
+  const secondCard = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:second\r\nFN:Second\r\nEND:VCARD\r\n";
+  replies.push(
+    xmlResponse(
+      prop(
+        "/books/default/c%20d.vcf",
+        `<x:getetag>&quot;second&quot;</x:getetag><c:address-data><![CDATA[${secondCard}]]></c:address-data>`,
+      ) +
+        prop(
+          "/books/default/a%20b.vcf",
+          `<x:getetag>&quot;first&quot;</x:getetag><c:address-data><![CDATA[${card}]]></c:address-data>`,
+        ),
+    ),
+  );
+  expect(await client.fetchCards([href, secondHref])).toEqual([
+    { href, etag: '"first"', vcardText: card },
+    { href: secondHref, etag: '"second"', vcardText: secondCard },
+  ]);
+  expect(requests).toHaveLength(3);
+  expect(request(2).url).toBe(book);
+  expect(request(2).method).toBe("REPORT");
+  expect(request(2).headers.get("Depth")).toBe("0");
+  const doc = await document(2);
+  expect(
+    Array.from(doc.getElementsByTagNameNS("DAV:", "href"), (element) => element.textContent),
+  ).toEqual(["/books/default/a%20b.vcf", "/books/default/c%20d.vcf"]);
+  expect(doc.getElementsByTagNameNS("DAV:", "getetag")).toHaveLength(1);
+  expect(doc.getElementsByTagNameNS("urn:ietf:params:xml:ns:carddav", "address-data")).toHaveLength(
+    1,
+  );
+});
+
+it("RFC 4918 §17: reads a default DAV namespace and a different CardDAV prefix", async () => {
+  const client = await session();
+  replies.push(
+    new Response(
+      '<multistatus xmlns="DAV:" xmlns:address="urn:ietf:params:xml:ns:carddav"><response><href>/books/default/a%20b.vcf</href><propstat><prop><getetag>&quot;default&quot;</getetag><address:address-data>BEGIN:VCARD\nVERSION:3.0\nUID:default\nFN:A &amp; B\nEND:VCARD</address:address-data></prop><status>HTTP/1.1 200 OK</status></propstat></response></multistatus>',
+      { status: 207, headers: { "Content-Type": "application/xml" } },
+    ),
+  );
+  expect(await client.fetchCard(href)).toEqual({
+    etag: '"default"',
+    vcardText: "BEGIN:VCARD\nVERSION:3.0\nUID:default\nFN:A & B\nEND:VCARD",
+  });
+});
+
+it.each(["update", "create"] as const)(
+  "RFC 6352 §6.3.2.3: %s returns the strong PUT ETag with the submitted text",
+  async (operation) => {
+    const client = await session();
+    replies.push(
+      new Response(null, {
+        status: operation === "update" ? 204 : 201,
+        headers: { ETag: '"stored"' },
+      }),
+    );
+    const result =
+      operation === "update"
+        ? await client.updateCard(href, '"v1"', card)
+        : await client.createCard(href, card);
+    expect(result).toEqual({ href, etag: '"stored"', vcardText: card });
+    expect(requests).toHaveLength(3);
+    expect(request(2).url).toBe(href);
+    expect(request(2).method).toBe("PUT");
+    expect(request(2).headers.get(operation === "create" ? "If-None-Match" : "If-Match")).toBe(
+      operation === "create" ? "*" : '"v1"',
+    );
+    expect(request(2).headers.get("Content-Type")).toBe("text/vcard; charset=utf-8");
+    expect(await request(2).text()).toBe(card);
+  },
+);

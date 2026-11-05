@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Extend selected DAV wire tests to cover multi-resource batches, default XML namespaces and strong PUT response ETags, and document the multiget Depth erratum. This adds test coverage and documentation without changing runtime behaviour."
+}
