@@ -89,13 +89,14 @@ export PATH="$HOME/.cache/natel-e2e/bin:$PATH"
 pnpm exec playwright install --with-deps chromium firefox webkit
 pnpm e2e:demo
 pnpm e2e
-E2E_SERVER=xandikos pnpm e2e
+E2E_SERVER=xandikos pnpm e2e  # also needs Docker
 E2E_SERVER=baikal pnpm e2e    # also needs Docker
 ```
 
 Radicale is the default. The suite uses isolated test ports and fresh
-storage. CI also runs against Baïkal and the built Docker image. The Docker
-image is built for amd64 and arm64; its browser tests execute the amd64 image.
+storage. CI also runs against Baïkal, Xandikos and the built Docker image.
+The Docker image is built for amd64 and arm64; its browser tests execute the
+amd64 image.
 
 Never commit real contacts. `tests/fixtures/public/` contains made-up
 cards; `tests/fixtures/private/` is ignored for local checks. Never modify
@@ -109,10 +110,10 @@ run and any limits. New behaviour needs a test; for a bug, write a regression
 test first. Commit messages are one imperative line in English, saying why
 when it isn't obvious.
 
-The checks above pass before you ask for a review; Baïkal can be left to
-CI. A draft runs no CI: marking the pull request ready starts it, unless it
-only changes Markdown or `docs/`. The maintainer
-reviews the proposal before publication; changes under `src/vcard/`,
+The checks above pass before you ask for a review; Baïkal, and Xandikos
+without Docker, can be left to CI. A draft runs no CI: marking the pull
+request ready starts it, unless it only changes Markdown or `docs/`. The
+maintainer reviews the proposal before publication; changes under `src/vcard/`,
 `src/dav/` and photo encoding need particular care because they handle your
 data. Do not include credentials or personal contacts in issues, logs or
 captures.

@@ -132,7 +132,7 @@ tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, componen
   vcard/         includes the round-trip tests over fixtures/
   e2e/           Playwright against the production build and a throwaway
                  CardDAV server: Radicale by default (`pnpm e2e`, ADR 017),
-                 Baïkal (Docker) or Xandikos with `E2E_SERVER`
+                 Baïkal or Xandikos (Docker) with `E2E_SERVER`
   e2e-demo/      Playwright against the demo build (`pnpm e2e:demo`)
   fixtures/
     public/      synthetic vCards, committed

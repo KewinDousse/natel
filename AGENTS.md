@@ -164,10 +164,10 @@ that file.
    waiting on the maintainer then holds up nothing else. A step that already
    has a branch continues on it. Force-push with lease only to bring a
    branch onto `origin/main` or to redo commits nobody has commented on.
-2. Implement, with tests. `CONTRIBUTING.md`'s checks, Baïkal aside, pass
-   before pushing. A draft pull request runs no CI, so the session is the
-   CI until the step is ready: push when there is something to show or to
-   keep, not after every commit.
+2. Implement, with tests. `CONTRIBUTING.md`'s checks, Baïkal aside and
+   Xandikos without Docker, pass before pushing. A draft pull request runs
+   no CI, so the session is the CI until the step is ready: push when there
+   is something to show or to keep, not after every commit.
 3. Open the pull request as a draft that closes the sub-issue, unless part
    of the step is left for the maintainer or it only proposes an ADR. Its
    title is one imperative English line describing the whole change.
@@ -245,7 +245,7 @@ hand or from the repository. Committed by the agent, with its
 sets the author outside the repository, through `GIT_AUTHOR_NAME` and
 `GIT_AUTHOR_EMAIL`. The session start hook
 (`.claude/hooks/session-start.sh`) sets Claude as committer, installs the
-dependencies, Radicale and Xandikos, and exports `RADICALE_BIN`,
-`XANDIKOS_BIN` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` for the sandbox's
-Chromium, so `pnpm e2e` works as is against both (ADR 017). Baïkal needs
-Docker, which the sandbox lacks. Elsewhere, set these up by hand.
+dependencies and the e2e servers' packages, and exports `RADICALE_BIN` and
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE` for the sandbox's Chromium, so `pnpm e2e`
+works as is against Radicale (ADR 017). Baïkal and Xandikos need Docker,
+which the sandbox lacks (ADR 048). Elsewhere, set these up by hand.

@@ -23,9 +23,10 @@ git config --unset-all author.email || true
 # stdout of a SessionStart hook lands in the session context; keep it quiet.
 pnpm install --frozen-lockfile >&2
 
-# e2e: Radicale and Xandikos in a venv outside the repo, and the sandbox's
+# e2e: the servers' packages in a venv outside the repo, and the sandbox's
 # preinstalled Chromium, since the browser build matching Playwright cannot
-# be downloaded. Baïkal runs from Docker, which the sandbox does not start.
+# be downloaded. Baïkal and Xandikos need Docker, which the sandbox does not
+# start, so only Radicale runs here.
 venv="$HOME/.cache/natel-e2e"
 [ -x "$venv/bin/pip" ] || python3 -m venv "$venv" >&2
 # Offline-safe on a warm container: pip only runs when the pins changed.
@@ -35,7 +36,6 @@ if ! cmp -s tests/e2e/requirements.txt "$venv/requirements.txt"; then
 fi
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export RADICALE_BIN=$venv/bin/radicale" >> "$CLAUDE_ENV_FILE"
-  echo "export XANDIKOS_BIN=$venv/bin/xandikos" >> "$CLAUDE_ENV_FILE"
   if [ -x /opt/pw-browsers/chromium ]; then
     echo "export PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium" >> "$CLAUDE_ENV_FILE"
   fi

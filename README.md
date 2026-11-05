@@ -79,9 +79,10 @@ IP address and may log it.
 
 Natel needs an existing CardDAV server and account; it does not host
 address books. It is [tested](docs/compatibility.md#carddav-servers)
-against Baïkal, Radicale and Xandikos. In a `compose.yaml`, set
-`CARDDAV_URL` to your server's origin (`scheme://host[:port]`, without a
-path):
+against Baïkal, Radicale and Xandikos; Xandikos checks no password by default,
+so [protect it](docs/deployment.md#protecting-xandikos-with-a-password). In a
+`compose.yaml`, set `CARDDAV_URL` to your server's origin
+(`scheme://host[:port]`, without a path):
 
 ```yaml
 services:

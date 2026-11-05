@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { createBook, EXTRA_BOOK_PATH, putCard, resetBook, vcard } from "./dav";
-import { PASSWORD, SERVER, USER } from "./env";
+import { PASSWORD, USER } from "./env";
 
 // Every screen, in both palettes, against WCAG 2.1 A and AA plus axe's best
 // practices. Only violations fail: contrast axe can't compute (text over an
@@ -86,7 +86,6 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.goto("/");
       await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
       await expectNoViolations(page, "sign-in");
-      if (!SERVER.checksPassword) return;
       await page.getByLabel("Username").fill(USER);
       await page.getByLabel("Password", { exact: true }).fill("wrong");
       await page.getByRole("button", { name: "Sign in" }).click();

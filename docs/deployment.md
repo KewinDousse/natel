@@ -114,6 +114,41 @@ location = /.well-known/carddav {
 }
 ```
 
+### Protecting Xandikos with a password
+
+Xandikos checks no password on its own by default. Pointed straight at it,
+Natel opens a session whatever password is typed, so anyone who reaches Natel
+reaches the contacts. Put an authenticating proxy between them, and point
+`CARDDAV_URL` at the proxy.
+
+[`tests/e2e/xandikos.Caddyfile`](../tests/e2e/xandikos.Caddyfile) is the Caddy
+site the end-to-end suite runs Xandikos behind, in its port form. Run it with
+the official Caddy image, mounted at `/etc/caddy/Caddyfile`, with the socket's
+folder shared. It reads these variables:
+
+| Variable                 | Value                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `XANDIKOS_SITE`          | The site's domain, for which Caddy obtains an HTTPS certificate: keep its `/data`. Or a port (`:8080`), in plain HTTP, when Natel reaches Caddy on a private container network, as in the suite. |
+| `XANDIKOS_USER`          | The CardDAV username                                                                                      |
+| `XANDIKOS_PASSWORD_HASH` | The output of `caddy hash-password`. In a `compose.yaml`, write each `$` as `$$`.                         |
+| `XANDIKOS_UPSTREAM`      | Where Xandikos listens: `unix//run/xandikos/xandikos.sock`, or `host:port` on a private network           |
+
+Start Xandikos with that username as its principal. `--defaults` creates the
+address book Natel needs:
+
+```sh
+xandikos serve --directory /var/lib/xandikos --defaults \
+  --current-user-principal /alice/ \
+  --listen-address /run/xandikos/xandikos.sock
+```
+
+The socket's folder must exist, and Caddy's user must be able to write to the
+socket (see Xandikos's `--socket-mode` and `--socket-group`). For a private
+network, set `--listen-address` and `--port` instead.
+
+Keep Xandikos reachable only through Caddy, with no published port. The site
+holds a single account.
+
 ### Behind a reverse proxy
 
 Natel listens on port 8080 in the container; the proxy terminates HTTPS and

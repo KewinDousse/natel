@@ -242,7 +242,7 @@ last two don't install from pip.
 Baïkal.
 
 **Consequences.** CI runs one e2e job per server. The Baïkal leg needs Docker
-locally; Radicale stays the default.
+locally; Radicale stays the default. ADR 048 amends the Xandikos setup.
 
 ## 019 — Display preferences: browser defaults, overrides in localStorage
 
@@ -898,3 +898,22 @@ separate. Retain ADR 024's tolerant decoding. This amends ADR 024.
 **Consequences.** Natel writes standard 3.0 text even when another client's
 decoder mishandles it. The known limitation and the evidence supporting it
 are recorded in `compatibility.md`.
+
+## 048 — Xandikos tested behind the Caddy site its deployment guide documents
+
+**Context.** Xandikos accepted any password in the test setup of ADR 018, so
+its leg skipped the wrong-password checks and matched no protected
+installation. Xandikos's own `--htpasswd` requires HTTPS with its self-signed
+certificate, and its help points to a proxy when there is one.
+
+**Decision.** The suite runs Xandikos behind
+`tests/e2e/xandikos.Caddyfile`, the file the deployment guide documents,
+in the Caddy image the Dockerfile pins. Every server now checks the password,
+so no test skips on it. This amends ADR 018.
+
+**Rejected.** A small Node proxy: no Docker needed, but its refusals would
+only have tested the proxy itself.
+
+**Consequences.** The Xandikos leg needs Docker, so it can't run in Claude
+Code's web sandbox; Radicale, the default, still does. The site covers one
+account.

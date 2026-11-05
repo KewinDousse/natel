@@ -1,0 +1,12 @@
+# Xandikos accepts any request that reaches it: keep it reachable only through
+# this site. See docs/deployment.md for the variables.
+{
+	admin off
+}
+
+{$XANDIKOS_SITE} {
+	basic_auth {
+		{$XANDIKOS_USER} {$XANDIKOS_PASSWORD_HASH}
+	}
+	reverse_proxy {$XANDIKOS_UPSTREAM}
+}
