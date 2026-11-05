@@ -206,5 +206,14 @@ CRLF framing, unfolding and UTF-8 folding (RFC 6350 §§3.2–3.3), and paramete
 encoding (RFC 6868 §3). The suite also checks tolerance of text birthdays,
 which are outside RFC 2426's BDAY value types.
 
+[`tests/dav/rfc.test.ts`](../tests/dav/rfc.test.ts) uses the real `tsdav`
+client with handwritten XML responses: selected requirements are tested for
+principal and address-book discovery (RFC 6764 §6, RFC 5397 §3, RFC 6352
+§7.1.1), DAV property requests and multiget bodies (RFC 4918 §9.1,
+RFC 6352 §8.7), encoded hrefs, XML namespaces, entity references, CDATA,
+mixed property statuses and per-resource 404 responses (RFC 4918 §§8.3,
+13–14), and conditional writes and conflicts (RFC 9110 §§13.1.1–13.1.2,
+15.5.13). These checks exercise Natel, not the servers in the matrix.
+
 These are targeted checks, not certification of full RFC compliance. The
 preservation tests and server end-to-end tests cover different guarantees.

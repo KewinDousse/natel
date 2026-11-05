@@ -723,7 +723,7 @@ describe("fetchCard", () => {
     expect(multiget).toHaveBeenCalledWith({
       url: "http://localhost:3000/dav/books/default/",
       props: { "d:getetag": {}, "card:address-data": {} },
-      depth: "1",
+      depth: "0",
       objectUrls: ["/books/default/1.vcf"],
     });
   });
@@ -822,7 +822,7 @@ describe("fetchCards", () => {
     expect(multiget).toHaveBeenCalledWith({
       url: "http://localhost:3000/dav/books/default/",
       props: { "d:getetag": {}, "card:address-data": {} },
-      depth: "1",
+      depth: "0",
       objectUrls: ["/books/default/1.vcf", "/books/default/2.vcf"],
     });
     expect(results).toHaveLength(2);
@@ -976,22 +976,10 @@ describe("updateCard", () => {
     expect(multiget).toHaveBeenCalledWith({
       url: "http://localhost:3000/dav/books/default/",
       props: { "d:getetag": {}, "card:address-data": {} },
-      depth: "1",
+      depth: "0",
       objectUrls: ["/books/default/1.vcf"],
     });
     expect(result).toEqual({ href: CARD_HREF, etag: '"server"', vcardText: SERVER_VCARD });
-  });
-
-  it("throws CONFLICT when PUT returns 412", async () => {
-    const davId = vi
-      .fn()
-      .mockResolvedValue([davResp({ ok: false, status: 412, statusText: "Precondition Failed" })]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
-
-    const session = await createDavSession(AUTH);
-    await expect(session.updateCard(CARD_HREF, '"old"', VCARD)).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
   });
 
   it("throws TOO_LARGE when PUT returns 413, on an update or a creation", async () => {
@@ -1286,18 +1274,6 @@ describe("createCard", () => {
     expect(result).toEqual({ href: CARD_HREF, etag: '"read"', vcardText: stored });
   });
 
-  it("throws CONFLICT when PUT returns 412", async () => {
-    const davId = vi
-      .fn()
-      .mockResolvedValue([davResp({ ok: false, status: 412, statusText: "Precondition Failed" })]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
-
-    const session = await createDavSession(AUTH);
-    await expect(session.createCard(CARD_HREF, VCARD)).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
-  });
-
   it("throws AUTH when PUT returns 401", async () => {
     const davId = vi
       .fn()
@@ -1377,16 +1353,6 @@ describe("deleteCard", () => {
     await session.deleteCard(CARD_HREF, '"e"');
 
     expect(pfind).not.toHaveBeenCalled();
-  });
-
-  it("throws CONFLICT when DELETE returns 412", async () => {
-    const davId = vi
-      .fn()
-      .mockResolvedValue([davResp({ ok: false, status: 412, statusText: "Precondition Failed" })]);
-    mockCreateDAVClient.mockResolvedValue(mockClient({ davRequest: davId }));
-
-    const session = await createDavSession(AUTH);
-    await expect(session.deleteCard(CARD_HREF, '"e"')).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
   it("throws AUTH when DELETE returns 401", async () => {

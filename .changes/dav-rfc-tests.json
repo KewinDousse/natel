@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Test selected DAV wire requirements using the real client and handwritten XML responses, and replace three redundant mocked conflict tests verified by mutation."
+}

@@ -313,7 +313,7 @@ async function readCard(
       client.addressBookMultiGet({
         url: bookUrl,
         props: MULTIGET_PROPS,
-        depth: "1",
+        depth: "0",
         // Hrefs in the body reach the server untouched, so they must be
         // in its URL space, not the proxy's.
         objectUrls: [toServerPath(href)],
@@ -613,7 +613,7 @@ async function makeSession(evict: () => void): Promise<DavSession> {
             client.addressBookMultiGet({
               url: bookUrl,
               props: MULTIGET_PROPS,
-              depth: "1",
+              depth: "0",
               objectUrls: hrefs.map(toServerPath),
             }),
           `fetching ${hrefs.length} cards`,
