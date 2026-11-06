@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Update the disposable Radicale test server to 3.9.0. This changes compatibility test coverage without changing the application or deployment requirements."
+}
