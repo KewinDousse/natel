@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=
 # so it needs no capability: with one, `cap_drop: ALL` would refuse to run
 # it. It is removed in its own stage because changing the binary in the
 # runtime stage would store it twice.
-FROM caddy:2-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f AS caddy
+FROM caddy:2-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9 AS caddy
 RUN setcap -r /usr/bin/caddy
 
 # Runtime stage: what the official image adds to Alpine, minus curl and
