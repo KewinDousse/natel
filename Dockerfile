@@ -1,7 +1,7 @@
 # Base images are pinned by digest; Dependabot moves the digests.
 # Build stage. Its output is static files, the same for every platform: it
 # runs once, natively, and each platform's image copies it.
-FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS builder
+FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS builder
 WORKDIR /app
 # Corepack and pnpm handle installs; the bundled npm is not needed.
 RUN apk add --no-cache zlib=1.3.2-r1 \
@@ -14,7 +14,7 @@ RUN corepack enable && NATEL_REVISION="$NATEL_REVISION" pnpm build
 
 # The session process (ADR 032): a static binary, cross-compiled natively
 # for each platform like the build stage above.
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS session
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS session
 WORKDIR /src
 COPY session/ ./
 ARG TARGETOS TARGETARCH
@@ -29,7 +29,7 @@ RUN setcap -r /usr/bin/caddy
 
 # Runtime stage: what the official image adds to Alpine, minus curl and
 # libcap, which nothing here runs.
-FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
+FROM alpine:3.23@sha256:ff7f0c727dd796aa36787bfcd9a64bf35a6ce72a73451b3359fde849b6703d63
 # Caddy runs as an unprivileged user, owning what it writes: certificates in
 # /data, the autosaved config in /config.
 RUN apk add --no-cache ca-certificates mailcap zlib=1.3.2-r1 \
