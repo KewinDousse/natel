@@ -85,7 +85,7 @@ function social(assets: Assets, headline: string) {
     <i style="width:11px;height:11px;border-radius:50%;background:#C6C6CC"></i><i style="width:11px;height:11px;border-radius:50%;background:#C6C6CC"></i><i style="width:11px;height:11px;border-radius:50%;background:#C6C6CC"></i>
     <span style="margin-left:16px;width:300px;height:22px;border-radius:11px;background:#fff;color:#55575E;font-size:12px;display:flex;align-items:center;gap:7px;padding:0 10px"><img src="${assets.favicon}" width="16" height="16" style="border-radius:4px;box-shadow:0 0 0 1px #D4D4DA">contacts.example.org</span>
   </div>
-  <img src="${assets.screen}" style="display:block;width:100%"></div>`,
+  <img src="${assets.screen}" style="display:block;flex:1;min-height:0;width:100%;object-fit:cover;object-position:top"></div>`,
   );
 }
 
@@ -148,7 +148,8 @@ async function main() {
     try {
       screen = await capture(browser, demo, {
         width: 1280,
-        height: 1000,
+        // Taller than every social window's ratio, so filling one trims only the bottom.
+        height: 1040,
         scale: 2,
         dark: false,
         contact: CAITLYN,
