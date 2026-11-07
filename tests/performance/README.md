@@ -36,6 +36,20 @@ allowing a paint opportunity. The contact counter is also checked. This includes
 CardDAV listing/fetching, parsing, sorting, rendering and layout, and excludes
 sign-in, discovery, application startup and fixture preparation.
 
+## Comparing a pull request
+
+To compare `main` with an open, mergeable pull request based on it, choose **Run
+workflow** on the **Performance comparison** workflow in the Actions tab and enter
+the pull request's number. It measures both on the same machine with the pull
+request's benchmark, against the pull request merged into `main`. The run's summary
+and one comment on the pull request, updated by each run, show the medians, their
+difference, any timeout and the raw samples. Differences are informational and
+block nothing.
+
+Run it only on a pull request whose code you trust. A run from `main` gives that
+code access to `main`'s Actions cache, which CI and releases read, as well as to the
+reported figures, and `permissions` cannot remove that access.
+
 ## Results and limits
 
 The console prints each opening and a completed size's median. Each test attaches
