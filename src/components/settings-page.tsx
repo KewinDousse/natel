@@ -14,7 +14,7 @@ import type { SortBy } from "@/lib/contact-list";
 import { IS_DEMO } from "@/lib/demo";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
-import { type LabelPosition, usePreferences } from "@/store/preferences";
+import { type AvatarShape, type LabelPosition, usePreferences } from "@/store/preferences";
 import { useAuth, useBookParam } from "@/store/session";
 import { ReadingRow, ReadingSection } from "./contact-reading-fields";
 import { openShortcuts } from "./keyboard-shortcuts";
@@ -34,8 +34,18 @@ export function SettingsPage() {
   const book = useBookParam();
   const signOut = useSignOut();
   const auth = useAuth();
-  const { sortBy, setSortBy, theme, setTheme, mapApp, setMapApp, labelPosition, setLabelPosition } =
-    usePreferences();
+  const {
+    sortBy,
+    setSortBy,
+    theme,
+    setTheme,
+    mapApp,
+    setMapApp,
+    labelPosition,
+    setLabelPosition,
+    avatarShape,
+    setAvatarShape,
+  } = usePreferences();
 
   useEffect(() => {
     document.title = t("settings_doc_title");
@@ -97,6 +107,17 @@ export function SettingsPage() {
           </Field>
         </SettingsSection>
         <SettingsSection title={t("settings_contacts")}>
+          <Field id="setting-avatar-shape" label={t("avatar_shape")}>
+            <select
+              id="setting-avatar-shape"
+              value={avatarShape}
+              onChange={(event) => setAvatarShape(event.target.value as AvatarShape)}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value="round">{t("avatar_shape_round")}</option>
+              <option value="square">{t("avatar_shape_square")}</option>
+            </select>
+          </Field>
           <Field id="setting-label-position" label={t("label_position")}>
             <select
               id="setting-label-position"

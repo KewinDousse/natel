@@ -137,7 +137,7 @@ function ContactRow({
       >
         <span
           aria-hidden="true"
-          className="absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-brand opacity-0 transition-opacity group-data-[status=active]:opacity-100"
+          className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-brand opacity-0 transition-opacity group-data-[status=active]:opacity-100"
         />
         <PhotoAvatar
           contact={contact}

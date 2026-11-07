@@ -27,7 +27,7 @@ Fonts come from Fontsource: no CDN, no Google Fonts URL, no remote images.
 4. **Two typefaces, strict roles.** `font-display` (Big Shoulders 700) for the wordmark, the A–Z letters (group letters and rail), screen, state and dialog titles, and avatar initials; never for running text or labels. Everything else is `font-sans` (Work Sans 400/700, and 500 for the second part of a list name).
 5. **Numbers are tabular.** Phone numbers, dates, counts.
 6. **Nothing that sits on the page has a shadow.** Only floating layers: `shadow-float` (menus, popovers, toasts), `shadow-overlay` (dialogs, mobile sheets).
-7. **Photos are rounded squares, not circles.** No photo → initials in the display face, in the order the list sorts by (Aline Dessendre → "AD", by last name "DA"), on one of six tints drawn from the card's UID, so a person keeps theirs on every device, while the name is typed, and after a rename. The tints have no red or pink (marks and selection use them) and one lightness, so none stands out. An organisation-only card shows a building icon on the neutral avatar.
+7. **Contact images are round by default, with rounded squares available in settings.** No photo → initials in the display face, in the order the list sorts by (Aline Dessendre → "AD", by last name "DA"), on one of six tints drawn from the card's UID, so a person keeps theirs on every device, while the name is typed, and after a rename. The tints have no red or pink (marks and selection use them) and one lightness, so none stands out. An organisation-only card shows a building icon on the neutral avatar.
 
 ## Type scale
 
@@ -79,6 +79,12 @@ A two-column grid: the letter, sticky under the header, then the section's rows.
 - From `sm`, a dotted leader runs to the trailing value. On phones the value drops under the name and the leader hides: single-line rows truncate names too much there.
 - Trailing value priority: first `TEL` with `TYPE=cell` → first `TEL` → first `EMAIL` → `ORG`. A phone number is in ink from `sm` (muted under the name on phones), the others muted.
 - The current contact takes the selection background and the red selection bar.
+
+### Contact selection marker
+
+The selected row's red bar stays at the left edge, 3px wide and 20px high,
+vertically centred. It accompanies the selection background for either contact
+image shape.
 
 ### Contact row leaders
 
@@ -203,7 +209,7 @@ The form groups values in this order: phones, e-mails, addresses, birthday, grou
 
 The avatar and the name, organisation and nickname sit side by side at every
 width. Initials and the organisation icon are 64px; photos remain 96px below `sm`
-and 112px from `sm`, square with rounded corners. Names and subtitles wrap
+and 112px from `sm`, using the chosen contact image shape. Names and subtitles wrap
 without truncation. The desktop Edit action stays at the top right.
 
 ### Reading view sections
@@ -223,6 +229,13 @@ and persists in the browser; Auto is the default. It changes only row labels in
 the reading view, preserving section titles, information order and the form.
 A preview under the select shows a fictitious phone section using the same
 reading components as contact pages and updates when the choice changes.
+
+### Contact image shape preference
+
+Settings offers Round (the default) and Rounded squares under Contacts and list.
+The choice applies immediately to photos, initials and organisation icons in the
+list, reading view and form, and persists in the browser. It changes only their
+display: the crop frame and saved photo stay square.
 
 ### Settings sections
 

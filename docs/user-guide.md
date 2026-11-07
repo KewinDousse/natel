@@ -24,6 +24,13 @@ default Apple Maps on Apple devices, your maps app on Android, and
 OpenStreetMap elsewhere. Settings also let you choose the map, the
 language, theme and sort order.
 
+## Contact image shape
+
+Contact photos, initials and organisation icons are round by default.
+In **Settings → Contacts and list**, choose **Contact image shape** to use
+rounded squares instead. The choice is remembered in this browser and applies
+to the list, contact pages and forms. It does not change the saved photos.
+
 ## Edit, create, move or delete
 
 Open a contact, then choose **Edit**. Changes are sent when you choose

@@ -38,7 +38,13 @@ beforeEach(() => {
     <meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">`;
   delete document.documentElement.dataset.theme;
   systemDark = false;
-  usePreferences.setState({ sortBy: "given", theme: null, mapApp: null, labelPosition: "auto" });
+  usePreferences.setState({
+    sortBy: "given",
+    theme: null,
+    mapApp: null,
+    labelPosition: "auto",
+    avatarShape: "round",
+  });
 });
 
 afterEach(() => {
@@ -141,5 +147,21 @@ describe("label position", () => {
     expect(stored()).toEqual({ map: "osm", labelPosition: "above" });
     usePreferences.getState().setLabelPosition("auto");
     expect(stored()).toEqual({ map: "osm" });
+  });
+});
+
+describe("contact image shape", () => {
+  it("defaults to round images", () => {
+    expect(usePreferences.getInitialState().avatarShape).toBe("round");
+  });
+
+  it("stores rounded squares and clears the default while preserving other preferences", () => {
+    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setAvatarShape("square");
+    expect(stored()).toEqual({ sort: "family", avatarShape: "square" });
+    expect(usePreferences.getState().avatarShape).toBe("square");
+    usePreferences.getState().setAvatarShape("round");
+    expect(stored()).toEqual({ sort: "family" });
+    expect(usePreferences.getState().avatarShape).toBe("round");
   });
 });

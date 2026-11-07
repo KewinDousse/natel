@@ -1,5 +1,5 @@
 /**
- * A contact's photo in its avatar square (ADR 023, DESIGN.md rule 7), or the
+ * A contact's photo in its chosen shape (ADR 023, DESIGN.md rule 7), or the
  * fallback (initials, building icon) when there is none or it doesn't load.
  * Decorative: the name is always next to it.
  */
@@ -28,6 +28,7 @@ export function PhotoAvatar({
   lazy?: boolean;
   fallback: ReactNode;
 }) {
+  const avatarShape = usePreferences((state) => state.avatarShape);
   const src = useMemo(() => {
     if (edited.kind === "removed") return null;
     const photo = edited.kind === "replaced" ? edited : photoOf(contact);
@@ -44,7 +45,7 @@ export function PhotoAvatar({
       loading={lazy ? "lazy" : undefined}
       decoding={lazy ? "async" : undefined}
       onError={() => setFailed(src)}
-      className={cn("shrink-0 object-cover", className)}
+      className={cn("shrink-0 object-cover", className, avatarShape === "round" && "rounded-full")}
     />
   );
 }
@@ -64,10 +65,11 @@ export function InitialsAvatar({
   given: string;
   /** What picks the tint: the card's UID. */
   seed: string;
-  /** Size, radius and type size. */
+  /** Size, square radius and type size. */
   className: string;
 }) {
   const sortBy = usePreferences((state) => state.sortBy);
+  const avatarShape = usePreferences((state) => state.avatarShape);
   const [first, second] = sortBy === "given" ? [given, family] : [family, given];
   const letters = `${first.charAt(0)}${second.charAt(0)}`.toUpperCase();
   return (
@@ -77,6 +79,7 @@ export function InitialsAvatar({
       className={cn(
         "grid shrink-0 place-items-center font-display font-bold text-avatar-foreground",
         className,
+        avatarShape === "round" && "rounded-full",
       )}
     >
       {letters || "?"}
@@ -93,10 +96,15 @@ export function tintOf(seed: string): number {
 
 /** An organisation's card: a building instead of initials. */
 export function BuildingAvatar({ className }: { className: string }) {
+  const avatarShape = usePreferences((state) => state.avatarShape);
   return (
     <span
       aria-hidden="true"
-      className={cn("grid shrink-0 place-items-center bg-avatar text-avatar-foreground", className)}
+      className={cn(
+        "grid shrink-0 place-items-center bg-avatar text-avatar-foreground",
+        className,
+        avatarShape === "round" && "rounded-full",
+      )}
     >
       <BuildingIcon className="size-1/2" />
     </span>

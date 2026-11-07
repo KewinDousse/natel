@@ -2,9 +2,10 @@
  * Tests for PhotoAvatar: the photo, or the fallback when there is none or it
  * doesn't load, tried again for another photo.
  */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { PhotoAvatar, tintOf } from "@/components/photo-avatar";
+import { BuildingAvatar, InitialsAvatar, PhotoAvatar, tintOf } from "@/components/photo-avatar";
+import { usePreferences } from "@/store/preferences";
 import { parse } from "@/vcard";
 import bytes from "../vcard/photo-bytes.json";
 
@@ -16,7 +17,45 @@ const withPhoto = (base64: string) =>
   );
 const fallback = <span>AB</span>;
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  usePreferences.setState({ avatarShape: "round" });
+  localStorage.clear();
+});
+
+describe("contact image shape", () => {
+  it.each([
+    [
+      "photo",
+      <PhotoAvatar
+        key="photo"
+        contact={withPhoto(bytes.png)}
+        className="size-10 rounded-lg"
+        fallback={fallback}
+      />,
+    ],
+    [
+      "initials",
+      <InitialsAvatar
+        key="initials"
+        family="B"
+        given="A"
+        seed="ab"
+        className="size-10 rounded-lg text-lg"
+      />,
+    ],
+    ["organisation", <BuildingAvatar key="organisation" className="size-10 rounded-lg" />],
+  ])("updates the %s shape immediately", (_name, avatar) => {
+    const { container } = render(avatar);
+    expect(container.firstElementChild?.classList.contains("rounded-full")).toBe(true);
+    expect(container.firstElementChild?.classList.contains("rounded-lg")).toBe(false);
+    act(() => usePreferences.getState().setAvatarShape("square"));
+    expect(container.firstElementChild?.classList.contains("rounded-lg")).toBe(true);
+    expect(container.firstElementChild?.classList.contains("rounded-full")).toBe(false);
+    act(() => usePreferences.getState().setAvatarShape("round"));
+    expect(container.firstElementChild?.classList.contains("rounded-full")).toBe(true);
+  });
+});
 
 describe("PhotoAvatar", () => {
   it("shows the photo as a decorative image", () => {

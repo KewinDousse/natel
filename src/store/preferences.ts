@@ -15,7 +15,12 @@ const SORTS = ["family", "given"] as const satisfies readonly SortBy[];
 export type LabelPosition = "auto" | "left" | "above";
 const LABEL_POSITIONS = ["left", "above"] as const;
 
+export type AvatarShape = "round" | "square";
+const AVATAR_SHAPES = ["round", "square"] as const;
+
 type PreferencesState = {
+  avatarShape: AvatarShape;
+  setAvatarShape: (shape: AvatarShape) => void;
   labelPosition: LabelPosition;
   setLabelPosition: (position: LabelPosition) => void;
   sortBy: SortBy;
@@ -29,6 +34,11 @@ type PreferencesState = {
 };
 
 export const usePreferences = create<PreferencesState>()((set) => ({
+  avatarShape: storedChoice("avatarShape", AVATAR_SHAPES) ?? "round",
+  setAvatarShape: (avatarShape) => {
+    storeChoice("avatarShape", avatarShape === "round" ? null : avatarShape);
+    set({ avatarShape });
+  },
   labelPosition: storedChoice("labelPosition", LABEL_POSITIONS) ?? "auto",
   setLabelPosition: (labelPosition) => {
     storeChoice("labelPosition", labelPosition === "auto" ? null : labelPosition);
