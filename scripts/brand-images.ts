@@ -147,8 +147,8 @@ async function main() {
     let screen: Buffer;
     try {
       screen = await capture(browser, demo, {
-        width: 1024,
-        height: 800,
+        width: 1280,
+        height: 1000,
         scale: 2,
         dark: false,
         contact: CAITLYN,
