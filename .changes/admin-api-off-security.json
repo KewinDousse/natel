@@ -1,4 +1,0 @@
-{
-  "type": "Security",
-  "text": "Containers that share their network namespace (`network_mode: host`, a VPN or Tailscale sidecar, a Kubernetes pod) and kept the default `NATEL_ADMIN` exposed Caddy's unauthenticated admin API to every process on that namespace, which could reconfigure Caddy to collect passwords. The admin API is now off by default; containers on their own Docker network were not affected."
-}

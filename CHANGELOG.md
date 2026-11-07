@@ -6,6 +6,43 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-07
+
+### Upgrade notes
+
+- The image no longer turns on Caddy's admin API: its healthcheck now reads a site Caddy serves on `127.0.0.1:2021`, set by `NATEL_HEALTH_PORT`. Containers that set `NATEL_ADMIN: "off"` and disabled the healthcheck can drop both. Change the port if another service on a shared network namespace uses it, and turn the admin API back on only for a probe or tool of yours that reads port 2019, and never on a shared namespace, where it reopens the issue below. Bare-metal installations that copy the Caddyfile get the listener too and can delete its site block. See [deployment](docs/deployment.md#host-network-sidecars-and-pods) and [bare metal](docs/bare-metal.md#configure).
+
+### Added
+
+- The address book is in each page's address, as in /contacts/work/ada, so a reload or a shared link opens the same book, and signing in opens the page that was asked for. The settings move to /settings.
+- A .vcf file dropped on the window is imported into the selected address book.
+- An import first shows what it will do, and lists the cards that look like contacts already in the book, which can be left out.
+- Settings offers a button to check for a newer release immediately when server update checks are enabled, with a result or an error shown after the check.
+- The move dialog warns that a contact may no longer appear in some groups after moving to another address book and asks you to check its groups afterwards.
+- The deployment guide explains that Natel checks no password when Xandikos is exposed directly, and gives a tested Caddy site that protects it.
+
+### Changed
+
+- Contact pages show compact initials beside the name and organisation on phones and desktop. Photos keep their full size, and long names wrap beside the avatar.
+- Contact forms use text controls for additions and deletion, and contact groups use compact rectangular chips to distinguish them from primary actions.
+- Contact photos, initials and organisation icons are round by default. Settings lets you choose rounded squares instead; the choice applies to the list, contact pages and forms and is remembered in your browser.
+- Contact forms group optional information in one Add information menu and separate move and delete actions from field additions.
+- Contact lists hide dotted leaders when they would shorten a name, giving long names more room without changing the pane width or trailing values.
+- Contact pages use compact rows on desktop and lighter sections on phones. Settings lets you keep this automatic layout or place row labels on the left or above values at every screen width, with a live preview. Copy and edit controls align beside the first value of each desktop section.
+- The selected contact's red marker is shorter and stays centred beside its image.
+- On phones, the top bar's back link names the address book the page belongs to.
+
+### Fixed
+
+- The password's show button and the search's clear button sit centred in their fields, and smaller.
+- vCard 3.0 text now escapes semicolons as required by the standard, and text birthdays retain their characters across repeated saves. Long vCard lines follow the recommended 75-byte limit. Clients affected by the ical.js semicolon decoding issue, including Nextcloud Contacts, may display an extra backslash; see the compatibility notes.
+
+### Security
+
+- Containers that share their network namespace (`network_mode: host`, a VPN or Tailscale sidecar, a Kubernetes pod) and kept the default `NATEL_ADMIN` exposed Caddy's unauthenticated admin API to every process on that namespace, which could reconfigure Caddy to collect passwords. The admin API is now off by default; containers on their own Docker network were not affected.
+- The image updates Caddy to 2.11.9, and Go, x/net and musl to versions that fix high-severity vulnerabilities a scan reported in 0.4.1; a scan does not show that each one was reachable in Natel. Bare-metal installations update their own Caddy package.
+- HTTPS deployments can enable NATEL_HTTPS_ONLY_COOKIE=true to prevent a sibling subdomain from planting an attacker's session when the TLS proxy is bypassable or HTTPS is not detected. The setting defaults to false to preserve HTTP access; see [HTTPS session cookies](docs/deployment.md#https-session-cookies) before enabling it.
+
 ## [0.4.1] - 2026-10-26
 
 ### Upgrade notes

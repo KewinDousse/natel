@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Update the Python setup action used by compatibility tests. This changes CI tooling without changing the application or deployment requirements."
-}

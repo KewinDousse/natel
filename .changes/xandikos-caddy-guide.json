@@ -1,4 +1,0 @@
-{
-  "type": "Added",
-  "text": "The deployment guide explains that Natel checks no password when Xandikos is exposed directly, and gives a tested Caddy site that protects it."
-}

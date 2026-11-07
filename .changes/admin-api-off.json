@@ -1,4 +1,0 @@
-{
-  "type": "Upgrade notes",
-  "text": "The image no longer turns on Caddy's admin API: its healthcheck now reads a site Caddy serves on `127.0.0.1:2021`, set by `NATEL_HEALTH_PORT`. Containers that set `NATEL_ADMIN: \"off\"` and disabled the healthcheck can drop both. Change the port if another service on a shared network namespace uses it, and turn the admin API back on only for a probe or tool of yours that reads port 2019, and never on a shared namespace, where it reopens the issue below. Bare-metal installations that copy the Caddyfile get the listener too and can delete its site block. See [deployment](docs/deployment.md#host-network-sidecars-and-pods) and [bare metal](docs/bare-metal.md#configure)."
-}

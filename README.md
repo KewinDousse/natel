@@ -87,7 +87,7 @@ so [protect it](docs/deployment.md#protecting-xandikos-with-a-password). In a
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.4.1
+    image: ghcr.io/kewindousse/natel:0.5.0
     environment:
       CARDDAV_URL: https://dav.example.com
     ports:

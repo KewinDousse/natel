@@ -1,4 +1,0 @@
-{
-  "type": "Security",
-  "text": "The image updates Caddy to 2.11.9, and Go, x/net and musl to versions that fix high-severity vulnerabilities a scan reported in 0.4.1; a scan does not show that each one was reachable in Natel. Bare-metal installations update their own Caddy package."
-}

@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Refresh the node, golang and alpine image digests. The security entry for the image update covers what this means for operators."
-}

@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "vCard 3.0 text now escapes semicolons as required by the standard, and text birthdays retain their characters across repeated saves. Long vCard lines follow the recommended 75-byte limit. Clients affected by the ical.js semicolon decoding issue, including Nextcloud Contacts, may display an extra backslash; see the compatibility notes."
-}

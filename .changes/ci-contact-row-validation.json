@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Keep contact row layout measurements current on renders and use text offsets for highlight keys so the required lint checks pass. These internal adjustments do not change the contact list design."
-}
