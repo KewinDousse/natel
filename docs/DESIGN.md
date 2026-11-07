@@ -95,7 +95,7 @@ the list pane width and trailing-value limits stay the same. Phones keep
 the value under the name without leaders.
 
 ### A–Z rail
-Right edge, all 26 letters; absent letters are greyed, hidden from screen readers and out of the tab order. Jumps are instant. Hidden while a search is active. Contacts whose initial isn't A–Z go into a "#" group at the end of the list, which the rail doesn't show, so it keeps its 26 plain letters.
+Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden from screen readers and out of the tab order. Jumps are instant. Hidden while a search is active. Contacts whose initial isn't A–Z share the "#" group at the end of the list.
 - Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The page doesn't scroll meanwhile.
 - From `lg`, the rail sits outside the list's scrolling pane, so the whole scrollbar stays clickable.
 

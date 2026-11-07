@@ -2,9 +2,7 @@
  * Pure contact-list logic: folding, grouping, sorting, search matching,
  * highlighting, and route-id mapping. No React, no I/O — fully unit-tested.
  *
- * The A–Z rail keeps the 26 plain letters even when contacts sort elsewhere:
- * anything whose initial is not A–Z goes into a "#" group rendered at the end
- * of the list (never shown in the rail). Design choice, see DESIGN.md "A–Z rail".
+ * Initials outside A–Z share a "#" group at the end of the list and rail.
  */
 
 import type { Contact, ContactField } from "@/model/contact";

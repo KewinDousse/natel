@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
 import { useI18n } from "@/i18n/react";
 import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
-import { buildGroups, OTHER_GROUP, type SortBy } from "@/lib/contact-list";
+import { buildGroups, type SortBy } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { AlphabetRail } from "./alphabet-rail";
@@ -187,10 +187,7 @@ export function ContactList({
           {groups.map((group) => (
             <GroupSection key={group.letter} group={group} query={query} sortBy={sortBy} />
           ))}
-          <AlphabetRail
-            present={new Set(groups.filter((g) => g.letter !== OTHER_GROUP).map((g) => g.letter))}
-            hidden={searching}
-          />
+          <AlphabetRail present={new Set(groups.map((g) => g.letter))} hidden={searching} />
         </>
       )}
     </ListShell>

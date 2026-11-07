@@ -1,10 +1,12 @@
 import type { PointerEvent } from "react";
 import { useRef } from "react";
 import { useI18n } from "@/i18n/react";
-import { ALPHABET, railTarget } from "@/lib/contact-list";
+import { ALPHABET, OTHER_GROUP, railTarget } from "@/lib/contact-list";
+
+const LETTERS = [...ALPHABET, OTHER_GROUP];
 
 /**
- * A–Z rail — absent letters are aria-hidden and out of the tab order; anchors
+ * A–Z and # rail — absent entries are aria-hidden and out of the tab order; anchors
  * jump without smooth scrolling. Hidden entirely while a search is active.
  * On touch, a tap or a finger sliding along the rail scrolls to the letter
  * under it, as native contact apps do; the anchors serve mouse and keyboard.
@@ -23,7 +25,7 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
       letters.length - 1,
       Math.max(0, Math.floor((event.clientY - first.top) / step)),
     );
-    const target = railTarget(ALPHABET.split(""), present, index);
+    const target = railTarget(LETTERS, present, index);
     if (!target || target === shown.current) return;
     shown.current = target;
     document.getElementById(`g-${target}`)?.scrollIntoView();
@@ -45,7 +47,7 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
       }}
       className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex touch-none select-none flex-col [-webkit-touch-callout:none] items-center justify-center font-display text-small font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
     >
-      {ALPHABET.split("").map((letter) => {
+      {LETTERS.map((letter) => {
         if (present.has(letter)) {
           return (
             <a

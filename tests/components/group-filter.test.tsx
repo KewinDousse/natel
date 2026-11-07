@@ -110,6 +110,28 @@ async function renderList() {
 const trigger = () => screen.getByRole("button", { name: /^Filtrer par groupe/ });
 
 describe("the group filter", () => {
+  it("includes the # section in the rail and updates it with the group filter", async () => {
+    const book = books[BOOK.href] ?? {};
+    book[`${BOOK.href}numeric.vcf`] = card(["UID:numeric", "FN:6minutes"]);
+    const user = await renderList();
+    const rail = screen.getByRole("navigation", { name: "Index alphabétique" });
+    const other = within(rail).getByRole("link", { name: "#" });
+    expect(other.getAttribute("href")).toBe("#g-#");
+    expect(document.getElementById("g-#")?.textContent).toContain("6minutes");
+
+    await user.click(trigger());
+    await user.click(screen.getByRole("menuitemradio", { name: /Famille/ }));
+    expect(within(rail).queryByRole("link", { name: "#" })).toBeNull();
+    expect(within(rail).getByText("#").getAttribute("aria-hidden")).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "Afficher tous les groupes" }));
+    expect(within(rail).getByRole("link", { name: "#" })).toBeTruthy();
+    await user.type(screen.getByRole("searchbox"), "6minutes");
+    expect(rail.hidden).toBe(true);
+    await user.clear(screen.getByRole("searchbox"));
+    expect(rail.hidden).toBe(false);
+  });
+
   it("lists every group with its count, and shows only the chosen one's contacts", async () => {
     const user = await renderList();
     expect(trigger().textContent).toBe("Tous les groupes");

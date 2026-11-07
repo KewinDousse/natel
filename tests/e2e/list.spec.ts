@@ -41,6 +41,42 @@ test("puts the sorted part of the name first", async ({ page, isMobile }) => {
   await expect(row).toContainText("Aardin Alain");
 });
 
+test("reaches the # group from the alphabetical index", async ({ page, isMobile }) => {
+  const names = ["6minutes", "@office", "#club", "+service", "😀 Smile", "東京", "Жан", "Ωmega"];
+  for (const [i, name] of names.entries()) {
+    await putCard(`other${i}`, vcard([`UID:other${i}`, `FN:${name}`]));
+  }
+  await signIn(page);
+  const rail = page.getByRole("navigation", { name: "Alphabetical index" });
+  const other = rail.getByRole("link", { name: "#", exact: true });
+  await expect(other).toHaveAttribute("href", "#g-#");
+  await expect(rail.locator("[data-letter]").last()).toHaveText("#");
+  const target = page.locator('[id="g-#"]');
+  for (const name of names) await expect(target).toContainText(name);
+
+  if (isMobile) {
+    const box = await other.boundingBox();
+    if (!box) throw new Error("no # on the rail");
+    const touch = await page.context().newCDPSession(page);
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
+    });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } else {
+    await other.click();
+  }
+  await expect(target.getByRole("heading", { name: "#", exact: true })).toBeInViewport();
+  await expect(target.getByRole("link", { name: /6minutes/ })).toBeInViewport();
+  if (!isMobile) {
+    await rail.getByRole("link", { name: "A", exact: true }).click();
+    await expect(target.getByRole("link", { name: /6minutes/ })).not.toBeInViewport();
+    await other.focus();
+    await other.press("Enter");
+    await expect(target.getByRole("link", { name: /6minutes/ })).toBeInViewport();
+  }
+});
+
 test("follows a finger sliding down the A–Z rail", async ({ page, isMobile }) => {
   test.skip(!isMobile, "touch only");
   // Lettered by last name: every card here is an Alain.

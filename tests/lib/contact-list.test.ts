@@ -93,10 +93,20 @@ describe("groupLetterOf", () => {
     expect(groupLetterOf("Łukasz")).toBe("L");
   });
 
-  it("sends non-A–Z initials to the # group", () => {
-    expect(groupLetterOf("123 Service")).toBe("#");
-    expect(groupLetterOf("")).toBe("#");
-    expect(groupLetterOf("-prefix")).toBe("#");
+  it.each([
+    "6minutes",
+    "123 Service",
+    "",
+    "-prefix",
+    "@office",
+    "#club",
+    "+service",
+    "😀 Smile",
+    "東京",
+    "Жан",
+    "Ωmega",
+  ])("sends %j to the # group", (name) => {
+    expect(groupLetterOf(name)).toBe("#");
   });
 });
 
