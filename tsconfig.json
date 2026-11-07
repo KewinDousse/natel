@@ -19,6 +19,13 @@
     },
     "types": ["vitest/globals"]
   },
-  "include": ["src", "tests", "scripts", "playwright.config.ts", "playwright.demo.config.ts"],
+  "include": [
+    "src",
+    "tests",
+    "scripts",
+    "playwright.config.ts",
+    "playwright.demo.config.ts",
+    "playwright.performance.config.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

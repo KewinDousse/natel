@@ -139,6 +139,7 @@ tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, componen
                  CardDAV server: Radicale by default (`pnpm e2e`, ADR 017),
                  Baïkal or Xandikos (Docker) with `E2E_SERVER`
   e2e-demo/      Playwright against the demo build (`pnpm e2e:demo`)
+  performance/   opt-in address book opening benchmark (`pnpm perf:books`)
   fixtures/
     public/      synthetic vCards, committed
     private/     real vCards, gitignored
