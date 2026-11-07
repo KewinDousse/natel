@@ -323,7 +323,7 @@ async function readCard(
 
   // Match on normalized (absolute) URLs to handle href format differences
   // between PROPFIND (server-relative) and multiget responses.
-  const match = findResponseByHref(responses, href, bookUrl);
+  const match = responsesByHref(responses, bookUrl).get(new URL(href).href);
   // A card deleted meanwhile is left out, or listed as 404 or 410.
   if (!match || match.status === 404 || match.status === 410) {
     throw new DavError(`Card not found at ${href}`, "NOT_FOUND");
@@ -619,9 +619,10 @@ async function makeSession(evict: () => void): Promise<DavSession> {
           `fetching ${hrefs.length} cards`,
         );
 
+        const byHref = responsesByHref(responses, bookUrl);
         const results: Array<{ href: string; vcardText: string; etag: string }> = [];
         for (const href of hrefs) {
-          const match = findResponseByHref(responses, href, bookUrl);
+          const match = byHref.get(new URL(href).href);
           if (!match) continue; // caller handles missing
 
           const vcardText = extractAddressData(match);
@@ -696,23 +697,23 @@ async function makeSession(evict: () => void): Promise<DavSession> {
 // ---------------------------------------------------------------------------
 
 /**
- * Find the DAVResponse whose href maps to the given proxy URL.
+ * Index DAVResponses by the proxy URL their href maps to, the first one winning.
  *
- * Handles servers returning relative vs absolute hrefs.
+ * Handles servers returning relative vs absolute hrefs. An index keeps a
+ * multiget linear: an address book can hold thousands of cards.
  */
-function findResponseByHref(
-  responses: DAVResponse[],
-  href: string,
-  baseUrl: string,
-): DAVResponse | undefined {
-  return responses.find((r) => {
-    if (!r.href) return false;
+function responsesByHref(responses: DAVResponse[], baseUrl: string): Map<string, DAVResponse> {
+  const byHref = new Map<string, DAVResponse>();
+  for (const response of responses) {
+    if (!response.href) continue;
     try {
-      return fromServerHref(r.href, baseUrl) === new URL(href).href;
+      const href = fromServerHref(response.href, baseUrl);
+      if (!byHref.has(href)) byHref.set(href, response);
     } catch {
-      return false;
+      // An href that maps to no proxy URL matches no requested card.
     }
-  });
+  }
+  return byHref;
 }
 
 /** Clear the in-memory session cache. Used on logout, and between tests. */

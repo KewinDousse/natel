@@ -58,8 +58,7 @@ completion status, any failure, timestamp, revision, browser, OS, CPU and Node.
 Partial samples survive a failure; statistics stay null unless the size completed.
 
 An opening attempt has a two-minute limit, including page setup. A timeout or
-incomplete list fails that size, and 10,000 contacts can exceed the limit, leaving
-that size without statistics. There is no regression budget and the command is
+incomplete list fails that size. There is no regression budget and the command is
 outside CI and `pnpm check`. Compare repeated runs on the same machine and
 versions, copying `playwright-report/performance` between them since each run
 replaces it. These local desktop results do not predict remote latency, mobile

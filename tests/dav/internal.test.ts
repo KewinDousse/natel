@@ -728,6 +728,51 @@ describe("fetchCard", () => {
     });
   });
 
+  it("matches a requested href that normalises to the response's", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({
+        href: "/books/default/a%20b.vcf",
+        props: { getetag: '"e1"', addressData: "VCARD1" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const result = await session.fetchCard("http://localhost:3000/dav/books/default/a b.vcf");
+
+    expect(result.vcardText).toBe("VCARD1");
+  });
+
+  it("reports NOT_FOUND when the only response has an unusable href", async () => {
+    const multiget = vi
+      .fn()
+      .mockResolvedValue([
+        davResp({ href: "http://[", props: { getetag: '"bad"', addressData: "BAD" } }),
+      ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    await expect(
+      session.fetchCard("http://localhost:3000/dav/books/default/1.vcf"),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("keeps the first response when a server repeats an href", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({ href: "/books/default/1.vcf", status: 404, ok: false, props: {} }),
+      davResp({
+        href: "/books/default/1.vcf",
+        props: { getetag: '"second"', addressData: "SECOND" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    await expect(
+      session.fetchCard("http://localhost:3000/dav/books/default/1.vcf"),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   it("URL-matches the response by absolute href", async () => {
     const multiget = vi.fn().mockResolvedValue([
       davResp({
@@ -852,6 +897,69 @@ describe("fetchCards", () => {
     // Results are returned in request order.
     expect(results[0]?.href).toBe("http://localhost:3000/dav/books/default/1.vcf");
     expect(results[1]?.href).toBe("http://localhost:3000/dav/books/default/2.vcf");
+  });
+
+  it("matches relative and absolute response hrefs and ignores unusable ones", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({ href: "http://[", props: { getetag: '"bad"', addressData: "BAD" } }),
+      davResp({
+        href: "https://carddav.example/books/default/1.vcf",
+        props: { getetag: '"e1"', addressData: "VCARD1" },
+      }),
+      davResp({
+        href: "2.vcf",
+        props: { getetag: '"e2"', addressData: "VCARD2" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards([
+      "http://localhost:3000/dav/books/default/1.vcf",
+      "http://localhost:3000/dav/books/default/2.vcf",
+    ]);
+
+    expect(results.map((card) => card.vcardText)).toEqual(["VCARD1", "VCARD2"]);
+  });
+
+  it("matches a requested href that normalises to the response's", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({
+        href: "/books/default/a%20b.vcf",
+        props: { getetag: '"e1"', addressData: "VCARD1" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards(["http://localhost:3000/dav/books/default/a b.vcf"]);
+
+    expect(results.map((card) => card.vcardText)).toEqual(["VCARD1"]);
+  });
+
+  it("keeps the first response when a server repeats an href", async () => {
+    const multiget = vi.fn().mockResolvedValue([
+      davResp({
+        href: "/books/default/1.vcf",
+        props: { getetag: '"first"', addressData: "FIRST" },
+      }),
+      davResp({
+        href: "/books/default/1.vcf",
+        props: { getetag: '"second"', addressData: "SECOND" },
+      }),
+    ]);
+    mockCreateDAVClient.mockResolvedValue(mockClient({ addressBookMultiGet: multiget }));
+
+    const session = await createDavSession(AUTH);
+    const results = await session.fetchCards(["http://localhost:3000/dav/books/default/1.vcf"]);
+
+    expect(results).toEqual([
+      {
+        href: "http://localhost:3000/dav/books/default/1.vcf",
+        vcardText: "FIRST",
+        etag: '"first"',
+      },
+    ]);
   });
 
   it("skips responses missing address-data", async () => {
