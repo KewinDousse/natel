@@ -82,13 +82,9 @@ export function EmptyBook({ onImport }: { onImport?: (file: File) => void }) {
 
 /** Rows standing in for the book while it loads. */
 export function ListSkeleton() {
-  const { t } = useI18n();
   const widths = ["w-40", "w-28", "w-36", "w-44", "w-32", "w-24", "w-48", "w-20"];
   return (
-    <div className="pt-12">
-      <p role="status" className="sr-only">
-        {t("loading_contacts")}
-      </p>
+    <div className="pt-3">
       <div className="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[3rem_1fr]">
         <span aria-hidden="true" />
         <ul aria-hidden="true" className="animate-pulse">

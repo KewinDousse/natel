@@ -1,0 +1,4 @@
+{
+  "type": "Changed",
+  "text": "While contacts load, the list shows the sort controls and alphabet index alongside a loading message. Skeleton placeholders are limited to contact rows."
+}

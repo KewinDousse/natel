@@ -103,7 +103,7 @@ Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden fro
 The count (announced politely) on the left, the group filter, and from `sm` the first-name / last-name sort toggle on the right. The sort is a display preference, remembered like the language (ADR 026); below 640px only the settings offer it, so the count and the filter share a row.
 
 ### List states
-- Loading: skeleton rows in the letter grid, hidden from screen readers, which hear a loading message instead.
+- Loading: the toolbar shows a loading message in place of the count, with the sort toggle, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.
 - Failed: a state title, a hint and a retry button. An expired session offers to sign in again instead.
 - Empty book: offers a new contact and an import.
 - No book on the server, an empty group and no search result use the same state block, title and hint only.

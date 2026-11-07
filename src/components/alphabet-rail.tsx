@@ -35,6 +35,8 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
     <nav
       id="rail"
       hidden={hidden}
+      // With no letter to jump to, the index is only a visual placeholder.
+      aria-hidden={present.size === 0 || undefined}
       aria-label={t("index_label")}
       onPointerDown={(event) => {
         if (event.pointerType === "mouse") return;

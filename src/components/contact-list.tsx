@@ -103,12 +103,10 @@ export function ContactList({
       </ListShell>
     );
   }
-  if (contacts === undefined) {
+  if (contacts === undefined && load.kind === "failed") {
     return (
-      <ListShell warning={warning} busy={load.kind === "loading"}>
-        {load.kind === "loading" ? (
-          <ListSkeleton />
-        ) : load.expired ? (
+      <ListShell warning={warning}>
+        {load.expired ? (
           <StateBox title={t("session_expired_title")} hint={t("session_expired_body")}>
             <SignInAgain />
           </StateBox>
@@ -124,59 +122,50 @@ export function ContactList({
     );
   }
 
-  const countLabel = searching
-    ? shown === 0
-      ? t("results_0")
-      : shown === 1
-        ? t("results_1")
-        : t("results_n", { n: String(shown) })
-    : activeGroup !== null
-      ? listed.length === 1
-        ? t("count_in_group_1", { group: activeGroup })
-        : t("count_in_group", { n: String(listed.length), group: activeGroup })
-      : contacts.length === 1
-        ? t("count_1")
-        : t("count", { n: String(contacts.length) });
+  // Loading keeps the toolbar and the rail: only the rows wait for the book.
+  const loading = contacts === undefined;
+  const count = contacts?.length ?? 0;
+  const countLabel = loading
+    ? t("loading_contacts")
+    : searching
+      ? shown === 0
+        ? t("results_0")
+        : shown === 1
+          ? t("results_1")
+          : t("results_n", { n: String(shown) })
+      : activeGroup !== null
+        ? listed.length === 1
+          ? t("count_in_group_1", { group: activeGroup })
+          : t("count_in_group", { n: String(listed.length), group: activeGroup })
+        : count === 1
+          ? t("count_1")
+          : t("count", { n: String(count) });
 
-  const showIncompleteBook = contacts.length === 0 && skippedCount > 0;
-  const showEmptyBook = !searching && contacts.length === 0 && !showIncompleteBook;
+  const showIncompleteBook = count === 0 && skippedCount > 0;
+  const showEmptyBook = !searching && count === 0 && !showIncompleteBook;
   const showEmptyGroup = !searching && !showEmptyBook && listed.length === 0;
   const showNoResults = searching && shown === 0;
+  const rail = <AlphabetRail present={new Set(groups.map((g) => g.letter))} hidden={searching} />;
 
   return (
-    <ListShell warning={warning}>
+    <ListShell warning={warning} busy={loading}>
       {/* The sort is a setting too: on phones the toolbar keeps the count and the filter. */}
       <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-1 pt-3 text-sm">
         <p className="mr-auto text-muted-foreground" aria-live="polite">
           <span className="tabular">{countLabel}</span>
         </p>
-        {bookGroupList.length > 0 && (
+        {!loading && bookGroupList.length > 0 && (
           <GroupFilter groups={bookGroupList} selected={activeGroup} onSelect={onGroupFilter} />
         )}
-        <fieldset
-          aria-label={t("sort_label")}
-          className="m-0 hidden items-center gap-1 border-0 p-0 sm:inline-flex"
-        >
-          <button
-            type="button"
-            aria-pressed={sortBy === "given"}
-            onClick={() => onSortBy("given")}
-            className={SORT_PILL}
-          >
-            {t("sort_given")}
-          </button>
-          <button
-            type="button"
-            aria-pressed={sortBy === "family"}
-            onClick={() => onSortBy("family")}
-            className={SORT_PILL}
-          >
-            {t("sort_family")}
-          </button>
-        </fieldset>
+        <SortToggle sortBy={sortBy} onSortBy={onSortBy} />
       </div>
 
-      {showIncompleteBook ? null : showEmptyBook ? (
+      {loading ? (
+        <>
+          <ListSkeleton />
+          {rail}
+        </>
+      ) : showIncompleteBook ? null : showEmptyBook ? (
         <EmptyBook onImport={onImport} />
       ) : showEmptyGroup ? (
         <StateBox title={t("group_empty")} />
@@ -187,10 +176,37 @@ export function ContactList({
           {groups.map((group) => (
             <GroupSection key={group.letter} group={group} query={query} sortBy={sortBy} />
           ))}
-          <AlphabetRail present={new Set(groups.map((g) => g.letter))} hidden={searching} />
+          {rail}
         </>
       )}
     </ListShell>
+  );
+}
+
+function SortToggle({ sortBy, onSortBy }: { sortBy: SortBy; onSortBy: (sortBy: SortBy) => void }) {
+  const { t } = useI18n();
+  return (
+    <fieldset
+      aria-label={t("sort_label")}
+      className="m-0 hidden items-center gap-1 border-0 p-0 sm:inline-flex"
+    >
+      <button
+        type="button"
+        aria-pressed={sortBy === "given"}
+        onClick={() => onSortBy("given")}
+        className={SORT_PILL}
+      >
+        {t("sort_given")}
+      </button>
+      <button
+        type="button"
+        aria-pressed={sortBy === "family"}
+        onClick={() => onSortBy("family")}
+        className={SORT_PILL}
+      >
+        {t("sort_family")}
+      </button>
+    </fieldset>
   );
 }
 
