@@ -141,7 +141,7 @@ export function ContactView({
         </div>
       )}
 
-      <div className="mt-6 space-y-2 lg:space-y-1">
+      <div className="mt-6 space-y-2 xl:space-y-1">
         {contact.fields.tel.length > 0 && (
           <Section
             id="sec-tel"
@@ -275,8 +275,8 @@ export function ContactView({
         )}
         <div
           className={cn(
-            "space-y-2 lg:space-y-1",
-            (birthday || groups.length > 0 || note.length > 0) && "lg:mt-6 lg:border-t lg:pt-3",
+            "space-y-2 xl:space-y-1",
+            (birthday || groups.length > 0 || note.length > 0) && "xl:mt-6 xl:border-t xl:pt-3",
           )}
         >
           {birthday && birthday.source.length > 0 && (

@@ -20,9 +20,9 @@ export function ReadingSection({
   return (
     <section
       id={id}
-      className="group/section relative border-t pt-1 lg:grid lg:grid-cols-[7.5rem_minmax(0,1fr)] lg:items-start lg:gap-x-3 lg:border-0 lg:pt-0"
+      className="group/section relative border-t pt-1 xl:grid xl:grid-cols-[7.5rem_minmax(0,1fr)] xl:items-start xl:gap-x-3 xl:border-0 xl:pt-0"
     >
-      <div className="flex min-h-8 items-center justify-between gap-2 lg:pt-3">
+      <div className="flex min-h-8 items-center justify-between gap-2 xl:pt-3">
         <Heading className="text-sm font-bold">{title}</Heading>
       </div>
       <div className="min-w-0">
@@ -51,7 +51,7 @@ export function ReadingRow({
         className={cn(
           "flex min-w-0 flex-1 gap-x-3 gap-y-0.5",
           position === "auto"
-            ? "flex-col lg:flex-row lg:items-baseline"
+            ? "flex-col xl:flex-row xl:items-baseline"
             : position === "above"
               ? "flex-col"
               : "flex-row items-baseline",
@@ -63,7 +63,7 @@ export function ReadingRow({
             className={cn(
               "shrink-0 break-words text-sm text-muted-foreground",
               position === "auto"
-                ? "lg:w-[5.5rem]"
+                ? "xl:w-[5.5rem]"
                 : position === "left"
                   ? "w-[5.5rem]"
                   : undefined,
@@ -80,7 +80,7 @@ export function ReadingRow({
         <div className="shrink-0 max-sm:[@media(hover:none)]:hidden">{action}</div>
       )}
       {editAction !== undefined && (
-        <div className="absolute right-0 top-0 shrink-0 lg:static">{editAction}</div>
+        <div className="absolute right-0 top-0 shrink-0 xl:static">{editAction}</div>
       )}
     </div>
   );

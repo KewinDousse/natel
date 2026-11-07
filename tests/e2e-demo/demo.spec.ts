@@ -152,6 +152,40 @@ test("aligns copy and edit controls beside desktop contact values", async ({ pag
   await expect(page.getByRole("textbox", { name: "Note", exact: true })).toBeFocused();
 });
 
+test("keeps a contact's phone number whole until the title column fits", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "phones show one pane at a time");
+  await page.setViewportSize({ width: 1024, height: 800 });
+  for (const position of ["auto", "left"]) {
+    await page.goto("./settings");
+    await page.getByRole("combobox", { name: "Label position" }).selectOption(position);
+    await page.goto("./contacts/runeterra/p03");
+    const section = page.locator("#sec-tel");
+    const phone = section.locator("[data-contact-value] a").first();
+    await expect(phone).toBeVisible();
+    expect(await phone.evaluate((link) => link.scrollWidth <= link.clientWidth)).toBe(true);
+    const label = await section.locator("[data-contact-label]").first().boundingBox();
+    const value = await section.locator("[data-contact-value]").first().boundingBox();
+    if (!label || !value) throw new Error("Missing row label or value bounds");
+    if (position === "auto") expect(label.y + label.height).toBeLessThanOrEqual(value.y);
+    else expect(label.x + label.width).toBeLessThanOrEqual(value.x);
+  }
+  const section = page.locator("#sec-tel");
+  await page.setViewportSize({ width: 1279, height: 800 });
+  await expect(section).toHaveCSS("display", "block");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(section).toHaveCSS("display", "grid");
+  const phone = section.locator("[data-contact-value] a").first();
+  expect(await phone.evaluate((link) => link.scrollWidth <= link.clientWidth)).toBe(true);
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await expect(section).toHaveCSS("display", "block");
+  await section.hover();
+  await section.getByRole("button", { name: /^Edit/ }).click();
+  await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
+});
+
 test("previews and remembers the position of row labels independently of section titles", async ({
   page,
   isMobile,

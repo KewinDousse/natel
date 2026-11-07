@@ -214,16 +214,18 @@ without truncation. The desktop Edit action stays at the top right.
 
 ### Reading view sections
 
-Below `lg`, section titles sit above the rows, without icons and with light rules.
-From `lg`, section titles sit in a left column. Copy and edit share a vertical
-centre on desktop; a section's edit action accompanies its first value. Birthday,
-groups and note form a separate area. Section layout follows screen width and is
-independent of the row label preference.
+Below `xl`, section titles sit above the rows, without icons and with light
+rules, and a section's edit action sits on its title row: the list's fixed width
+leaves the pane too narrow for a title column and a whole phone number. From
+`xl`, section titles sit in a left column, copy and edit share a vertical centre,
+and a section's edit action accompanies its first value. Birthday, groups and
+note form a separate area. Section layout follows screen width and is independent
+of the row label preference.
 
 ### Label position preference
 
 Settings offers Auto, Left and Above for row labels such as Mobile and Work.
-Auto places labels above values below `lg`, and to their left from `lg`.
+Auto places labels above values below `xl`, and to their left from `xl`.
 Either explicit choice applies at every width. The choice applies immediately
 and persists in the browser; Auto is the default. It changes only row labels in
 the reading view, preserving section titles, information order and the form.
