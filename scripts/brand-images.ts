@@ -1,7 +1,8 @@
 /**
  * Renders the brand images that carry text (README banners, social images)
  * into docs/brand, from the mark, the wordmark and the app's fonts, and the
- * README's screenshots into docs/screenshots, from the demo build. Text is
+ * README's screenshots into docs/screenshots and the manifest's into
+ * public/screenshots, from the demo build. Text is
  * set live here rather than outlined in SVG, so new wording or a new language
  * is one entry below, not a redrawing.
  *
@@ -115,6 +116,16 @@ const README_SCREENS: Record<string, Screen> = {
 };
 
 /**
+ * The manifest's screenshots, which Chrome shows in its install dialog: the
+ * desktop with a contact's page open, and the phone on the list. Scaled
+ * down from the README's, since every instance serves them.
+ */
+const MANIFEST_SCREENS: Record<string, Screen> = {
+  "desktop.png": { width: 1280, height: 800, scale: 1, dark: false, contact: CAITLYN },
+  "mobile.png": { width: 390, height: 844, scale: 2, dark: false },
+};
+
+/**
  * The website's screenshots, light and dark, at 1x and 2x: the desktop with
  * Caitlyn Kiramman's page open, and the phone on the list.
  */
@@ -160,6 +171,13 @@ async function main() {
           await capture(browser, demo, screen),
         );
         console.log(`screenshots/${file}`);
+      }
+      for (const [file, screen] of Object.entries(MANIFEST_SCREENS)) {
+        await writeFile(
+          resolve(root, "public/screenshots", file),
+          await capture(browser, demo, screen),
+        );
+        console.log(`public/screenshots/${file}`);
       }
       if (values.site) {
         for (const [file, screen] of Object.entries(siteScreens())) {
