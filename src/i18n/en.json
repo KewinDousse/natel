@@ -329,6 +329,8 @@
   "app_version": "Version {version}",
   "help_guide": "User guide (English)",
   "help_bug": "Report a bug",
+  "install_app": "Install Natel",
+  "install_app_share": "To install Natel, open the Share menu, then choose “Add to Home Screen”.",
   "help_doc_title": "User guide · Natel",
   "help_back_settings": "Back to settings",
   "book_incomplete": "Incomplete list",

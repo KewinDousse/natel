@@ -329,6 +329,8 @@
   "app_version": "Version {version}",
   "help_guide": "Guide utilisateur (anglais)",
   "help_bug": "Signaler un bug",
+  "install_app": "Installer Natel",
+  "install_app_share": "Pour installer Natel, ouvrez le menu «\u00a0Partager\u00a0», puis choisissez «\u00a0Sur l’écran d’accueil\u00a0».",
   "help_doc_title": "Guide utilisateur · Natel",
   "help_back_settings": "Retour aux paramètres",
   "book_incomplete": "Liste incomplète",

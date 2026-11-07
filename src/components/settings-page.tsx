@@ -17,6 +17,7 @@ import type { Theme } from "@/lib/theme";
 import { type AvatarShape, type LabelPosition, usePreferences } from "@/store/preferences";
 import { useAuth, useBookParam } from "@/store/session";
 import { ReadingRow, ReadingSection } from "./contact-reading-fields";
+import { InstallApp } from "./install-app";
 import { openShortcuts } from "./keyboard-shortcuts";
 import { LanguageSelect } from "./language-select";
 import { MobileTopBar } from "./mobile-top-bar";
@@ -220,6 +221,7 @@ export function SettingsPage() {
               </a>
             </li>
           </ul>
+          <InstallApp />
         </SettingsSection>
       </div>
     </>

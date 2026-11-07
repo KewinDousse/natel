@@ -169,6 +169,14 @@ In settings, an "About and help" section shows the version, and the source
 revision when the build has one. The user guide opens inside the app, at `/settings/help`;
 the bug form stays external, with `noopener noreferrer`.
 
+### Installing the app
+
+Last in "About and help", a way to install Natel, as the browser offers it: an
+"Install Natel" button that opens the browser's own dialog where there is one
+(Chromium browsers, Android included), and on iPhone and iPad a line saying to
+open the Share menu, then choose Add to Home Screen. Nothing shows once Natel
+runs as an installed app, nor in a browser that offers neither.
+
 ### Update notifications
 
 A newer stable release puts a small ink dot on the header's settings gear, at its
