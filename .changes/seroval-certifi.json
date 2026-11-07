@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Update seroval, which is tree-shaken out of the app's bundle, and certifi, which only the disposable test servers use. Neither reaches the image, so this changes no released behaviour."
+}
