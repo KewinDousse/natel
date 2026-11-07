@@ -181,6 +181,23 @@ describe("validation", () => {
     expect(await screen.findByText("Veuillez saisir votre mot de passe.")).toBeTruthy();
     expect(mockDiscoverAddressBooks).not.toHaveBeenCalled();
   });
+
+  it("focuses the first invalid field after an empty submit", async () => {
+    renderApp("/login");
+    await screen.findByRole("heading", { name: "Ouvrir le carnet" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText("Nom d’utilisateur")),
+    );
+
+    await user.type(screen.getByLabelText("Nom d’utilisateur"), "alice");
+    expect(screen.queryByText("Veuillez saisir votre nom d’utilisateur.")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Mot de passe")));
+    expect(mockOpenSession).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------

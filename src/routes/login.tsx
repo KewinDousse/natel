@@ -4,6 +4,7 @@ import { LanguageSelect } from "@/components/language-select";
 import { LoginForm } from "@/components/login-form";
 import { fieldClass } from "@/components/ui/button";
 import { useI18n } from "@/i18n/react";
+import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/session";
 
@@ -62,7 +63,7 @@ function LoginRoute() {
 
   return (
     <div className="min-h-dvh pb-14 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pb-0">
-      <aside className="relative flex flex-col justify-between gap-6 lg:justify-end overflow-hidden bg-brand-surface px-5 pb-7 lg:gap-10 pt-[max(1.25rem,env(safe-area-inset-top))] text-brand-surface-foreground sm:px-8 lg:min-h-dvh lg:px-12 lg:py-12">
+      <aside className="relative flex flex-wrap items-center justify-between gap-x-4 gap-y-2 overflow-hidden bg-brand-surface px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-brand-surface-foreground min-[375px]:pb-5 min-[375px]:pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-8 lg:min-h-dvh lg:flex-col lg:flex-nowrap lg:items-stretch lg:justify-end lg:gap-10 lg:px-12 lg:py-12">
         <ol
           className="absolute top-0 right-0 hidden h-[62%] w-13 flex-col lg:flex"
           aria-hidden="true"
@@ -80,18 +81,18 @@ function LoginRoute() {
           ))}
         </ol>
 
-        {/* Mobile language select, restyled against the red panel */}
-        <div className="flex justify-end lg:hidden" style={RED_PANEL_LANGUAGE_VARS}>
-          <LoginLanguage id="lang-mobile" />
-        </div>
-
-        <div className="flex flex-col-reverse lg:flex-col">
-          <p className="mt-3 max-w-[22rem] text-lg font-bold leading-snug lg:mt-0 lg:text-xl">
+        {/* On phones the wordmark and the language share one row where they fit, so the form starts high. */}
+        <div>
+          <p className="hidden max-w-[22rem] text-xl font-bold leading-snug lg:block">
             {t("tagline")}
           </p>
-          <p className="font-display text-[6.5rem] font-bold leading-[0.78] tracking-[-0.01em] lg:mt-6 lg:text-[clamp(8rem,13vw,13rem)]">
+          <p className="font-display text-[3rem] font-bold leading-[0.85] tracking-[-0.01em] min-[375px]:text-[3.5rem] lg:mt-6 lg:text-[clamp(8rem,13vw,13rem)] lg:leading-[0.78]">
             Natel
           </p>
+        </div>
+
+        <div className="min-w-0 max-w-full lg:hidden" style={RED_PANEL_LANGUAGE_VARS}>
+          <LoginLanguage id="lang-mobile" />
         </div>
       </aside>
 
@@ -99,13 +100,15 @@ function LoginRoute() {
         <div className="hidden justify-end py-8 lg:flex">
           <LoginLanguage id="lang-desktop" />
         </div>
-        <div className="h-8 lg:hidden" />
+        <div className="h-6 min-[375px]:h-10 lg:hidden" />
         <div className="flex flex-1 items-start justify-center lg:items-center lg:pb-24">
           <div className="w-full max-w-[24rem]">
-            <h1 className="font-display text-title font-bold tracking-[-0.005em] text-balance">
+            <h1 className="font-display text-title-sm font-bold sm:text-title tracking-[-0.005em] text-balance">
               {t("title")}
             </h1>
-            <p className="mt-3 text-base leading-relaxed text-muted-foreground">{t("lede")}</p>
+            <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+              {t(IS_DEMO ? "lede_demo" : "lede")}
+            </p>
 
             <LoginForm next={next ?? "/contacts"} />
           </div>
@@ -119,11 +122,15 @@ function LoginRoute() {
 function LoginLanguage({ id }: { id: string }) {
   const { t } = useI18n();
   return (
-    <div className="flex items-center gap-2">
-      <label htmlFor={id} className="text-sm font-bold">
+    <div className="flex flex-wrap items-center gap-2">
+      {/* On phones the select's value says what it is; the label stays for screen readers. */}
+      <label htmlFor={id} className="sr-only text-sm font-bold sm:not-sr-only">
         {t("lang_label")}
       </label>
-      <LanguageSelect id={id} className={fieldClass("h-9 w-auto px-2.5 text-sm lg:text-sm")} />
+      <LanguageSelect
+        id={id}
+        className={fieldClass("h-11 w-auto max-w-full px-2.5 text-sm lg:h-9 lg:text-sm")}
+      />
     </div>
   );
 }

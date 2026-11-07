@@ -8,7 +8,8 @@
  */
 
 import { useNavigate } from "@tanstack/react-router";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useI18n } from "@/i18n/react";
 import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,8 @@ export function LoginForm({ next }: { next: string }) {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<FormError | null>(null);
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.title = t("doc_title");
@@ -66,9 +69,17 @@ export function LoginForm({ next }: { next: string }) {
     event.preventDefault();
     if (loginMutation.isPending) return;
     const nextErrors = validateAll();
-    setErrors(nextErrors);
+    // Rendered before the focus moves, so the field is announced with its error.
+    flushSync(() => setErrors(nextErrors));
     setFormError(null);
-    if (nextErrors.username || nextErrors.password) return;
+    if (nextErrors.username) {
+      usernameRef.current?.focus();
+      return;
+    }
+    if (nextErrors.password) {
+      passwordRef.current?.focus();
+      return;
+    }
 
     try {
       const { auth } = await loginMutation.mutateAsync({ username: username.trim(), password });
@@ -122,6 +133,7 @@ export function LoginForm({ next }: { next: string }) {
             {t("user")}
           </label>
           <input
+            ref={usernameRef}
             id="user"
             name="username"
             type="text"
@@ -129,7 +141,12 @@ export function LoginForm({ next }: { next: string }) {
             autoCapitalize="none"
             spellCheck={false}
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              // A corrected field drops its error at once, not on blur.
+              if (errors.username)
+                setFieldError("username", validateRequired(e.target.value, t("field_user_empty")));
+            }}
             onBlur={() =>
               setFieldError("username", validateRequired(username, t("field_user_empty")))
             }
@@ -150,12 +167,20 @@ export function LoginForm({ next }: { next: string }) {
           </label>
           <div className="relative">
             <input
+              ref={passwordRef}
               id="pass"
               name="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password)
+                  setFieldError(
+                    "password",
+                    validateRequired(e.target.value, t("field_pass_empty")),
+                  );
+              }}
               onBlur={() =>
                 setFieldError("password", validateRequired(password, t("field_pass_empty")))
               }
@@ -204,7 +229,7 @@ export function LoginForm({ next }: { next: string }) {
         <LockIcon className="mt-0.5 size-4" />
         <span>{t(IS_DEMO ? "privacy_demo" : "privacy")}</span>
       </p>
-      <p className="mt-6 text-caption text-muted-foreground">
+      <p className="mt-4 text-caption text-muted-foreground">
         {t("footer")}{" "}
         <a
           href="https://github.com/KewinDousse/natel"

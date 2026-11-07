@@ -137,13 +137,15 @@ The password's show button and the search's clear button are ghost buttons 32px 
 `fieldClass()`. Labels above, in bold; hints and error messages below, linked with `aria-describedby`. Invalid fields take `aria-invalid="true"` and a red border. A focused field's border turns ink, doubled by a 1px ring (red when invalid), with the mouse as with the keyboard. Mobile inputs stay at 16px so iOS doesn't zoom.
 
 ### Sign-in screen
-Desktop: a full-height red panel on the left, the form on the right. On the panel's right edge, a column of thumb-index tabs as on a paper phone book (A–B … W–Z), decorative and desktop only; N–P, for Natel, is the white tab. Their labels stay fully opaque: lighter, they fall under 4.5:1 on the red. At the bottom, the tagline and a giant wordmark. A compact language select sits top right and writes the same preference as the settings (ADR 019); on the red panel it is restyled by overriding colour variables locally, never with new colours. Mobile: the red block on top, with the language select, and the form below.
+Desktop: a full-height red panel on the left, the form on the right. On the panel's right edge, a column of thumb-index tabs as on a paper phone book (A–B … W–Z), decorative and desktop only; N–P, for Natel, is the white tab. Their labels stay fully opaque: lighter, they fall under 4.5:1 on the red. At the bottom, the tagline and a giant wordmark. A compact language select sits top right and writes the same preference as the settings (ADR 019); on the red panel it is restyled by overriding colour variables locally, never with new colours. Mobile: a red band on top with the wordmark and the language select, on one row from 375px wide, and the form below, so the sign-in button stays in view on a 320 × 568 screen outside the demo. The tagline shows from `lg` only. Below `sm`, the select's label is for screen readers only. Below `lg`, the select is 44px high for touch.
 
 The form has two fields, username and password. There is no server field: the CardDAV server is set by the operator (ADR 014).
 
 Outside a secure context (plain HTTP, except on `localhost`), a warning line says the password can be read on the network. It doesn't block the sign-in: a trusted network over HTTP is a legitimate use, and the browser already flags the page.
 
 Connection errors appear above the form, saying what failed and what to do: wrong credentials, or the CardDAV server not answering behind the proxy.
+
+An empty field shows its error on blur or on submit; a submit puts the focus on the first field in error, and the error clears as soon as the field is filled in.
 
 ## Contact page: a reading view and a form
 
