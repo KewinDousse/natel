@@ -70,6 +70,11 @@ puts a dot on the header's settings link and the release status in the settings.
 settings showed separately from display preferences, under `natel.ignoredRelease`
 and `natel.seenRelease`.
 
+### Manual release checks
+
+Authenticated, same-origin `POST /updates` bypasses the daily cache and refreshes
+the shared result. Manual attempts are rate-limited (ADR 049).
+
 ## Release publication
 
 The public `release.yml` workflow is manually started and approved only by

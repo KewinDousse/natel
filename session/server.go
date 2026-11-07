@@ -42,6 +42,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /session", s.signIn)
 	mux.HandleFunc("GET /session", s.current)
 	mux.HandleFunc("GET /updates", s.updates)
+	mux.HandleFunc("POST /updates", s.updates)
 	mux.HandleFunc("DELETE /session", s.signOut)
 	mux.HandleFunc("GET /auth", s.authorize)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {

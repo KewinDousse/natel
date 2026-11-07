@@ -23,13 +23,14 @@ type updateInfo struct {
 }
 
 type updateChecker struct {
-	mu      sync.Mutex
-	enabled bool
-	client  *http.Client
-	url     string
-	now     func() time.Time
-	next    time.Time
-	info    updateInfo
+	mu         sync.Mutex
+	enabled    bool
+	client     *http.Client
+	url        string
+	now        func() time.Time
+	next       time.Time
+	nextManual time.Time
+	info       updateInfo
 }
 
 func newUpdateChecker(enabled bool) *updateChecker {
@@ -52,6 +53,25 @@ func (c *updateChecker) check() updateInfo {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.checkLocked()
+}
+
+func (c *updateChecker) refresh() (updateInfo, bool) {
+	if !c.enabled {
+		return updateInfo{Enabled: false}, true
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.now().Before(c.nextManual) {
+		return c.info, false
+	}
+	// Bound manual requests across sessions, including failed attempts.
+	c.nextManual = c.now().Add(time.Minute)
+	c.next = time.Time{}
+	return c.checkLocked(), true
+}
+
+func (c *updateChecker) checkLocked() updateInfo {
 	if c.now().Before(c.next) {
 		return c.info
 	}
@@ -93,12 +113,26 @@ func (c *updateChecker) check() updateInfo {
 }
 
 func (s *server) updates(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost && !sameOrigin(r) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 	if _, ok := s.lookup(r); !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	if s.updateChecker == nil {
 		writeJSON(w, updateInfo{Enabled: false})
+		return
+	}
+	if r.Method == http.MethodPost {
+		info, allowed := s.updateChecker.refresh()
+		if !allowed {
+			w.Header().Set("Retry-After", "60")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		writeJSON(w, info)
 		return
 	}
 	writeJSON(w, s.updateChecker.check())

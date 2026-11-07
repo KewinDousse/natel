@@ -337,5 +337,10 @@
   "update_disabled": "Update checks are disabled on this server.",
   "update_enabled": "This server checks for new releases automatically.",
   "update_unavailable": "Update information is unavailable.",
-  "update_latest": "Latest release: {version}"
+  "update_latest": "Latest release: {version}",
+  "update_check": "Check for updates",
+  "update_checking": "Checking for updates…",
+  "update_current": "No newer version is available.",
+  "update_check_failed": "Could not check for updates. Try again later.",
+  "update_check_wait": "Please wait a minute before checking again."
 }

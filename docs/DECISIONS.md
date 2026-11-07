@@ -7,15 +7,18 @@ and 013 (conflicts), 016 (no duplicate on a retried save), 020 (import),
 021 (moving a contact), 032 (where the password lives) and 038 (overwriting
 after a conflict).
 
-One entry per decision, newest last. Each entry stays under about 350
-words, and most need less than 150: the context in a sentence or two, the
-decision, and the consequences. A rejected alternative is named only when
-it was a real candidate, in one line with its reason. An entry records what
-was decided and why; how it is built belongs in the code, its tests,
+One entry per decision, newest last. Write only what is necessary and useful:
+the context, the decision and its consequences. A rejected alternative is named
+only when it was a real candidate, in one line with its reason. An entry records
+what was decided and why; how it is built belongs in the code, its tests,
 ARCHITECTURE.md or DESIGN.md. A decision that changes gets a new entry, and
 the old one says which entry amends or replaces it. Each part opens its own
 paragraph with its name in bold. The order is **Context.**, **Decision.**,
 then **Rejected.** when an alternative is named, and **Consequences.**
+
+From the entry and its explicit references, without consulting the code, an
+independent agent must be able to reconstruct the same feature or technical
+guarantees. Implementation choices remain open.
 
 ## 001 — Contacts only
 
@@ -736,6 +739,10 @@ is accepted. The browser contacts only Natel. Development, preview and demo chec
 are disabled. Ignoring stores the release version in the browser; settings still
 link to the known release.
 
+The signed-in app checks on opening and daily while in use. Notification
+placement, visibility and dismissal follow
+[Update notifications](DESIGN.md#update-notifications).
+
 **Rejected.** Browser-side requests: they disclose visitors' outbound addresses.
 A new server process or Caddy module: neither is needed for this bounded function.
 
@@ -743,6 +750,8 @@ A new server process or Caddy module: neither is needed for this bounded functio
 ADR 032. GitHub Pages can log the server's outbound IP. Operators can opt out before
 first use; a restart clears the cache. Failed checks do not affect contact use.
 The documentation and natel.app explain the external request at appropriate lengths.
+
+Amended by ADR 049 for manual checks.
 
 ## 041 — Collected change notes and approved single-action releases
 
@@ -837,11 +846,12 @@ first one discovered opens, and the others can't be opened. The former
 **Context.** Labels beside values use desktop space well; labels above values
 leave more width for contact details on phones. Readers may prefer either layout.
 
-**Decision.** Offer Auto, Left and Above for row labels such as Mobile and Work.
-Auto places labels above values on small screens and to their left on large
-screens. Explicit choices override that at every width. Section titles follow
-screen width independently. A live preview illustrates the choice in settings.
-Store this browser preference alongside the other display choices.
+**Decision.** Offer Auto (the default), Left and Above for row labels such as Mobile
+and Work. Auto places labels above values on small screens and to their left on
+large screens. Explicit choices override that at every width. Section titles follow
+screen width independently. A live preview accompanies the choice in
+Settings → Contacts and list. Store this browser preference alongside the other
+display choices.
 
 **Consequences.** Both layouts must work at every supported width and preserve
 the same information and actions. A forced left layout leaves less room for long
@@ -917,3 +927,13 @@ only have tested the proxy itself.
 **Consequences.** The Xandikos leg needs Docker, so it can't run in Claude
 Code's web sandbox; Radicale, the default, still does. The site covers one
 account.
+
+## 049 — Check for a release immediately from settings
+
+**Context.** Automatic checks cache their result for 24 hours.
+
+**Decision.** In Settings → About and help, a "Check for updates" button requests
+a fresh check and displays the result in place. This amends ADR 040.
+
+**Consequences.** Manual checks share a one-minute limit across the instance to
+bound outbound requests.

@@ -122,3 +122,110 @@ func TestUpdateRouteRequiresSession(t *testing.T) {
 		t.Fatal("browser may cache instance configuration")
 	}
 }
+
+func TestManualUpdateRefresh(t *testing.T) {
+	for _, fails := range []bool{false, true} {
+		t.Run(fmt.Sprint(fails), func(t *testing.T) {
+			var calls atomic.Int32
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				call := calls.Add(1)
+				if call > 1 && fails {
+					w.WriteHeader(http.StatusBadGateway)
+					return
+				}
+				fmt.Fprintf(w, `{"version":"0.%d.0","releaseUrl":"%s0.%d.0"}`, call, releaseBaseURL, call)
+			}))
+			defer upstream.Close()
+			checker := newUpdateChecker(true)
+			checker.url = upstream.URL
+			now := time.Now()
+			checker.now = func() time.Time { return now }
+			checker.check()
+			if info, allowed := checker.refresh(); !allowed || (!fails && info.Version != "0.2.0") || (fails && info.Version != "") {
+				t.Fatalf("manual refresh did not bypass daily cache: %#v, %v", info, allowed)
+			}
+			var wg sync.WaitGroup
+			for range 20 {
+				wg.Go(func() {
+					if _, allowed := checker.refresh(); allowed {
+						t.Error("manual attempt was not rate limited")
+					}
+				})
+			}
+			wg.Wait()
+			checker.check()
+			if calls.Load() != 2 {
+				t.Fatalf("got %d calls during cooldown", calls.Load())
+			}
+			now = now.Add(time.Minute)
+			if _, allowed := checker.refresh(); !allowed || calls.Load() != 3 {
+				t.Fatal("manual cooldown did not expire")
+			}
+			checker.enabled = false
+			if info, allowed := checker.refresh(); !allowed || info.Enabled || calls.Load() != 3 {
+				t.Fatal("disabled refresh made a request")
+			}
+		})
+	}
+}
+
+func TestManualUpdateRoute(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		for _, header := range []string{"Authorization", "Cookie", "Referer", "X-Forwarded-For", "X-Forwarded-Host", "Origin"} {
+			if r.Header.Get(header) != "" {
+				t.Errorf("leaked %s", header)
+			}
+		}
+		if r.Method != "GET" || r.URL.RequestURI() != "/version.json" {
+			t.Error("unexpected upstream request")
+		}
+		fmt.Fprint(w, `{"version":"0.4.0","releaseUrl":"`+releaseBaseURL+`0.4.0"}`)
+	}))
+	defer upstream.Close()
+	checker := newUpdateChecker(true)
+	checker.url = upstream.URL + "/version.json"
+	st := newStore(time.Now)
+	srv := (&server{store: st, log: newLogger(io.Discard), updateChecker: checker}).routes()
+	token, err := st.open("alice", "secret", cookieName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		site    string
+		session bool
+		status  int
+	}{
+		{"cross-site", true, http.StatusForbidden},
+		{"", true, http.StatusForbidden},
+		{"same-origin", false, http.StatusUnauthorized},
+		{"same-origin", true, http.StatusOK},
+		{"same-origin", true, http.StatusTooManyRequests},
+	} {
+		req := httptest.NewRequest("POST", "/updates", nil)
+		req.Header.Set("Sec-Fetch-Site", tc.site)
+		req.Header.Set("Authorization", "Basic private")
+		req.Header.Set("X-Forwarded-For", "192.0.2.1")
+		if tc.session {
+			req.AddCookie(&http.Cookie{Name: cookieName, Value: token})
+		}
+		response := httptest.NewRecorder()
+		srv.ServeHTTP(response, req)
+		if response.Code != tc.status {
+			t.Fatalf("%s, session %v: got %d, want %d", tc.site, tc.session, response.Code, tc.status)
+		}
+		if response.Code == http.StatusOK && !strings.Contains(response.Body.String(), `"version":"0.4.0"`) {
+			t.Fatal("missing refreshed result")
+		}
+		if response.Code == http.StatusTooManyRequests && response.Header().Get("Retry-After") != "60" {
+			t.Fatal("missing cooldown")
+		}
+		if response.Header().Get("Cache-Control") != "no-store" {
+			t.Fatal("browser may cache manual response")
+		}
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("got %d upstream calls", calls.Load())
+	}
+}

@@ -177,6 +177,12 @@ That line also says whether server checks are enabled, and makes no "up to date"
 claim after a failed check. The demo shows neither the dot nor the server check
 status. A check never prevents contact use or asks for a reload.
 
+### Manual update check
+
+An outline "Check for updates" button follows the release status in About and
+help, hidden when checks are disabled and in the demo. It keeps focus while
+checking, with `aria-disabled`; a polite status region announces the result or error.
+
 ### Embedded user guide
 `/settings/help` uses the contact page's column and top bar. The
 content is `docs/user-guide.md`, imported at build time, English only and

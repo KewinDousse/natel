@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { useI18n } from "@/i18n/react";
 import { APP_VERSION } from "@/lib/app-info";
 import { compareVersions } from "@/lib/release-version";
-import { useUpdates } from "@/queries/useUpdates";
+import { useCheckUpdates, useUpdates } from "@/queries/useUpdates";
 import { useUpdateNotice } from "@/store/update-notice";
 import { buttonClass, FOCUS_RING } from "./ui/button";
 
@@ -42,7 +42,8 @@ export function UpdateBadge() {
  */
 export function UpdateStatus() {
   const { t } = useI18n();
-  const { data } = useUpdates();
+  const { data, isError } = useUpdates();
+  const check = useCheckUpdates();
   const release = useNewerRelease();
   const { ignored, ignore, see } = useUpdateNotice();
   const latestRef = useRef<HTMLAnchorElement>(null);
@@ -52,6 +53,23 @@ export function UpdateStatus() {
   useEffect(() => {
     if (newer) see(newer);
   }, [newer, see]);
+
+  let checkStatus = "";
+  if (check.isPending) {
+    checkStatus = t("update_checking");
+  } else if (check.isError) {
+    checkStatus = t(
+      check.error.message === "Update check rate limited"
+        ? "update_check_wait"
+        : "update_check_failed",
+    );
+  } else if (check.isSuccess && check.data.enabled) {
+    checkStatus = check.data.version
+      ? compareVersions(check.data.version, APP_VERSION) > 0
+        ? t("update_available", { version: check.data.version })
+        : t("update_current")
+      : t("update_check_failed");
+  }
 
   return (
     <>
@@ -85,7 +103,7 @@ export function UpdateStatus() {
         {t(
           data?.enabled === false
             ? "update_disabled"
-            : data?.enabled
+            : data?.enabled && !isError
               ? "update_enabled"
               : "update_unavailable",
         )}
@@ -104,6 +122,23 @@ export function UpdateStatus() {
           </>
         )}
       </p>
+      {data?.enabled !== false && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            className={buttonClass({ variant: "outline", size: "sm" })}
+            aria-disabled={check.isPending}
+            onClick={() => {
+              if (!check.isPending) check.mutate();
+            }}
+          >
+            {t(check.isPending ? "update_checking" : "update_check")}
+          </button>
+          <p role="status" className="text-sm text-muted-foreground">
+            {checkStatus}
+          </p>
+        </div>
+      )}
     </>
   );
 }

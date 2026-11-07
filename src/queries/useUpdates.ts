@@ -1,11 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IS_DEMO } from "@/lib/demo";
 import { isStableVersion, releaseUrl } from "@/lib/release-version";
 
 export type UpdateInfo = { enabled: boolean; version?: string; releaseUrl?: string };
 
-export async function fetchUpdates(): Promise<UpdateInfo> {
-  const response = await fetch("/updates", { mode: "same-origin", cache: "no-store" });
+export async function fetchUpdates(manual = false): Promise<UpdateInfo> {
+  const response = await fetch("/updates", {
+    method: manual ? "POST" : "GET",
+    mode: "same-origin",
+    cache: "no-store",
+  });
+  if (response.status === 429) throw new Error("Update check rate limited");
   if (!response.ok) throw new Error("Update check unavailable");
   const data: unknown = await response.json();
   if (
@@ -32,10 +37,22 @@ export async function fetchUpdates(): Promise<UpdateInfo> {
 export function useUpdates() {
   return useQuery({
     queryKey: ["updates"],
-    queryFn: fetchUpdates,
+    queryFn: () => fetchUpdates(),
     enabled: !IS_DEMO,
     staleTime: 24 * 60 * 60 * 1000,
     refetchInterval: 24 * 60 * 60 * 1000,
+    retry: false,
+  });
+}
+
+export function useCheckUpdates() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => fetchUpdates(true),
+    onSuccess: async (data) => {
+      await client.cancelQueries({ queryKey: ["updates"] });
+      client.setQueryData(["updates"], data);
+    },
     retry: false,
   });
 }

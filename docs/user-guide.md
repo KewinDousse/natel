@@ -108,7 +108,13 @@ another release is highlighted again. The seen and ignored versions are stored a
 browser preferences. If browser storage is unavailable, they last for this tab only.
 
 Settings also shows the installed version, whether checks are enabled and the
-latest release when known, including one you ignored. A failed check is silent and
+latest release when known, including one you ignored. A failed automatic check is silent and
 does not mean the installation is up to date. The person hosting Natel controls checks
 in the [deployment configuration](deployment.md#update-checks) and installs updates.
 The dot is hidden in the demo.
+
+## Check for updates now
+
+Choose **Check for updates** in Settings → About and help to check immediately.
+The button is hidden when checks are disabled; manual checks are limited to once
+per minute.

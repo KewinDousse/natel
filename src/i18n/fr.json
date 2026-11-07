@@ -337,5 +337,10 @@
   "update_disabled": "La vérification des mises à jour est désactivée sur ce serveur.",
   "update_enabled": "Ce serveur vérifie automatiquement les nouvelles versions.",
   "update_unavailable": "Les informations de mise à jour sont indisponibles.",
-  "update_latest": "Dernière version\u00a0: {version}"
+  "update_latest": "Dernière version\u00a0: {version}",
+  "update_check": "Vérifier les mises à jour",
+  "update_checking": "Vérification des mises à jour…",
+  "update_current": "Aucune version plus récente n’est disponible.",
+  "update_check_failed": "Impossible de vérifier les mises à jour. Réessayez plus tard.",
+  "update_check_wait": "Patientez une minute avant de vérifier à nouveau."
 }

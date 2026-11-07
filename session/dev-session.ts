@@ -98,7 +98,8 @@ export function devSession(davOrigin: string | undefined, davMethods: string[]):
     const path = (req.url ?? "/").split("?")[0];
     if (path === "/updates") {
       res.setHeader("Cache-Control", "no-store");
-      if (req.method !== "GET") end(res, 405);
+      if (req.method !== "GET" && req.method !== "POST") end(res, 405);
+      else if (req.method === "POST" && !sameOrigin(req)) end(res, 403);
       else if (!lookup(req)) end(res, 401);
       else json(res, { enabled: false });
       return;

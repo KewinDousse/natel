@@ -1,0 +1,4 @@
+{
+  "type": "Added",
+  "text": "Settings offers a button to check for a newer release immediately when server update checks are enabled, with a result or an error shown after the check."
+}

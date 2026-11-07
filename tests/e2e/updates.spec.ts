@@ -20,7 +20,15 @@ test("update metadata requires a session", async ({ request }) => {
   expect(enabled.headers()["cache-control"]).toBe("no-store");
   const data: unknown = await enabled.json();
   expect(data).toHaveProperty("enabled");
-  if (process.env.E2E_EXTERNAL_APP !== "1") expect(data).toEqual({ enabled: false });
+  if (process.env.E2E_EXTERNAL_APP !== "1") {
+    expect(data).toEqual({ enabled: false });
+    const manual = await request.post("/updates", { headers: { "Sec-Fetch-Site": "same-origin" } });
+    expect(manual.status()).toBe(200);
+    expect(await manual.json()).toEqual({ enabled: false });
+    expect(
+      (await request.post("/updates", { headers: { "Sec-Fetch-Site": "cross-site" } })).status(),
+    ).toBe(403);
+  }
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
@@ -77,3 +85,45 @@ for (const colorScheme of ["light", "dark"] as const) {
     expect(external).toEqual([]);
   });
 }
+
+test("checks immediately from settings and reports unavailable checks without external requests", async ({
+  page,
+}) => {
+  let manual = 0;
+  const external: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).hostname !== "127.0.0.1") external.push(request.url());
+  });
+  await page.route("**/updates", (route) => {
+    if (route.request().method() === "POST") {
+      manual++;
+      if (manual === 2) return route.fulfill({ json: { enabled: true } });
+      if (manual === 3) return route.fulfill({ status: 429 });
+      return route.fulfill({
+        json: { enabled: true, version: "999.0.0", releaseUrl: releaseUrl("999.0.0") },
+      });
+    }
+    return route.fulfill({
+      json: { enabled: true, version: "0.0.1", releaseUrl: releaseUrl("0.0.1") },
+    });
+  });
+  await signIn(page.request);
+  await page.goto("/settings");
+  const button = page.getByRole("button", { name: "Check for updates", exact: true });
+  const status = page
+    .getByRole("status")
+    .filter({ hasText: /Natel 999|Could not check|Please wait/ });
+  await button.click();
+  await expect(status).toHaveText("Natel 999.0.0 is available.");
+  await expect(button).toBeFocused();
+  await expect(page.getByRole("link", { name: "See what’s new" })).toHaveAttribute(
+    "href",
+    releaseUrl("999.0.0"),
+  );
+  await button.click();
+  await expect(status).toHaveText("Could not check for updates. Try again later.");
+  await button.click();
+  await expect(status).toHaveText("Please wait a minute before checking again.");
+  expect(manual).toBe(3);
+  expect(external).toEqual([]);
+});

@@ -45,6 +45,10 @@ The settings show whether checks are enabled. A newer stable release can display
 a dismissible notice; see [update notifications](user-guide.md#update-notifications).
 The application does not install updates itself.
 
+### Manual release checks
+
+Manual checks from settings bypass the daily cache, with one attempt per minute
+across the instance, including failures.
 
 ## Configuration
 
