@@ -100,13 +100,11 @@ export async function capture(browser: Browser, demo: DemoServer, screen: Screen
       await page.getByRole("link").filter({ hasText: screen.contact }).first().click();
       await page.getByRole("heading", { name: screen.contact }).waitFor();
     }
+    await page.locator("[data-demo-reminder]").evaluateAll((nodes) => {
+      for (const node of nodes) if (node instanceof HTMLElement) node.style.display = "none";
+    });
     const reminders = ["demo_mark", "demo_notice"].map((key) => [key, message(t, key)] as const);
-    for (const [, text] of reminders) {
-      await page.getByText(text, { exact: true }).evaluateAll((nodes) => {
-        for (const node of nodes) if (node instanceof HTMLElement) node.style.display = "none";
-      });
-    }
-    // A reminder that no longer matches its string would show up unnoticed.
+    // A reminder that lost its attribute would show up unnoticed.
     for (const [key, text] of reminders) {
       if ((await page.getByText(text).filter({ visible: true }).count()) > 0) {
         throw new Error(`The demo reminder ${key} is still visible`);

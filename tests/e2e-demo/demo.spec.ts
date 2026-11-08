@@ -26,7 +26,7 @@ test("signs in with any credentials, and says on every screen that it is a demo"
 }) => {
   await page.goto("./");
   await signIn(page);
-  await expect(page.getByText("Demo: nothing is saved, change anything you like.")).toBeVisible();
+  await expect(page.getByText("Nothing is saved, change anything you like.")).toBeVisible();
   await page.getByRole("link", { name: /Luxanna Crownguard/ }).click();
   await expect(page).toHaveURL(/\/contacts\/runeterra\/p01$/);
   // The line under the header on desktop, the top bar's mark on phones.
@@ -64,7 +64,7 @@ test("opens the contact list directly without signing in", async ({ page }) => {
   await page.goto("./contacts");
   await expect(page).toHaveURL(/\/contacts\/runeterra$/);
   await expect(page.getByRole("link", { name: /Luxanna Crownguard/ })).toBeVisible();
-  await expect(page.getByText("Demo: nothing is saved, change anything you like.")).toBeVisible();
+  await expect(page.getByText("Nothing is saved, change anything you like.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).not.toBeVisible();
 });
 
