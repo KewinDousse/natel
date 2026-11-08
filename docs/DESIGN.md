@@ -228,10 +228,11 @@ without truncation. The desktop Edit action stays at the top right.
 Below `xl`, section titles sit above the rows, without icons and with light
 rules, and a section's edit action sits on its title row: the list's fixed width
 leaves the pane too narrow for a title column and a whole phone number. From
-`xl`, section titles sit in a left column, copy and edit share a vertical centre,
-and a section's edit action accompanies its first value. Birthday, groups and
-note form a separate area. Section layout follows screen width and is independent
-of the row label preference.
+`xl`, section titles sit in a left column, on the baseline of their first line
+(the row label when labels sit above), copy and edit share a vertical centre, and
+a section's edit action accompanies its first value. Birthday, groups and note
+form a separate area. Section layout follows screen width and is independent of
+the row label preference.
 
 ### Label position preference
 

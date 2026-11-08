@@ -20,9 +20,9 @@ export function ReadingSection({
   return (
     <section
       id={id}
-      className="group/section relative border-t pt-1 xl:grid xl:grid-cols-[7.5rem_minmax(0,1fr)] xl:items-start xl:gap-x-3 xl:border-0 xl:pt-0"
+      className="group/section relative border-t pt-1 xl:grid xl:grid-cols-[7.5rem_minmax(0,1fr)] xl:items-baseline xl:gap-x-3 xl:border-0 xl:pt-0"
     >
-      <div className="flex min-h-8 items-center justify-between gap-2 xl:pt-3">
+      <div className="flex min-h-8 items-center justify-between gap-2">
         <Heading className="text-sm font-bold">{title}</Heading>
       </div>
       <div className="min-w-0">
