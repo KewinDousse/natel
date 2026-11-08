@@ -103,7 +103,7 @@ async function renderList() {
       </I18nProvider>
     </QueryClientProvider>,
   );
-  await screen.findByRole("link", { name: /Lovelace/ }, { timeout: 5000 });
+  await screen.findByRole("link", { name: /Lovelace/ });
   return userEvent.setup();
 }
 

@@ -870,7 +870,7 @@ describe("sync", () => {
     expect(screen.queryByRole("button", { name: "Synchronisation impossible" })).toBeNull();
     // The focus moves on rather than falling back to the page.
     expect(document.activeElement).toBe(screen.getByRole("link", { name: "Paramètres" }));
-  }, 15000);
+  });
 
   it("closes the panel on a click outside, and Escape in it doesn't cancel an edit", async () => {
     const { queryClient } = await renderLoaded("/contacts/a/jarvan?edit=true");
@@ -889,7 +889,7 @@ describe("sync", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
     expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
-  }, 15000);
+  });
 
   it("offers to sign in again when the session expired since the book loaded", async () => {
     const { queryClient, router } = await renderLoaded();
@@ -906,7 +906,7 @@ describe("sync", () => {
     // Signing in again comes back to the list, in the same book.
     expect(router.state.location.search).toEqual({ redirect: "/contacts/a" });
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
-  }, 15000);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -974,7 +974,7 @@ describe("while the book loads, fails or is empty", () => {
     loadBook(bookAContacts());
     await user.click(screen.getByRole("button", { name: "Réessayer" }));
     expect(await screen.findByRole("link", { name: /Lightshield Jarvan/ })).toBeTruthy();
-  }, 15000);
+  });
 
   it("asks to sign in again when the session has expired", async () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
@@ -984,7 +984,7 @@ describe("while the book loads, fails or is empty", () => {
     expect(await screen.findByText("Votre session a expiré", {}, { timeout: 8000 })).toBeTruthy();
     await userEvent.setup().click(screen.getByRole("button", { name: "Se reconnecter" }));
     expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
-  }, 15000);
+  });
 
   it("offers a first contact and an import on an empty book", async () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });

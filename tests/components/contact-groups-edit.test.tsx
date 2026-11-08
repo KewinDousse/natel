@@ -98,7 +98,7 @@ async function renderEdit(href: string) {
       </I18nProvider>
     </QueryClientProvider>,
   );
-  await screen.findByRole("button", { name: "Enregistrer" }, { timeout: 5000 });
+  await screen.findByRole("button", { name: "Enregistrer" });
   return router;
 }
 

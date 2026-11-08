@@ -232,7 +232,7 @@ async function renderEditView(id: string) {
       </I18nProvider>
     </QueryClientProvider>,
   );
-  const article = await screen.findByRole("article", {}, { timeout: 5000 });
+  const article = await screen.findByRole("article");
   return { router, article, queryClient };
 }
 
@@ -1161,7 +1161,7 @@ describe("free-text birthday (VALUE=text on vCard 3.0)", () => {
         </I18nProvider>
       </QueryClientProvider>,
     );
-    const article = await screen.findByRole("article", {}, { timeout: 5000 });
+    const article = await screen.findByRole("article");
     expect(within(article).getByText("circa 1987")).toBeTruthy();
   });
 
@@ -1221,7 +1221,7 @@ describe("toast timing", () => {
         </I18nProvider>
       </QueryClientProvider>,
     );
-    const article = await screen.findByRole("article", {}, { timeout: 5000 });
+    const article = await screen.findByRole("article");
     const user = userEvent.setup();
     const copy = within(article).getAllByRole("button", { name: "Copier le numéro" })[0];
     if (!copy) throw new Error("no copy button");
@@ -1299,7 +1299,7 @@ describe("view mode — E shortcut", () => {
         </I18nProvider>
       </QueryClientProvider>,
     );
-    return screen.findByRole("article", {}, { timeout: 5000 });
+    return screen.findByRole("article");
   }
 
   it("opens the form on a section from its pencil, focused on its first value", async () => {
@@ -1326,7 +1326,7 @@ describe("view mode — E shortcut", () => {
         </I18nProvider>
       </QueryClientProvider>,
     );
-    const article = await screen.findByRole("article", {}, { timeout: 5000 });
+    const article = await screen.findByRole("article");
 
     await userEvent.setup().click(within(article).getByRole("button", { name: "Modifier" }));
 

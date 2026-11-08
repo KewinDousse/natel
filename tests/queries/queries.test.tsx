@@ -381,7 +381,7 @@ describe("useCreateContact", () => {
     const { result } = renderCreate(client);
 
     result.current.mutate(contact);
-    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(mockSerialise).toHaveBeenCalledWith(contact);
     expect(mockCreateCard).toHaveBeenCalledWith(MOCK_AUTH, NEW_HREF, "SERIALISED_VCARD");
@@ -399,7 +399,7 @@ describe("useCreateContact", () => {
     const { result } = renderCreate(createTestClient());
 
     result.current.mutate(contact);
-    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(result.current.error).toMatchObject({ code: "CONFLICT" });
     expect(mockFetchCard).not.toHaveBeenCalled();
@@ -443,7 +443,7 @@ describe("useUpdateContact", () => {
       fields: { ...oldContact.fields, fn: "Alice Updated" },
     });
     result.current.mutate(updatedContact);
-    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     // The cache and the result hold the text that goes with the new ETag,
     // not the contact sent.
@@ -481,7 +481,7 @@ describe("useUpdateContact", () => {
     });
 
     result.current.mutate(makeContact());
-    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error).toBeInstanceOf(DavError);
     expect((result.current.error as DavError).code).toBe("CONFLICT");
   });
@@ -515,7 +515,7 @@ describe("useDeleteContact", () => {
     });
 
     result.current.mutate(contact);
-    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(mockDeleteCard).toHaveBeenCalledWith(MOCK_AUTH, contact.href, contact.etag);
 
@@ -541,7 +541,7 @@ describe("useDeleteContact", () => {
     });
 
     result.current.mutate(makeContact());
-    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect((result.current.error as DavError).code).toBe("CONFLICT");
   });
 });
@@ -561,7 +561,7 @@ describe("mutation retry behaviour", () => {
     });
 
     result.current.mutate(makeContact({ etag: "", href: "" }));
-    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error).toBeInstanceOf(DavError);
     expect(mockCreateCard).toHaveBeenCalledTimes(1);
   });
@@ -576,7 +576,7 @@ describe("mutation retry behaviour", () => {
     });
 
     result.current.mutate(makeContact());
-    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect(mockUpdateCard).toHaveBeenCalledTimes(1);
   });
 
@@ -589,7 +589,7 @@ describe("mutation retry behaviour", () => {
     });
 
     result.current.mutate(makeContact());
-    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect(mockDeleteCard).toHaveBeenCalledTimes(1);
   });
 });

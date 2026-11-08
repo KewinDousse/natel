@@ -49,7 +49,9 @@ test("ends the session on sign-out", async ({ page }) => {
   const token = (await page.context().cookies())[0]?.value;
   await page.goto("/logout");
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
-  expect(await page.context().cookies()).toEqual([]);
+  // Under load, Firefox has listed the cleared cookie for a moment after the
+  // sign-in screen showed.
+  await expect.poll(() => page.context().cookies()).toEqual([]);
   await page.reload();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   // The old cookie opens nothing on the server either.
