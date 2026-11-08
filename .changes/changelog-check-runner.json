@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Let the changelog check follow the RUNNER repository variable like the other CI jobs; nothing changes for people using or hosting Natel."
+}
