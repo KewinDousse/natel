@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Give each end-to-end test 60 seconds instead of 30, so a slow CI runner no longer cuts off a test that is still progressing. Only tests change, so this changes no released behaviour."
+}

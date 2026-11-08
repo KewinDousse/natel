@@ -7,6 +7,9 @@ export default defineConfig({
   // Tests share one address book on one server; running them in parallel
   // would let one test's writes show up in another's list.
   workers: 1,
+  // CI runners share their host with other jobs: there, every step of a
+  // healthy test can run seconds slower, past Playwright's default 30 s.
+  timeout: 60_000,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
