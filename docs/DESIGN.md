@@ -421,6 +421,16 @@ root and `/login` show the demo sign-in form on a fresh load; signing out
 returns there.
 A reload resets the contacts and opens the requested page directly.
 
+### Demo arrival
+
+On a wide screen, when a book's list is the first page of the directory a
+page load shows, the demo opens a full contact beside it (Caitlyn Kiramman
+in Runeterra, Aline Dessendre in Expédition 33), so the visitor sees a
+contact rather than an empty pane. It happens once per page load: switching
+books, even before the list has loaded, or coming back to the list later
+leaves the pane empty. A link to a book the server does not have opens
+nothing either. Phones keep the list.
+
 ## Still not designed
 
 Offline state.

@@ -11,6 +11,7 @@ import type { SyncState } from "@/components/sync-warning";
 import { UploadIcon } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/toast";
 import { useBookTransfer } from "@/hooks/use-book-transfer";
+import { useDemoArrival } from "@/hooks/use-demo-arrival";
 import { useVcfDrop } from "@/hooks/use-vcf-drop";
 import { useI18n } from "@/i18n/react";
 import { bookParam, findBook } from "@/lib/book-param";
@@ -75,6 +76,7 @@ export function ContactsScreen() {
   const contactsQuery = useContacts(auth ?? undefined, selectedBook ?? undefined);
   const book = contactsQuery.isPlaceholderData ? undefined : contactsQuery.data;
   const contacts = book?.contacts;
+  useDemoArrival(leafRoute, urlBook, contacts);
 
   // /contacts, or a book the server doesn't have, opens the selected book in
   // its place. /contacts/<id>, with no book, opens that contact in the

@@ -62,7 +62,8 @@ test("gives link previews an absolute image it serves", async ({ page, request, 
 
 test("opens the contact list directly without signing in", async ({ page }) => {
   await page.goto("./contacts");
-  await expect(page).toHaveURL(/\/contacts\/runeterra$/);
+  // On a wide screen, the arrival contact opens beside the list (DESIGN.md "Demo arrival").
+  await expect(page).toHaveURL(/\/contacts\/runeterra(\/p03)?$/);
   await expect(page.getByRole("link", { name: /Luxanna Crownguard/ })).toBeVisible();
   await expect(page.getByText("Nothing is saved, change anything you like.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).not.toBeVisible();
@@ -104,7 +105,7 @@ test("forgets an edit on reload", async ({ page }) => {
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`passes axe on the demo's own screens, ${colorScheme}`, async ({ page }) => {
+  test(`passes axe on the demo's own screens, ${colorScheme}`, async ({ page, isMobile }) => {
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
     await page.goto("./");
     const check = async (screen: string) => {
@@ -122,7 +123,13 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
     await check("sign-in");
     await signIn(page);
-    await check("list");
+    if (isMobile) {
+      await check("list");
+    } else {
+      // The arrival contact opens beside the list (DESIGN.md "Demo arrival").
+      await expect(page.getByRole("heading", { level: 1, name: "Caitlyn Kiramman" })).toBeVisible();
+      await check("list and contact");
+    }
   });
 }
 
