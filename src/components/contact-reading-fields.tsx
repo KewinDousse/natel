@@ -79,9 +79,14 @@ export function ReadingRow({
       {action !== undefined && (
         <div className="shrink-0 max-sm:[@media(hover:none)]:hidden">{action}</div>
       )}
-      {editAction !== undefined && (
-        <div className="absolute right-0 top-0 shrink-0 xl:static">{editAction}</div>
-      )}
+      <div
+        className={cn(
+          "shrink-0 xl:size-9",
+          editAction === undefined ? "hidden xl:block" : "absolute right-0 top-0 xl:static",
+        )}
+      >
+        {editAction}
+      </div>
     </div>
   );
 }

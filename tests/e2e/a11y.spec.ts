@@ -43,6 +43,13 @@ async function openBookMenu(page: Page): Promise<void> {
   await expect(page.getByRole("menu")).toBeVisible();
 }
 
+async function openAdaContact(page: Page): Promise<void> {
+  await page.goto("/");
+  await signIn(page);
+  await page.getByRole("link", { name: /Lovelace/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeVisible();
+}
+
 const JPEG = Buffer.from(
   (
     JSON.parse(
@@ -115,13 +122,10 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expectNoViolations(page, "empty book");
     });
 
-    test("contact page, editing and its dialogs", async ({ page, context, isMobile }) => {
+    test("contact page and copy feedback", async ({ page, context, isMobile }) => {
       // The "Copied" toast shows only once the clipboard write succeeds.
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-      await page.goto("/");
-      await signIn(page);
-      await page.getByRole("link", { name: /Lovelace/ }).click();
-      await expect(page.getByRole("heading", { level: 1, name: /Lovelace/ })).toBeVisible();
+      await openAdaContact(page);
       await expectNoViolations(page, "contact");
       if (isMobile) {
         // A touch screen copies with a long press: the page has no copy button.
@@ -131,7 +135,10 @@ for (const colorScheme of ["light", "dark"] as const) {
         await expect(page.getByText("Copied")).toBeVisible();
         await expectNoViolations(page, "toast");
       }
+    });
 
+    test("contact editing, validation and management dialogs", async ({ page }) => {
+      await openAdaContact(page);
       await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
       await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
       await expectNoViolations(page, "contact edit");
@@ -151,8 +158,12 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Move to another address book" }).click();
       await expect(page.getByRole("dialog", { name: "Move this contact?" })).toBeVisible();
       await expectNoViolations(page, "move dialog");
-      await page.keyboard.press("Escape");
+    });
 
+    test("unsaved contact changes and conflict", async ({ page }) => {
+      await openAdaContact(page);
+      await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
+      await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
       await page.getByLabel("Last name", { exact: true }).fill("Lovelace-Byron");
       await page.getByRole("button", { name: "Cancel" }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
