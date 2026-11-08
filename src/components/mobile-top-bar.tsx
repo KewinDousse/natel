@@ -35,7 +35,10 @@ export function MobileTopBar({ onEdit, label }: { onEdit?: () => void; label?: s
         <button
           type="button"
           onClick={onEdit}
-          className={buttonClass({ size: "sm" }, "ml-auto mr-1 px-4")}
+          className={buttonClass(
+            { variant: "outline", size: "sm" },
+            "ml-auto mr-1 px-4 focus-visible:ring-offset-muted",
+          )}
         >
           {t("edit")}
         </button>

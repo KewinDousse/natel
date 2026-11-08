@@ -106,7 +106,7 @@ export function ContactView({
           type="button"
           onClick={() => onEdit()}
           aria-label={t("edit_kbd")}
-          className={buttonClass({}, "hidden lg:inline-flex")}
+          className={buttonClass({ variant: "outline" }, "hidden lg:inline-flex")}
         >
           {t("edit")}
         </button>

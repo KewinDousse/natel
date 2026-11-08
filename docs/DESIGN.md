@@ -276,6 +276,11 @@ controls on phones and beside them from `sm`; changes apply without a save butto
 
 Dotted leaders are used in the list only: they need right-aligned values.
 
+### Edit on the reading view
+
+"Edit" is an outline pill, on desktop and in the phone's top bar, so Call
+stays the reading view's only ink pill.
+
 ### Form, top to bottom
 1. Mobile only: the top bar, back left.
 2. Photo, with change and remove buttons beside it, or an add button when there is none.
