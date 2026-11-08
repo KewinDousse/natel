@@ -23,8 +23,8 @@ export function Field({ label, children }: { label: string; children: (id: strin
 
 /**
  * A value with its type menu and its remove button, on one line when the
- * field keeps 10rem; on a narrow phone the field and the button wrap under
- * the menu. An address, `wide`, always takes its own line on phones.
+ * field keeps 10rem; on a narrow phone the field takes its own line, under
+ * the menu and the button. An address, `wide`, always does on phones.
  */
 export function EditRow({
   type,
@@ -40,15 +40,24 @@ export function EditRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
+    <div className="@container flex flex-wrap items-start gap-x-2 gap-y-1.5">
       <div className="w-[6.5rem] shrink-0 sm:w-[7.5rem]">{type}</div>
-      <div className={cn("min-w-40 flex-1", wide && "max-sm:basis-full")}>
+      <div
+        className={cn(
+          "min-w-40 flex-1",
+          // 20rem holds the phone's 6.5rem menu, a 10rem field, the button and their gaps.
+          remove && "@max-[20rem]:order-1 @max-[20rem]:basis-full",
+          wide && "max-sm:order-1 max-sm:basis-full",
+        )}
+      >
         {children}
         {error}
       </div>
       {/* Without a button, the same room keeps the fields aligned with the others. */}
       {remove ? (
-        <div className="shrink-0">{remove}</div>
+        <div className={cn("shrink-0 @max-[20rem]:ml-auto", wide && "max-sm:ml-auto")}>
+          {remove}
+        </div>
       ) : (
         <div aria-hidden="true" className="hidden w-10 shrink-0 sm:block" />
       )}
