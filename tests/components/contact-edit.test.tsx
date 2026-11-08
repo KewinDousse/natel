@@ -522,6 +522,20 @@ describe("edit mode — information not shown", () => {
 });
 
 describe("edit mode — birthday input", () => {
+  it("labels the day, month and year fields visibly", async () => {
+    await renderEditView("editable");
+
+    for (const [label, value] of [
+      ["Jour", "14"],
+      ["Mois", "3"],
+      ["Année", "1987"],
+    ] as const) {
+      const field = screen.getByLabelText(label) as HTMLInputElement;
+      expect(field.value).toBe(value);
+      expect(field.labels?.[0]?.textContent).toBe(label);
+    }
+  });
+
   it("keeps a non-numeric year as typed instead of clearing it", async () => {
     await renderEditView("editable");
     const user = userEvent.setup();

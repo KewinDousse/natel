@@ -4,7 +4,7 @@ import type { TranslationKey } from "@/i18n/setup";
 import type { ContactDraft, ValidationErrors } from "@/lib/contact-edit";
 import type { DraftAction } from "@/lib/draft-reducer";
 import { cn } from "@/lib/utils";
-import { ErrorText } from "./contact-editor-parts";
+import { ErrorText, Field } from "./contact-editor-parts";
 import { Section } from "./contact-fields";
 import { fieldClass } from "./ui/button";
 import { CakeIcon } from "./ui/icons";
@@ -33,21 +33,27 @@ export function ContactEditorBirthday({
         ).map(([part, action, label, placeholder, width]) => {
           const error = errors[`bday_${part}`];
           return (
-            <div key={part}>
-              <input
-                type="text"
-                inputMode="numeric"
-                aria-label={t(label)}
-                placeholder={t(placeholder)}
-                value={birthday[part]}
-                onChange={(e) => dispatch({ type: action, value: e.target.value })}
-                onBlur={onBlurValidate}
-                aria-invalid={error !== undefined || undefined}
-                aria-describedby={error ? `err-bday-${part}` : undefined}
-                className={fieldClass(cn("h-11 px-3 text-center", width))}
-              />
-              {error && <ErrorText id={`err-bday-${part}`}>{t(error as TranslationKey)}</ErrorText>}
-            </div>
+            <Field key={part} label={t(label)}>
+              {(id) => (
+                <>
+                  <input
+                    id={id}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder={t(placeholder)}
+                    value={birthday[part]}
+                    onChange={(e) => dispatch({ type: action, value: e.target.value })}
+                    onBlur={onBlurValidate}
+                    aria-invalid={error !== undefined || undefined}
+                    aria-describedby={error ? `err-bday-${part}` : undefined}
+                    className={fieldClass(cn("h-11 px-3 text-center", width))}
+                  />
+                  {error && (
+                    <ErrorText id={`err-bday-${part}`}>{t(error as TranslationKey)}</ErrorText>
+                  )}
+                </>
+              )}
+            </Field>
           );
         })}
       </div>
