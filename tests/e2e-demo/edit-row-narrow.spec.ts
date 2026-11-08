@@ -1,7 +1,12 @@
 import { expect, type Page, test } from "@playwright/test";
 
 async function rowOf(page: Page, section: string, type: string) {
-  const row = page.locator(section).locator("div:has(> div > select)").first();
+  // The row is the closest block holding both the type menu and the field.
+  const row = page
+    .locator(section)
+    .getByRole("combobox")
+    .first()
+    .locator(`xpath=ancestor::div[.//${type}][1]`);
   const [menu, field, remove] = await Promise.all([
     row.getByRole("combobox").first().boundingBox(),
     row.locator(type).first().boundingBox(),
@@ -39,7 +44,11 @@ test("puts menu, field and remove button on one line when the field keeps 10rem"
 test("keeps a row without a remove button on one line at 320px", async ({ page }) => {
   await size(page, 320);
   await page.goto("./contacts/runeterra/p06?edit=true");
-  const row = page.locator("#sec-url").locator("div:has(> div > select)").first();
+  const row = page
+    .locator("#sec-url")
+    .getByRole("combobox")
+    .first()
+    .locator("xpath=ancestor::div[.//input][1]");
   const [menu, field] = await Promise.all([
     row.getByRole("combobox").boundingBox(),
     row.locator("input").boundingBox(),

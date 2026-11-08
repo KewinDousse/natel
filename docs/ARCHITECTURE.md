@@ -108,9 +108,9 @@ src/
                  (reading) and contact-editor.tsx (form). contacts-screen.tsx
                  composes the directory screen
     ui/          the shared controls: button.ts, icons.tsx, dialog.tsx,
-                 toast.tsx. A shadcn component, when one is needed, goes here
-                 too, added with `pnpm dlx shadcn@latest add` (the CLI is not
-                 a dependency)
+                 toast.tsx, native-select.tsx. A shadcn component, when one
+                 is needed, goes here too, added with
+                 `pnpm dlx shadcn@latest add` (the CLI is not a dependency)
   hooks/         UI orchestration: navigation, keyboard shortcuts, contact
                  group edits, book import/export, sign-out and photo choice
   dav/           CardDAV client: discovery, list, fetch, put, delete. Wraps tsdav.

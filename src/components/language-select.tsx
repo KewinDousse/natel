@@ -6,13 +6,23 @@
 
 import { LOCALES, useI18n } from "@/i18n/react";
 import { type Locale, localeNames } from "@/i18n/setup";
+import { NativeSelect } from "./ui/native-select";
 
 const BROWSER = "browser";
 
-export function LanguageSelect({ id, className }: { id: string; className?: string }) {
+export function LanguageSelect({
+  id,
+  className,
+  wrapperClassName,
+}: {
+  id: string;
+  className?: string;
+  wrapperClassName?: string;
+}) {
   const { choice, setChoice, t } = useI18n();
   return (
-    <select
+    <NativeSelect
+      wrapperClassName={wrapperClassName}
       id={id}
       value={choice ?? BROWSER}
       onChange={(event) => {
@@ -30,6 +40,6 @@ export function LanguageSelect({ id, className }: { id: string; className?: stri
           {localeNames[locale]}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }

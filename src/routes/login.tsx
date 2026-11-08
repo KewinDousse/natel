@@ -126,6 +126,7 @@ function LoginLanguage({ id }: { id: string }) {
       </label>
       <LanguageSelect
         id={id}
+        wrapperClassName="max-w-full"
         className={fieldClass("h-11 w-auto max-w-full px-2.5 text-sm lg:h-9 lg:text-sm")}
       />
     </div>

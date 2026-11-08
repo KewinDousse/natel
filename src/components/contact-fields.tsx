@@ -10,6 +10,7 @@ import { type AddressKind, appleBuiltInOf, type Kind, kindOf } from "@/lib/conta
 import { cn } from "@/lib/utils";
 import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
 import { CopyIcon, PencilIcon, PlusIcon, TrashIcon } from "./ui/icons";
+import { NativeSelect } from "./ui/native-select";
 
 const KIND_LABELS: Record<Kind, TranslationKey> = {
   cell: "t_cell",
@@ -91,11 +92,12 @@ export function TypeSelect<K extends AddressKind>({
   const options =
     shown === "label" || shown === "custom" || kinds.includes(shown) ? kinds : [shown, ...kinds];
   return (
-    <select
+    <NativeSelect
+      wrapperClassName="text-muted-foreground"
       aria-label={ariaLabel}
       value={value}
       onChange={(event) => onChange(event.target.value as K)}
-      className={fieldClass("h-11 px-2.5 text-sm text-muted-foreground lg:text-sm")}
+      className={fieldClass("h-11 px-2.5 text-sm lg:text-sm")}
     >
       {label !== undefined && <option value="label">{appleLabelText(label, t)}</option>}
       {options.map((kind) => (
@@ -104,7 +106,7 @@ export function TypeSelect<K extends AddressKind>({
         </option>
       ))}
       {custom && <option value="custom">{t("t_custom")}</option>}
-    </select>
+    </NativeSelect>
   );
 }
 

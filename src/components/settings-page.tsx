@@ -23,6 +23,7 @@ import { LanguageSelect } from "./language-select";
 import { MobileTopBar } from "./mobile-top-bar";
 import { buttonClass, FOCUS_RING, fieldClass } from "./ui/button";
 import { LogoutIcon } from "./ui/icons";
+import { NativeSelect } from "./ui/native-select";
 import { UpdateStatus } from "./update-notice";
 
 const SYSTEM = "system";
@@ -92,7 +93,7 @@ export function SettingsPage() {
             <LanguageSelect id="setting-language" className={fieldClass("h-12 lg:h-11")} />
           </Field>
           <Field id="setting-theme" label={t("theme_label")}>
-            <select
+            <NativeSelect
               id="setting-theme"
               value={theme ?? SYSTEM}
               onChange={(event) => {
@@ -104,12 +105,12 @@ export function SettingsPage() {
               <option value={SYSTEM}>{t("theme_system")}</option>
               <option value="light">{t("theme_light")}</option>
               <option value="dark">{t("theme_dark")}</option>
-            </select>
+            </NativeSelect>
           </Field>
         </SettingsSection>
         <SettingsSection title={t("settings_contacts")}>
           <Field id="setting-avatar-shape" label={t("avatar_shape")}>
-            <select
+            <NativeSelect
               id="setting-avatar-shape"
               value={avatarShape}
               onChange={(event) => setAvatarShape(event.target.value as AvatarShape)}
@@ -117,10 +118,10 @@ export function SettingsPage() {
             >
               <option value="round">{t("avatar_shape_round")}</option>
               <option value="square">{t("avatar_shape_square")}</option>
-            </select>
+            </NativeSelect>
           </Field>
           <Field id="setting-label-position" label={t("label_position")}>
-            <select
+            <NativeSelect
               id="setting-label-position"
               aria-describedby="label-position-hint"
               value={labelPosition}
@@ -130,7 +131,7 @@ export function SettingsPage() {
               <option value="auto">{t("label_position_auto")}</option>
               <option value="left">{t("label_position_left")}</option>
               <option value="above">{t("label_position_above")}</option>
-            </select>
+            </NativeSelect>
             <p id="label-position-hint" className="text-sm text-muted-foreground">
               {t("label_position_hint")}
             </p>
@@ -149,7 +150,7 @@ export function SettingsPage() {
             </ReadingSection>
           </figure>
           <Field id="setting-sort" label={t("sort_label")}>
-            <select
+            <NativeSelect
               id="setting-sort"
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as SortBy)}
@@ -157,10 +158,10 @@ export function SettingsPage() {
             >
               <option value="given">{t("sort_given")}</option>
               <option value="family">{t("sort_family")}</option>
-            </select>
+            </NativeSelect>
           </Field>
           <Field id="setting-map" label={t("map_label")}>
-            <select
+            <NativeSelect
               id="setting-map"
               value={mapApp ?? AUTO}
               onChange={(event) => {
@@ -175,7 +176,7 @@ export function SettingsPage() {
                   {t(`map_${app}`)}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </Field>
         </SettingsSection>
 
