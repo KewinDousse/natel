@@ -260,7 +260,9 @@ test("keeps compact initials beside the name and preserves photo size", async ({
       .first()
       .click();
     await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
-    if (photo) await expect(page.getByRole("button", { name: "Change photo" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: photo ? "Change photo" : "Add photo" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
   }
 });

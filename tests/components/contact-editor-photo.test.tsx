@@ -41,9 +41,34 @@ it("keeps the selected file attached until the picker opens again, including the
   expect(onFile).toHaveBeenCalledExactlyOnceWith(file);
   expect(fileInput.files?.[0]).toBe(file);
 
-  await user.click(screen.getByRole("button", { name: /Change photo|Changer la photo/ }));
+  await user.click(screen.getByRole("button", { name: /Add photo|Ajouter une photo/ }));
   expect(fileInput.files).toHaveLength(0);
   await user.upload(fileInput, file);
   expect(onFile).toHaveBeenCalledTimes(2);
   expect(fileInput.files?.[0]).toBe(file);
+});
+
+it("offers to change a photo the contact shows", () => {
+  const contact = parse(
+    "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:photo-test\r\nFN:Photo Test\r\nEND:VCARD",
+  );
+  render(
+    <I18nProvider>
+      <ContactEditorPhoto
+        contact={contact}
+        draft={buildDraft(contact)}
+        dispatch={vi.fn()}
+        isNew={false}
+        photo={{
+          canChange: true,
+          shown: true,
+          inputRef: createRef<HTMLInputElement>(),
+          buttonRef: createRef<HTMLButtonElement>(),
+          onFile: vi.fn(),
+        }}
+      />
+    </I18nProvider>,
+  );
+  expect(screen.getByRole("button", { name: /Change photo|Changer la photo/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Add photo|Ajouter une photo/ })).toBeNull();
 });

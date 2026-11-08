@@ -66,7 +66,7 @@ export function ContactEditorPhoto({
                   className={buttonClass({ variant: "outline", size: "sm" }, "pl-2.5")}
                 >
                   <ImageIcon />
-                  {t("photo_change")}
+                  {t(photo.shown ? "photo_change" : "photo_add")}
                 </button>
                 <input
                   ref={photo.inputRef}

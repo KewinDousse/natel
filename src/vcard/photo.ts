@@ -101,7 +101,7 @@ export function photoOf(contact: Contact): Photo | null {
 }
 
 /**
- * Whether "Changer la photo" can write this card: a 3.0 or 4.0 one (ADR 023).
+ * Whether a photo can be written to this card: a 3.0 or 4.0 one (ADR 023).
  * 2.1 encodes photos its own way, and a card without a version has none.
  */
 export function canReplacePhoto(contact: Contact): boolean {

@@ -49,11 +49,12 @@ synced devices. Export a backup before a large reorganisation.
 
 ## Photos
 
-In edit mode, choose **Change photo**, select an image and crop it or keep
-the whole image. **Remove photo** removes it when the contact is saved.
-Large photos are reduced, hidden metadata is removed, and formats or
-orientations that need conversion are prepared for synced clients.
-Existing photos are left alone when you edit other fields.
+In edit mode, choose **Add photo**, or **Change photo** when the contact
+already has one, select an image and crop it or keep the whole image.
+**Remove photo** removes it when the contact is saved. Large photos are
+reduced, hidden metadata is removed, and formats or orientations that need
+conversion are prepared for synced clients. Existing photos are left alone
+when you edit other fields.
 
 A server or reverse proxy can reject a card for its size. If saving fails,
 the draft stays open. See [troubleshooting](troubleshooting.md#photos-and-large-cards).

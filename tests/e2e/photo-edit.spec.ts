@@ -124,7 +124,7 @@ async function editContact(page: Page, name: RegExp): Promise<void> {
 
 async function choosePhoto(page: Page, buffer: Buffer, name = "photo.jpg"): Promise<void> {
   const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Change photo" }).click();
+  await page.getByRole("button", { name: /^(?:Add|Change) photo$/ }).click();
   await (await chooser).setFiles({ name, mimeType: "image/jpeg", buffer });
 }
 

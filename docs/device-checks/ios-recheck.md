@@ -12,8 +12,9 @@ account. Keep Natel open on a computer and use a harmless object for photos.
 ## Direct camera capture
 
 1. On the iPhone, sign in to Natel in Safari and select the test book. Open
-   `NATEL 05 Safari`, choose **Edit → Change photo → Take photo**, photograph
-   the object and accept it in the system camera.
+   `NATEL 05 Safari`, choose **Edit → Add photo** (or **Change photo**)
+   **→ Take photo**, photograph the object and accept it in the system
+   camera.
 2. Confirm that Natel shows **Crop photo**. Move the frame and change the
    zoom, then choose **Use photo → Save**. If the dialog never appears,
    record that fact and any visible message; do not count a photo-library

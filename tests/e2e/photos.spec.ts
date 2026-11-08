@@ -80,7 +80,7 @@ test("opens the crop dialog and can choose the same photo again", async ({ page 
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const picker = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: "Change photo" }).click();
+    await page.getByRole("button", { name: attempt === 0 ? "Add photo" : "Change photo" }).click();
     await (await picker).setFiles(image);
     const dialog = page.getByRole("dialog", { name: "Crop photo" });
     await expect(dialog).toBeVisible();

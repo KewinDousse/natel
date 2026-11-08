@@ -241,6 +241,7 @@
   "group_err_timeout": "no answer from the server in time; it may have been updated anyway",
   "group_err_refused": "refused by the server",
   "group_err_auth": "session expired",
+  "photo_add": "Add photo",
   "photo_change": "Change photo",
   "photo_remove": "Remove photo",
   "photo_crop_title": "Crop photo",

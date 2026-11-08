@@ -176,7 +176,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         ["notes.jpg", Buffer.from("not an image")],
       ] as const) {
         const chooser = page.waitForEvent("filechooser");
-        await page.getByRole("button", { name: "Change photo" }).click();
+        await page.getByRole("button", { name: "Add photo" }).click();
         await (await chooser).setFiles({ name, mimeType: "image/jpeg", buffer });
         const dialog = page.getByRole("dialog", { name: "Crop photo" });
         await expect(dialog).toBeVisible();
