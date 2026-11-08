@@ -148,6 +148,10 @@ type GitHubState = {
   failPush: string;
 };
 
+function shQuote(value: string) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
 function github(f: ReturnType<typeof fixture>) {
   const bin = mkdtempSync(join(tmpdir(), "natel-release-gh-"));
   directories.push(bin);
@@ -165,13 +169,22 @@ function github(f: ReturnType<typeof fixture>) {
     failPush: "",
   };
   writeFileSync(statePath, JSON.stringify(initial));
+  // Only a push is faked. Every other call runs git directly: a workflow test
+  // makes dozens of them, and a Node start for each one makes it several times
+  // slower.
   writeFileSync(
     join(bin, "git"),
-    `#!/usr/bin/env node
-const fs=require('node:fs');
+    `#!/bin/sh
+[ "$1" = push ] || exec ${shQuote(realGit)} "$@"
+exec ${shQuote(process.execPath)} ${shQuote(join(bin, "push.cjs"))} "$@"
+`,
+    { mode: 0o755 },
+  );
+  writeFileSync(
+    join(bin, "push.cjs"),
+    `const fs=require('node:fs');
 const cp=require('node:child_process');
 const args=process.argv.slice(2);
-if(args[0]!=='push') { const result=cp.spawnSync(${JSON.stringify(realGit)},args,{stdio:'inherit'});process.exit(result.status ?? 1); }
 const state=JSON.parse(fs.readFileSync(process.env.RELEASE_TEST_STATE,'utf8'));
 const target=args[1].replace('https://github.com/','').replace('.git','');
 if(state.failPush===target)process.exit(1);
@@ -179,7 +192,6 @@ state.pushes.push(target);
 state.refs[target+'/refs/heads/main']=cp.execFileSync(${JSON.stringify(realGit)},['rev-parse','HEAD'],{encoding:'utf8'}).trim();
 fs.writeFileSync(process.env.RELEASE_TEST_STATE,JSON.stringify(state));
 `,
-    { mode: 0o755 },
   );
   writeFileSync(
     join(bin, "gh"),

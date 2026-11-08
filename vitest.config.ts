@@ -14,8 +14,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     setupFiles: ["tests/setup.ts"],
     // Well above Testing Library's wait (tests/setup.ts), so a missing element
-    // fails with its query's message, and roomy enough for the release tests,
-    // which run git many times.
+    // fails with its query's message.
     testTimeout: 15_000,
   },
 });
