@@ -79,6 +79,7 @@ A two-column grid: the letter, sticky under the header, then the section's rows.
 - From `sm`, a dotted leader runs to the trailing value. On phones the value drops under the name and the leader hides: single-line rows truncate names too much there.
 - Trailing value priority: first `TEL` with `TYPE=cell` → first `TEL` → first `EMAIL` → `ORG`. A phone number is in ink from `sm` (muted under the name on phones), the others muted.
 - The current contact takes the selection background and the red selection bar.
+- On desktop, the list scrolls just enough to show the open contact's row, as after a direct link or a step back in the history.
 
 ### Contact selection marker
 

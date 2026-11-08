@@ -51,7 +51,6 @@ export function useArrowNavigation(groups: ContactGroup[]) {
         const row = document.querySelector<HTMLElement>(
           `#list a[data-contact-id="${CSS.escape(target)}"][data-status="active"]`,
         );
-        row?.scrollIntoView({ block: "nearest" });
         if (rowFocused && !isDialogOpen()) row?.focus();
       });
     }

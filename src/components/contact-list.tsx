@@ -8,6 +8,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
+import { useOpenRowInView } from "@/hooks/use-open-row-in-view";
 import { useI18n } from "@/i18n/react";
 import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
 import { buildGroups, type SortBy } from "@/lib/contact-list";
@@ -85,6 +86,7 @@ export function ContactList({
       onGroupFilter(null);
     }
   }, [contacts, groupFilter, activeGroup, onGroupFilter]);
+  useOpenRowInView(contacts !== undefined);
   const shown = groups.reduce((total, group) => total + group.contacts.length, 0);
   const searching = query.trim().length > 0;
   useArrowNavigation(groups);

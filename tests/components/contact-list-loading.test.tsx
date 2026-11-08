@@ -6,6 +6,7 @@ import { I18nProvider } from "@/i18n/react";
 import type { Contact } from "@/model/contact";
 
 vi.mock("@/hooks/use-arrow-navigation", () => ({ useArrowNavigation: vi.fn() }));
+vi.mock("@/hooks/use-open-row-in-view", () => ({ useOpenRowInView: vi.fn() }));
 
 afterEach(cleanup);
 
