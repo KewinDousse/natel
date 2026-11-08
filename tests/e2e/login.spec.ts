@@ -117,9 +117,11 @@ test("opens the page asked for once signed in", async ({ page }) => {
   expect(page.url()).toBe(contactUrl);
 });
 
-// The thumb-index tabs are decoration: screen readers skip them, and on the
-// smallest desktop they end above the tagline, so above the wordmark too.
-test("ends the index tabs above the tagline", async ({ page }) => {
+// The thumb-index tabs are decoration: screen readers skip them, and at every
+// desktop width they stay clear of the tagline and the wordmark.
+test("runs the index tabs the panel's height, beside the tagline and wordmark", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1024, height: 640 });
   await page.goto("/");
   const tabs = page.locator("aside ol");
@@ -135,10 +137,31 @@ test("ends the index tabs above the tagline", async ({ page }) => {
     "W–Z",
   ]);
   await expect(tabs).toHaveAttribute("aria-hidden", "true");
-  const box = await tabs.boundingBox();
-  const tagline = await page.getByText("A directory for your contacts").boundingBox();
-  if (!box || !tagline) throw new Error("not laid out");
-  expect(box.y + box.height).toBeLessThanOrEqual(tagline.y);
+  const panel = page.locator("aside");
+  const wordmark = panel.getByText("Natel", { exact: true });
+  for (const [width, height] of [
+    [1024, 640],
+    [1024, 800],
+    [1280, 800],
+    [1440, 800],
+    [1920, 800],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => document.fonts.ready);
+    const box = await tabs.boundingBox();
+    const panelBox = await panel.boundingBox();
+    const tagline = await page.getByText("A directory for your contacts").boundingBox();
+    if (!box || !panelBox || !tagline) throw new Error("not laid out");
+    expect(box.y).toBe(panelBox.y);
+    expect(box.height).toBe(panelBox.height);
+    expect(tagline.x + tagline.width).toBeLessThanOrEqual(box.x);
+    const glyphsRight = await wordmark.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().right;
+    });
+    expect(glyphsRight).toBeLessThanOrEqual(box.x);
+  }
 });
 
 test("draws a focused field's border in ink, with the mouse too", async ({ page }) => {

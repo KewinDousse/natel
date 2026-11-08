@@ -64,15 +64,12 @@ function LoginRoute() {
   return (
     <div className="min-h-dvh pb-14 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pb-0">
       <aside className="relative flex flex-wrap items-center justify-between gap-x-4 gap-y-2 overflow-hidden bg-brand-surface px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-brand-surface-foreground min-[375px]:pb-5 min-[375px]:pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-8 lg:min-h-dvh lg:flex-col lg:flex-nowrap lg:items-stretch lg:justify-end lg:gap-10 lg:px-12 lg:py-12">
-        <ol
-          className="absolute top-0 right-0 hidden h-[62%] w-13 flex-col lg:flex"
-          aria-hidden="true"
-        >
+        <ol className="absolute inset-y-0 right-0 hidden w-13 flex-col lg:flex" aria-hidden="true">
           {INDEX_TABS.map((tab) => (
             <li
               key={tab}
               className={cn(
-                "flex flex-1 items-center justify-center border-b border-l border-brand-surface-foreground/35 text-small font-bold",
+                "flex flex-1 items-center justify-center border-b border-l border-brand-surface-foreground/35 text-small font-bold last:border-b-0",
                 tab === CURRENT_TAB && "bg-brand-surface-foreground text-brand-surface",
               )}
             >
