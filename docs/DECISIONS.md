@@ -468,6 +468,7 @@ groups. "Expédition 33" holds about a dozen characters and places from
 an unknown property. Phone numbers still come from fiction ranges (ADR 025).
 
 **Consequences.** The demo uses the characters' names only, with no artwork.
+ADR 051 amends this for the demo's photos.
 
 ## 028 — Apple's year-less birthday: year 1604 with `X-APPLE-OMIT-YEAR`
 
@@ -964,3 +965,14 @@ rows near the viewport, and a screen reader's list holds only those rows,
 with their position and the section's size. The app's search covers both.
 The threshold is a starting value, not measured between 1,000 and 3,000 rows
 nor on a phone.
+
+## 051 — The demo's photos are portraits drawn after their characters
+
+**Context.** The maintainer asked for the demo's photos to look like the
+characters.
+
+**Decision.** The demo's photos are flat portraits drawn for Natel that evoke
+each character by their look, never artwork from the games or from Arcane.
+
+**Consequences.** ADR 027's "no artwork" applies to everything else in the
+demo.
