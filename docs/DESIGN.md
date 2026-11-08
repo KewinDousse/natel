@@ -392,7 +392,7 @@ Opening a page under `/contacts` or `/settings` while signed out goes to `/login
 
 Only in the demo build (ADR 025), so a visitor always knows nothing is saved. It has two books (ADR 027), so the book switcher and moving a contact have something to show.
 - Sign-in: a line above the form says any username and password work and nothing is saved; the privacy note under it says nothing typed leaves the browser.
-- Signed in: a "Demo" mark next to the wordmark, and under the header bar one line saying nothing is saved. On phones, where a contact, a new contact or the settings replace the header, the mark sits in the top bar.
+- Signed in: one reminder per screen. Under the header bar, a line on a grey band says nothing is saved. On phones, where a contact, a new contact, the settings or the user guide replace the header, a "Demo" mark sits in the top bar instead.
 
 ### Demo direct links
 

@@ -1,7 +1,7 @@
 /**
- * The demo build's reminders (ADR 025, DESIGN.md "Demo"): a small mark next
- * to the wordmark or in the phone's top bar, and a muted line under the
- * header. Both render nothing outside the demo build.
+ * The demo build's reminders (ADR 025, DESIGN.md "Demo"): a line under the
+ * header, and a small mark in the phone's top bar, which replaces the header.
+ * Both render nothing outside the demo build.
  */
 
 import { useI18n } from "@/i18n/react";
@@ -29,7 +29,7 @@ export function DemoNotice() {
   const { t } = useI18n();
   if (!IS_DEMO) return null;
   return (
-    <p className="border-b px-4 py-1.5 text-center text-caption text-muted-foreground lg:px-6">
+    <p className="border-b bg-secondary px-4 py-1.5 text-center text-caption text-secondary-foreground lg:px-6">
       <InfoIcon className="mr-1.5 inline size-3.5 -translate-y-px text-foreground" />
       {t("demo_notice")}
     </p>

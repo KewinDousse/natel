@@ -29,7 +29,13 @@ test("signs in with any credentials, and says on every screen that it is a demo"
   await expect(page.getByText("Demo: nothing is saved, change anything you like.")).toBeVisible();
   await page.getByRole("link", { name: /Luxanna Crownguard/ }).click();
   await expect(page).toHaveURL(/\/contacts\/runeterra\/p01$/);
-  await expect(page.getByText("Demo", { exact: true }).filter({ visible: true })).toBeVisible();
+  // The line under the header on desktop, the top bar's mark on phones.
+  await expect(
+    page
+      .getByText(/^Demo\b/)
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
 });
 
 // A static host sends no headers: the policy, Trusted Types included, comes
