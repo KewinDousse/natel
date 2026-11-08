@@ -63,8 +63,12 @@ test("keeps the header on one row above the search at every phone width, in both
   }
 });
 
-test("never scrolls sideways on the sign-in, list and contact screens", async ({ page }) => {
-  for (const width of WIDTHS) {
+// One test per width: each signs in twice, and ten sign-ins in a row outlast
+// the test timeout against the slowest servers.
+for (const width of WIDTHS) {
+  test(`never scrolls sideways on the sign-in, list and contact screens at ${width}px`, async ({
+    page,
+  }) => {
     for (const lang of ["en", "fr"] as const) {
       const at = `${width}px ${lang}`;
       await page.setViewportSize({ width, height: 800 });
@@ -97,8 +101,8 @@ test("never scrolls sideways on the sign-in, list and contact screens", async ({
       await expect(page.getByRole("button", { name: /^(Sign in|Se connecter)$/ })).toBeVisible();
       expect(await horizontalOverflow(page), `${at} sign-in`).toBe(0);
     }
-  }
-});
+  });
+}
 
 test("keeps the book switcher's chevron inside its pill, clear of the actions", async ({
   page,
