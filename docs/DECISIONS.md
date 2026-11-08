@@ -937,3 +937,30 @@ a fresh check and displays the result in place. This amends ADR 040.
 
 **Consequences.** Manual checks share a one-minute limit across the instance to
 bound outbound requests.
+
+## 050 — Mount only the rows near the viewport above 1,000 contacts
+
+**Context.** A list that mounts every row slows down with the book: measured
+on a mini PC, with 10,000 contacts, the list scrolled at 17 frames per second,
+and sorting or a first search letter took 1.6 to 2.8 seconds. Up to 1,000
+contacts, scrolling held 60 frames per second and every action stayed under
+250 ms.
+
+**Decision.** When the list shows more than 1,000 rows, after search and group
+filter, only the rows near the viewport are mounted, with
+`@tanstack/react-virtual`. The letter sections stay in the DOM at their full
+height, so the sticky letters and the rail's anchors keep working. Up to
+1,000 rows, every row is mounted. For printing, every row is mounted, whatever
+the count. A contact opened from the arrow keys, a direct link or the history
+brings its row into view, mounted if needed, and the first row in view is
+kept when the layout switches between the phone and the desktop scroller.
+
+**Rejected.** Mounting only the visible rows whatever the count: books of up
+to 1,000 contacts would lose find in page and a screen reader's view of every
+row, for no noticeable gain.
+
+**Consequences.** Above 1,000 rows, the browser's find in page only finds the
+rows near the viewport, and a screen reader's list holds only those rows,
+with their position and the section's size. The app's search covers both.
+The threshold is a starting value, not measured between 1,000 and 3,000 rows
+nor on a phone.

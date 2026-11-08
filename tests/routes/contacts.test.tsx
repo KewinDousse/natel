@@ -9,9 +9,9 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type DavAddressBook, type DavAuth, DavError } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import type { Contact, RawComponent } from "@/model/contact";
@@ -1043,5 +1043,248 @@ describe("while the book loads, fails or is empty", () => {
     await renderLoggedIn();
 
     expect(await screen.findByRole("button", { name: "Carnet d’adresses : Perso" })).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Large books
+// ---------------------------------------------------------------------------
+
+/** `count` contacts spread over the alphabet, with distinct names. */
+function manyContacts(count: number): Contact[] {
+  return Array.from({ length: count }, (_, index) => {
+    const family = `${String.fromCharCode(65 + (index % 26))}am${String(index).padStart(5, "0")}`;
+    return makeContact(`many-${index}`, {
+      fields: {
+        fn: `${family} Jean`,
+        n: { family, given: "Jean", additional: "", prefix: "", suffix: "" },
+        tel: [],
+        email: [],
+        nickname: "",
+        adr: [],
+        bday: null,
+        org: "",
+        title: "",
+        url: "",
+        note: "",
+        photo: { kind: "unchanged" },
+      },
+    });
+  });
+}
+
+async function renderBook(contacts: Contact[], path = "/contacts") {
+  useSessionStore.setState({ auth: AUTH, selectedBook: null });
+  mockDiscoverAddressBooks.mockResolvedValue([BOOK_A, BOOK_B]);
+  loadBook(contacts);
+  const router = renderApp(path);
+  await screen.findByText(`${contacts.length} contacts`);
+  return router;
+}
+
+const rowLinks = () => document.querySelectorAll("#list a[data-contact-id]");
+
+describe("large books", () => {
+  // A thousand rows render slowly in jsdom.
+  beforeAll(() => {
+    vi.setConfig({ testTimeout: 30_000 });
+  });
+  afterAll(() => {
+    vi.resetConfig();
+  });
+  // jsdom lays nothing out: give the list pane a height and a scroll to fill.
+  beforeEach(() => {
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.id === "list" ? 720 : 0;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.id === "list" || this === document.documentElement ? 100_000 : 0;
+      },
+    });
+    HTMLElement.prototype.scrollTo = function (
+      this: HTMLElement,
+      options?: ScrollToOptions | number,
+    ) {
+      if (typeof options === "object" && options.top !== undefined) this.scrollTop = options.top;
+      this.dispatchEvent(new Event("scroll"));
+    } as HTMLElement["scrollTo"];
+  });
+  const pageScroll = {
+    scrollY: Object.getOwnPropertyDescriptor(window, "scrollY"),
+    scrollTo: window.scrollTo,
+  };
+  afterEach(() => {
+    if (pageScroll.scrollY) Object.defineProperty(window, "scrollY", pageScroll.scrollY);
+    window.scrollTo = pageScroll.scrollTo;
+    Reflect.deleteProperty(HTMLElement.prototype, "checkVisibility");
+    Reflect.deleteProperty(HTMLElement.prototype, "clientHeight");
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
+  });
+
+  it("mounts every row up to the threshold", async () => {
+    await renderBook(manyContacts(1000));
+
+    expect(rowLinks()).toHaveLength(1000);
+  });
+
+  it("mounts only the rows near the viewport above it, in sections of their full size", async () => {
+    await renderBook(manyContacts(1001));
+
+    const mounted = rowLinks().length;
+    expect(mounted).toBeGreaterThan(0);
+    expect(mounted).toBeLessThan(100);
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(26);
+    const first = document.querySelector("#list li[aria-setsize]");
+    expect(first?.getAttribute("aria-posinset")).toBe("1");
+    expect(first?.getAttribute("aria-setsize")).toBe("39");
+  });
+
+  it("mounts every match once a search narrows the list to the threshold", async () => {
+    await renderBook(manyContacts(1001));
+    const user = userEvent.setup();
+
+    await user.type(screen.getByRole("searchbox"), "Bam");
+
+    expect(await screen.findByText("39 résultats")).toBeTruthy();
+    expect(rowLinks()).toHaveLength(39);
+  });
+
+  it("mounts every row for printing", async () => {
+    await renderBook(manyContacts(1001));
+
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+    expect(rowLinks()).toHaveLength(1001);
+
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    expect(rowLinks().length).toBeLessThan(100);
+  });
+
+  it("opens and marks the last contact with ↑ though its row was not mounted", async () => {
+    const contacts = manyContacts(1001);
+    const router = await renderBook(contacts);
+    const user = userEvent.setup();
+    const last = document.querySelectorAll("#list li[aria-setsize]");
+    expect(last.length).toBeLessThan(100);
+
+    await user.keyboard("{ArrowUp}");
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/contacts/a/many-987");
+    });
+    await waitFor(() => {
+      expect(
+        document.querySelector('#list a[data-contact-id="many-987"]')?.getAttribute("data-status"),
+      ).toBe("active");
+    });
+  });
+
+  it("brings a directly linked contact's row into view though it was not mounted", async () => {
+    await renderBook(manyContacts(1001), "/contacts/a/many-987");
+
+    await waitFor(() => {
+      expect(
+        document.querySelector('#list a[data-contact-id="many-987"]')?.getAttribute("data-status"),
+      ).toBe("active");
+    });
+  });
+
+  it("hands the focus to the revealed row when ↑ leaves a focused one", async () => {
+    await renderBook(manyContacts(1001));
+    const user = userEvent.setup();
+    const first = rowLinks()[0];
+    if (!(first instanceof HTMLElement)) throw new Error("No row");
+    first.focus();
+
+    await user.keyboard("{ArrowUp}");
+
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute("data-contact-id")).toBe("many-987");
+    });
+  });
+
+  /** A controllable `64rem` query and page scroll; returns the switch and the page's offset. */
+  function phoneSwitch() {
+    let desktop = true;
+    const listeners = new Set<() => void>();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (query: string): MediaQueryList =>
+        ({
+          get matches() {
+            return query === "(min-width: 64rem)" ? desktop : true;
+          },
+          media: query,
+          addEventListener: (_type: string, listener: () => void) => {
+            if (query === "(min-width: 64rem)") listeners.add(listener);
+          },
+          removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+        }) as unknown as MediaQueryList,
+    });
+    let pageY = 0;
+    Object.defineProperty(window, "scrollY", { configurable: true, get: () => pageY });
+    window.scrollTo = ((options?: ScrollToOptions) => {
+      pageY = options?.top ?? pageY;
+      window.dispatchEvent(new Event("scroll"));
+    }) as typeof window.scrollTo;
+    const switchTo = (next: boolean) =>
+      act(() => {
+        desktop = next;
+        for (const listener of listeners) listener();
+      });
+    return { switchTo, pageY: () => pageY };
+  }
+
+  it("keeps the first row in view when the layout switches scroller", async () => {
+    const { switchTo, pageY } = phoneSwitch();
+    await renderBook(manyContacts(1001));
+    const list = document.getElementById("list");
+    if (list === null) throw new Error("No list");
+    act(() => {
+      list.scrollTo({ top: 20_000 });
+    });
+    await waitFor(() => {
+      expect(rowLinks().length).toBeGreaterThan(0);
+    });
+
+    switchTo(false);
+    await waitFor(() => {
+      expect(Math.abs(pageY() - 20_000)).toBeLessThan(100);
+    });
+
+    act(() => {
+      list.scrollTop = 0;
+    });
+    switchTo(true);
+    await waitFor(() => {
+      expect(Math.abs(list.scrollTop - 20_000)).toBeLessThan(100);
+    });
+  });
+
+  it("leaves the page alone when the layout switches while the list is hidden", async () => {
+    const { switchTo, pageY } = phoneSwitch();
+    await renderBook(manyContacts(1001));
+    const list = document.getElementById("list");
+    if (list === null) throw new Error("No list");
+    act(() => {
+      list.scrollTo({ top: 20_000 });
+    });
+    // A contact open on a phone hides the list.
+    HTMLElement.prototype.checkVisibility = () => false;
+
+    switchTo(false);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(pageY()).toBe(0);
   });
 });

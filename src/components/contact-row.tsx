@@ -1,7 +1,8 @@
 /** The list's letter sections and their rows, with search matches marked. */
 
 import { Link } from "@tanstack/react-router";
-import { useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import {
   type ContactGroup,
@@ -33,30 +34,38 @@ export function GroupSection({
   const book = useBookParam();
   if (book === undefined) return null;
   return (
-    <section
-      id={`g-${group.letter}`}
-      className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 first:border-t-0 sm:grid-cols-[3rem_1fr] lg:scroll-mt-0"
-    >
-      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-4 font-display text-title-sm font-bold leading-[0.8] text-brand sm:pt-3.5 lg:top-2">
-        {group.letter}
-      </h2>
+    <SectionFrame letter={group.letter}>
       {/* biome-ignore lint/a11y/noRedundantRoles: DESIGN.md mandates <ul role="list"> */}
       <ul role="list" className="min-w-0">
         {group.contacts.map((contact) => (
-          <ContactRow
-            key={contact.href}
-            book={book}
-            contact={contact}
-            query={query}
-            sortBy={sortBy}
-          />
+          <li key={contact.href}>
+            <ContactRow book={book} contact={contact} query={query} sortBy={sortBy} />
+          </li>
         ))}
       </ul>
+    </SectionFrame>
+  );
+}
+
+/** A letter section around its list of rows. */
+export function SectionFrame({ letter, children }: { letter: string; children: ReactNode }) {
+  return (
+    <section
+      id={`g-${letter}`}
+      className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 sm:grid-cols-[3rem_1fr] lg:scroll-mt-0"
+    >
+      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-4 font-display text-title-sm font-bold leading-[0.8] text-brand sm:pt-3.5 lg:top-2">
+        {letter}
+      </h2>
+      {children}
     </section>
   );
 }
 
-function ContactRow({
+/** A contact's row, inside the `<li>` its list gives it. */
+export const ContactRow = memo(ContactRowContent);
+
+function ContactRowContent({
   book,
   contact,
   query,
@@ -123,7 +132,7 @@ function ContactRow({
   );
 
   return (
-    <li>
+    <>
       {/*
         The router's Link marks the active row with aria-current="page" and
         data-status="active"; the selection styles key on data-status, which
@@ -186,7 +195,7 @@ function ContactRow({
             ))}
         </span>
       </Link>
-    </li>
+    </>
   );
 }
 

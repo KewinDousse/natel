@@ -1,8 +1,9 @@
 /**
  * ContactList — the directory list pane: the toolbar (count, group filter,
- * sort toggle), the letter sections (contact-row.tsx) and the A–Z rail
- * (alphabet-rail.tsx). Group, letter, sort and search logic lives in
- * src/lib/contact-list.ts; this file only composes and styles it.
+ * sort toggle), the letter sections (contact-row.tsx, or virtual-sections.tsx
+ * for a large list) and the A–Z rail (alphabet-rail.tsx). Group, letter, sort
+ * and search logic lives in src/lib/contact-list.ts; this file only composes
+ * and styles it.
  */
 
 import type { ReactNode } from "react";
@@ -20,6 +21,12 @@ import { GroupFilter } from "./group-filter";
 import { EmptyBook, ListSkeleton, SignInAgain, StateBox } from "./list-states";
 import { buttonClass, FOCUS_RING } from "./ui/button";
 import { AlertIcon, RefreshIcon } from "./ui/icons";
+import {
+  type ContactListHandle,
+  usePrinting,
+  VIRTUAL_ABOVE,
+  VirtualSections,
+} from "./virtual-sections";
 
 /** Why the book shows no list: still loading, or a load that failed. */
 export type ListLoad = { kind: "loading" } | { kind: "failed"; expired: boolean };
@@ -86,10 +93,12 @@ export function ContactList({
       onGroupFilter(null);
     }
   }, [contacts, groupFilter, activeGroup, onGroupFilter]);
-  useOpenRowInView(contacts !== undefined);
+  const listHandle = useRef<ContactListHandle | null>(null);
+  useOpenRowInView(contacts !== undefined, listHandle);
   const shown = groups.reduce((total, group) => total + group.contacts.length, 0);
   const searching = query.trim().length > 0;
   useArrowNavigation(groups);
+  const printing = usePrinting();
   const warning = (
     <IncompleteBookWarning
       count={contacts === undefined ? 0 : skippedCount}
@@ -175,9 +184,13 @@ export function ContactList({
         <StateBox title={t("results_0")} hint={t("empty_hint")} />
       ) : (
         <>
-          {groups.map((group) => (
-            <GroupSection key={group.letter} group={group} query={query} sortBy={sortBy} />
-          ))}
+          {shown > VIRTUAL_ABOVE && !printing ? (
+            <VirtualSections groups={groups} query={query} sortBy={sortBy} handle={listHandle} />
+          ) : (
+            groups.map((group) => (
+              <GroupSection key={group.letter} group={group} query={query} sortBy={sortBy} />
+            ))
+          )}
           {rail}
         </>
       )}

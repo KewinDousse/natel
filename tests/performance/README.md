@@ -31,8 +31,8 @@ OS can retain caches after the warm-up. Chromium runs at 1280 × 720 without
 throttling, trace, screenshots or video.
 
 Timing starts in the capture handler of the menu click selecting the book and
-stops on the second animation frame after all expected contact links exist,
-allowing a paint opportunity. The contact counter is also checked. This includes
+stops on the second animation frame after the counter shows the expected count
+and the first rows exist with a height, allowing a paint opportunity. This includes
 CardDAV listing/fetching, parsing, sorting, rendering and layout, and excludes
 sign-in, discovery, application startup and fixture preparation.
 

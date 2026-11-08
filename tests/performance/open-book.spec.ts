@@ -5,6 +5,8 @@ import { APP_URL, DAV_URL, PASSWORD, SAMPLES, SIZES, USER } from "./env";
 
 const HOME = `/${USER}/`;
 const EMPTY_BOOK = `empty-${process.pid}`;
+// As many rows as fit in the list pane at 1280 × 720.
+const FIRST_ROWS = 10;
 
 async function dav(method: string, path: string, body?: string): Promise<void> {
   const response = await fetch(`${DAV_URL}${path}`, {
@@ -76,7 +78,7 @@ async function measure(context: BrowserContext, book: string, contacts: number):
   await page.getByRole("button", { name: "Address book: Empty" }).click();
   const choice = page.getByRole("menuitemradio", { name: book, exact: true });
   await choice.evaluate(
-    (button, { book, contacts }) => {
+    (button, { book, contacts, FIRST_ROWS }) => {
       const list = document.getElementById("list");
       if (!list) throw new Error("Missing contact list");
       button.addEventListener(
@@ -84,21 +86,27 @@ async function measure(context: BrowserContext, book: string, contacts: number):
         () => {
           const start = performance.now();
           const observer = new MutationObserver(() => {
-            if (list.querySelectorAll(`a[href^="/contacts/${book}/"]`).length !== contacts) return;
+            const counter = list.querySelector('p[aria-live="polite"]');
+            if (counter?.textContent?.trim() !== `${contacts} contacts`) return;
+            const rows = list.querySelectorAll(`a[href^="/contacts/${book}/"]`);
+            const first = rows[0]?.getBoundingClientRect();
+            // The first rows of the viewport, whether or not the others are mounted.
+            if (!first || first.height === 0 || rows.length < Math.min(contacts, FIRST_ROWS))
+              return;
             observer.disconnect();
-            // Allow a paint opportunity for the complete list.
+            // Allow a paint opportunity for the rows.
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
                 performance.measure("book-open", { start, end: performance.now() });
               });
             });
           });
-          observer.observe(list, { childList: true, subtree: true });
+          observer.observe(list, { childList: true, subtree: true, characterData: true });
         },
         { once: true, capture: true },
       );
     },
-    { book, contacts },
+    { book, contacts, FIRST_ROWS },
   );
   await choice.click();
   await page.waitForFunction(

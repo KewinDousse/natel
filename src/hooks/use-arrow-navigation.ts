@@ -48,10 +48,18 @@ export function useArrowNavigation(groups: ContactGroup[]) {
       void router.navigate({ to: "/contacts/$book/$id", params: { book, id: target } }).then(() => {
         // A navigation the discard dialog held back settles only with a
         // later one: act only if this row is still the open contact.
-        const row = document.querySelector<HTMLElement>(
-          `#list a[data-contact-id="${CSS.escape(target)}"][data-status="active"]`,
-        );
-        if (rowFocused && !isDialogOpen()) row?.focus();
+        const rowOf = () =>
+          document.querySelector<HTMLElement>(
+            `#list a[data-contact-id="${CSS.escape(target)}"][data-status="active"]`,
+          );
+        // A virtual list mounts the row once it has scrolled to it, a few frames on.
+        const focus = (framesLeft: number) => {
+          if (!rowFocused || isDialogOpen()) return;
+          const row = rowOf();
+          if (row !== null) row.focus();
+          else if (framesLeft > 0) requestAnimationFrame(() => focus(framesLeft - 1));
+        };
+        focus(10);
       });
     }
     window.addEventListener("keydown", onKeyDown);
