@@ -6,7 +6,8 @@ their evidence.
 ## At a glance
 
 ✅ checked · ✅¹ checked, see the note below the table · ◐ partly checked ·
-⬜ not checked · ❌ fails a check · – not applicable
+⬜ not checked · ⚠️ server bug, see [CardDAV servers](#carddav-servers) ·
+– not applicable
 
 **Servers**
 
@@ -16,7 +17,7 @@ their evidence.
 | Radicale                             |   ✅   | Not every version or configuration  |
 | Xandikos                             |   ✅   | Behind Caddy, with one account      |
 | Nextcloud                            |   ✅   | Personal books; see the test setup   |
-| SOGo                                 |   ❌   | Deletes despite a stale ETag        |
+| SOGo                                 |   ⚠️   | Server ignores a stale ETag on delete |
 | Other RFC 6352 servers                |   ⬜   |                                     |
 
 **Synced clients**
@@ -54,7 +55,7 @@ an animated GIF showed still.
 | Radicale                             | The end-to-end suite runs locally and in CI.                           | No claim about every version or configuration.                                                                                        |
 | Xandikos                             | The same end-to-end suite runs locally and in CI, behind [the documented Caddy site](deployment.md#protecting-xandikos-with-a-password). | Caddy checks the password, for a single account. Other authenticating proxies and Xandikos's own `--htpasswd` are not tested. |
 | Nextcloud | The shared suite is configured locally and in CI; see [the Nextcloud test setup](testing/nextcloud.md). | Tested with a synthetic user and personal address books; server-generated books are disabled. Group formats differ from Nextcloud’s Contacts web app. |
-| SOGo | Not in the compatibility suite. Direct requests to SOGo 5.12.13, outside Natel, got 201 for a PUT, 204 for a DELETE with a stale `If-Match`, then 404 for a GET of the card (checked on 2026-11-04); 5.12.1 behaved the same on 2026-11-02. | SOGo ignores `If-Match` on DELETE: deleting a contact that changed elsewhere since Natel loaded it deletes it anyway, with no conflict shown, and that change is lost. Everything else is unverified. |
+| SOGo | Not in the compatibility suite. Direct requests to SOGo 5.12.13, outside Natel, got 201 for a PUT, 204 for a DELETE with a stale `If-Match`, then 404 for a GET of the card (checked on 2026-11-04); 5.12.1 behaved the same on 2026-11-02. | SOGo ignores `If-Match` on DELETE: deleting a contact that changed elsewhere since Natel loaded it deletes it anyway, with no conflict shown, and that change is lost. Reported upstream as [SOGo #6269](https://bugs.sogo.nu/view.php?id=6269). Everything else is unverified. |
 | Other RFC 6352 servers | Not in the compatibility suite. | Compatibility is unverified; group formats can differ. |
 
 Natel authenticates with a CardDAV

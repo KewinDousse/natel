@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Mark SOGo in the compatibility notes as a server bug rather than a failed check, and link the upstream report. Only the documentation changes, so this changes no released behaviour."
+}
