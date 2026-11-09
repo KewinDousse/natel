@@ -163,6 +163,7 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 `/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
 - Account: who is signed in, and sign-out. When the server doesn't confirm the sign-out, the user stays signed in and a toast says so.
 - Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
+- Address books: each book's group format (see Group format setting).
 - Keyboard shortcuts, desktop only.
 - About and help, last (see below).
 
@@ -254,12 +255,25 @@ The choice applies immediately to photos, initials and organisation icons in the
 list, reading view and form, and persists in the browser. It changes only their
 display: the crop frame and saved photo stay square.
 
+### Group format setting
+
+An "Address books" section (ADR 052) lists the account's books, each with a
+select: Automatic (the default, nothing stored), Group cards, or Categories on
+each contact. Automatic detects the format from the book and asks when in
+doubt (see Group format question). A hint under the section, linked to each
+select with `aria-describedby`, says what each format stores and which
+clients it suits, as the question does, that a change applies to memberships
+added afterwards and converts nothing, and that a group that already exists
+in one format keeps it. The choice applies at once and is kept in this
+browser. Without a book, the section is absent.
+
 ### Settings sections
 
-Account, Display, Contacts and list, Keyboard shortcuts and About and help are
-separate sections. Display holds language and appearance. Contacts and list holds
-label position, sort order and the map preference. Preference labels sit above
-controls on phones and beside them from `sm`; changes apply without a save button.
+Account, Display, Contacts and list, Address books, Keyboard shortcuts and
+About and help are separate sections. Display holds language and appearance.
+Contacts and list holds label position, sort order and the map preference.
+Preference labels sit above controls on phones and beside them from `sm`;
+changes apply without a save button.
 
 ### Reading view, top to bottom
 1. Mobile only: a top bar, back left, "Edit" right. The back link names the selected book, so the page says which book it belongs to; with no book, it reads "Contacts".
@@ -292,7 +306,7 @@ stays the reading view's only ink pill.
 5. Rows: type menu | field | remove button. When the field would get narrower than 10rem, it takes its own line under the menu and the button. A row without a remove button keeps its room, so fields line up. Picking a type rewrites only the card's `cell`/`work`/`home` types and keeps the others (`INTERNET`, `PREF`, `VOICE`…); a type the menu doesn't offer still shows as it is. Phones offer mobile, work, home and other; e-mails, addresses and websites offer home, work and other.
    - Address: the extended line (c/o, building), then street, then postal code and locality on one line, then country, in the order the reading view shows them. A post office box and a region stay as the card has them.
    - Birthday: day / month / year.
-   - Groups (ADR 022): chips with a ×, and a field suggesting the book's other groups. Group cards never show in the list.
+   - Groups (ADR 022): chips with a ×, and a field suggesting the book's other groups (see Group format question). Group cards never show in the list.
 6. Below the sections: one "Add information" menu for absent optional sections. Choosing an entry opens the section and focuses its first field. The menu disappears when every section is open. The information-not-shown link follows (see States).
 7. A sticky bottom bar at the foot of the screen, even when the form is shorter: the error count after a failed save on the left, Cancel / Save on the right. Conflicts and errors show **inside this bar**, so they never push the form.
 
@@ -355,6 +369,52 @@ modal through `aria-describedby`. It warns that the contact may no longer appear
 in some groups after moving and asks users to check its groups in the destination
 book. It appears for every move, since the server's
 current card can contain categories the loaded contact does not yet show.
+
+### Group format question
+
+When a group added in the form gets no format from ADR 052's rules 1 to 3, a
+dialog asks right away, before the save.
+- Title: how “<book>” should store its groups. The text names the group
+  being added, says it is stored on the server in the chosen format, and
+  that other apps only see a group in their own format, so the user picks
+  the one of the apps they use with this book. One sentence then says what
+  Natel found, the first that applies: cards that could not be read,
+  groups stored both ways, categories that may be groups or tags, or no
+  group yet. That text stays at two short sentences plus the finding, and
+  every other text in the dialog at a line or two, so it gets read rather
+  than skipped.
+- Two options, stacked as cards with a radio, the checked one with an ink
+  border. Each gives its name, what it stores and the clients it suits:
+  Group cards (a separate card lists the members; Apple Contacts, iCloud,
+  DAVx⁵ in its default setup) and Categories on each contact (each contact
+  carries the group's name; Nextcloud Contacts, DAVx⁵ in categories mode).
+- Beside each option's text, on a muted tile, a drawing shows where the
+  group lives, the group in ink and the contacts in grey: one card headed
+  by a sample group name and listing three contacts, or three contacts
+  each carrying that name as a tag. It is hidden from screen readers,
+  since the text says the same. Its only text, the group name on ink,
+  keeps 4.5:1 in both themes. On phones the tile is smaller, and the sheet
+  scrolls like any dialog when it outgrows the screen.
+- Categories is preselected for a book with categories and no group cards,
+  Group cards otherwise. When the cards read hold groups in one format
+  only, the preselected option also carries a "Recommended" badge: a
+  filled `secondary` pill in bold `caption` after its name, a look no
+  button uses, inside its label so screen readers read it. A mixed book,
+  or one with no group, gets none.
+- A last line says the choice is kept for this book in this browser, can
+  be changed in settings, and that a group already stored in one format
+  keeps it.
+- "Use this format" (primary) stores the choice and keeps the chip. Cancel,
+  `Esc` or a click outside store nothing and remove that chip; the form's
+  other changes stay.
+- A save that commits a group still typed in the field (pressing Save, or
+  `⌘` / `Ctrl` + `Enter`) waits for the answer: "Use this format" lets it go
+  on, a dismissal stops it and leaves the form open, unsaved, without that
+  chip. Leaving the form (Cancel, the back arrow, `Esc`) drops a group still
+  typed in the field without asking.
+- Focus starts on the preselected option. It goes back to the group field
+  after a dismissal, and after an answer given outside a save; a save that
+  goes on moves it as any save does.
 
 ## Brand assets
 
