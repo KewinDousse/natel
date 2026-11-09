@@ -26,7 +26,7 @@ import {
   type ValidationErrors,
   validateDraft,
 } from "@/lib/contact-edit";
-import { bookGroupNames, contactGroupNames } from "@/lib/contact-groups";
+import { bookGroupNames, categoryOnlyGroups, contactGroupNames } from "@/lib/contact-groups";
 import { contactById, contactIdOf, pageNameOf } from "@/lib/contact-list";
 import { draftReducer } from "@/lib/draft-reducer";
 import { isDesktop } from "@/lib/shortcuts";
@@ -46,6 +46,7 @@ import {
 } from "@/queries";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
+  addCategory,
   type ContactList,
   canReplacePhoto,
   changedLists,
@@ -69,6 +70,7 @@ import { useToast } from "./ui/toast";
 import { writeErrorText } from "./write-error";
 
 const LISTS: ContactList[] = ["tel", "email", "adr"];
+const NO_GROUPS: ReadonlySet<string> = new Set();
 
 /** Lists the overwrite found changed elsewhere since they were read (ADR 038). */
 class ListsConflict extends Error {
@@ -99,6 +101,10 @@ export function ContactPage({ contacts, groupCards, id, edit = false }: ContactP
   // save changes the contact's id; the route and the cached card change in
   // different ticks, and in between the page keeps the card by its href.
   const shown = useRef<{ href: string; id: string; nextId?: string } | null>(null);
+  const categoryGroups = useMemo(
+    () => categoryOnlyGroups(contacts ?? [], groupCards),
+    [contacts, groupCards],
+  );
   if (contacts === undefined || auth === null) return null;
   let contact = contactById(contacts, id);
   const last = shown.current;
@@ -116,6 +122,7 @@ export function ContactPage({ contacts, groupCards, id, edit = false }: ContactP
       contact={contact}
       groupCards={groupCards}
       groupSuggestions={bookGroupNames(contacts, groupCards)}
+      categoryGroups={categoryGroups}
       edit={edit}
       onIdChange={(nextId) => {
         shown.current = { href, id: shown.current?.id ?? id, nextId };
@@ -141,6 +148,7 @@ function NewContactFiche({ auth, bookHref }: { auth: DavAuth; bookHref: string }
       contact={contact}
       groupCards={[]}
       groupSuggestions={[]}
+      categoryGroups={NO_GROUPS}
       edit
       onCreate={createContact.mutateAsync}
     />
@@ -183,6 +191,7 @@ function ContactFiche({
   contact,
   groupCards,
   groupSuggestions,
+  categoryGroups,
   edit,
   onCreate,
   onIdChange,
@@ -192,6 +201,8 @@ function ContactFiche({
   groupCards: Contact[];
   /** Every group name of the book, for "Ajouter un groupe". */
   groupSuggestions: string[];
+  /** The book's groups that exist only as CATEGORIES (ADR 052, rule 1). */
+  categoryGroups: ReadonlySet<string>;
   edit: boolean;
   onCreate?: (contact: Contact) => Promise<Contact>;
   /** Called before a save moves the contact to another id. */
@@ -273,6 +284,14 @@ function ContactFiche({
     save: saveGroups,
     overwrite: overwriteGroups,
   } = useContactGroupEdits(auth, groups, groupCards, editSession);
+
+  // Groups added as CATEGORIES on the contact's own card; the other added
+  // groups are written as group cards.
+  const categoryAdded = useMemo(
+    () => delta.added.filter((name) => categoryGroups.has(name)),
+    [delta, categoryGroups],
+  );
+  const cardGroupAdded = delta.added.length > categoryAdded.length;
 
   const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
   const dirtyLists = useMemo(() => LISTS.filter((name) => dirty[name]), [dirty]);
@@ -421,6 +440,7 @@ function ContactFiche({
       savedId: string,
       session: number,
       pending: typeof delta,
+      inCategories: string[],
       sent: ContactDraft,
     ) => {
       // Staying in edit mode on the saved card: the draft follows it, keeping
@@ -436,7 +456,7 @@ function ContactFiche({
         return;
       }
       if (hasGroupChanges(pending) && selectedBook) {
-        const complete = await saveGroups(saved.uid, pending, session);
+        const complete = await saveGroups(saved.uid, pending, inCategories, session);
         if (session !== editSession.current) return;
         if (!complete) {
           keepEditing();
@@ -469,6 +489,7 @@ function ContactFiche({
     async (sent: ContactDraft, put: () => Promise<Contact | null>) => {
       const session = editSession.current;
       const pending = delta;
+      const inCategories = categoryAdded;
       setSaveStatus("saving");
       setSaveError(null);
       setConflict(null);
@@ -512,12 +533,13 @@ function ContactFiche({
           ignoreBlocker: true,
         });
       }
-      await finishSave(saved, savedId, session, pending, sent);
+      await finishSave(saved, savedId, session, pending, inCategories, sent);
     },
     [
       t,
       isNew,
       delta,
+      categoryAdded,
       editBase,
       finishSave,
       router,
@@ -531,13 +553,14 @@ function ContactFiche({
   );
 
   // What the contact's own card needs for the group changes: CATEGORIES
-  // values removed, and a UID when it gets its first member line.
+  // values removed and added, and a UID when it gets its first member line.
   const applyGroupChanges = useCallback(
     (card: Contact): Contact => {
       for (const name of delta.removed) removeCategory(card, name);
-      return delta.added.length > 0 ? ensureUid(card) : card;
+      for (const name of categoryAdded) addCategory(card, name);
+      return cardGroupAdded ? ensureUid(card) : card;
     },
-    [delta],
+    [delta, categoryAdded, cardGroupAdded],
   );
 
   // Save — applies the draft to a detached copy: serialise() mutates `raw`
@@ -563,7 +586,8 @@ function ContactFiche({
         isNew ||
         isDirty(dirty) ||
         delta.removed.some((name) => categories.includes(name)) ||
-        (delta.added.length > 0 && editBase.uid.trim() === "");
+        categoryAdded.length > 0 ||
+        (cardGroupAdded && editBase.uid.trim() === "");
       if (!cardChanges) return null;
       const detached = applyGroupChanges(
         applyDraft(parse(editBase.raw.toString(), editBase.href, editBase.etag), draft),
@@ -571,7 +595,19 @@ function ContactFiche({
       if (onCreate !== undefined) return await onCreate(detached);
       return await updateContact.mutateAsync(detached);
     });
-  }, [draft, dirty, delta, editBase, isNew, applyGroupChanges, updateContact, runSave, onCreate]);
+  }, [
+    draft,
+    dirty,
+    delta,
+    categoryAdded,
+    cardGroupAdded,
+    editBase,
+    isNew,
+    applyGroupChanges,
+    updateContact,
+    runSave,
+    onCreate,
+  ]);
 
   useEditShortcuts({
     edit,

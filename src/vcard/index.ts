@@ -28,7 +28,15 @@ import {
   unescapeDataUriSemicolons,
 } from "./ical-workarounds";
 import { updatePhotoProperty } from "./photo";
-import { groupCardOf, readAddresses, readBirthday, readNote, readOrg, readTitle } from "./read";
+import {
+  groupCardOf,
+  groupsOf,
+  readAddresses,
+  readBirthday,
+  readNote,
+  readOrg,
+  readTitle,
+} from "./read";
 import {
   updateAddressProperties,
   updateBdayProperty,
@@ -208,6 +216,28 @@ export function removeCategory(contact: Contact, name: string): boolean {
     else prop.setValues(kept);
   }
   return changed;
+}
+
+/**
+ * Adds `name` to the contact's CATEGORIES (ADR 052), unless a value already
+ * holds it. It joins the first CATEGORIES property, keeping its parameters
+ * and group prefix, since Nextcloud Contacts reads only that one; a card
+ * without one gets a new property. Mutates `raw`; true when something changed.
+ */
+export function addCategory(contact: Contact, name: string): boolean {
+  if (groupsOf(contact).includes(name)) return false;
+  const first = contact.raw.getFirstProperty("categories");
+  if (first) {
+    const values = first.getValues();
+    // A blank value is no group: it isn't kept ahead of the name.
+    const blank = values.every((value) => String(value).trim() === "");
+    first.setValues(blank ? [name] : [...values, name]);
+    return true;
+  }
+  const prop = new ICAL.Property("categories");
+  prop.setValues([name]);
+  contact.raw.addProperty(prop);
+  return true;
 }
 
 /** The member value for a UID: `urn:uuid:<UID>`, never doubling the prefix. */

@@ -39,6 +39,20 @@ export function bookGroupNames(contacts: Contact[], groupCards: Contact[]): stri
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * The groups of a book that exist only as CATEGORIES values, with no group
+ * card of that name: ADR 052's first rule writes a membership of one of
+ * them as CATEGORIES too.
+ */
+export function categoryOnlyGroups(contacts: Contact[], groupCards: Contact[]): Set<string> {
+  const carded = new Set(groupCards.map((card) => groupCardOf(card).name));
+  const names = new Set<string>();
+  for (const contact of contacts) {
+    for (const name of groupsOf(contact)) if (!carded.has(name)) names.add(name);
+  }
+  return names;
+}
+
 /** A group of the book, as the list's group filter offers it. */
 export type BookGroup = { name: string; count: number };
 

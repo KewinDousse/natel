@@ -121,10 +121,12 @@ Clients store groups in two ways:
   iCloud and DAVx⁵ in its default setup.
 - Nextcloud's web app and DAVx⁵ in "groups are per-contact categories" mode
   store `CATEGORIES` on each contact. They do not show groups created in Natel.
-  Natel reads their categories, and can remove a contact from them.
+  Natel reads their categories, and can add a contact to them or remove it.
 
-Natel reads both forms and writes new memberships as group cards. Test the
-chosen grouping setup with your other clients before reorganising a book.
+Natel reads both forms. A contact added to a group that exists only as
+`CATEGORIES` gets it in its own `CATEGORIES`; other new memberships are
+written as group cards. Test the chosen grouping setup with your other
+clients before reorganising a book.
 
 ## Groups when moving a contact
 

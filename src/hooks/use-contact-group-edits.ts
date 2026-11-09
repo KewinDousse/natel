@@ -53,15 +53,20 @@ export function useContactGroupEdits(
 
   const clearFailures = useCallback(() => setGroupFailures([]), []);
 
+  // `inCategories` are the added names the contact's own card already holds
+  // as CATEGORIES (ADR 052): no group card is written for them.
   const save = useCallback(
-    async (uid: string, pending: typeof delta, session: number) => {
+    async (uid: string, pending: typeof delta, inCategories: string[], session: number) => {
       if (!selectedBook) return false;
       const retries = groupRetries.current;
       const { written, failures } = await writeGroupChanges(
         auth,
         selectedBook.href,
         uid,
-        pending,
+        {
+          added: pending.added.filter((name) => !inCategories.includes(name)),
+          removed: pending.removed,
+        },
         groupCards,
         retries,
       );

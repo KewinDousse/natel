@@ -65,9 +65,11 @@ On a contact's page, choose one of its groups to show only that group's
 contacts in the list.
 
 Use the groups section in edit mode to add or remove a membership. Natel
-reads group cards and per-contact categories, but creates group-card
-memberships. Read [compatibility](compatibility.md#groups) if you also use
-Nextcloud or DAVx⁵ in categories mode.
+reads group cards and per-contact categories. A contact added to a group
+that exists only as categories joins it in its categories; other
+memberships are created as group cards. Read
+[compatibility](compatibility.md#groups) if you also use Nextcloud or DAVx⁵
+in categories mode.
 
 ## Import and export
 

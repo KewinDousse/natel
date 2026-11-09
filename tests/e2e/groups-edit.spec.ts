@@ -57,6 +57,19 @@ test("adds a contact to a new group with a group card", async ({ page }) => {
   expect(await getCard("ada")).toBe(adaBefore);
 });
 
+test("adds a contact to a group stored only as CATEGORIES on its own card", async ({ page }) => {
+  await putCard("bob", vcard(["UID:bob", "FN:Bob Byte", "N:Byte;Bob;;;", "CATEGORIES:Club"]));
+  await editAda(page);
+  await addGroup(page, "Club");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved")).toBeVisible();
+
+  const ada = await getCard("ada");
+  expect(ada).toMatch(/CATEGORIES:Travail,Club\r?\n/);
+  expect(ada).toContain("X-KEEP:yes");
+  expect(await groupCards()).toEqual([]);
+});
+
 test("adds a member to the group card that has the name, keeping its data", async ({ page }) => {
   await putCard("family", FAMILY(["bob"], ["X-OTHER:kept"]));
   await editAda(page);

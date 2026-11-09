@@ -1,0 +1,4 @@
+{
+  "type": "Changed",
+  "text": "Adding a contact to a group that exists only as per-contact categories, as Nextcloud Contacts stores groups, adds the group to the contact's categories instead of creating a group card, so the membership shows in Nextcloud Contacts."
+}

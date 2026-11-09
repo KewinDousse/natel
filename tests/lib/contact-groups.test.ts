@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   bookGroupNames,
   bookGroups,
+  categoryOnlyGroups,
   contactGroupNames,
   contactsInGroup,
 } from "@/lib/contact-groups";
@@ -93,5 +94,19 @@ describe("contactsInGroup", () => {
   it("keeps the members from group cards and from CATEGORIES", () => {
     expect(contactsInGroup([ada, grace, alan], [family], "Famille")).toEqual([ada, grace]);
     expect(contactsInGroup([ada, grace, alan], [family], "Vide")).toEqual([]);
+  });
+});
+
+describe("categoryOnlyGroups", () => {
+  it("keeps the CATEGORIES names no group card shares, empty cards included", () => {
+    const grace = card(["VERSION:3.0", "UID:grace", "CATEGORIES:Club,Vide,Lecture"]);
+    expect([...categoryOnlyGroups([ada, grace], [family, club, empty])].sort()).toEqual([
+      "Lecture",
+      "Travail",
+    ]);
+  });
+
+  it("is empty for a book with no CATEGORIES", () => {
+    expect(categoryOnlyGroups([card(["VERSION:3.0", "UID:alan"])], [family]).size).toBe(0);
   });
 });

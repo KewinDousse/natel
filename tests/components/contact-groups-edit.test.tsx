@@ -241,6 +241,105 @@ describe("group failures and conflicts", () => {
   });
 });
 
+describe("a group stored only as CATEGORIES (ADR 052, rule 1)", () => {
+  const ADA = `${BOOK.href}ada.vcf`;
+  const BOB = `${BOOK.href}bob.vcf`;
+  const FAMILY = `${BOOK.href}family.vcf`;
+
+  beforeEach(() => {
+    cards[ADA] = card(["UID:ada", "FN:Ada Lovelace", "N:Lovelace;Ada;;;", "CATEGORIES:Travail"]);
+    cards[BOB] = card(["UID:bob", "FN:Bob", "N:;Bob;;;", "CATEGORIES:Club,Famille"]);
+    cards[FAMILY] = card(["UID:family", "FN:Famille", "X-ADDRESSBOOKSERVER-KIND:group"]);
+  });
+
+  it("joins the contact's CATEGORIES in its conditional save, with no group card", async () => {
+    await renderEdit(ADA);
+    const user = await addGroup("Club");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await screen.findByText("Enregistré");
+    expect(mocks.updateCard).toHaveBeenCalledTimes(1);
+    const [, href, etag, text] = mocks.updateCard.mock.calls[0] ?? [];
+    expect([href, etag]).toEqual([ADA, '"e"']);
+    expect(text).toMatch(/CATEGORIES:Travail,Club\r\n/);
+    expect(mocks.createCard).not.toHaveBeenCalled();
+  });
+
+  it("gives no UID to a contact without one, and the page keeps its id", async () => {
+    cards[GRACE] = card(["FN:Grace Hopper", "N:Hopper;Grace;;;"]);
+    const router = await renderEdit(GRACE);
+    const path = router.state.location.pathname;
+    const user = await addGroup("Club");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await screen.findByText("Enregistré");
+    const text = mocks.updateCard.mock.calls[0]?.[3] as string;
+    expect(text).toContain("CATEGORIES:Club\r\n");
+    expect(text).not.toMatch(/^UID/m);
+    expect(mocks.createCard).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe(path);
+  });
+
+  it("writes CATEGORIES once when a new group's card fails, and retries only that card", async () => {
+    cards[GRACE] = card(["FN:Grace Hopper", "N:Hopper;Grace;;;"]);
+    mocks.createCard.mockRejectedValueOnce(new DavError("offline", "NETWORK"));
+    const router = await renderEdit(GRACE);
+    const user = await addGroup("Club");
+    await addGroup("Lecture");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await screen.findByText(/ces groupes n’ont pas été mis à jour/);
+    expect(screen.getByText(/^Lecture · erreur réseau/)).toBeTruthy();
+    expect(screen.queryByText(/^Club ·/)).toBeNull();
+    const text = mocks.updateCard.mock.calls[0]?.[3] as string;
+    expect(text).toContain("CATEGORIES:Club\r\n");
+    const uid = /UID:([^\r\n]+)/.exec(text)?.[1];
+    expect(uid).toBeTruthy();
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/contacts/a/${uid}`));
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await screen.findByText("Enregistré");
+    expect(mocks.createCard).toHaveBeenCalledTimes(2);
+    expect(mocks.createCard.mock.calls[1]?.[2]).toContain("FN:Lecture");
+    expect(mocks.updateCard).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes a group card for a group stored in both formats", async () => {
+    await renderEdit(ADA);
+    const user = await addGroup("Famille");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await screen.findByText("Enregistré");
+    expect(mocks.updateCard).toHaveBeenCalledTimes(1);
+    expect(mocks.updateCard.mock.calls[0]?.[1]).toBe(FAMILY);
+    expect(mocks.updateCard.mock.calls[0]?.[3]).toContain(
+      "X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:ada",
+    );
+  });
+
+  it("carries the CATEGORIES value onto the fresh card when overwriting the contact", async () => {
+    mocks.updateCard.mockRejectedValueOnce(new DavError("412", "CONFLICT"));
+    await renderEdit(ADA);
+    const user = await addGroup("Club");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await screen.findByRole("button", { name: "Écraser avec ma version" });
+
+    cards[ADA] = card([
+      "UID:ada",
+      "FN:Ada Lovelace",
+      "N:Lovelace;Ada;;;",
+      "CATEGORIES:Travail,Lecture",
+      "NOTE:changed elsewhere",
+    ]);
+    await user.click(screen.getByRole("button", { name: "Écraser avec ma version" }));
+    await screen.findByText("Enregistré");
+    const text = mocks.updateCard.mock.calls[1]?.[3] as string;
+    expect(text).toContain("NOTE:changed elsewhere");
+    expect(text).toMatch(/CATEGORIES:Travail,Lecture,Club\r\n/);
+    expect(mocks.createCard).not.toHaveBeenCalled();
+  });
+});
+
 describe("Écraser on the contact, then a failed group", () => {
   const ADA = `${BOOK.href}ada.vcf`;
 
