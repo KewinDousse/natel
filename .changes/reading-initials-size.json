@@ -1,4 +1,0 @@
-{
-  "type": "Changed",
-  "text": "A contact without a photo shows its initials at the size of a photo, so the page keeps its layout when editing starts. In the form, the photo buttons are centred on the image."
-}

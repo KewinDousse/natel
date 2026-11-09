@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Run git directly in the release workflow tests, faking only the push, so they no longer start Node for every git call. Only tests change, so this changes no released behaviour."
-}

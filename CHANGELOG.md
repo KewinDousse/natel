@@ -6,6 +6,35 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-09
+
+### Added
+
+- The settings offer to install Natel as an app: a button where the browser has its own install dialog, such as Chrome and Edge, Android included, and the steps to follow on iPhone and iPad.
+- Chrome and Edge show screenshots of Natel on a phone and a computer in their install dialog.
+
+### Changed
+
+- The birthday's day, month and year fields each show their label above them.
+- On phones, the sign-in screen's red header shrinks to the wordmark and the language choice, so the form starts near the top and the sign-in button shows without scrolling on a 320 × 568 screen. An empty submit now moves the focus to the first field to fill in, and a field's error clears as soon as it is filled in.
+- While contacts load, the list shows the sort controls and alphabet index alongside a loading message. Skeleton placeholders are limited to contact rows.
+- On a contact's page, Edit is an outline button, so Call is the only filled one.
+- Lists of more than 1,000 contacts scroll, sort and search much faster. Above that size, the browser's find in page and screen readers only see the contacts near the screen; the app's search finds them all.
+- The sign-in screen's index tabs now run the full height of the red panel.
+- A contact without a photo shows its initials at the size of a photo, so the page keeps its layout when editing starts. In the form, the photo buttons are centred on the image.
+- Draw the app's own chevron on the menus of the settings, the form and the sign-in screen.
+
+### Fixed
+
+- The form offers "Add photo" on a contact without a photo, instead of "Change photo".
+- The alphabetical index includes # to reach contacts whose names start with digits, symbols or letters outside A–Z.
+- From wide screens, each section title of a contact sits on the same baseline as its first line.
+- Contact pages keep phone numbers whole in windows 1024 to 1279 pixels wide, where section titles, and row labels set to Auto, now sit above their values.
+- Copy buttons stay aligned across all rows of a contact, including sections with several phone numbers, e-mail addresses or postal addresses.
+- On narrow phones, a field's remove button stays beside its type menu instead of falling alone on a line.
+- Large address books open much faster. The slowdown grew quickly with size and could reach minutes at 10,000 contacts.
+- A contact opened from a direct link now has its row scrolled into view in the list.
+
 ## [0.5.0] - 2026-11-07
 
 ### Upgrade notes

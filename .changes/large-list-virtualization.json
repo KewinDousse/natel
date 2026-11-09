@@ -1,4 +1,0 @@
-{
-  "type": "Changed",
-  "text": "Lists of more than 1,000 contacts scroll, sort and search much faster. Above that size, the browser's find in page and screen readers only see the contacts near the screen; the app's search finds them all."
-}

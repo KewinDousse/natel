@@ -1,4 +1,0 @@
-{
-  "type": "Changed",
-  "text": "On phones, the sign-in screen's red header shrinks to the wordmark and the language choice, so the form starts near the top and the sign-in button shows without scrolling on a 320 × 568 screen. An empty submit now moves the focus to the first field to fill in, and a field's error clears as soon as it is filled in."
-}

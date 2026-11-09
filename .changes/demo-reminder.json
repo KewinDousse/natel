@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Show the demo build's reminder once per screen: the line under the header, now on a grey band, and the Demo mark only in the phone's top bar. Only the demo build changes, so this changes no released behaviour."
-}

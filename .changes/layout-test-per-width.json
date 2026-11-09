@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Check that phone screens never scroll sideways in one test per width, so each stays within its timeout against the slowest servers. Only tests change, so this changes no released behaviour."
-}
