@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Record in the compatibility notes that SOGo 5.12.13 deletes a card despite a stale If-Match. Only the documentation changes, so this changes no released behaviour."
+}
