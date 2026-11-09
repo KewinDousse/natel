@@ -239,10 +239,7 @@ test("previews and remembers the position of row labels independently of section
   expect(await page.evaluate(() => localStorage.getItem("natel.preferences"))).toBeNull();
 });
 
-test("keeps compact initials beside the name and preserves photo size", async ({
-  page,
-  isMobile,
-}) => {
+test("sizes initials like photos and centres the photo buttons", async ({ page, isMobile }) => {
   for (const [id, photo] of [
     ["p03", false],
     ["p01", true],
@@ -255,7 +252,7 @@ test("keeps compact initials beside the name and preserves photo size", async ({
     const avatarBox = await avatar.boundingBox();
     const nameBox = await name.boundingBox();
     if (!avatarBox || !nameBox) throw new Error("Missing identity bounds");
-    expect(avatarBox.width).toBe(photo ? (isMobile ? 96 : 112) : 64);
+    expect(avatarBox.width).toBe(isMobile ? 96 : 112);
     expect(avatarBox.height).toBe(avatarBox.width);
     expect(avatarBox.x + avatarBox.width).toBeLessThanOrEqual(nameBox.x);
     if (photo) {
@@ -273,14 +270,22 @@ test("keeps compact initials beside the name and preserves photo size", async ({
       .first()
       .click();
     await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: photo ? "Change photo" : "Add photo" }),
-    ).toBeVisible();
+    const photoButton = page.getByRole("button", { name: photo ? "Change photo" : "Add photo" });
+    await expect(photoButton).toBeVisible();
+    const buttons = photoButton.locator("..");
+    const formAvatarBox = await buttons.locator("xpath=preceding-sibling::*[1]").boundingBox();
+    const buttonsBox = await buttons.boundingBox();
+    if (!formAvatarBox || !buttonsBox) throw new Error("Missing form photo bounds");
+    expect(formAvatarBox.width).toBe(avatarBox.width);
+    expect(formAvatarBox.height).toBe(avatarBox.height);
+    expect(
+      Math.abs(buttonsBox.y + buttonsBox.height / 2 - (formAvatarBox.y + formAvatarBox.height / 2)),
+    ).toBeLessThanOrEqual(1);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
   }
 });
 
-test("wraps long names and organisations beside compact initials", async ({ page }) => {
+test("wraps long names and organisations beside initials", async ({ page }) => {
   await page.goto("./contacts/runeterra/p03");
   await page
     .locator('input[type="file"][accept*="vcf"]')

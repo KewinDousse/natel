@@ -79,13 +79,13 @@ export function ContactView({
             className="size-24 rounded-xl sm:size-28"
             fallback={
               orgCard ? (
-                <BuildingAvatar className="size-16 rounded-xl" />
+                <BuildingAvatar className="size-24 rounded-xl sm:size-28" />
               ) : (
                 <InitialsAvatar
                   family={parts.family}
                   given={parts.given}
                   seed={contact.uid || contact.href}
-                  className="size-16 rounded-xl text-3xl"
+                  className="size-24 rounded-xl text-5xl sm:size-28"
                 />
               )
             }

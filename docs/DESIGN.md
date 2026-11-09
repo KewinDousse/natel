@@ -222,9 +222,9 @@ The form groups values in this order: phones, e-mails, addresses, birthday, grou
 ### Reading view identity
 
 The avatar and the name, organisation and nickname sit side by side at every
-width. Initials and the organisation icon are 64px; photos remain 96px below `sm`
-and 112px from `sm`, using the chosen contact image shape. Names and subtitles wrap
-without truncation. The desktop Edit action stays at the top right.
+width. Photos, initials and the organisation icon are 96px below `sm` and 112px
+from `sm`, as in the form, using the chosen contact image shape. Names and
+subtitles wrap without truncation. The desktop Edit action stays at the top right.
 
 ### Reading view sections
 
@@ -286,7 +286,7 @@ stays the reading view's only ink pill.
 
 ### Form, top to bottom
 1. Mobile only: the top bar, back left.
-2. Photo, with change and remove buttons beside it, or an add button when there is none.
+2. Photo, with change and remove buttons beside it, or an add button when there is none; the buttons are centred vertically on the photo.
 3. Given name and family name, in the order the list sorts by, then organisation and job title, two by two on every screen so the top stays short. A card needs one of the three names: with none, all three are invalid under one message. An organisation's card is named after it: when an edit changes its organisation or clears the person's name, `FN` follows `ORG` (unless it was a name of its own).
 4. Phones and e-mails always, each with a text "Add" button under its last row: the new row appears right above it and takes the focus. Addresses when the card has them, with the same button, the new address's street taking the focus. Birthday when the card has one; groups on an existing card; website, nickname and note when the card has them or the user opened them.
 5. Rows: type menu | field | remove button. When the field would get narrower than 10rem, it takes its own line under the menu and the button. A row without a remove button keeps its room, so fields line up. Picking a type rewrites only the card's `cell`/`work`/`home` types and keeps the others (`INTERNET`, `PREF`, `VOICE`…); a type the menu doesn't offer still shows as it is. Phones offer mobile, work, home and other; e-mails, addresses and websites offer home, work and other.

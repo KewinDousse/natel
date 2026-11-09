@@ -30,7 +30,7 @@ export function ContactEditorPhoto({
   const { t } = useI18n();
   return (
     <div className="flex items-start justify-between gap-4">
-      <div className="flex flex-wrap items-end gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <PhotoAvatar
           contact={contact}
           edited={draft.photo}
