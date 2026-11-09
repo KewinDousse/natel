@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Render the website's two gesture screenshots, the list's group menu and a contact's form, in place of the phone screenshot. Only the brand image script changes, so this changes no released behaviour."
+}

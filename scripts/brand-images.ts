@@ -108,6 +108,8 @@ function banner(assets: Assets, headline: string, red: string) {
 
 /** The contact whose page the screenshots open. */
 const CAITLYN = "Caitlyn Kiramman";
+/** The contact whose form the website's edit gesture shows. */
+const LUXANNA = "Luxanna Crownguard";
 
 /** The README's screenshots, in docs/screenshots. */
 const README_SCREENS: Record<string, Screen> = {
@@ -127,18 +129,36 @@ const MANIFEST_SCREENS: Record<string, Screen> = {
 
 /**
  * The website's screenshots, light and dark, at 1x and 2x: the desktop with
- * Caitlyn Kiramman's page open, and the phone on the list.
+ * Caitlyn Kiramman's page open for the hero, and two gestures for "What it
+ * does", both cropped to 736 × 520 so they show at their own size: the list's
+ * group menu, on a window 736 wide where the list takes the whole width, and
+ * Luxanna Crownguard's form. The form's clip starts past the list
+ * (`minmax(26rem,34rem)`, 34rem at 1280 wide) and the header (`lg:h-16`), and
+ * leaves out the Save bar: the form's own "Editing" mark says what the shot is.
  */
 function siteScreens(): Record<string, Screen> {
   const screens: Record<string, Screen> = {};
-  for (const [name, width, height, contact] of [
-    ["desktop", 1280, 900, CAITLYN],
-    ["mobile", 390, 806, undefined],
+  for (const [name, shot] of [
+    ["desktop", { width: 1280, height: 900, contact: CAITLYN }],
+    [
+      "groups",
+      { width: 736, height: 800, gesture: "groups", clip: { x: 0, y: 0, width: 736, height: 520 } },
+    ],
+    [
+      "edit",
+      {
+        width: 1280,
+        height: 800,
+        contact: LUXANNA,
+        gesture: "edit",
+        clip: { x: 544, y: 64, width: 736, height: 520 },
+      },
+    ],
   ] as const) {
     for (const dark of [false, true]) {
       for (const scale of [1, 2]) {
         const file = `${name}-${dark ? "dark" : "light"}${scale === 2 ? "@2x" : ""}.png`;
-        screens[file] = { width, height, scale, dark, contact };
+        screens[file] = { ...shot, scale, dark };
       }
     }
   }

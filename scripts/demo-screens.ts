@@ -9,7 +9,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Browser } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
 import { build, type PreviewServer, preview } from "vite";
 
 export type Screen = {
@@ -19,6 +19,10 @@ export type Screen = {
   dark: boolean;
   /** The contact whose page is open; the list alone when absent. */
   contact?: string;
+  /** On top of that: the contact's form, or the list's group menu open. */
+  gesture?: "edit" | "groups";
+  /** The part of the viewport kept, in CSS pixels; all of it when absent. */
+  clip?: { x: number; y: number; width: number; height: number };
 };
 
 export type DemoServer = {
@@ -77,6 +81,46 @@ function message(all: Record<string, string>, key: string): string {
   return text;
 }
 
+/**
+ * A clip is fixed in pixels: a layout change would otherwise crop the group
+ * menu, or let the list, the header or the Save bar into the form's shot,
+ * unnoticed.
+ */
+async function checkClip(page: Page, screen: Screen) {
+  const clip = screen.clip;
+  if (!clip) return;
+  const fail = (what: string) => {
+    throw new Error(`The ${screen.gesture ?? "screen"} clip ${what}`);
+  };
+  if (screen.gesture === "groups") {
+    const [list, menu] = await Promise.all([
+      page.locator("main > div").first().boundingBox(),
+      page.getByRole("menu").boundingBox(),
+    ]);
+    if (!list || list.width < clip.width) fail("shows the list beside another pane");
+    if (
+      !menu ||
+      menu.x < clip.x ||
+      menu.y < clip.y ||
+      menu.x + menu.width > clip.x + clip.width ||
+      menu.y + menu.height > clip.y + clip.height
+    ) {
+      fail("cuts the group menu");
+    }
+  }
+  if (screen.gesture === "edit") {
+    // The list's grid cell, with its border and the alphabet rail.
+    const [list, header, bar] = await Promise.all([
+      page.locator("main > div").first().boundingBox(),
+      page.locator("#app-header").boundingBox(),
+      page.locator("[data-contact-edit-bar]").boundingBox(),
+    ]);
+    if (!list || list.x + list.width > clip.x) fail("takes in the list");
+    if (!header || header.y + header.height > clip.y) fail("takes in the header");
+    if (!bar || bar.y < clip.y + clip.height) fail("takes in the Save bar");
+  }
+}
+
 export async function capture(browser: Browser, demo: DemoServer, screen: Screen): Promise<Buffer> {
   const t = demo.messages;
   const phone = screen.width < 600;
@@ -100,6 +144,10 @@ export async function capture(browser: Browser, demo: DemoServer, screen: Screen
       await page.getByRole("link").filter({ hasText: screen.contact }).first().click();
       await page.getByRole("heading", { name: screen.contact }).waitFor();
     }
+    if (screen.gesture === "edit") {
+      await page.getByRole("button", { name: message(t, "edit_kbd") }).click();
+      await page.getByRole("button", { name: message(t, "save") }).waitFor();
+    }
     await page.locator("[data-demo-reminder]").evaluateAll((nodes) => {
       for (const node of nodes) if (node instanceof HTMLElement) node.style.display = "none";
     });
@@ -112,8 +160,14 @@ export async function capture(browser: Browser, demo: DemoServer, screen: Screen
     }
     // Hiding the notice moves the list under the pointer left by the click.
     await page.mouse.move(0, 0);
+    if (screen.gesture === "groups") {
+      const trigger = message(t, "group_filter_label").replace("{name}", message(t, "group_all"));
+      await page.getByRole("button", { name: trigger, exact: true }).click();
+      await page.getByRole("menu").waitFor();
+    }
     await page.evaluate(() => document.fonts.ready);
-    return await page.screenshot({ animations: "disabled" });
+    if (screen.clip) await checkClip(page, screen);
+    return await page.screenshot({ animations: "disabled", clip: screen.clip });
   } finally {
     await page.close();
   }
