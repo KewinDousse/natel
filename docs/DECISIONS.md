@@ -267,7 +267,7 @@ lost on reload.
 
 **Consequences.** Choices are per browser, not per account, which suits one
 Natel per server (ADR 014). A new language is a translation file and an
-entry in `locales`.
+entry in `locales`. ADR 052 amends this for the format of a book's groups.
 
 ## 020 — Import skips a card whose UID is already in the book
 
@@ -348,6 +348,7 @@ by default).
 default setup, not in Nextcloud's web app or DAVx⁵ in categories mode;
 `compatibility.md` says so. A save can partly fail, and the bottom bar says
 what is left.
+ADR 052 amends the choice of format for new memberships.
 
 ## 023 — Photos: a small image is kept as it is, a large one scaled down, without the metadata that doesn't show
 
@@ -976,3 +977,48 @@ each character by their look, never artwork from the games or from Arcane.
 
 **Consequences.** ADR 027's "no artwork" applies to everything else in the
 demo.
+
+## 052 — Group writes follow what a book shows, and ask when in doubt
+
+**Context.** A group is stored either as a group card listing its members
+(Apple, DAVx⁵ by default) or as a `CATEGORIES` value on each member
+(Nextcloud Contacts, DAVx⁵ in categories mode), and those two don't show
+group cards. Natel reads both formats but writes only group cards (#20,
+ADR 022), so a group made in Natel stays invisible there. A book shows how
+its groups are stored, not which clients use it, nor whether a `CATEGORIES`
+value is a group or a tag.
+
+**Decision.** Natel writes each new membership in one format: the group's
+own if it has one, else the format chosen or detected for the book, and it
+asks when neither is certain. For a contact added to a group, the first
+rule that applies wins:
+
+1. The group already exists in one format only: it keeps it, so its
+   members are not split between clients.
+2. The user chose a format for this book: that one.
+3. Every card was read (DESIGN.md "Incomplete address book"), and the book
+   has group cards and no `CATEGORIES`: group cards. `CATEGORIES` without
+   group cards never sets the format, since its values may be tags.
+4. Otherwise Natel asks, when the group is added in the contact form. The
+   question preselects `CATEGORIES` for a book with `CATEGORIES` and no
+   group cards, and group cards otherwise, including a mixed book (one with
+   both). Answering stores the choice for this book. Dismissing stores
+   nothing, removes that group from the form and keeps the contact's other
+   changes.
+
+The settings page shows each book's choice and lets the user change or
+clear it; the page and the question both say which clients each format
+suits. A change applies to later memberships only, with no conversion.
+
+The choice is kept in this browser, as in ADR 019, per account and book,
+never with the account or the book's address in plain text. A `CATEGORIES`
+membership goes in the contact's conditional save and adds no UID.
+
+**Rejected.** Writing both formats: edits in other clients can leave them
+contradictory while Natel is closed.
+
+**Consequences.** Choosing `CATEGORIES` doesn't reach existing groups stored
+as group cards: a contact added to one stays invisible in Nextcloud
+Contacts. A mixed book can show different members per client, and another
+browser asks again. This amends ADR 019, since this stored choice is not a
+display preference, and ADR 022's format for new memberships.
