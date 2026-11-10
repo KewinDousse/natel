@@ -119,6 +119,17 @@ Keep an explicit version tag, and read the [changelog](CHANGELOG.md) before
 - [Issues](https://github.com/KewinDousse/natel/issues/new/choose) for bugs and feature requests.
 - [Security](.github/SECURITY.md): report vulnerabilities privately.
 
+## Roadmap
+
+Next is [0.6.0](https://github.com/KewinDousse/natel/milestone/1): new group
+memberships will follow the format the address book's groups already use, or the
+one you choose for the book, and Natel will ask when it can't tell. Natel will
+leave beta with [1.0.0](https://github.com/KewinDousse/natel/milestone/2), once
+the remaining checks on Android, iPhone and Firefox are done and every known bug
+that loses or corrupts contact data is fixed in a release.
+The [milestones](https://github.com/KewinDousse/natel/milestones) track the open
+work, without dates.
+
 ## Scope
 
 Natel is a contacts client and stays one: no calendars, tasks or mail, no

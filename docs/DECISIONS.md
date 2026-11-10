@@ -983,8 +983,8 @@ demo.
 **Context.** A group is stored either as a group card listing its members
 (Apple, DAVx⁵ by default) or as a `CATEGORIES` value on each member
 (Nextcloud Contacts, DAVx⁵ in categories mode), and those two don't show
-group cards. Natel reads both formats but writes only group cards (#20,
-ADR 022), so a group made in Natel stays invisible there. A book shows how
+group cards. Natel reads both formats but writes only group cards
+(ADR 022), so a group made in Natel stays invisible there. A book shows how
 its groups are stored, not which clients use it, nor whether a `CATEGORIES`
 value is a group or a tag.
 
