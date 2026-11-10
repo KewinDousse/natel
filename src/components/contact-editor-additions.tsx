@@ -7,6 +7,9 @@ import { ChevronDownIcon, PlusIcon } from "./ui/icons";
 
 type InformationOption = { label: TranslationKey; onClick: () => void };
 
+const isOutside = (node: EventTarget | null, ...parts: (Element | null)[]) =>
+  node instanceof Node && !parts.some((part) => part?.contains(node));
+
 export function ContactEditorAdditions({ options }: { options: InformationOption[] }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -69,12 +72,7 @@ export function ContactEditorAdditions({ options }: { options: InformationOption
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !root.current?.contains(event.target) &&
-        !menu.current?.contains(event.target)
-      )
-        setOpen(false);
+      if (isOutside(event.target, root.current, menu.current)) setOpen(false);
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
@@ -144,6 +142,12 @@ export function ContactEditorAdditions({ options }: { options: InformationOption
             role="menu"
             aria-label={t("add_information")}
             onKeyDown={onKeyDown}
+            // Closes when a dialog takes the focus. A press in the menu on
+            // Safari moves it nowhere, which must not close it before the
+            // item's click.
+            onBlur={(event) => {
+              if (isOutside(event.relatedTarget, root.current, menu.current)) setOpen(false);
+            }}
             className="fixed z-40 overflow-y-auto rounded-lg bg-popover p-1 shadow-float"
           >
             {options.map((option) => (

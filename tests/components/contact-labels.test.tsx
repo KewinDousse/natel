@@ -43,6 +43,7 @@ function Editor() {
         groups={null}
         groupSuggestions={[]}
         onGroupsChange={vi.fn()}
+        groupInputRef={createRef()}
         photo={{
           canChange: false,
           shown: false,

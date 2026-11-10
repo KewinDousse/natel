@@ -5,6 +5,7 @@
  * Initials outside A–Z share a "#" group at the end of the list and rail.
  */
 
+import { fnv1a } from "@/lib/hash";
 import type { Contact, ContactField } from "@/model/contact";
 import { orgOf, typeValuesOf } from "@/vcard";
 
@@ -316,14 +317,4 @@ export function contactIdOf(contact: Contact): string {
 
 export function contactById(contacts: Contact[], id: string): Contact | undefined {
   return contacts.find((contact) => contactIdOf(contact) === id);
-}
-
-/** FNV-1a 32-bit hash as hex — deterministic across runs. */
-function fnv1a(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i) ?? 0;
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h.toString(16).padStart(8, "0");
 }

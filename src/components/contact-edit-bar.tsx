@@ -162,6 +162,7 @@ export function ContactEditBar({
             type="button"
             onClick={onCancel}
             disabled={deleting}
+            data-leaves-form
             className={buttonClass({ variant: "outline" })}
           >
             {t("cancel")}

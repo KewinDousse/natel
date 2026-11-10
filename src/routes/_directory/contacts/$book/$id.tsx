@@ -30,6 +30,7 @@ function ContactDetailRoute() {
     <ContactPage
       contacts={data?.contacts}
       groupCards={data?.groups ?? []}
+      skipped={data?.skipped.length ?? 0}
       id={id}
       edit={edit === true}
     />

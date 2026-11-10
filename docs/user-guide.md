@@ -65,11 +65,13 @@ On a contact's page, choose one of its groups to show only that group's
 contacts in the list.
 
 Use the groups section in edit mode to add or remove a membership. Natel
-reads group cards and per-contact categories. A contact added to a group
-that exists only as categories joins it in its categories; other
-memberships are created as group cards. Read
-[compatibility](compatibility.md#groups) if you also use Nextcloud or DAVx⁵
-in categories mode.
+reads group cards and per-contact categories, and a group that already
+exists in only one of them keeps it. A new group follows the book's format; when
+the book doesn't show it clearly, Natel asks once and keeps the answer for
+that book in this browser. **Settings → Address books** shows or changes
+each book's format: a change applies to the groups a contact joins
+afterwards, and converts nothing. Pick the format of the other apps you use
+with the book; see [compatibility](compatibility.md#groups).
 
 ## Import and export
 

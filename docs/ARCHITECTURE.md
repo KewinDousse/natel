@@ -130,9 +130,11 @@ src/
   model/         The Contact type. Plain data, no I/O.
   store/         Zustand: session (signed-in user, selected book, group filter),
                  memory only; preferences (sort, theme, map), stored like the
-                 language (ADR 026, ADR 037).
+                 language (ADR 026, ADR 037); each book's group format, stored
+                 the same way under a hash (ADR 052).
   queries/       TanStack Query hooks; the bridge between dav/ and routes/.
   i18n/          en.json, fr.json, setup, stored display preferences (ADR 019)
+                 and the per-book map of group formats (ADR 052)
 tests/           mirrors src/ (vcard, dav, lib, queries, store, routes, components)
   vcard/         includes the round-trip tests over fixtures/
   e2e/           Playwright against the production build and a throwaway

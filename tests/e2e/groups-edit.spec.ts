@@ -38,6 +38,14 @@ async function addGroup(page: Page, name: string): Promise<void> {
   await input.press("Enter");
 }
 
+/** Answers the group format question (ADR 052, rule 4). */
+async function chooseFormat(page: Page, format: "Group cards" | "Categories on each contact") {
+  const dialog = page.getByRole("dialog", { name: /How should .* store its groups\?/ });
+  await dialog.getByRole("radio", { name: new RegExp(`^${format}`) }).check();
+  await dialog.getByRole("button", { name: "Use this format" }).click();
+  await expect(dialog).toBeHidden();
+}
+
 const groupCards = async () =>
   (await listCards()).filter((card) => card.includes("X-ADDRESSBOOKSERVER-KIND:group"));
 
@@ -45,6 +53,7 @@ test("adds a contact to a new group with a group card", async ({ page }) => {
   const adaBefore = await getCard("ada");
   await editAda(page);
   await addGroup(page, "Club");
+  await chooseFormat(page, "Group cards");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Saved")).toBeVisible();
 
@@ -113,4 +122,55 @@ test("offers to overwrite a group card changed elsewhere", async ({ page }) => {
   await expect.poll(() => getCard("family")).toContain("uuid:ada");
   await expect(page.getByText("these groups were not updated")).toBeHidden();
   expect(await getCard("family")).toContain("uuid:carl");
+});
+
+test("holds Save on a typed group until its format is chosen, then keeps the choice", async ({
+  page,
+}) => {
+  await editAda(page);
+  await page.getByRole("combobox", { name: "Add a group" }).fill("Club");
+  await page.getByRole("button", { name: "Save" }).click();
+  // The book has only CATEGORIES: they may be tags, so Natel asks.
+  const dialog = page.getByRole("dialog", { name: /How should .* store its groups\?/ });
+  await expect(dialog.getByText("may just be tags")).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: /^Categories on each contact/ })).toBeChecked();
+  await chooseFormat(page, "Categories on each contact");
+  await expect(page.getByText("Saved")).toBeVisible();
+  expect(await getCard("ada")).toMatch(/CATEGORIES:Travail,Club\r?\n/);
+
+  await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
+  await addGroup(page, "Lecture");
+  await expect(page.getByRole("button", { name: "Remove from “Lecture”" })).toBeVisible();
+  await expect(dialog).toBeHidden();
+});
+
+test("writes new groups in the format the settings choose", async ({ page }) => {
+  await editAda(page);
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("link", { name: "Settings" }).filter({ visible: true }).first().click();
+  const select = page.locator('select[aria-describedby="books-hint"]').first();
+  await expect(select).toHaveValue("auto");
+  await select.selectOption("cards");
+
+  await page.getByRole("link", { name: /Lovelace/ }).click();
+  await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
+  await addGroup(page, "Club");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved")).toBeVisible();
+  await expect.poll(async () => (await groupCards()).length).toBe(1);
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  // A tap blurs the field after its pointerup: the question still waits for
+  // the tap's click, so Save gets it.
+  test("holds a tapped Save on a typed group until its format is chosen", async ({ page }) => {
+    await editAda(page);
+    await page.getByRole("combobox", { name: "Add a group" }).fill("Club");
+    await page.getByRole("button", { name: "Save" }).tap();
+    await chooseFormat(page, "Group cards");
+    await expect(page.getByText("Saved")).toBeVisible();
+    await expect.poll(async () => (await groupCards()).length).toBe(1);
+  });
 });

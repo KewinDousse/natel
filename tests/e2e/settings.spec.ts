@@ -115,8 +115,15 @@ test("shows the running version and safe links to help", async ({ page, isMobile
   const column = page.getByRole("heading", { name: "Settings", level: 1 }).locator("..");
   await expect(column.getByRole("heading", { level: 2 })).toHaveText(
     isMobile
-      ? ["Account", "Display", "Contacts and list", "About and help"]
-      : ["Account", "Display", "Contacts and list", "Keyboard shortcuts", "About and help"],
+      ? ["Account", "Display", "Contacts and list", "Address books", "About and help"]
+      : [
+          "Account",
+          "Display",
+          "Contacts and list",
+          "Address books",
+          "Keyboard shortcuts",
+          "About and help",
+        ],
   );
   const bug = page.getByRole("link", { name: "Report a bug", exact: true });
   await expect(bug).toHaveAttribute(

@@ -3,7 +3,7 @@
  * type menu and remove button, an error line, and the groups editor.
  */
 
-import { type ReactNode, useId, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { fieldClass } from "./ui/button";
@@ -73,23 +73,40 @@ export function ErrorText({ id, children }: { id: string; children: ReactNode })
   );
 }
 
+const LEAVES_FORM = "[data-leaves-form], a[href]";
+
 /**
  * Groups in edit mode (DESIGN.md): the chips gain a ×, and an "Ajouter un
  * groupe" input ends the line, suggesting the book's other group names.
+ * A name still typed when the form is left, through a link, a control
+ * marked `data-leaves-form` or a dialog taking the focus (the discard dialog
+ * asks about leaving), is dropped rather than added.
  */
 export function GroupsEditor({
   names,
   suggestions,
   onChange,
+  inputRef,
 }: {
   names: string[];
   suggestions: string[];
   onChange: (names: string[]) => void;
+  /** The "Ajouter un groupe" input, for a caller that gives it the focus back. */
+  inputRef: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState("");
   const listId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
+  // A pointer press lands before the blur it causes.
+  const leaving = useRef(false);
+  useEffect(() => {
+    const mark = (event: PointerEvent) => {
+      leaving.current =
+        event.target instanceof Element && event.target.closest(LEAVES_FORM) !== null;
+    };
+    document.addEventListener("pointerdown", mark, true);
+    return () => document.removeEventListener("pointerdown", mark, true);
+  }, []);
 
   function add() {
     const name = value.trim();
@@ -135,7 +152,21 @@ export function GroupsEditor({
               add();
             }
           }}
-          onBlur={add}
+          onFocus={() => {
+            leaving.current = false;
+          }}
+          onBlur={(event) => {
+            const next = event.relatedTarget;
+            if (
+              leaving.current ||
+              (next instanceof Element &&
+                next.closest(`${LEAVES_FORM}, [aria-modal="true"]`) !== null)
+            ) {
+              setValue("");
+              return;
+            }
+            add();
+          }}
           data-commit-on-blur
           className={fieldClass("h-11 min-w-44 sm:w-56 sm:text-sm lg:text-sm")}
         />

@@ -45,9 +45,9 @@ reset on reload) · [Quick start](#quick-start) · [Documentation](#documentatio
 - Search contacts, browse several address books, and move a contact between them.
 - Create, edit and delete contacts; add photos and crop them.
 - Filter by group and edit memberships. Natel reads both the group cards
-  Apple and DAVx⁵ write and Nextcloud's categories. A contact added to a group
-  stored only as categories joins it in its categories; other new memberships
-  are group cards, which Nextcloud doesn't show (see [compatibility](docs/compatibility.md#groups)).
+  Apple and DAVx⁵ write and Nextcloud's categories, and writes new groups in
+  the format the book shows or the one chosen for it, asking when in doubt
+  (see [compatibility](docs/compatibility.md#groups)).
 - Import and export `.vcf` files.
 - Phone and desktop layouts, light and dark themes, English and French,
   keyboard shortcuts. Installable as an app, though it needs a connection.

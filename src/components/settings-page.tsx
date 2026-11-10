@@ -1,8 +1,9 @@
 /**
- * SettingsPage — the account, display preferences (ADR 019), shortcuts and
- * app information, in the detail pane on desktop and as its own screen on
- * phones. One labelled select per preference; a change applies at once, with
- * no save button. Back, or Esc on desktop, returns to the list.
+ * SettingsPage — the account, display preferences (ADR 019), each book's
+ * group format (ADR 052), shortcuts and app information, in the detail pane
+ * on desktop and as its own screen on phones. One labelled select per
+ * preference; a change applies at once, with no save button. Back, or Esc on
+ * desktop, returns to the list.
  */
 
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -12,8 +13,12 @@ import { useI18n } from "@/i18n/react";
 import { APP_REVISION, APP_VERSION } from "@/lib/app-info";
 import type { SortBy } from "@/lib/contact-list";
 import { IS_DEMO } from "@/lib/demo";
+import { GROUP_FORMATS } from "@/lib/group-format";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
+import { bookName } from "@/lib/vcf-file";
+import { useAddressBooks } from "@/queries";
+import { bookFormatKey, useGroupFormats } from "@/store/group-formats";
 import { type AvatarShape, type LabelPosition, usePreferences } from "@/store/preferences";
 import { useAuth, useBookParam } from "@/store/session";
 import { ReadingRow, ReadingSection } from "./contact-reading-fields";
@@ -180,6 +185,8 @@ export function SettingsPage() {
           </Field>
         </SettingsSection>
 
+        <BookFormats />
+
         {/* Keys are for a keyboard: from lg, like the rest of the hints. */}
         <SettingsSection title={t("shortcuts_title")} className="hidden lg:block">
           <button
@@ -226,6 +233,48 @@ export function SettingsPage() {
         </SettingsSection>
       </div>
     </>
+  );
+}
+
+/** Each book's group format (DESIGN.md "Group format setting"). */
+function BookFormats() {
+  const { t } = useI18n();
+  const auth = useAuth();
+  const { data: books = [] } = useAddressBooks(auth ?? undefined);
+  const formats = useGroupFormats((state) => state.formats);
+  const setFormat = useGroupFormats((state) => state.setFormat);
+  if (auth === null || books.length === 0) return null;
+  return (
+    <SettingsSection title={t("settings_books")}>
+      {books.map((book) => {
+        const key = bookFormatKey(auth.username, book.href);
+        const id = `setting-book-${key}`;
+        return (
+          <Field key={book.href} id={id} label={bookName(book)}>
+            <NativeSelect
+              id={id}
+              aria-describedby="books-hint"
+              value={formats[key] ?? AUTO}
+              onChange={(event) => {
+                const format = GROUP_FORMATS.find((one) => one === event.target.value);
+                setFormat(key, format ?? null);
+              }}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value={AUTO}>{t("group_format_auto")}</option>
+              {GROUP_FORMATS.map((format) => (
+                <option key={format} value={format}>
+                  {t(`group_format_${format}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        );
+      })}
+      <p id="books-hint" className="text-sm text-muted-foreground">
+        {t("settings_books_hint")}
+      </p>
+    </SettingsSection>
   );
 }
 

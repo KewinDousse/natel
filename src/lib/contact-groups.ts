@@ -3,6 +3,7 @@
  * listing a contact, plus the contact's own CATEGORIES values. Names are
  * compared trimmed and case-sensitive.
  */
+import { bookGroupFormats, groupNames } from "@/lib/group-format";
 import type { Contact } from "@/model/contact";
 import { groupCardOf, groupsOf } from "@/vcard";
 
@@ -25,32 +26,9 @@ function namesOf(contact: Contact, groupCards: GroupCard[]): string[] {
   return [...names];
 }
 
-/**
- * Every group name of a book, empty group cards included, sorted: the
- * suggestions of "Ajouter un groupe".
- */
+/** Every group name of a book, empty group cards included, sorted. */
 export function bookGroupNames(contacts: Contact[], groupCards: Contact[]): string[] {
-  const names = new Set<string>();
-  for (const card of groupCards) {
-    const { name } = groupCardOf(card);
-    if (name.length > 0) names.add(name);
-  }
-  for (const contact of contacts) for (const name of groupsOf(contact)) names.add(name);
-  return [...names].sort((a, b) => a.localeCompare(b));
-}
-
-/**
- * The groups of a book that exist only as CATEGORIES values, with no group
- * card of that name: ADR 052's first rule writes a membership of one of
- * them as CATEGORIES too.
- */
-export function categoryOnlyGroups(contacts: Contact[], groupCards: Contact[]): Set<string> {
-  const carded = new Set(groupCards.map((card) => groupCardOf(card).name));
-  const names = new Set<string>();
-  for (const contact of contacts) {
-    for (const name of groupsOf(contact)) if (!carded.has(name)) names.add(name);
-  }
-  return names;
+  return groupNames(bookGroupFormats(contacts, groupCards, 0));
 }
 
 /** A group of the book, as the list's group filter offers it. */

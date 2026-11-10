@@ -6,8 +6,8 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DavError } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
@@ -15,6 +15,7 @@ import { I18nProvider } from "@/i18n/react";
 import { contactIdOf } from "@/lib/contact-list";
 import { createQueryClient } from "@/queries";
 import { routeTree } from "@/routeTree.gen";
+import { useGroupFormats } from "@/store/group-formats";
 import { useSessionStore } from "@/store/session";
 import { parse } from "@/vcard";
 import bytes from "../vcard/photo-bytes.json";
@@ -26,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   fetchCard: vi.fn(),
   updateCard: vi.fn(),
   createCard: vi.fn(),
+  deleteCard: vi.fn(),
 }));
 
 vi.mock("@/dav", async (importOriginal) => ({
@@ -40,6 +42,7 @@ const card = (lines: string[]) =>
   ["BEGIN:VCARD", "VERSION:3.0", ...lines, "END:VCARD", ""].join("\r\n");
 
 let cards: Record<string, string>;
+let client: ReturnType<typeof createQueryClient>;
 
 beforeEach(async () => {
   cleanup();
@@ -55,6 +58,7 @@ beforeEach(async () => {
     value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }),
   });
   localStorage.clear();
+  useGroupFormats.setState({ formats: {} });
   vi.resetAllMocks();
   cards = {};
   mocks.discoverAddressBooks.mockResolvedValue([BOOK]);
@@ -91,8 +95,9 @@ async function renderEdit(href: string) {
     routeTree,
     history: createMemoryHistory({ initialEntries: [path] }),
   });
+  client = createQueryClient();
   render(
-    <QueryClientProvider client={createQueryClient()}>
+    <QueryClientProvider client={client}>
       <I18nProvider>
         <RouterProvider router={router} />
       </I18nProvider>
@@ -102,10 +107,28 @@ async function renderEdit(href: string) {
   return router;
 }
 
+const groupInput = () => screen.getByRole("combobox", { name: "Ajouter un groupe" });
+const findQuestion = () => screen.findByRole("dialog", { name: /Comment stocker les groupes/ });
+
 async function addGroup(name: string) {
   const user = userEvent.setup();
-  await user.type(screen.getByRole("combobox", { name: "Ajouter un groupe" }), `${name}{Enter}`);
+  await user.type(groupInput(), `${name}{Enter}`);
   return user;
+}
+
+const FORMATS = { cards: /^Fiches de groupe/, categories: /^Catégories sur chaque contact/ };
+
+/** Answer the group format question (ADR 052, rule 4). */
+async function chooseFormat(user: UserEvent, format: keyof typeof FORMATS) {
+  const dialog = await findQuestion();
+  await user.click(within(dialog).getByRole("radio", { name: FORMATS[format] }));
+  await user.click(within(dialog).getByRole("button", { name: "Utiliser ce format" }));
+}
+
+function photoInput() {
+  const input = document.querySelector<HTMLInputElement>('input[type="file"][accept="image/*"]');
+  if (!input) throw new Error("no photo input");
+  return input;
 }
 
 const GRACE = `${BOOK.href}grace.vcf`;
@@ -118,6 +141,7 @@ describe("a contact without UID", () => {
   it("gets a UID for its first group, and the page follows it", async () => {
     const router = await renderEdit(GRACE);
     const user = await addGroup("Club");
+    await chooseFormat(user, "cards");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await screen.findByText("Enregistré");
@@ -135,6 +159,7 @@ describe("a contact without UID", () => {
     mocks.createCard.mockRejectedValueOnce(new DavError("offline", "NETWORK"));
     const router = await renderEdit(GRACE);
     const user = await addGroup("Club");
+    await chooseFormat(user, "cards");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await screen.findByText(/ces groupes n’ont pas été mis à jour/);
@@ -167,7 +192,7 @@ describe("Écraser on a group card", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
     await screen.findByText(/ces groupes n’ont pas été mis à jour/);
 
-    await user.type(screen.getByRole("combobox", { name: "Ajouter un groupe" }), "Club{Enter}");
+    await user.type(groupInput(), "Club{Enter}");
     await user.click(screen.getByRole("button", { name: "Écraser avec ma version" }));
 
     await waitFor(() => expect(screen.queryByText(/ces groupes n’ont pas été/)).toBeNull());
@@ -286,6 +311,7 @@ describe("a group stored only as CATEGORIES (ADR 052, rule 1)", () => {
     const router = await renderEdit(GRACE);
     const user = await addGroup("Club");
     await addGroup("Lecture");
+    await chooseFormat(user, "cards");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await screen.findByText(/ces groupes n’ont pas été mis à jour/);
@@ -304,9 +330,10 @@ describe("a group stored only as CATEGORIES (ADR 052, rule 1)", () => {
     expect(mocks.updateCard).toHaveBeenCalledTimes(1);
   });
 
-  it("writes a group card for a group stored in both formats", async () => {
+  it("asks for a group stored in both formats, and writes the format chosen", async () => {
     await renderEdit(ADA);
     const user = await addGroup("Famille");
+    await chooseFormat(user, "cards");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await screen.findByText("Enregistré");
@@ -350,7 +377,8 @@ describe("Écraser on the contact, then a failed group", () => {
     await renderEdit(ADA);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Retirer de «\s?Travail\s?»/ }));
-    await user.type(screen.getByRole("combobox", { name: "Ajouter un groupe" }), "Club{Enter}");
+    await user.type(groupInput(), "Club{Enter}");
+    await chooseFormat(user, "cards");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
     await screen.findByRole("button", { name: "Écraser avec ma version" });
 
@@ -388,6 +416,7 @@ describe("leaving the edit while group cards are written", () => {
     );
     await renderEdit(ADA);
     const user = await addGroup("Club");
+    await chooseFormat(user, "cards");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(mocks.createCard).toHaveBeenCalled());
 
@@ -404,12 +433,13 @@ describe("leaving the edit while group cards are written", () => {
 describe("the save shortcut", () => {
   const ADA = `${BOOK.href}ada.vcf`;
 
-  it("saves a group name still typed in the input", async () => {
+  it("saves a group name still typed in the input, once its format is chosen", async () => {
     cards[ADA] = card(["UID:ada", "FN:Ada Lovelace", "N:Lovelace;Ada;;;"]);
     await renderEdit(ADA);
     const user = userEvent.setup();
-    await user.type(screen.getByRole("combobox", { name: "Ajouter un groupe" }), "Club");
+    await user.type(groupInput(), "Club");
     await user.keyboard("{Control>}{Enter}{/Control}");
+    await chooseFormat(user, "cards");
 
     await screen.findByText("Enregistré");
     expect(mocks.createCard).toHaveBeenCalledTimes(1);
@@ -434,7 +464,8 @@ describe("a photo change saved with a failed group", () => {
     await renderEdit(ADA);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Retirer la photo" }));
-    await user.type(screen.getByRole("combobox", { name: "Ajouter un groupe" }), "Club{Enter}");
+    await user.type(groupInput(), "Club{Enter}");
+    await chooseFormat(user, "cards");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await screen.findByText(/ces groupes n’ont pas été mis à jour/);
@@ -445,5 +476,339 @@ describe("a photo change saved with a failed group", () => {
     await screen.findByText("Enregistré");
     expect(mocks.createCard).toHaveBeenCalledTimes(2);
     expect(mocks.updateCard).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the group format question (ADR 052, rule 4)", () => {
+  const ADA = `${BOOK.href}ada.vcf`;
+  const BOB = `${BOOK.href}bob.vcf`;
+  const FAMILY = `${BOOK.href}family.vcf`;
+  const question = () => screen.queryByRole("dialog", { name: /Comment stocker les groupes/ });
+
+  beforeEach(() => {
+    cards[ADA] = card(["UID:ada", "FN:Ada Lovelace", "N:Lovelace;Ada;;;"]);
+  });
+
+  it("asks at once in a book with no group, with group cards preselected and no badge", async () => {
+    await renderEdit(ADA);
+    await addGroup("Club");
+
+    const dialog = await screen.findByRole("dialog", {
+      name: /^Comment stocker les groupes de «\s?Perso\s?»\s?\?$/,
+    });
+    expect(dialog.textContent).toMatch(/Natel va stocker «\s?Club\s?» sur le serveur/);
+    expect(dialog.textContent).toContain("Ce carnet n’a encore aucun groupe.");
+    const cardsRadio = within(dialog).getByRole("radio", { name: FORMATS.cards });
+    expect(cardsRadio).toHaveProperty("checked", true);
+    expect(document.activeElement).toBe(cardsRadio);
+    expect(within(dialog).queryByText("Recommandé")).toBeNull();
+  });
+
+  it("recommends categories in a book that has only them, and writes the answer", async () => {
+    cards[BOB] = card(["UID:bob", "FN:Bob", "N:;Bob;;;", "CATEGORIES:Travail"]);
+    await renderEdit(ADA);
+    const user = await addGroup("Club");
+
+    const dialog = await findQuestion();
+    const categories = within(dialog).getByRole("radio", { name: FORMATS.categories });
+    expect(categories).toHaveProperty("checked", true);
+    expect(categories.closest("label")?.textContent).toContain("Recommandé");
+    await user.click(within(dialog).getByRole("button", { name: "Utiliser ce format" }));
+    expect(question()).toBeNull();
+    expect(document.activeElement).toBe(groupInput());
+    expect(localStorage.getItem("natel.preferences")).toMatch(
+      /"groupFormats":\{"\w+":"categories"\}/,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await screen.findByText("Enregistré");
+    expect(mocks.updateCard.mock.calls[0]?.[3]).toContain("CATEGORIES:Club\r\n");
+    expect(mocks.createCard).not.toHaveBeenCalled();
+  });
+
+  it("asks only once per book: the answer applies to the next new group", async () => {
+    await renderEdit(ADA);
+    const user = await addGroup("Club");
+    await chooseFormat(user, "cards");
+    await addGroup("Lecture");
+    expect(question()).toBeNull();
+    expect(screen.getByRole("button", { name: /Retirer de «\s?Lecture\s?»/ })).toBeTruthy();
+  });
+
+  it("doesn't ask in a fully read book with group cards and no CATEGORIES (rule 3)", async () => {
+    cards[FAMILY] = card(["UID:family", "FN:Famille", "X-ADDRESSBOOKSERVER-KIND:group"]);
+    await renderEdit(ADA);
+    await addGroup("Club");
+    expect(question()).toBeNull();
+  });
+
+  it("takes the chip back on Annuler and keeps the other changes, storing nothing", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(screen.getByRole("textbox", { name: "Prénom" }), "x");
+    await addGroup("Club");
+    const dialog = await findQuestion();
+    await user.click(within(dialog).getByRole("button", { name: "Annuler" }));
+
+    expect(question()).toBeNull();
+    expect(screen.queryByRole("button", { name: /Retirer de «\s?Club\s?»/ })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Prénom" })).toHaveProperty("value", "Adax");
+    expect(document.activeElement).toBe(groupInput());
+    expect(localStorage.getItem("natel.preferences")).toBeNull();
+  });
+
+  it("closes on Esc without leaving the form", async () => {
+    await renderEdit(ADA);
+    const user = await addGroup("Club");
+    await findQuestion();
+    await user.keyboard("{Escape}");
+
+    expect(question()).toBeNull();
+    expect(screen.queryByRole("button", { name: /Retirer de «\s?Club\s?»/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+  });
+
+  it("holds a save that commits a typed group, and stops it on a dismissal", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    const dialog = await findQuestion();
+    expect(mocks.updateCard).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Annuler" }));
+
+    expect(question()).toBeNull();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+    expect(mocks.updateCard).not.toHaveBeenCalled();
+    expect(mocks.createCard).not.toHaveBeenCalled();
+  });
+
+  it("lets a held save go on once the format is chosen", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await chooseFormat(user, "cards");
+
+    await screen.findByText("Enregistré");
+    expect(mocks.createCard.mock.calls[0]?.[2]).toContain("FN:Club");
+  });
+
+  it("drops a typed group without asking when Esc opens the discard dialog", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(screen.getByRole("textbox", { name: "Prénom" }), "x");
+    await user.type(groupInput(), "Club");
+    await user.keyboard("{Escape}");
+
+    await screen.findByRole("dialog", { name: /Abandonner les modifications/ });
+    expect(question()).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Continuer l’édition" }));
+    expect(screen.queryByRole("button", { name: /Retirer de «\s?Club\s?»/ })).toBeNull();
+    expect(question()).toBeNull();
+  });
+
+  it("asks again about the waiting group when editing goes on after a navigation", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(screen.getByRole("textbox", { name: "Prénom" }), "x");
+    await addGroup("Club");
+    await findQuestion();
+    await user.click(screen.getByRole("link", { name: "Paramètres" }));
+
+    await screen.findByRole("dialog", { name: /Abandonner les modifications/ });
+    expect(question()).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Continuer l’édition" }));
+    expect(screen.getByRole("button", { name: /Retirer de «\s?Club\s?»/ })).toBeTruthy();
+    await findQuestion();
+  });
+
+  it("closes the question when a refetch gives the group a format", async () => {
+    await renderEdit(ADA);
+    await addGroup("Club");
+    await findQuestion();
+    cards[FAMILY] = card(["UID:club", "FN:Club", "X-ADDRESSBOOKSERVER-KIND:group"]);
+    await act(() => client.invalidateQueries());
+
+    await waitFor(() => expect(question()).toBeNull());
+    expect(screen.getByRole("button", { name: /Retirer de «\s?Club\s?»/ })).toBeTruthy();
+    expect(useGroupFormats.getState().formats).toEqual({});
+    expect(document.activeElement).toBe(groupInput());
+  });
+
+  it("waits for a dialog the press opened to close before asking", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+
+    await screen.findByRole("dialog", { name: /Supprimer Ada Lovelace/ });
+    expect(question()).toBeNull();
+    await user.keyboard("{Escape}");
+    await findQuestion();
+    expect(screen.queryByRole("dialog", { name: /Supprimer Ada Lovelace/ })).toBeNull();
+  });
+
+  it("waits for a confirmed delete to fail before asking", async () => {
+    let fail: (error: Error) => void = () => {};
+    mocks.deleteCard.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        fail = reject;
+      }),
+    );
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Supprimer le contact" }));
+    const confirm = await screen.findByRole("dialog", { name: /Supprimer Ada Lovelace/ });
+    await user.click(within(confirm).getByRole("button", { name: "Supprimer" }));
+
+    await waitFor(() => expect(mocks.deleteCard).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(question()).toBeNull();
+    act(() => fail(new DavError("offline", "NETWORK")));
+    await findQuestion();
+  });
+
+  it("closes the information menu when the question takes the focus", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Ajouter une information" }));
+
+    await findQuestion();
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("waits for the photo's file picker to close before asking", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Ajouter une photo" }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(question()).toBeNull();
+
+    photoInput().dispatchEvent(new Event("cancel", { bubbles: true }));
+    await findQuestion();
+  });
+
+  it("asks once the page is pressed again where the picker fires no cancel", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Ajouter une photo" }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(question()).toBeNull();
+
+    await user.click(screen.getByRole("textbox", { name: "Prénom" }));
+    await findQuestion();
+  });
+
+  it("waits for the dialog of a chosen photo to close before asking", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Ajouter une photo" }));
+    await user.upload(
+      photoInput(),
+      new File([new Uint8Array([1])], "x.jpg", { type: "image/jpeg" }),
+    );
+
+    await screen.findByRole("dialog", { name: "Recadrer la photo" });
+    expect(question()).toBeNull();
+    await user.keyboard("{Escape}");
+    await findQuestion();
+  });
+
+  it("asks right away after a file was chosen in another file input", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    const other = document.createElement("input");
+    other.type = "file";
+    document.body.append(other);
+    await user.upload(other, new File(["BEGIN:VCARD"], "a.vcf", { type: "text/vcard" }));
+    await addGroup("Club");
+
+    await findQuestion();
+    other.remove();
+  });
+
+  it("drops a typed group when a link leaves the form, with nothing to discard", async () => {
+    const router = await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("link", { name: "Paramètres" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    expect(question()).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /Abandonner les modifications/ })).toBeNull();
+  });
+
+  it("gives the focus back to Save once a held save goes on", async () => {
+    mocks.createCard.mockRejectedValueOnce(new DavError("offline", "NETWORK"));
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await chooseFormat(user, "cards");
+
+    await screen.findByText(/ces groupes n’ont pas été mis à jour/);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Enregistrer" }));
+  });
+
+  it("keeps the focus off the group field when the press on Save took none", async () => {
+    mocks.createCard.mockRejectedValueOnce(new DavError("offline", "NETWORK"));
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    const field = groupInput();
+    await user.type(field, "Club");
+    // As on Safari: the press blurs the field and focuses nothing.
+    const save = screen.getByRole("button", { name: "Enregistrer" });
+    fireEvent.pointerDown(save);
+    act(() => field.blur());
+    fireEvent.click(save);
+    await chooseFormat(user, "cards");
+
+    await screen.findByText(/ces groupes n’ont pas été mis à jour/);
+    expect(document.activeElement).not.toBe(groupInput());
+  });
+
+  it("lets a waiting save go on when a refetch gives the group a format", async () => {
+    mocks.updateCard.mockRejectedValueOnce(new DavError("offline", "NETWORK"));
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await findQuestion();
+    cards[FAMILY] = card(["UID:club", "FN:Club", "X-ADDRESSBOOKSERVER-KIND:group"]);
+    await act(() => client.invalidateQueries());
+
+    await screen.findByText(/ces groupes n’ont pas été mis à jour/);
+    expect(question()).toBeNull();
+    expect(mocks.updateCard.mock.calls[0]?.[1]).toBe(FAMILY);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Enregistrer" }));
+  });
+
+  it("gives the focus back to the group field after ⌘/Ctrl + Enter waited for the answer", async () => {
+    mocks.createCard.mockRejectedValueOnce(new DavError("offline", "NETWORK"));
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    await chooseFormat(user, "cards");
+
+    await screen.findByText(/ces groupes n’ont pas été mis à jour/);
+    expect(document.activeElement).toBe(groupInput());
+  });
+
+  it("drops a typed group without asking when the form is left with Annuler", async () => {
+    await renderEdit(ADA);
+    const user = userEvent.setup();
+    await user.type(groupInput(), "Club");
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Enregistrer" })).toBeNull());
+    expect(question()).toBeNull();
+    expect(mocks.updateCard).not.toHaveBeenCalled();
   });
 });

@@ -73,6 +73,8 @@ const PAIRS: [string, string, number][] = [
   // The pressed sort pill and the active group filter, whose × is an icon.
   ["foreground", "secondary", 4.5],
   ["muted-foreground", "secondary", 3],
+  // The group format question's "Recommended" badge.
+  ["secondary-foreground", "secondary", 4.5],
   // The book switcher's menu.
   ["foreground", "popover", 4.5],
   ["muted-foreground", "popover", 4.5],

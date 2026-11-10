@@ -26,9 +26,17 @@ import {
   type ValidationErrors,
   validateDraft,
 } from "@/lib/contact-edit";
-import { bookGroupNames, categoryOnlyGroups, contactGroupNames } from "@/lib/contact-groups";
+import { contactGroupNames } from "@/lib/contact-groups";
 import { contactById, contactIdOf, pageNameOf } from "@/lib/contact-list";
 import { draftReducer } from "@/lib/draft-reducer";
+import {
+  type BookGroupFormats,
+  bookGroupFormats,
+  formatQuestion,
+  type GroupFormat,
+  groupNames,
+  membershipFormat,
+} from "@/lib/group-format";
 import { isDesktop } from "@/lib/shortcuts";
 import { bookName } from "@/lib/vcf-file";
 import type { Contact } from "@/model/contact";
@@ -44,6 +52,7 @@ import {
   useRefetchCard,
   useUpdateContact,
 } from "@/queries";
+import { useBookFormat } from "@/store/group-formats";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
   addCategory,
@@ -62,6 +71,7 @@ import { ConfirmDialog, UnshownPropertiesDialog } from "./contact-dialogs";
 import { ContactEditBar } from "./contact-edit-bar";
 import { ContactEditor } from "./contact-editor";
 import { ContactView } from "./contact-view";
+import { GroupFormatDialog } from "./group-format-dialog";
 import { MobileTopBar } from "./mobile-top-bar";
 import { MoveDialog } from "./move-dialog";
 import { PhotoCropDialog } from "./photo-crop-dialog";
@@ -70,7 +80,7 @@ import { useToast } from "./ui/toast";
 import { writeErrorText } from "./write-error";
 
 const LISTS: ContactList[] = ["tel", "email", "adr"];
-const NO_GROUPS: ReadonlySet<string> = new Set();
+const NO_GROUPS: BookGroupFormats = { cards: new Set(), categories: new Set(), complete: true };
 
 /** Lists the overwrite found changed elsewhere since they were read (ADR 038). */
 class ListsConflict extends Error {
@@ -84,6 +94,8 @@ type ContactPageProps = {
   contacts: Contact[] | undefined;
   /** Group cards of the selected book (ADR 022). */
   groupCards: Contact[];
+  /** How many of the book's cards could not be read. */
+  skipped: number;
   /** The /contacts/$book/$id route parameter. */
   id: string;
   /** True when ?edit is in the URL. */
@@ -95,15 +107,15 @@ type ContactPageProps = {
  * the same quiet blank the list pane shows. Once loaded, an id outside the
  * book gets an honest not-found state.
  */
-export function ContactPage({ contacts, groupCards, id, edit = false }: ContactPageProps) {
+export function ContactPage({ contacts, groupCards, skipped, id, edit = false }: ContactPageProps) {
   const auth = useAuth();
   // The contact shown last, and the id a save is moving it to. A UID given on
   // save changes the contact's id; the route and the cached card change in
   // different ticks, and in between the page keeps the card by its href.
   const shown = useRef<{ href: string; id: string; nextId?: string } | null>(null);
-  const categoryGroups = useMemo(
-    () => categoryOnlyGroups(contacts ?? [], groupCards),
-    [contacts, groupCards],
+  const groupFormats = useMemo(
+    () => bookGroupFormats(contacts ?? [], groupCards, skipped),
+    [contacts, groupCards, skipped],
   );
   if (contacts === undefined || auth === null) return null;
   let contact = contactById(contacts, id);
@@ -121,8 +133,8 @@ export function ContactPage({ contacts, groupCards, id, edit = false }: ContactP
       auth={auth}
       contact={contact}
       groupCards={groupCards}
-      groupSuggestions={bookGroupNames(contacts, groupCards)}
-      categoryGroups={categoryGroups}
+      groupSuggestions={groupNames(groupFormats)}
+      groupFormats={groupFormats}
       edit={edit}
       onIdChange={(nextId) => {
         shown.current = { href, id: shown.current?.id ?? id, nextId };
@@ -148,7 +160,7 @@ function NewContactFiche({ auth, bookHref }: { auth: DavAuth; bookHref: string }
       contact={contact}
       groupCards={[]}
       groupSuggestions={[]}
-      categoryGroups={NO_GROUPS}
+      groupFormats={NO_GROUPS}
       edit
       onCreate={createContact.mutateAsync}
     />
@@ -191,7 +203,7 @@ function ContactFiche({
   contact,
   groupCards,
   groupSuggestions,
-  categoryGroups,
+  groupFormats,
   edit,
   onCreate,
   onIdChange,
@@ -201,8 +213,8 @@ function ContactFiche({
   groupCards: Contact[];
   /** Every group name of the book, for "Ajouter un groupe". */
   groupSuggestions: string[];
-  /** The book's groups that exist only as CATEGORIES (ADR 052, rule 1). */
-  categoryGroups: ReadonlySet<string>;
+  /** How the book stores its groups, for ADR 052's rules. */
+  groupFormats: BookGroupFormats;
   edit: boolean;
   onCreate?: (contact: Contact) => Promise<Contact>;
   /** Called before a save moves the contact to another id. */
@@ -285,13 +297,32 @@ function ContactFiche({
     overwrite: overwriteGroups,
   } = useContactGroupEdits(auth, groups, groupCards, editSession);
 
-  // Groups added as CATEGORIES on the contact's own card; the other added
-  // groups are written as group cards.
-  const categoryAdded = useMemo(
-    () => delta.added.filter((name) => categoryGroups.has(name)),
-    [delta, categoryGroups],
-  );
-  const cardGroupAdded = delta.added.length > categoryAdded.length;
+  // Each added group's format (ADR 052): CATEGORIES on the contact's own
+  // card, group cards, or none yet, which the question settles.
+  const {
+    format: bookFormat,
+    key: formatKey,
+    setFormat,
+  } = useBookFormat(auth.username, selectedBook?.href);
+  // An answer with no book to keep it for holds for this page.
+  const [answered, setAnswered] = useState<GroupFormat | null>(null);
+  const chosenFormat = bookFormat ?? answered;
+  const { categoryAdded, cardGroupAdded, unresolved } = useMemo(() => {
+    const added = { cards: [] as string[], categories: [] as string[], none: [] as string[] };
+    for (const name of delta.added) {
+      added[membershipFormat(name, groupFormats, chosenFormat) ?? "none"].push(name);
+    }
+    return {
+      categoryAdded: added.categories,
+      cardGroupAdded: added.cards.length > 0,
+      unresolved: added.none,
+    };
+  }, [delta, groupFormats, chosenFormat]);
+  // The group the question is about, and the save waiting for the answer
+  // with what started it.
+  const [asking, setAsking] = useState<string | null>(null);
+  const [heldSave, setHeldSave] = useState<{ from: HTMLElement | null } | null>(null);
+  const groupInputRef = useRef<HTMLInputElement>(null);
 
   const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
   const dirtyLists = useMemo(() => LISTS.filter((name) => dirty[name]), [dirty]);
@@ -333,6 +364,9 @@ function ContactFiche({
       setShowDelete(false);
       setShowMove(false);
       setShowUnshown(false);
+      setAsking(null);
+      setHeldSave(null);
+      setAnswered(null);
       setChosenPhoto(null);
       setSaveError(null);
       setSaveStatus("idle");
@@ -382,12 +416,15 @@ function ContactFiche({
     onExit: exitEdit,
   });
 
-  // When the blocker fires, show the discard dialog
+  // When the blocker fires, show the discard dialog. A group still waiting
+  // for its format stays: the question comes back if editing goes on.
   useEffect(() => {
     if (blockerActive) {
       setShowDelete(false);
       setShowMove(false);
       setChosenPhoto(null);
+      setAsking(null);
+      setHeldSave(null);
       setShowDiscard(true);
     }
   }, [blockerActive, setChosenPhoto, setShowDiscard]);
@@ -397,10 +434,36 @@ function ContactFiche({
     else enterEdit();
   }, [edit, exitEdit, enterEdit]);
 
-  // Esc closes the open dialog (photo, delete, move or discard), otherwise it
-  // cancels editing.
+  // The question's answers. Dismissing takes the group back out of the form;
+  // either way the focus goes back to the group field. A save that goes on
+  // gives it back to what started it, if that took the focus: Safari and iOS
+  // don't focus a pressed button, and the group field would open the keyboard.
+  const dismissQuestion = useCallback(() => {
+    const name = asking;
+    setAsking(null);
+    setHeldSave(null);
+    if (name !== null) setDraftGroups((names) => names.filter((other) => other !== name));
+    groupInputRef.current?.focus();
+  }, [asking, setDraftGroups]);
+  const closeAnswered = useCallback(() => {
+    setAsking(null);
+    (heldSave ? heldSave.from : groupInputRef.current)?.focus();
+  }, [heldSave]);
+  const answerQuestion = useCallback(
+    (format: GroupFormat) => {
+      if (formatKey !== null) setFormat(formatKey, format);
+      else setAnswered(format);
+      closeAnswered();
+    },
+    [formatKey, setFormat, closeAnswered],
+  );
+
+  // Esc closes the open dialog (photo, delete, move, discard or the group
+  // format question), otherwise it cancels editing.
   const handleEscape = useCallback(() => {
-    if (chosenPhoto !== null) {
+    if (asking !== null) {
+      dismissQuestion();
+    } else if (chosenPhoto !== null) {
       setChosenPhoto(null);
     } else if (showUnshown) {
       setShowUnshown(false);
@@ -414,6 +477,8 @@ function ContactFiche({
       handleCancel();
     }
   }, [
+    asking,
+    dismissQuestion,
     chosenPhoto,
     setChosenPhoto,
     showUnshown,
@@ -566,48 +631,152 @@ function ContactFiche({
   // Save — applies the draft to a detached copy: serialise() mutates `raw`
   // in place, so re-parsing keeps the cached contact intact on failure. The
   // card is written only when something on it changed.
-  const handleSave = useCallback(async () => {
-    const validation = validateDraft(draft, dirty);
-    setErrors(validation);
-    setInvalidCount(Object.keys(validation).length);
-    if (!isValid(validation)) {
-      // The first field to correct may be out of sight, far above the bar.
-      requestAnimationFrame(() => {
-        const field = document.querySelector<HTMLElement>('article [aria-invalid="true"]');
-        field?.scrollIntoView?.({ block: "center" });
-        field?.focus({ preventScroll: true });
-      });
-      return;
-    }
+  const handleSave = useCallback(
+    async (from?: HTMLElement) => {
+      // A group without a format yet holds the save until the question is answered.
+      if (unresolved.length > 0) {
+        const active = from ?? document.activeElement;
+        setHeldSave({
+          from: active instanceof HTMLElement && active !== document.body ? active : null,
+        });
+        setAsking((name) => name ?? unresolved[0] ?? null);
+        return;
+      }
+      const validation = validateDraft(draft, dirty);
+      setErrors(validation);
+      setInvalidCount(Object.keys(validation).length);
+      if (!isValid(validation)) {
+        // The first field to correct may be out of sight, far above the bar.
+        requestAnimationFrame(() => {
+          const field = document.querySelector<HTMLElement>('article [aria-invalid="true"]');
+          field?.scrollIntoView?.({ block: "center" });
+          field?.focus({ preventScroll: true });
+        });
+        return;
+      }
 
-    await runSave(draft, async () => {
-      const categories = groupsOf(editBase);
-      const cardChanges =
-        isNew ||
-        isDirty(dirty) ||
-        delta.removed.some((name) => categories.includes(name)) ||
-        categoryAdded.length > 0 ||
-        (cardGroupAdded && editBase.uid.trim() === "");
-      if (!cardChanges) return null;
-      const detached = applyGroupChanges(
-        applyDraft(parse(editBase.raw.toString(), editBase.href, editBase.etag), draft),
-      );
-      if (onCreate !== undefined) return await onCreate(detached);
-      return await updateContact.mutateAsync(detached);
-    });
-  }, [
-    draft,
-    dirty,
-    delta,
-    categoryAdded,
-    cardGroupAdded,
-    editBase,
-    isNew,
-    applyGroupChanges,
-    updateContact,
-    runSave,
-    onCreate,
-  ]);
+      await runSave(draft, async () => {
+        const categories = groupsOf(editBase);
+        const cardChanges =
+          isNew ||
+          isDirty(dirty) ||
+          delta.removed.some((name) => categories.includes(name)) ||
+          categoryAdded.length > 0 ||
+          (cardGroupAdded && editBase.uid.trim() === "");
+        if (!cardChanges) return null;
+        const detached = applyGroupChanges(
+          applyDraft(parse(editBase.raw.toString(), editBase.href, editBase.etag), draft),
+        );
+        if (onCreate !== undefined) return await onCreate(detached);
+        return await updateContact.mutateAsync(detached);
+      });
+    },
+    [
+      unresolved,
+      draft,
+      dirty,
+      delta,
+      categoryAdded,
+      cardGroupAdded,
+      editBase,
+      isNew,
+      applyGroupChanges,
+      updateContact,
+      runSave,
+      onCreate,
+    ],
+  );
+
+  // A press commits a typed group on blur, before its click. The question
+  // waits for that click, so it never opens under the pointer and swallows
+  // it: a click on Save then holds the save for the answer.
+  const [pressing, setPressing] = useState(false);
+  // The photo's file picker counts as a dialog until it closes, or until the
+  // photo it gave is read and the crop dialog takes over.
+  const [picking, setPicking] = useState(false);
+  useEffect(() => {
+    if (!edit) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const press = () => {
+      clearTimeout(timer);
+      setPressing(true);
+    };
+    // After the click's own handlers: a render in between would undo the
+    // change of a controlled radio. A press with no click, such as a
+    // right-click or one on a control the blur disabled, ends with its
+    // pointerup.
+    const release = (delay: number) => () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setPressing(false), delay);
+    };
+    // The page gets no press or key while the picker is open, so one also
+    // tells that it closed where the browser fires no cancel.
+    const back = () => {
+      if (!photoInputRef.current?.files?.length) setPicking(false);
+    };
+    const pick = (event: Event) => {
+      if (event.target === photoInputRef.current) setPicking(true);
+    };
+    const unpick = (event: Event) => {
+      if (event.target === photoInputRef.current) back();
+    };
+    const ends: [string, () => void][] = [
+      ["click", release(0)],
+      ["auxclick", release(0)],
+      ["contextmenu", release(0)],
+      ["pointercancel", release(0)],
+      ["keydown", release(0)],
+      ["pointerup", release(500)],
+    ];
+    const listeners: [string, (event: Event) => void][] = [
+      ["pointerdown", press],
+      ["pointerdown", back],
+      ["keydown", back],
+      ...ends,
+      ["click", pick],
+      ["cancel", unpick],
+      ["change", unpick],
+    ];
+    for (const [type, listener] of listeners) document.addEventListener(type, listener, true);
+    return () => {
+      clearTimeout(timer);
+      setPressing(false);
+      setPicking(false);
+      for (const [type, listener] of listeners) {
+        document.removeEventListener(type, listener, true);
+      }
+    };
+  }, [edit]);
+
+  // A group added in the form with no format asks at once (ADR 052, rule 4),
+  // or once the dialog its press opened closes, or the delete or move it
+  // confirmed fails.
+  const otherDialog =
+    showDelete ||
+    showMove ||
+    showUnshown ||
+    showDiscard ||
+    picking ||
+    chosenPhoto !== null ||
+    deleting;
+  useEffect(() => {
+    if (edit && !pressing && !otherDialog && asking === null && unresolved.length > 0) {
+      setAsking(unresolved[0] ?? null);
+    }
+  }, [edit, pressing, otherDialog, asking, unresolved]);
+
+  // A refetch can give the group a format, from another client's change.
+  useEffect(() => {
+    if (asking !== null && !unresolved.includes(asking)) closeAnswered();
+  }, [asking, unresolved, closeAnswered]);
+
+  // Once answered, the save that waited goes on.
+  useEffect(() => {
+    if (heldSave !== null && asking === null && unresolved.length === 0) {
+      setHeldSave(null);
+      void handleSave();
+    }
+  }, [heldSave, asking, unresolved, handleSave]);
 
   useEditShortcuts({
     edit,
@@ -813,12 +982,13 @@ function ContactFiche({
           groups={isNew ? null : draftGroups}
           groupSuggestions={groupSuggestions}
           onGroupsChange={setDraftGroups}
+          groupInputRef={groupInputRef}
           photo={{
             canChange: canChangePhoto,
             shown: showsPhoto,
             inputRef: photoInputRef,
             buttonRef: changePhotoRef,
-            onFile: (file) => void handlePhotoFile(file),
+            onFile: (file) => void handlePhotoFile(file).finally(() => setPicking(false)),
           }}
           unknownCount={unshown.length}
           onShowUnknown={() => setShowUnshown(true)}
@@ -893,6 +1063,16 @@ function ContactFiche({
           spinner={<SpinnerIcon />}
           onCancel={() => setShowMove(false)}
           onMove={handleMove}
+        />
+      )}
+
+      {asking !== null && (
+        <GroupFormatDialog
+          book={selectedBook ? bookName(selectedBook) : ""}
+          group={asking}
+          question={formatQuestion(groupFormats)}
+          onCancel={dismissQuestion}
+          onConfirm={answerQuestion}
         />
       )}
 

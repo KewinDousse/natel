@@ -19,7 +19,8 @@ export function useEditShortcuts({
   deleting: boolean;
   onToggleEdit: () => void;
   onEscape: () => void;
-  onSave: () => Promise<void>;
+  /** `from`: what started the save, when it no longer holds the focus. */
+  onSave: (from?: HTMLElement) => Promise<void>;
 }) {
   useEffect(() => {
     if (edit) return;
@@ -58,7 +59,8 @@ export function useEditShortcuts({
       if (e.repeat || e.isComposing || busy || isDialogOpen()) return;
       e.preventDefault();
       // A field that commits on blur, such as "Ajouter un groupe", commits its
-      // value first; the save then runs once the draft holds it.
+      // value first; the save then runs once the draft holds it, and waits
+      // if that value opened the group format question.
       const active = document.activeElement;
       if (
         active instanceof HTMLInputElement &&
@@ -67,7 +69,7 @@ export function useEditShortcuts({
       ) {
         active.blur();
         deferredSave.current = setTimeout(() => {
-          if (canSaveRef.current && !isDialogOpen()) void saveRef.current();
+          if (canSaveRef.current) void saveRef.current(active);
         }, 0);
         return;
       }

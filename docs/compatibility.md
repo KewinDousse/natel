@@ -36,7 +36,7 @@ their evidence.
 ¹ iPhone photos: in both checks, the cards iOS wrote back held a JPEG, and
 an animated GIF showed still.
 
-² Android groups: DAVx⁵ in categories mode doesn't show Natel's groups.
+² Android groups: DAVx⁵ in categories mode doesn't show Natel's group cards.
 
 **Browsers**
 
@@ -117,16 +117,26 @@ export/import does not validate those applications.
 
 Clients store groups in two ways:
 
-- Natel creates separate group cards, the form used by Apple Contacts,
-  iCloud and DAVx⁵ in its default setup.
-- Nextcloud's web app and DAVx⁵ in "groups are per-contact categories" mode
-  store `CATEGORIES` on each contact. They do not show groups created in Natel.
-  Natel reads their categories, and can add a contact to them or remove it.
+- Separate group cards, the form used by Apple Contacts, iCloud and DAVx⁵
+  in its default setup.
+- `CATEGORIES` on each contact, the form used by Nextcloud's web app and
+  DAVx⁵ in "groups are per-contact categories" mode. They do not show group
+  cards.
 
-Natel reads both forms. A contact added to a group that exists only as
-`CATEGORIES` gets it in its own `CATEGORIES`; other new memberships are
-written as group cards. Test the chosen grouping setup with your other
-clients before reorganising a book.
+Natel reads both forms. When it adds a contact to a group (ADR 052):
+
+1. A group that exists in one form only keeps it.
+2. Otherwise the book's format applies, as chosen in Settings → Address books
+   or in the question below.
+3. With none chosen, a fully read book that has group cards and no
+   `CATEGORIES` gets a group card: categories alone may be tags.
+4. Otherwise Natel asks which format the book uses, preselecting categories
+   for a book that has only them. The answer is kept for that book in this
+   browser.
+
+Choose the form your other clients use with the book. Changing it converts
+no existing group. Test the setup with your other clients before
+reorganising a book.
 
 ## Groups when moving a contact
 
@@ -169,8 +179,8 @@ Apple's unmarked year 1604 convention needs special handling in Natel
 
 ### Group formats
 
-Nextcloud Contacts and DAVx⁵ in categories mode do not show Natel's group
-cards. This is a format difference; see [Groups](#groups).
+Nextcloud Contacts and DAVx⁵ in categories mode do not show group cards.
+For a book you use with them, choose categories; see [Groups](#groups).
 
 ### Photos rewritten by iPhone Contacts
 

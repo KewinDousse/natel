@@ -155,6 +155,14 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expectNoViolations(page, "delete dialog");
       await page.keyboard.press("Escape");
 
+      // Ada's CATEGORIES may be tags: a new group asks how to store it.
+      const group = page.getByRole("combobox", { name: "Add a group" });
+      await group.fill("Club");
+      await group.press("Enter");
+      await expect(page.getByRole("dialog", { name: /store its groups/ })).toBeVisible();
+      await expectNoViolations(page, "group format question");
+      await page.keyboard.press("Escape");
+
       await page.getByRole("button", { name: "Move to another address book" }).click();
       await expect(page.getByRole("dialog", { name: "Move this contact?" })).toBeVisible();
       await expectNoViolations(page, "move dialog");

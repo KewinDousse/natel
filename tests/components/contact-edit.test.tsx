@@ -1199,6 +1199,7 @@ describe("contact page without a session", () => {
         <ContactPage
           contacts={[parse(CARD_MINIMAL, "minimal.vcf", '"e"')]}
           groupCards={[]}
+          skipped={0}
           id="minimal"
         />
       </I18nProvider>,
