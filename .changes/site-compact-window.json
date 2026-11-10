@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Render the phone's list for the website's hero on small screens, beside the desktop window. Only the brand image script changes, so this changes no released behaviour."
+}

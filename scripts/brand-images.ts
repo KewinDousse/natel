@@ -128,11 +128,11 @@ const MANIFEST_SCREENS: Record<string, Screen> = {
 };
 
 /**
- * The website's screenshots, light and dark, at 1x and 2x: the desktop with
- * Caitlyn Kiramman's page open for the hero, and two gestures for "What it
- * does", both cropped to 736 × 520 so they show at their own size: the list's
- * group menu, on a window 736 wide where the list takes the whole width, and
- * Luxanna Crownguard's form. The form's clip starts past the list
+ * The website's screenshots, light and dark, at 1x and 2x: for the hero, the
+ * desktop with Caitlyn Kiramman's page open, and the phone on the list for
+ * small screens; two gestures for "What it does", both cropped to 736 × 520 so
+ * they show at their own size: the list's group menu, on a window 736 wide
+ * where the list takes the whole width, and Luxanna Crownguard's form. The form's clip starts past the list
  * (`minmax(26rem,34rem)`, 34rem at 1280 wide) and the header (`lg:h-16`), and
  * leaves out the Save bar: the form's own "Editing" mark says what the shot is.
  */
@@ -140,6 +140,7 @@ function siteScreens(): Record<string, Screen> {
   const screens: Record<string, Screen> = {};
   for (const [name, shot] of [
     ["desktop", { width: 1280, height: 900, contact: CAITLYN }],
+    ["mobile", { width: 390, height: 806 }],
     [
       "groups",
       { width: 736, height: 800, gesture: "groups", clip: { x: 0, y: 0, width: 736, height: 520 } },
