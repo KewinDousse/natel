@@ -1,8 +1,16 @@
 # Contributing to Natel
 
-Natel is small on purpose. Read the [scope](README.md#scope) before proposing
-a feature. Small fixes can go straight to a pull request; open an issue
-first for a new feature, dependency or behaviour decision.
+Natel is small on purpose. Read its [scope](#scope) before proposing a
+feature. Small fixes can go straight to a pull request; open an issue first
+for a new feature, dependency or behaviour decision.
+
+## Scope
+
+Natel is a contacts client and stays one: no calendars, tasks or mail, no
+accounts or permissions of its own, and no contacts or credentials stored
+on the server. The UI edits a subset of vCard fields and keeps the others.
+Offline use, incremental sync, duplicate merging, delegated authentication
+and limits on password guessing are not implemented.
 
 ## Rules
 

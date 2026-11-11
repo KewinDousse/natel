@@ -1,9 +1,9 @@
 # Deploying Natel
 
 Natel needs an existing CardDAV server. For a local first run, follow the
-[quick start](../README.md#quick-start). For access from another machine,
-serve Natel over HTTPS and keep its HTTP port reachable only by your reverse
-proxy. A Docker-published port can bypass ufw or firewalld rules: bind a
+[README's compose example](../README.md#run-it). For access from another
+machine, serve Natel over HTTPS and keep its HTTP port reachable only by your
+reverse proxy. A Docker-published port can bypass ufw or firewalld rules: bind a
 local-only port to `127.0.0.1`, or use a private Docker network for the proxy. Credentials also travel from Natel to the CardDAV server: use HTTPS
 there unless that connection stays on a trusted local container network.
 
