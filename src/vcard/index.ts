@@ -20,10 +20,13 @@ import {
   nValueToStruct,
   propertyToField,
   replacePropertiesInPlace,
+  valueText,
+  writtenValue,
 } from "./fields";
 import {
   decodeEscapedSemicolons,
   encodeVcard3Semicolons,
+  keepUrisAsWritten,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
 } from "./ical-workarounds";
@@ -67,6 +70,7 @@ export { savedLabelOf, writesAddress } from "./write";
 // Reserve one octet for the continuation space (RFC 6350 §3.2).
 ICAL.foldLength = 74;
 decodeEscapedSemicolons();
+keepUrisAsWritten();
 encodeVcard3Semicolons();
 
 // ---------------------------------------------------------------------------
@@ -115,7 +119,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
     bday: readBirthday(raw),
     org: readOrg(raw),
     title: readTitle(raw),
-    url: String(raw.getFirstPropertyValue("url") ?? ""),
+    url: firstValueText(raw, "url"),
     ...(raw.getFirstProperty("url")
       ? { urlField: labelledField(raw, raw.getFirstProperty("url") as RawProperty) }
       : {}),
@@ -261,8 +265,9 @@ export function addMember(card: Contact, uid: string): boolean {
   const bare = uid.trim().replace(/^urn:uuid:/i, "");
   if (groupCardOf(card).members.includes(bare)) return false;
   const prop = new ICAL.Property(memberPropertyOf(card));
-  prop.setValue(memberValue(uid.trim()));
+  // Added first, it takes the default type of the card's version.
   card.raw.addProperty(prop);
+  prop.setValue(writtenValue(card.raw, prop, memberValue(uid.trim())));
   return true;
 }
 
@@ -272,7 +277,7 @@ export function removeMember(card: Contact, uid: string): boolean {
   let changed = false;
   for (const name of ["member", "x-addressbookserver-member"]) {
     for (const prop of card.raw.getAllProperties(name)) {
-      const value = String(prop.getFirstValue() ?? "")
+      const value = valueText(card.raw, prop)
         .trim()
         .replace(/^urn:uuid:/i, "");
       if (value === bare) {
@@ -303,6 +308,11 @@ export function newGroupCard(name: string, memberUid: string): Contact {
   card.raw.addProperty(kind);
   addMember(card, memberUid);
   return parse(card.raw.toString());
+}
+
+function firstValueText(raw: RawComponent, name: string): string {
+  const prop = raw.getFirstProperty(name);
+  return prop ? valueText(raw, prop) : "";
 }
 
 /** A card's text, fields untouched, ended as RFC 6350 requires. */
@@ -532,7 +542,7 @@ export function serialise(contact: Contact): string {
   fields.adr = readAddresses(raw);
   const savedUrl = raw.getFirstProperty("url");
   fields.urlField = savedUrl ? labelledField(raw, savedUrl) : undefined;
-  fields.url = String(raw.getFirstPropertyValue("url") ?? "");
+  fields.url = firstValueText(raw, "url");
 
   return cardText(raw);
 }

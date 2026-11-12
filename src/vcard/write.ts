@@ -26,6 +26,7 @@ import {
   N_KEYS,
   setAppleLabel,
   sharesLabel,
+  writtenValue,
 } from "./fields";
 import { addressPartsOf, addressTypesOf, readBirthday, structuredValue } from "./read";
 
@@ -71,11 +72,12 @@ export function updateFirstStringProperty(raw: RawComponent, name: string, value
   const prop = raw.getFirstProperty(name);
   if (value.length > 0) {
     if (prop) {
-      setPropertyValue(prop, value);
+      setPropertyValue(prop, writtenValue(raw, prop, value, String(prop.getFirstValue() ?? "")));
     } else {
       const newProp = new ICAL.Property(name);
-      newProp.setValue(value);
+      // Added first, it takes the default type of the card's version.
       raw.addProperty(newProp);
+      newProp.setValue(writtenValue(raw, newProp, value));
     }
   } else if (prop) {
     // When clearing: keep the property if there are remaining values beyond the first
