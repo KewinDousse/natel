@@ -1056,12 +1056,13 @@ Amended by ADR 054 for a card whose `VERSION` is not its first property.
 ## 054 — A card's VERSION is moved right after BEGIN:VCARD
 
 **Context.** ical.js reads a card with the 4.0 types only when `VERSION:4.0`
-is its first property, and writes it with the 3.0 types only when
-`VERSION:3.0` is. RFC 6350 §6.7.9 puts `VERSION` right after `BEGIN:VCARD`;
-RFC 2426 sets no place for it in 3.0. Some cards have it later (#15). A save
-of such a card rewrote properties the user never changed, against ADR 005: in
-4.0, `GEO:geo:46.5,6.6` became `GEO;VALUE=FLOAT:0`; in 3.0, `GEO:46.5;6.6`
-became `GEO;VALUE=FLOAT:46.5,6.6`; in both, `SOURCE` gained `VALUE=UNKNOWN`.
+is its first property, and writes a component (`Component#toString`) with
+the 3.0 types only when `VERSION:3.0` is. RFC 6350 §6.7.9 puts `VERSION` right
+after `BEGIN:VCARD`; RFC 2426 sets no place for it in 3.0. Some cards have it
+later (#15). A save of such a card rewrote properties the user never changed,
+against ADR 005: in 4.0, `GEO:geo:46.5,6.6` became `GEO;VALUE=FLOAT:0`; in
+3.0, `GEO:46.5;6.6` became `GEO;VALUE=FLOAT:46.5,6.6`; in both, `SOURCE`
+gained `VALUE=UNKNOWN`.
 
 **Decision.** Before ical.js reads a card, `versionFirst` in `src/vcard/`, a
 named workaround, moves a later `VERSION` line, unchanged, right after

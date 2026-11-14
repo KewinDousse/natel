@@ -103,10 +103,13 @@ export function unescapeDataUriSemicolons(raw: RawComponent): void {
   }
 }
 
-/** A content line with its line ending and folded continuations. */
-const CONTENT_LINE = /[^\r\n]*(?:\r\n|\n|\r|$)(?:[ \t][^\r\n]*(?:\r\n|\n|\r|$))*/g;
+/**
+ * A content line with its line ending and folded continuations, split as
+ * ical.js splits them: a line ends at `\n`, a bare `\r` is part of the line.
+ */
+const CONTENT_LINE = /[^\n]*(?:\n|$)(?:[ \t][^\n]*(?:\n|$))*/g;
 
-const unfoldLine = (line: string) => line.replace(/(?:\r\n|\n|\r)[ \t]/g, "");
+const unfoldLine = (line: string) => line.replace(/\r?\n[ \t]/g, "");
 
 /**
  * ical.js reads and writes a card with the types of its version only when
@@ -115,8 +118,9 @@ const unfoldLine = (line: string) => line.replace(/(?:\r\n|\n|\r)[ \t]/g, "");
  * DECISIONS.md 054.
  */
 export function versionFirst(text: string): string {
+  if (/^BEGIN:VCARD[ \t]*\r?\nVERSION[;:]/i.test(text)) return text;
   const lines = (text.match(CONTENT_LINE) ?? []).filter((line) => line !== "");
-  const begin = lines.findIndex((line) => /^BEGIN:VCARD[ \t]*(?:\r\n|\n|\r)?$/i.test(line));
+  const begin = lines.findIndex((line) => /^BEGIN:VCARD[ \t]*\r?\n?$/i.test(line));
   if (begin === -1) return text;
   const end = lines.findIndex((line, i) => i > begin && /^END:VCARD/i.test(line));
   const version = lines.findIndex(

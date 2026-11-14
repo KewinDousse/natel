@@ -2,7 +2,7 @@
  * Tests for a card whose VERSION is not its first property (ADR 054).
  */
 import { describe, expect, it } from "vitest";
-import { parse, serialise } from "@/vcard";
+import { parse, readImportCard, serialise } from "@/vcard";
 
 const text = (lines: string[], eol = "\r\n") =>
   ["BEGIN:VCARD", ...lines, "END:VCARD", ""].join(eol);
@@ -23,7 +23,12 @@ describe("a card whose VERSION comes later", () => {
   });
 
   it("keeps every untouched 3.0 property when another field is edited", () => {
-    const kept = ["GEO:46.5;6.6", "URL:https://example.org/?q=1,2", "NOTE:a\\;b"];
+    const kept = [
+      "GEO:46.5;6.6",
+      "SOURCE:https://example.org/a.vcf",
+      "URL:https://example.org/?q=1,2",
+      "NOTE:a\\;b",
+    ];
     const contact = parse(text(["FN:Ada", "N:;Ada;;;", "VERSION:3.0", ...kept]));
     contact.fields.fn = "Ada L";
     const saved = unfold(serialise(contact));
@@ -66,6 +71,18 @@ describe("a card whose VERSION comes later", () => {
   ])("reads the VERSION line first, with %s", (_, card) => {
     const [first, second] = parse(card).raw.getAllProperties();
     expect([first?.name, first?.getFirstValue(), second?.name]).toEqual(["version", "4.0", "fn"]);
+  });
+
+  it("keeps a bare CR inside its line, as ical.js reads it", () => {
+    const card = "BEGIN:VCARD\r\nFN:Ada\r\nNOTE:a\r\rVERSION:4.0\r\nEND:VCARD\r\n";
+    const props = parse(card).raw.getAllProperties();
+    expect(props.map((prop) => prop.name)).toEqual(["fn", "note"]);
+    expect(props[1]?.getFirstValue()).toBe("a\r\rVERSION:4.0");
+  });
+
+  it("reads the same UID on import as when opening the card", () => {
+    const card = text(["FN:Ada", "VERSION:4.0", "UID:urn:uuid:a\\,b"]);
+    expect(readImportCard(card).uid).toBe(parse(card).raw.getFirstPropertyValue("uid"));
   });
 
   it("leaves a card without VERSION as it is", () => {
