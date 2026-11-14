@@ -1030,18 +1030,24 @@ display preference, and ADR 022's format for new memberships.
 **Context.** ical.js reads and writes a 4.0 `uri` value as text, so a save
 rewrote every `uri` the user never changed: `GEO:geo:46.5,6.6` became
 `geo:46.5\,6.6`, a `PHOTO` data URI `base64\,…`, against ADR 005. Clients,
-Radicale among them, still write text escapes in a `uri`.
+Radicale among them, still write text escapes in a `uri`. ical.js writes
+with the 4.0 types every card that does not open with `VERSION:3.0`.
 
 **Decision.** `keepUrisAsWritten` in `src/vcard/`, a named workaround, makes
-ical.js keep every 4.0 `uri` value as written.
+ical.js keep every `uri` value as written, as it already does in a 3.0 card.
+In a card not declared 3.0:
 - Where Natel shows or edits a `uri` (`URL`, `TEL`, `MEMBER`, the photo), it
   decodes the text escapes, as clients do.
 - On save, an unchanged value keeps its bytes. A changed or new one is
   written with the text escapes, a new photo included (`base64\,…`, ADR 023).
+- In a `PHOTO` or `LOGO` data URI, a run of backslashes piled up before `;`
+  is repaired (ADR 024), and a single `\;` is kept as read.
 
 **Rejected.** Writing back the source line of every untouched property: a
 broader change than this fix needs, left for later.
 
-**Consequences.** An untouched 4.0 `uri` survives a save. ical.js reads a
-card with the 4.0 types only when `VERSION:4.0` is its first property, so
-other cards are outside this entry. Amends ADR 023 and 024.
+**Consequences.** An untouched `uri` survives a save, except a phone number
+that moves up when one before it is removed: it is written with the text
+escapes. ical.js reads a card with the 4.0 types only when `VERSION:4.0` is
+its first property: in a card whose `VERSION:4.0` comes later, a property
+whose 3.0 type is not `uri`, such as `GEO`, is outside this entry. Amends ADR 023 and 024.
