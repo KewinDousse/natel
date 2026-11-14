@@ -9,35 +9,33 @@ const text = (lines: string[], eol = "\r\n") =>
 const unfold = (card: string) => card.replace(/\r\n[ \t]/g, "");
 
 describe("a card whose VERSION comes later", () => {
-  it("keeps every untouched 4.0 property when another field is edited", () => {
-    const kept = [
-      "GEO:geo:46.5,6.6",
-      "SOURCE:https://example.org/a.vcf",
-      "URL:https://example.org/?q=1,2",
-    ];
-    const contact = parse(text(["FN:Ada", "VERSION:4.0", ...kept]));
+  it.each([
+    [
+      "4.0",
+      [],
+      ["GEO:geo:46.5,6.6", "SOURCE:https://example.org/a.vcf", "URL:https://example.org/?q=1,2"],
+    ],
+    [
+      "3.0",
+      ["N:;Ada;;;"],
+      [
+        "GEO:46.5;6.6",
+        "SOURCE:https://example.org/a.vcf",
+        "URL:https://example.org/?q=1,2",
+        "NOTE:a\\;b",
+      ],
+    ],
+  ])("keeps every untouched %s property when another field is edited", (v, before, kept) => {
+    const contact = parse(text(["FN:Ada", ...before, `VERSION:${v}`, ...kept]));
     contact.fields.fn = "Ada L";
     const saved = unfold(serialise(contact));
-    expect(saved.startsWith("BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Ada L\r\n")).toBe(true);
-    for (const line of kept) expect(saved).toContain(`\r\n${line}\r\n`);
-  });
-
-  it("keeps every untouched 3.0 property when another field is edited", () => {
-    const kept = [
-      "GEO:46.5;6.6",
-      "SOURCE:https://example.org/a.vcf",
-      "URL:https://example.org/?q=1,2",
-      "NOTE:a\\;b",
-    ];
-    const contact = parse(text(["FN:Ada", "N:;Ada;;;", "VERSION:3.0", ...kept]));
-    contact.fields.fn = "Ada L";
-    const saved = unfold(serialise(contact));
-    expect(saved.startsWith("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ada L\r\nN:;Ada;;;\r\n")).toBe(true);
+    const opening = ["BEGIN:VCARD", `VERSION:${v}`, "FN:Ada L", ...before, ""].join("\r\n");
+    expect(saved.startsWith(opening)).toBe(true);
     for (const line of kept) expect(saved).toContain(`\r\n${line}\r\n`);
   });
 
   it.each(["3.0", "4.0"])("saves a %s card as it saves the same card opening with VERSION", (v) => {
-    const lines = ["FN:Ada", "TEL:+41 79", "GEO:geo:46.5,6.6", "BDAY:circa 1987"];
+    const rest = ["TEL:+41 79", "GEO:geo:46.5,6.6", "BDAY:circa 1987"];
     const edit = (card: string) => {
       const contact = parse(card);
       contact.fields.fn = "Ada L";
@@ -45,9 +43,8 @@ describe("a card whose VERSION comes later", () => {
       contact.fields.url = "https://example.org/?q=1,2";
       return serialise(contact);
     };
-    const [fn, ...rest] = lines;
-    expect(edit(text([fn ?? "", `VERSION:${v}`, ...rest]))).toBe(
-      edit(text([`VERSION:${v}`, ...lines])),
+    expect(edit(text(["FN:Ada", `VERSION:${v}`, ...rest]))).toBe(
+      edit(text([`VERSION:${v}`, "FN:Ada", ...rest])),
     );
   });
 

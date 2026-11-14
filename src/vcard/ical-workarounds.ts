@@ -118,17 +118,21 @@ const unfoldLine = (line: string) => line.replace(/\r?\n[ \t]/g, "");
  * DECISIONS.md 054.
  */
 export function versionFirst(text: string): string {
+  // The usual card, without splitting a text that may hold a photo.
   if (/^BEGIN:VCARD[ \t]*\r?\nVERSION[;:]/i.test(text)) return text;
-  const lines = (text.match(CONTENT_LINE) ?? []).filter((line) => line !== "");
+  const lines = text.match(CONTENT_LINE) ?? [];
   const begin = lines.findIndex((line) => /^BEGIN:VCARD[ \t]*\r?\n?$/i.test(line));
   if (begin === -1) return text;
   const end = lines.findIndex((line, i) => i > begin && /^END:VCARD/i.test(line));
   const version = lines.findIndex(
-    (line, i) => i > begin && (end === -1 || i < end) && /^VERSION[;:]/i.test(unfoldLine(line)),
+    (line, i) =>
+      i > begin &&
+      (end === -1 || i < end) &&
+      // Unfold only a line that may be VERSION, not a long PHOTO.
+      /^V/i.test(line) &&
+      /^VERSION[;:]/i.test(unfoldLine(line)),
   );
   if (version <= begin + 1) return text;
-  const [line] = lines.splice(version, 1);
-  if (line === undefined) return text;
-  lines.splice(begin + 1, 0, line);
+  lines.splice(begin + 1, 0, ...lines.splice(version, 1));
   return lines.join("");
 }
