@@ -99,10 +99,12 @@ pnpm e2e:demo
 pnpm e2e
 E2E_SERVER=xandikos pnpm e2e  # also needs Docker
 E2E_SERVER=baikal pnpm e2e    # also needs Docker
+E2E_SERVER=baikal-digest pnpm e2e  # Baïkal as it ships, with Digest
 ```
 
 Radicale is the default. The suite uses isolated test ports and fresh
-storage. CI also runs against Baïkal, Xandikos and the built Docker image.
+storage. CI also runs against Baïkal in Basic and in Digest, Xandikos and the
+built Docker image.
 The Docker image is built for amd64 and arm64; its browser tests execute the
 amd64 image.
 

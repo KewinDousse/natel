@@ -3,16 +3,34 @@
  * the app's back, e.g. to change a card while the app is editing it.
  */
 
+import { type Credential, negotiate } from "../../session/digest.ts";
 import { DAV_URL, PASSWORD, SERVER, USER } from "./env";
 
 export const BOOK_PATH = `${SERVER.home}contacts/`;
 
-const AUTH = `Basic ${btoa(`${USER}:${PASSWORD}`)}`;
+// Picked from the first answer, as natel-session signs in.
+let credential: Promise<Credential> | undefined;
+
+async function negotiated(): Promise<Credential> {
+  const probe = await fetch(new URL(SERVER.home, DAV_URL), {
+    method: "PROPFIND",
+    headers: { Depth: "0" },
+  });
+  await probe.body?.cancel();
+  const picked = negotiate(USER, PASSWORD, probe);
+  if (!picked) throw new Error(`${SERVER.home}: no auth scheme to answer HTTP ${probe.status}`);
+  return picked;
+}
 
 async function dav(method: string, path: string, init: RequestInit = {}): Promise<Response> {
+  const url = new URL(path, DAV_URL);
+  credential ??= negotiated().catch((error) => {
+    credential = undefined;
+    throw error;
+  });
   const headers = new Headers(init.headers);
-  headers.set("Authorization", AUTH);
-  return fetch(new URL(path, DAV_URL), { ...init, method, headers });
+  headers.set("Authorization", (await credential)(method, `${url.pathname}${url.search}`));
+  return fetch(url, { ...init, method, headers });
 }
 
 function expectStatus(res: Response, allowed: number[], what: string): void {

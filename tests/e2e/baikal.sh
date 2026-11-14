@@ -2,11 +2,13 @@
 # Starts a throwaway Baïkal for the e2e suite from its Docker image, on the
 # port and with the one user given by the Playwright config. The install
 # wizard is skipped: the config and a database holding the user are written
-# beforehand. Storage lives in a fixed folder wiped at every start.
+# beforehand. Storage lives in a fixed folder wiped at every start. The one
+# argument is Baïkal's WebDAV authentication type, Basic when left out.
 set -euo pipefail
 
 : "${DAV_PORT:?}" "${E2E_USER:?}" "${E2E_PASSWORD:?}"
 
+auth="${1:-Basic}"
 image="ckulka/baikal:0.10.1-nginx"
 name="natel-e2e-baikal"
 data="${TMPDIR:-/tmp}/natel-e2e-baikal"
@@ -15,7 +17,8 @@ docker rm -f "$name" >/dev/null 2>&1 || true
 rm -rf "$data"
 mkdir -p "$data/config" "$data/db"
 
-# Baïkal checks Basic credentials against md5(user:realm:password). The
+# Baïkal checks both Basic and Digest credentials against
+# md5(user:realm:password). The
 # admin password is never used, but without one Baïkal runs its installer.
 md5() { printf '%s:BaikalDAV:%s' "$1" "$2" | md5sum | cut -d' ' -f1; }
 digest=$(md5 "$E2E_USER" "$E2E_PASSWORD")
@@ -28,7 +31,7 @@ system:
   card_enabled: true
   cal_enabled: false
   invite_from: ''
-  dav_auth_type: 'Basic'
+  dav_auth_type: '$auth'
   admin_passwordhash: '$admin'
   failed_access_message: 'user %u authentication failure for Baikal'
   auth_realm: 'BaikalDAV'

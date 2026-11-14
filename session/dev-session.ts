@@ -8,6 +8,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
+import { type Credential, negotiate } from "./digest.ts";
 
 const COOKIE = "natel_session";
 const IDLE_MS = 12 * 60 * 60 * 1000;
@@ -19,7 +20,7 @@ const MAX_REDIRECTS = 5;
 const PRINCIPAL_QUERY = `<?xml version="1.0" encoding="utf-8"?>
 <d:propfind xmlns:d="DAV:"><d:prop><d:current-user-principal/></d:prop></d:propfind>`;
 
-type Session = { username: string; authorization: string; created: number; lastSeen: number };
+type Session = { username: string; credential: Credential; created: number; lastSeen: number };
 
 // No session cap or sweep, unlike natel-session: a dev server holds a few.
 
@@ -62,12 +63,11 @@ export function devSession(davOrigin: string | undefined, davMethods: string[]):
       return end(res, 400);
     }
     if (!davOrigin) return end(res, 503);
-    const authorization = `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-    const verdict = await verify(davOrigin, authorization);
-    if (verdict !== "ok") return end(res, verdict === "rejected" ? 401 : 502);
+    const verdict = await verify(davOrigin, username, password);
+    if (typeof verdict === "string") return end(res, verdict === "rejected" ? 401 : 502);
     const token = randomBytes(32).toString("base64url");
     const now = Date.now();
-    sessions.set(key(token), { username, authorization, created: now, lastSeen: now });
+    sessions.set(key(token), { username, credential: verdict, created: now, lastSeen: now });
     res.setHeader("Set-Cookie", cookie(token, LIFETIME_MS / 1000));
     json(res, { username });
   }
@@ -116,7 +116,11 @@ export function devSession(davOrigin: string | undefined, davMethods: string[]):
         end(res, 401);
         return;
       }
-      req.headers.authorization = current.authorization;
+      // As Caddy names it to natel-session: the request the server gets.
+      req.headers.authorization = current.credential(
+        req.method ?? "",
+        (req.url ?? "/").replace(/^\/dav/, ""),
+      );
     }
     next();
   }
@@ -132,28 +136,36 @@ export function devSession(davOrigin: string | undefined, davMethods: string[]):
   };
 }
 
-/** A 207 on a context root accepts the credentials; a 401 or 403 rejects them. */
+/**
+ * A 207 on a context root accepts the credential; a 401 or 403 rejects it.
+ * Each root is first asked without credentials, until one picks the scheme,
+ * as natel-session does.
+ */
 async function verify(
   origin: string,
-  authorization: string,
-): Promise<"ok" | "rejected" | "unreachable" | "unexpected"> {
+  username: string,
+  password: string,
+): Promise<Credential | "rejected" | "unreachable" | "unexpected"> {
+  let credential: Credential | undefined;
   let unreachable = false;
   for (const root of CONTEXT_ROOTS) {
-    let status: number;
+    let response: Response;
     try {
-      status = await propfind(origin, root, authorization);
+      credential ??= negotiate(username, password, await propfind(origin, root));
+      if (!credential) continue;
+      response = await propfind(origin, root, credential);
     } catch {
       unreachable = true;
       continue;
     }
-    if (status === 207) return "ok";
-    if (status === 401 || status === 403) return "rejected";
+    if (response.status === 207) return credential;
+    if (response.status === 401 || response.status === 403) return "rejected";
   }
   return unreachable ? "unreachable" : "unexpected";
 }
 
 /** Redirects stay on the configured server, as the /dav proxy maps them. */
-async function propfind(origin: string, path: string, authorization: string): Promise<number> {
+async function propfind(origin: string, path: string, credential?: Credential): Promise<Response> {
   let target = new URL(path, origin);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     // natel-session's own budget for each request.
@@ -161,7 +173,9 @@ async function propfind(origin: string, path: string, authorization: string): Pr
       signal: AbortSignal.timeout(20_000),
       method: "PROPFIND",
       headers: {
-        Authorization: authorization,
+        ...(credential && {
+          Authorization: credential("PROPFIND", `${target.pathname}${target.search}`),
+        }),
         Depth: "0",
         "Content-Type": "application/xml; charset=utf-8",
       },
@@ -170,11 +184,11 @@ async function propfind(origin: string, path: string, authorization: string): Pr
     });
     await response.body?.cancel();
     const location = response.headers.get("location");
-    if (response.status < 300 || response.status >= 400 || !location) return response.status;
+    if (response.status < 300 || response.status >= 400 || !location) return response;
     const next = new URL(location, target);
     target = new URL(`${next.pathname}${next.search}`, origin);
   }
-  return 508;
+  return new Response(null, { status: 508 });
 }
 
 /** As natel-session decides it: Sec-Fetch-Site first, then the Origin's host. */

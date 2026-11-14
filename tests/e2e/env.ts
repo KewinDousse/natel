@@ -22,6 +22,15 @@ type Server = {
   home: string;
   /** DAV responses convert vCard 4.0 fixtures to 3.0. */
   convertsVcard4?: boolean;
+  /** Serves every card as vCard 3.0 unless asked for 4.0, as sabre/dav does. */
+  servesVcard3?: boolean;
+};
+
+const baikal = {
+  command: "tests/e2e/baikal.sh",
+  readyPath: "/dav.php/",
+  home: `/dav.php/addressbooks/${USER}/`,
+  servesVcard3: true,
 };
 
 const SERVERS = {
@@ -41,11 +50,9 @@ const SERVERS = {
     readyPath: "/remote.php/dav/",
     home: `/remote.php/dav/addressbooks/users/${USER}/`,
   },
-  baikal: {
-    command: "tests/e2e/baikal.sh",
-    readyPath: "/dav.php/",
-    home: `/dav.php/addressbooks/${USER}/`,
-  },
+  baikal,
+  // Baïkal as it ships: Digest authentication.
+  "baikal-digest": { ...baikal, command: "tests/e2e/baikal.sh Digest" },
 } satisfies Record<string, Server>;
 
 export type ServerName = keyof typeof SERVERS;

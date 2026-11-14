@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -86,8 +85,6 @@ func (s *server) signIn(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	authorization := "Basic " + base64.StdEncoding.EncodeToString([]byte(creds.Username+":"+creds.Password))
-
 	if s.verifier == nil {
 		s.log.Error("sign-in impossible: CARDDAV_URL is not set")
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -95,7 +92,8 @@ func (s *server) signIn(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), signInTimeout)
 	defer cancel()
-	switch err := s.verifier.verify(ctx, authorization, r.Header.Get("X-Forwarded-For")); {
+	cred, err := s.verifier.verify(ctx, creds.Username, creds.Password, r.Header.Get("X-Forwarded-For"))
+	switch {
 	case errors.Is(err, errRejected):
 		s.log.Info("sign-in rejected by the CardDAV server")
 		w.WriteHeader(http.StatusUnauthorized)
@@ -114,7 +112,7 @@ func (s *server) signIn(w http.ResponseWriter, r *http.Request) {
 	if s.httpsOnlyCookie || secure(r) {
 		name = secureCookieName
 	}
-	token, err := s.store.open(creds.Username, authorization, name)
+	token, err := s.store.open(creds.Username, cred, name)
 	// Not a 503: the app would report the CardDAV server as unreachable.
 	if errors.Is(err, errFull) {
 		s.log.Warn("sign-in refused: session limit reached")
@@ -154,7 +152,8 @@ func (s *server) signOut(w http.ResponseWriter, r *http.Request) {
 }
 
 // authorize answers forward_auth: a live session gets the Authorization
-// header Caddy copies onto the request to the CardDAV server.
+// header Caddy copies onto the request to the CardDAV server. Caddy names
+// that request's method and URI, which a Digest credential signs.
 func (s *server) authorize(w http.ResponseWriter, r *http.Request) {
 	if subtle.ConstantTimeCompare([]byte(r.Header.Get(secretHeader)), []byte(s.secret)) != 1 {
 		// Caddy's config lost the secret, as a caddy reload from outside
@@ -168,7 +167,7 @@ func (s *server) authorize(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	w.Header().Set("Authorization", sess.authorization)
+	w.Header().Set("Authorization", sess.credential.authorization(r.Header.Get("X-Forwarded-Method"), r.Header.Get("X-Forwarded-Uri")))
 	w.WriteHeader(http.StatusNoContent)
 }
 

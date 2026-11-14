@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -20,6 +21,11 @@ func TestVerifyFollowsRedirectsAsPropfindOnTheSameServer(t *testing.T) {
 	var seen []string
 	v := verifierFor(t, func(w http.ResponseWriter, r *http.Request) {
 		seen = append(seen, r.Method+" "+r.URL.RequestURI())
+		if r.Header.Get("Authorization") == "" && r.URL.Path != "/.well-known/carddav" {
+			w.Header().Set("WWW-Authenticate", `Basic realm="x"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		switch r.URL.Path {
 		case "/.well-known/carddav":
 			// Another host in the Location stays on the configured server.
@@ -35,11 +41,13 @@ func TestVerifyFollowsRedirectsAsPropfindOnTheSameServer(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	})
-	if err := v.verify(context.Background(), basic("alice", "secret"), ""); err != nil {
+	if _, err := v.verify(context.Background(), "alice", "secret", ""); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"PROPFIND /.well-known/carddav", "PROPFIND /remote.php/dav/?x=1"}
-	if len(seen) != len(want) || seen[0] != want[0] || seen[1] != want[1] {
+	// The anonymous request, then the signed one, each through the redirect.
+	want := []string{"PROPFIND /.well-known/carddav", "PROPFIND /remote.php/dav/?x=1",
+		"PROPFIND /.well-known/carddav", "PROPFIND /remote.php/dav/?x=1"}
+	if strings.Join(seen, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("requests %v, want %v", seen, want)
 	}
 }
@@ -50,10 +58,11 @@ func TestVerifyStopsAtTheFirstRejection(t *testing.T) {
 		calls++
 		w.WriteHeader(http.StatusUnauthorized)
 	})
-	if err := v.verify(context.Background(), basic("alice", "wrong"), ""); err != errRejected {
+	if _, err := v.verify(context.Background(), "alice", "wrong", ""); err != errRejected {
 		t.Fatalf("got %v", err)
 	}
-	if calls != 1 {
+	// The anonymous request, then the rejected one.
+	if calls != 2 {
 		t.Fatalf("%d requests after a rejection", calls)
 	}
 }
@@ -62,7 +71,7 @@ func TestVerifyWithoutADavAnswer(t *testing.T) {
 	v := verifierFor(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	if err := v.verify(context.Background(), basic("alice", "secret"), ""); err != errUnexpected {
+	if _, err := v.verify(context.Background(), "alice", "secret", ""); err != errUnexpected {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -72,7 +81,7 @@ func TestVerifyGivesUpOnRedirectLoops(t *testing.T) {
 		w.Header().Set("Location", r.URL.Path)
 		w.WriteHeader(http.StatusTemporaryRedirect)
 	})
-	if err := v.verify(context.Background(), basic("alice", "secret"), ""); err != errUnexpected {
+	if _, err := v.verify(context.Background(), "alice", "secret", ""); err != errUnexpected {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -83,8 +92,8 @@ func TestVerifyPassesTheClientAddressOn(t *testing.T) {
 		forwarded = append(forwarded, r.Header.Get("X-Forwarded-For"))
 		w.WriteHeader(http.StatusUnauthorized)
 	})
-	_ = v.verify(context.Background(), basic("alice", "wrong"), "203.0.113.7")
-	if len(forwarded) != 1 || forwarded[0] != "203.0.113.7" {
+	_, _ = v.verify(context.Background(), "alice", "wrong", "203.0.113.7")
+	if len(forwarded) != 2 || forwarded[0] != "203.0.113.7" || forwarded[1] != "203.0.113.7" {
 		t.Fatalf("X-Forwarded-For %v", forwarded)
 	}
 }

@@ -363,7 +363,7 @@ func TestHTTPSOnlyCookie(t *testing.T) {
 			t.Helper()
 			st := newStore(time.Now)
 			h := (&server{store: st, verifier: newVerifier(upstream), log: newLogger(io.Discard), secret: testSecret, httpsOnlyCookie: enabled}).routes()
-			token, err := st.open("alice", basic("alice", "secret"), cookieName)
+			token, err := st.open("alice", basicCredential(basic("alice", "secret")), cookieName)
 			if err != nil {
 				t.Fatal(err)
 			}

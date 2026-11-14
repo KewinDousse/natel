@@ -108,7 +108,7 @@ func TestUpdateRouteRequiresSession(t *testing.T) {
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("got %d without a session", response.Code)
 	}
-	token, err := st.open("alice", "secret", cookieName)
+	token, err := st.open("alice", basicCredential("secret"), cookieName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestManualUpdateRoute(t *testing.T) {
 	checker.url = upstream.URL + "/version.json"
 	st := newStore(time.Now)
 	srv := (&server{store: st, log: newLogger(io.Discard), updateChecker: checker}).routes()
-	token, err := st.open("alice", "secret", cookieName)
+	token, err := st.open("alice", basicCredential("secret"), cookieName)
 	if err != nil {
 		t.Fatal(err)
 	}

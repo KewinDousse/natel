@@ -106,7 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        server: [radicale, baikal, xandikos, nextcloud]
+        server: [radicale, baikal, baikal-digest, xandikos, nextcloud]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -292,6 +292,12 @@ jobs:
       - run: pnpm e2e
         env:
           E2E_EXTERNAL_APP: "1"
+      # Digest signs each request's method and URI, which Caddy names to
+      # natel-session (ADR 054): sign-in and editing against Baïkal as it ships.
+      - run: pnpm e2e --project=desktop tests/e2e/login.spec.ts tests/e2e/contacts.spec.ts
+        env:
+          E2E_EXTERNAL_APP: "1"
+          E2E_SERVER: baikal-digest
       - if: failure()
         run: docker logs natel
       - if: failure()

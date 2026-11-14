@@ -21,8 +21,8 @@ const (
 var errFull = errors.New("too many sessions")
 
 type session struct {
-	username      string
-	authorization string
+	username   string
+	credential credential
 	// cookie is the name the token was issued under: a token read under the
 	// other name was slipped in, as a plain cookie from a sibling subdomain.
 	cookie   string
@@ -57,7 +57,7 @@ func randomToken() (string, error) {
 }
 
 // open creates a session and returns its token.
-func (st *store) open(username, authorization, cookie string) (string, error) {
+func (st *store) open(username string, cred credential, cookie string) (string, error) {
 	token, err := randomToken()
 	if err != nil {
 		return "", err
@@ -73,11 +73,11 @@ func (st *store) open(username, authorization, cookie string) (string, error) {
 		}
 	}
 	st.sessions[sha256.Sum256([]byte(token))] = &session{
-		username:      username,
-		authorization: authorization,
-		cookie:        cookie,
-		created:       now,
-		lastSeen:      now,
+		username:   username,
+		credential: cred,
+		cookie:     cookie,
+		created:    now,
+		lastSeen:   now,
 	}
 	return token, nil
 }

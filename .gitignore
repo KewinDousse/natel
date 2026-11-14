@@ -11,6 +11,7 @@ vite.config.d.ts
 vitest.config.d.ts
 src/dav/proxy-location.d.ts
 session/dev-session.d.ts
+session/digest.d.ts
 
 # env
 .env

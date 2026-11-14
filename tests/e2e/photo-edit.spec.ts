@@ -394,8 +394,7 @@ test("removes every photo", async ({ page }) => {
 });
 
 test("writes a new photo using the vCard version served by the server", async ({ page }) => {
-  // sabre/dav serves every card as vCard 3.0 unless asked for 4.0.
-  test.skip(SERVER_NAME === "baikal", "Baïkal hands the card over as 3.0");
+  test.skip(!!SERVER.servesVcard3, "the server hands the card over as 3.0");
   await putCard(
     "grace",
     SERVER_NAME === "radicale"
@@ -426,7 +425,7 @@ test("writes a new photo using the vCard version served by the server", async ({
 test("keeps a vCard 4.0 photo as the server stored it when another field is saved", async ({
   page,
 }) => {
-  test.skip(SERVER_NAME === "baikal", "Baïkal hands the card over as 3.0");
+  test.skip(!!SERVER.servesVcard3, "the server hands the card over as 3.0");
   await putCard(
     "grace",
     SERVER_NAME === "radicale"

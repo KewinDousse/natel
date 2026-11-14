@@ -571,7 +571,7 @@ session's lifetime. Sign-out revokes the session on the server; if that
 request fails, the user is told and stays signed in. Each `/dav` request
 costs a loopback round trip. The repository gains Go code with its own tests
 and CI job, security code reviewed before each release.
-ADR 046 amends the choice of cookie.
+ADR 046 amends the choice of cookie. ADR 054 adds Digest sign-in.
 
 ## 033 — The official Caddy binary on a plain Alpine base
 
@@ -1051,3 +1051,42 @@ that moves up when one before it is removed: it is written with the text
 escapes. ical.js reads a card with the 4.0 types only when `VERSION:4.0` is
 its first property: in a card whose `VERSION:4.0` comes later, a property
 whose 3.0 type is not `uri`, such as `GEO`, is outside this entry. Amends ADR 023 and 024.
+
+## 054 — Sign in with Digest where the server asks for it
+
+**Context.** Baïkal ships with Digest authentication (RFC 7616). Natel sent
+only Basic, so on a Baïkal left as installed every sign-in failed as a wrong
+password.
+
+**Decision.** `natel-session` sends each sign-in `PROPFIND` first without
+credentials, and the server's answer picks the scheme. It then sends the
+same `PROPFIND` once, signed in that scheme:
+- A 401 with a Digest challenge Natel can answer gets Digest, even when
+  Basic is offered too.
+- A 401 that offers Basic, or no challenge, gets Basic, as does a 207.
+- Any other answer picks no scheme, and the next context root is asked the
+  same way. A 401 whose challenges Natel can't answer fails the sign-in as
+  an unexpected answer.
+- The password never goes out in Basic to a server that asked for another
+  scheme, which matters on plain HTTP.
+- Digest answers the first challenge it can: `MD5`, `SHA-256` and their
+  `-sess` variants, with `qop=auth` or without `qop`. A challenge that
+  offers only `auth-int` is skipped: it would sign each body.
+- The session keeps the credential that worked: the Basic header, or the
+  challenge's realm, nonce and opaque with the password's hash, not the
+  password.
+- `forward_auth` names the request's method and URI to `/auth`
+  (`X-Forwarded-Method`, `X-Forwarded-Uri`), and `/auth` signs them. The
+  nonce from sign-in serves the whole session, each use counted in `nc`.
+- No setting picks the scheme: the server already states it.
+- Once a scheme is picked, a 401 or 403 rejects the password at once.
+
+`session/digest.ts` mirrors it for Vite's servers and the e2e helpers. CI
+runs the e2e suite against Baïkal in Basic and in Digest, and the image job
+runs sign-in and editing through Caddy against Baïkal in Digest.
+
+**Consequences.** A Baïkal left as installed works without a change to its
+settings. Each sign-in costs one more request. A server that expires its
+nonces, as Apache's `mod_auth_digest` does, ends the session when it does:
+the app shows it as expired, and signing in again takes a new nonce. Digest's hash of the password stays in
+memory as the password did. This amends ADR 032.
