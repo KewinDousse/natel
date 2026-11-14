@@ -29,6 +29,7 @@ import {
   keepUrisAsWritten,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
+  versionFirst,
 } from "./ical-workarounds";
 import { updatePhotoProperty } from "./photo";
 import {
@@ -84,7 +85,7 @@ encodeVcard3Semicolons();
  * have the body text can still construct a Contact.
  */
 export function parse(text: string, href = "", etag = ""): Contact {
-  const jCal = ICAL.parse(text);
+  const jCal = ICAL.parse(versionFirst(text));
   const raw = new ICAL.Component(jCal);
   retypeTextBirthdays(raw);
   unescapeDataUriSemicolons(raw);

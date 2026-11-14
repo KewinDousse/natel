@@ -102,3 +102,27 @@ export function unescapeDataUriSemicolons(raw: RawComponent): void {
     if (repaired !== value) prop.setValue(repaired);
   }
 }
+
+/** A content line with its line ending and folded continuations. */
+const CONTENT_LINE = /[^\r\n]*(?:\r\n|\n|\r|$)(?:[ \t][^\r\n]*(?:\r\n|\n|\r|$))*/g;
+
+/**
+ * ical.js reads and writes a card with the types of its version only when
+ * `VERSION` is its first property, where RFC 6350 §6.7.9 puts it. Move a
+ * later `VERSION` line there, unchanged, before ical.js reads the card. See
+ * DECISIONS.md 054.
+ */
+export function versionFirst(text: string): string {
+  const lines = (text.match(CONTENT_LINE) ?? []).filter((line) => line !== "");
+  const begin = lines.findIndex((line) => /^BEGIN:VCARD[ \t]*(?:\r\n|\n|\r)?$/i.test(line));
+  if (begin === -1) return text;
+  const end = lines.findIndex((line, i) => i > begin && /^END:VCARD/i.test(line));
+  const version = lines.findIndex(
+    (line, i) => i > begin && (end === -1 || i < end) && /^VERSION[;:]/i.test(line),
+  );
+  if (version <= begin + 1) return text;
+  const [line] = lines.splice(version, 1);
+  if (line === undefined) return text;
+  lines.splice(begin + 1, 0, line);
+  return lines.join("");
+}

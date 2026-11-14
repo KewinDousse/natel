@@ -1051,3 +1051,26 @@ that moves up when one before it is removed: it is written with the text
 escapes. ical.js reads a card with the 4.0 types only when `VERSION:4.0` is
 its first property: in a card whose `VERSION:4.0` comes later, a property
 whose 3.0 type is not `uri`, such as `GEO`, is outside this entry. Amends ADR 023 and 024.
+Amended by ADR 054 for a card whose `VERSION` is not its first property.
+
+## 054 — A card's VERSION is moved to its first line
+
+**Context.** ical.js reads a card with the 4.0 types only when `VERSION:4.0`
+is its first property, and writes it with the 3.0 types only when
+`VERSION:3.0` is. RFC 6350 §6.7.9 puts `VERSION` right after `BEGIN:VCARD`,
+but some cards have it later (#15). A save of such a card rewrote properties
+the user never changed, against ADR 005: in 4.0, `GEO:geo:46.5,6.6` became
+`GEO;VALUE=FLOAT:0`; in 3.0, `GEO:46.5;6.6` became
+`GEO;VALUE=FLOAT:46.5,6.6`; in both, `SOURCE` gained `VALUE=UNKNOWN`.
+
+**Decision.** Before ical.js reads a card, `versionFirst` in `src/vcard/`, a
+named workaround, moves a later `VERSION` line, unchanged, right after
+`BEGIN:VCARD`. The card is then read, edited and written as the same card
+opening with `VERSION`.
+
+**Rejected.** Keeping `VERSION` in place: ical.js would need a workaround
+when reading, adding a property and writing.
+
+**Consequences.** A card whose `VERSION` came later is saved with it on its
+second line; no other line moves. A card without `VERSION`, which both RFCs
+forbid, is outside this entry. Amends ADR 053.
