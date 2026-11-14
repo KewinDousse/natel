@@ -12,6 +12,7 @@
 import ICAL from "ical.js";
 import type { Contact, EditableFields, RawComponent, RawProperty } from "../model/contact";
 import {
+  addPropertyWithValue,
   appleLabelOf,
   appleLabelProperty,
   dropAppleLabel,
@@ -21,7 +22,6 @@ import {
   propertyToField,
   replacePropertiesInPlace,
   valueText,
-  writtenValue,
 } from "./fields";
 import {
   decodeEscapedSemicolons,
@@ -264,10 +264,11 @@ function memberPropertyOf(card: Contact): string {
 export function addMember(card: Contact, uid: string): boolean {
   const bare = uid.trim().replace(/^urn:uuid:/i, "");
   if (groupCardOf(card).members.includes(bare)) return false;
-  const prop = new ICAL.Property(memberPropertyOf(card));
-  // Added first, it takes the default type of the card's version.
-  card.raw.addProperty(prop);
-  prop.setValue(writtenValue(card.raw, prop, memberValue(uid.trim())));
+  addPropertyWithValue(
+    card.raw,
+    new ICAL.Property(memberPropertyOf(card)),
+    memberValue(uid.trim()),
+  );
   return true;
 }
 

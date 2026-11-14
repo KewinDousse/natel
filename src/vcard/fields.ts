@@ -85,11 +85,7 @@ function escapeLabel(text: string): string {
   return text.replace(/[\\,;]/g, (char) => `\\${char}`).replace(/\r?\n/g, "\\n");
 }
 
-/**
- * Natel holds a uri as written (DECISIONS.md 053), and shows and edits it
- * with the text escapes clients decode, except in a 3.0 card, where a uri
- * carries none.
- */
+/** A 3.0 uri carries no escape (DECISIONS.md 053). */
 function escapesUri(raw: RawComponent, prop: RawProperty): boolean {
   return versionOf(raw) !== "3.0" && (prop.toJSON() as [string, unknown, string])[2] === "uri";
 }
@@ -105,18 +101,33 @@ export function valueText(raw: RawComponent, prop: RawProperty): string {
 }
 
 /**
- * The value to set for `text`: `written`, the value the property held, when
+ * The value to set for `text`: `written`, the value the property holds, when
  * it still reads as `text`, so an untouched uri keeps its bytes.
  */
 export function writtenValue(
   raw: RawComponent,
   prop: RawProperty,
   text: string,
-  written?: string,
+  written = String(prop.getFirstValue() ?? ""),
 ): string {
   if (!escapesUri(raw, prop)) return text;
-  if (written !== undefined && uriText(written) === text) return written;
+  if (uriText(written) === text) return written;
   return ICAL.design.vcard.value.text.toICAL(text);
+}
+
+/**
+ * Adds `prop` to the card, then sets `text` as its value: in the card, it
+ * takes the default type of the card's version, which `writtenValue` reads.
+ */
+export function addPropertyWithValue(
+  raw: RawComponent,
+  prop: RawProperty,
+  text: string,
+  type?: string,
+): void {
+  raw.addProperty(prop);
+  if (type) prop.resetType(type);
+  prop.setValue(writtenValue(raw, prop, text));
 }
 
 export function labelledField(raw: RawComponent, prop: RawProperty): ContactField {
@@ -216,18 +227,13 @@ function addFieldProperty(raw: RawComponent, name: string, field: ContactField):
       prop.setParameter(key, val);
     }
   }
-  // In the card, it takes the default type of the card's version, which
-  // `writtenValue` reads.
-  raw.addProperty(prop);
-  if (field.type) {
-    prop.resetType(field.type);
-  }
-  prop.setValue(writtenValue(raw, prop, field.value));
+  addPropertyWithValue(raw, prop, field.value, field.type);
 }
 
 /** Copy field data onto an existing property in place, preserving its position in the component. */
 function updatePropertyInPlace(raw: RawComponent, prop: RawProperty, field: ContactField): void {
-  const written = escapesUri(raw, prop) ? String(prop.getFirstValue() ?? "") : undefined;
+  // Read before `resetType`, which clears the values.
+  const written = String(prop.getFirstValue() ?? "");
   if (field.type) {
     prop.resetType(field.type);
   }

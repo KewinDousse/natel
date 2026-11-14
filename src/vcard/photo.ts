@@ -5,7 +5,7 @@
 
 import ICAL from "ical.js";
 import type { Contact, PhotoEdit, RawComponent, RawProperty } from "../model/contact";
-import { versionOf } from "./fields";
+import { addPropertyWithValue, versionOf } from "./fields";
 
 /** A photo as the page shows it: base64 image data and its media type. */
 export type Photo = { mediaType: string; base64: string };
@@ -133,13 +133,12 @@ export function updatePhotoProperty(raw: RawComponent, photo: PhotoEdit): void {
   if (photo.kind === "removed") return;
   const prop = new ICAL.Property("photo");
   if (version === "4.0") {
-    prop.resetType("uri");
-    prop.setValue(`data:${photo.mediaType};base64\\,${photo.base64}`);
-  } else {
-    prop.resetType("binary");
-    prop.setParameter("encoding", "b");
-    prop.setParameter("type", PHOTO_TYPES[photo.mediaType]);
-    prop.setValue(photo.base64);
+    addPropertyWithValue(raw, prop, `data:${photo.mediaType};base64,${photo.base64}`, "uri");
+    return;
   }
+  prop.resetType("binary");
+  prop.setParameter("encoding", "b");
+  prop.setParameter("type", PHOTO_TYPES[photo.mediaType]);
+  prop.setValue(photo.base64);
   raw.addProperty(prop);
 }

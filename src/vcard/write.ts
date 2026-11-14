@@ -17,6 +17,7 @@ import {
   writesAppleYearless,
 } from "./apple-birthday";
 import {
+  addPropertyWithValue,
   addressCodesOf,
   appleLabelOf,
   componentText,
@@ -72,12 +73,9 @@ export function updateFirstStringProperty(raw: RawComponent, name: string, value
   const prop = raw.getFirstProperty(name);
   if (value.length > 0) {
     if (prop) {
-      setPropertyValue(prop, writtenValue(raw, prop, value, String(prop.getFirstValue() ?? "")));
+      setPropertyValue(prop, writtenValue(raw, prop, value));
     } else {
-      const newProp = new ICAL.Property(name);
-      // Added first, it takes the default type of the card's version.
-      raw.addProperty(newProp);
-      newProp.setValue(writtenValue(raw, newProp, value));
+      addPropertyWithValue(raw, new ICAL.Property(name), value);
     }
   } else if (prop) {
     // When clearing: keep the property if there are remaining values beyond the first
