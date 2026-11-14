@@ -64,6 +64,7 @@ describe("a card whose VERSION comes later", () => {
     ["no line ending after END:VCARD", "BEGIN:VCARD\r\nFN:Ada\r\nVERSION:4.0\r\nEND:VCARD"],
     ["a parameter", "BEGIN:VCARD\r\nFN:Ada\r\nVERSION;X-A=1:4.0\r\nEND:VCARD\r\n"],
     ["a fold inside its name", "BEGIN:VCARD\r\nFN:Ada\r\nVERS\r\n ION:4.0\r\nEND:VCARD\r\n"],
+    ["a folded END:VCARD", "BEGIN:VCARD\r\nFN:Ada\r\nVERSION:4.0\r\nEND:VC\r\n ARD\r\n"],
     ["VERSION already first", "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Ada\r\nEND:VCARD\r\n"],
   ])("reads the VERSION line first, with %s", (_, card) => {
     const [first, second] = parse(card).raw.getAllProperties();
@@ -88,13 +89,28 @@ describe("a card whose VERSION comes later", () => {
     expect(unfold(serialise(contact))).toContain("\r\nGEO:geo:46.5,6.6\r\n");
   });
 
-  it("moves the card's own VERSION, not that of a nested AGENT card", () => {
-    const agent = ["AGENT:", "BEGIN:VCARD", "FN:Bob", "VERSION:2.1", "END:VCARD"];
-    const contact = parse(text(["FN:Ada", ...agent, "VERSION:3.0"]));
+  it.each([
+    [
+      "an AGENT card",
+      ["AGENT:", "BEGIN:VCARD", "FN:Bob", "VERSION:2.1", "END:VCARD"],
+      "\r\nBEGIN:VCARD\r\nFN:Bob\r\nVERSION:2.1\r\nEND:VCARD\r\n",
+    ],
+    [
+      "an AGENT card with a folded BEGIN",
+      ["AGENT:", "BEGIN:VC\r\n ARD", "FN:Bob", "VERSION:2.1", "END:VCARD"],
+      "\r\nBEGIN:VCARD\r\nFN:Bob\r\nVERSION:2.1\r\nEND:VCARD\r\n",
+    ],
+    [
+      "another component",
+      ["BEGIN:X-A", "VERSION:9", "END:X-A"],
+      "\r\nBEGIN:X-A\r\nVERSION:9\r\nEND:X-A\r\n",
+    ],
+  ])("moves the card's own VERSION, not that of %s nested in it", (_, nest, kept) => {
+    const contact = parse(text(["FN:Ada", ...nest, "VERSION:3.0"]));
     contact.fields.fn = "Ada L";
     const saved = unfold(serialise(contact));
     expect(saved.startsWith("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ada L\r\n")).toBe(true);
-    expect(saved).toContain("\r\nBEGIN:VCARD\r\nFN:Bob\r\nVERSION:2.1\r\nEND:VCARD\r\n");
+    expect(saved).toContain(kept);
   });
 
   it("leaves a card without VERSION as it is", () => {

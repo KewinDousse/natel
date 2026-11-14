@@ -121,31 +121,31 @@ export function versionFirst(text: string): string {
   // The usual card, without splitting a text that may hold a photo.
   if (/^[ \t]*BEGIN:VCARD[ \t]*\r?\nVERSION[;:]/i.test(text)) return text;
   const lines = text.match(CONTENT_LINE) ?? [];
-  const begin = lines.findIndex((line) => /^[ \t]*BEGIN:VCARD[ \t]*\r?\n?$/i.test(line));
+  const begin = lines.findIndex((line) =>
+    /^[ \t]*BEGIN:VCARD[ \t]*\r?\n?$/i.test(unfoldLine(line)),
+  );
   if (begin === -1) return text;
-  // The card's own VERSION, not that of a vCard 2.1 AGENT card nested in it.
+  // The card's own VERSION, not that of a component nested in it, such as a
+  // vCard 2.1 AGENT card. ical.js nests on any BEGIN and closes on any END.
   let nested = 0;
   let version = -1;
   for (let i = begin + 1; i < lines.length; i++) {
     const line = lines[i] ?? "";
-    if (/^BEGIN:VCARD/i.test(line)) nested++;
-    else if (/^END:VCARD/i.test(line)) {
+    // Unfold only a line that may matter, not a long PHOTO.
+    if (!/^[BEV]/i.test(line)) continue;
+    const unfolded = unfoldLine(line);
+    if (/^BEGIN:/i.test(unfolded)) nested++;
+    else if (/^END:/i.test(unfolded)) {
       if (nested === 0) {
         if (version === -1 || version === begin + 1) return text;
         lines.splice(begin + 1, 0, ...lines.splice(version, 1));
         return lines.join("");
       }
       nested--;
-    } else if (
-      nested === 0 &&
-      version === -1 &&
-      // Unfold only a line that may be VERSION, not a long PHOTO.
-      /^V/i.test(line) &&
-      /^VERSION[;:]/i.test(unfoldLine(line))
-    ) {
+    } else if (nested === 0 && version === -1 && /^VERSION[;:]/i.test(unfolded)) {
       version = i;
     }
   }
-  // Without END:VCARD, ical.js rejects the card anyway.
+  // Without its END, ical.js rejects the card anyway.
   return text;
 }
