@@ -1025,41 +1025,23 @@ Contacts. A mixed book can show different members per client, and another
 browser asks again. This amends ADR 019, since this stored choice is not a
 display preference, and ADR 022's format for new memberships.
 
-## 053 — A vCard 4.0 uri is copied as written
+## 053 — A vCard 4.0 uri is kept as written
 
-**Context.** ical.js reads and writes a 4.0 `uri` value as text, decoding and
-adding the escapes `\\`, `\,` and `\n`. A save then rewrote
-every `uri` the user never changed: `GEO:geo:46.5,6.6` became
-`geo:46.5\,6.6`, a `PHOTO` or `KEY` data URI `base64\,…`, against ADR 005.
-Clients still write these escapes in a `uri`, Radicale among them, so Natel
-has to decode them where it shows one. A 3.0 `uri` is already copied as
-written.
+**Context.** ical.js reads and writes a 4.0 `uri` value as text, so a save
+rewrote every `uri` the user never changed: `GEO:geo:46.5,6.6` became
+`geo:46.5\,6.6`, a `PHOTO` data URI `base64\,…`, against ADR 005. Clients,
+Radicale among them, still write text escapes in a `uri`.
 
 **Decision.** `keepUrisAsWritten` in `src/vcard/`, a named workaround, makes
-ical.js read and write every 4.0 `uri` value as is. ical.js parses a card
-with the 3.0 rules unless `VERSION:4.0` comes first, and writes it with the
-4.0 rules unless `VERSION:3.0` comes first, so every property ical.js reads
-as a `uri` is held as written.
-- In a card whose `VERSION` is not 3.0, where Natel shows or edits a `uri`
-  (`URL`, `TEL`, `MEMBER`, the photo), it decodes the text escapes, as
-  clients do.
-- On save, a field whose decoded value is unchanged keeps its value as
-  written in the property it replaces, the same one at the same position.
-  A changed or new one is written with the text escapes: `\` as `\\`, `,`
-  as `\,`, a newline as `\n`, `;` unescaped.
-- A new 4.0 photo is still written `data:<type>;base64\,…`, the form
-  Radicale keeps (ADR 023): it cuts an unescaped one at the comma.
-- In `PHOTO` and `LOGO`, a run of two or more backslashes before a data
-  URI's semicolon, which repeated saves pile up on Radicale, is turned back
-  into `;`. A single `\;` is kept as read.
+ical.js keep every 4.0 `uri` value as written.
+- Where Natel shows or edits a `uri` (`URL`, `TEL`, `MEMBER`, the photo), it
+  decodes the text escapes, as clients do.
+- On save, an unchanged value keeps its bytes. A changed or new one is
+  written with the text escapes, a new photo included (`base64\,…`, ADR 023).
 
 **Rejected.** Writing back the source line of every untouched property: a
 broader change than this fix needs, left for later.
 
-**Consequences.** An untouched 4.0 `uri` keeps its value as written, escaped
-or not, except a photo or logo with such a run, and a phone number that
-moves to another position when one before it is removed or reordered: it is
-written with the text escapes. In a card whose `VERSION:4.0` is not its
-first property, ical.js reads these properties with the 3.0 types, which
-this entry does not change. A `uri` Natel neither shows nor edits, such as `GEO`,
-`KEY` or `SOURCE`, is never decoded. Amends ADR 023 and 024.
+**Consequences.** An untouched 4.0 `uri` survives a save. ical.js reads a
+card with the 4.0 types only when `VERSION:4.0` is its first property, so
+other cards are outside this entry. Amends ADR 023 and 024.
