@@ -94,7 +94,12 @@ describe("sniffImageType", () => {
 
 describe("writing photos", () => {
   it("keeps every photo byte for byte when another field is edited", () => {
-    for (const name of ["photo-apple-v3.vcf", "photo-exif-orientation-6.vcf", "photo-webp.vcf"]) {
+    for (const name of [
+      "photo-apple-v3.vcf",
+      "photo-davx5-v4.vcf",
+      "photo-exif-orientation-6.vcf",
+      "photo-webp.vcf",
+    ]) {
       const text = fixture(name);
       const contact = parse(text);
       contact.fields.note = "edited";
@@ -108,30 +113,36 @@ describe("writing photos", () => {
     expect(photoOf(parse(serialise(contact)))?.base64).toBe(bytes.jpeg);
   });
 
-  it("writes a 4.0 data URI read with or without its comma escaped as ical.js does", () => {
+  it("keeps a 4.0 data URI's comma as read, escaped or not, when another field is edited", () => {
     for (const value of [
       `data:image/png;base64,${bytes.png}`,
       `data:image/png;base64\\,${bytes.png}`,
+      `DATA:image/png;base64,${bytes.png}`,
     ]) {
-      const contact = card(["VERSION:4.0", "FN:X", `item1.PHOTO:${value}`, `LOGO:${value}`]);
-      contact.fields.note = "edited";
-      const first = serialise(contact);
-      expect(photoLines(first)).toEqual([`item1.PHOTO:data:image/png;base64\\,${bytes.png}`]);
-      expect(unfold(first)).toContain(`LOGO:data:image/png;base64\\,${bytes.png}`);
-      const again = parse(first);
-      again.fields.note = "again";
-      expect(photoLines(serialise(again))).toEqual(photoLines(first));
+      const contact = card([
+        "VERSION:4.0",
+        "FN:X",
+        `item1.PHOTO:${value}`,
+        `LOGO:${value}`,
+        `KEY:data:application/pgp-keys;base64,QUJD`,
+      ]);
+      contact.fields.org = "Example Company";
+      const text = unfold(serialise(contact));
+      expect(photoLines(text)).toEqual([`item1.PHOTO:${value}`]);
+      expect(text).toContain(`\r\nLOGO:${value}\r\n`);
+      expect(text).toContain(`\r\nKEY:data:application/pgp-keys;base64,QUJD\r\n`);
+      expect(photoOf(parse(text))?.base64).toBe(bytes.png);
     }
   });
 
-  it("writes a 4.0 data URI stored with its semicolon escaped as ical.js writes it", () => {
+  it("keeps the backslash Radicale stores before a 4.0 data URI's semicolon", () => {
     // As Radicale stores it.
     const value = `data:image/png\\;base64\\,${bytes.png}`;
     const contact = card(["VERSION:4.0", "FN:X", `item1.PHOTO:${value}`, `LOGO:${value}`]);
     contact.fields.note = "edited";
     const text = serialise(contact);
-    expect(photoLines(text)).toEqual([`item1.PHOTO:data:image/png;base64\\,${bytes.png}`]);
-    expect(unfold(text)).toContain(`LOGO:data:image/png;base64\\,${bytes.png}`);
+    expect(photoLines(text)).toEqual([`item1.PHOTO:${value}`]);
+    expect(unfold(text)).toContain(`\r\nLOGO:${value}\r\n`);
     expect(photoOf(parse(text))?.base64).toBe(bytes.png);
   });
 
@@ -208,7 +219,7 @@ describe("changing and removing photos", () => {
     expect(photoLines(serialise(removed))).toEqual([]);
   });
 
-  it("replaces every PHOTO of a 4.0 card with a data URI whose comma ical.js escapes", () => {
+  it("replaces every PHOTO of a 4.0 card with a data URI whose comma is escaped", () => {
     const source = fixture("photo-davx5-v4.vcf").replace(
       "END:VCARD",
       "PHOTO;MEDIATYPE=image/jpeg:https://example.org/a.jpg\r\nEND:VCARD",

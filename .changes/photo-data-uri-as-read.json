@@ -1,0 +1,4 @@
+{
+  "type": "Fixed",
+  "text": "Saving a vCard 4.0 contact no longer rewrites a photo, link, phone number or other URI value the edit didn't change."
+}

@@ -352,6 +352,8 @@ ADR 052 amends the choice of format for new memberships.
 
 ## 023 — Photos: a small image is kept as it is, a large one scaled down, without the metadata that doesn't show
 
+Amended by ADR 053 for untouched 4.0 data URIs.
+
 **Context.** A photo set in Natel has to show in Android (DAVx⁵) and Apple
 clients, in vCard 3.0 and 4.0. Most platforms re-encode contact photos
 anyway. A large card is refused by a stock server (an nginx in front of
@@ -391,7 +393,7 @@ Google Contacts, and in iPhone Contacts (`compatibility.md`).
 
 ## 024 — The escaped semicolon in text values is read as a semicolon
 
-Amended by ADR 047 for vCard 3.0 writing.
+Amended by ADR 047 for vCard 3.0 writing, and by ADR 053 for 4.0 `uri` values.
 
 **Context.** Radicale escapes every semicolon in text (`NOTE:a\;b`), as
 RFC 2426 asks, but ical.js decodes `\;` only in structured values such as
@@ -1022,3 +1024,30 @@ as group cards: a contact added to one stays invisible in Nextcloud
 Contacts. A mixed book can show different members per client, and another
 browser asks again. This amends ADR 019, since this stored choice is not a
 display preference, and ADR 022's format for new memberships.
+
+## 053 — A vCard 4.0 uri is kept as written
+
+**Context.** ical.js reads and writes a 4.0 `uri` value as text, so a save
+rewrote every `uri` the user never changed: `GEO:geo:46.5,6.6` became
+`geo:46.5\,6.6`, a `PHOTO` data URI `base64\,…`, against ADR 005. Clients,
+Radicale among them, still write text escapes in a `uri`. ical.js writes
+with the 4.0 types every card that does not open with `VERSION:3.0`.
+
+**Decision.** `keepUrisAsWritten` in `src/vcard/`, a named workaround, makes
+ical.js keep every `uri` value as written, as it already does in a 3.0 card.
+In a card not declared 3.0:
+- Where Natel shows or edits a `uri` (`URL`, `TEL`, `MEMBER`, the photo), it
+  decodes the text escapes, as clients do.
+- On save, an unchanged value keeps its bytes. A changed or new one is
+  written with the text escapes, a new photo included (`base64\,…`, ADR 023).
+- In a `PHOTO` or `LOGO` data URI, a run of backslashes piled up before `;`
+  is repaired (ADR 024), and a single `\;` is kept as read.
+
+**Rejected.** Writing back the source line of every untouched property: a
+broader change than this fix needs, left for later.
+
+**Consequences.** An untouched `uri` survives a save, except a phone number
+that moves up when one before it is removed: it is written with the text
+escapes. ical.js reads a card with the 4.0 types only when `VERSION:4.0` is
+its first property: in a card whose `VERSION:4.0` comes later, a property
+whose 3.0 type is not `uri`, such as `GEO`, is outside this entry. Amends ADR 023 and 024.

@@ -11,7 +11,7 @@ import type {
   VCardAddressField,
 } from "../model/contact";
 import { appleOmittedYear } from "./apple-birthday";
-import { addressCodesOf, appleLabelOf, groupOf } from "./fields";
+import { addressCodesOf, appleLabelOf, groupOf, valueText } from "./fields";
 
 export type TypedProp = { params?: Record<string, string | string[]> };
 
@@ -241,7 +241,7 @@ export function groupCardOf(contact: Contact): { name: string; members: string[]
     ...contact.raw.getAllProperties("member"),
     ...contact.raw.getAllProperties("x-addressbookserver-member"),
   ]) {
-    const value = String(prop.getFirstValue() ?? "").trim();
+    const value = valueText(contact.raw, prop).trim();
     if (value.length > 0) members.push(value.replace(/^urn:uuid:/i, ""));
   }
   return { name, members };

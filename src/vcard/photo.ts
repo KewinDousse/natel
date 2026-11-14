@@ -5,7 +5,7 @@
 
 import ICAL from "ical.js";
 import type { Contact, PhotoEdit, RawComponent, RawProperty } from "../model/contact";
-import { versionOf } from "./fields";
+import { addPropertyWithValue, versionOf } from "./fields";
 
 /** A photo as the page shows it: base64 image data and its media type. */
 export type Photo = { mediaType: string; base64: string };
@@ -89,9 +89,10 @@ export function photoOf(contact: Contact): Photo | null {
       if (mediaType) return { mediaType, base64: value };
       continue;
     }
-    // Some servers store the URI escaped as text (`data:image/jpeg\;base64\,…`).
+    // Some servers store the URI escaped as text (`data:image/jpeg\;base64\,…`),
+    // and saves can pile backslashes up there, which a data URI never holds.
     const uri = /^data:(image\/[\w.+-]+)(?:;[^,;]*)*;base64,(.*)$/i.exec(
-      value.replace(/\\([\\,;])/g, "$1"),
+      value.replace(/\\+([,;])/g, "$1"),
     );
     if (uri?.[1] && uri[2] && headOf(uri[2])) {
       return { mediaType: uri[1].toLowerCase(), base64: uri[2] };
@@ -118,9 +119,9 @@ const PHOTO_TYPES: Record<Extract<PhotoEdit, { kind: "replaced" }>["mediaType"],
 
 /**
  * Replaces every `PHOTO` with the new one, carrying only `ENCODING` and
- * `TYPE` on a 3.0 card, or a data URI with no parameter on a 4.0 one, which
- * ical.js writes with its comma escaped; or removes them all (ADR 023). An
- * unchanged photo is left alone.
+ * `TYPE` on a 3.0 card, or a data URI with no parameter and its comma
+ * escaped on a 4.0 one, the form Radicale keeps; or removes them all
+ * (ADR 023). An unchanged photo is left alone.
  */
 export function updatePhotoProperty(raw: RawComponent, photo: PhotoEdit): void {
   if (photo.kind === "unchanged") return;
@@ -132,13 +133,12 @@ export function updatePhotoProperty(raw: RawComponent, photo: PhotoEdit): void {
   if (photo.kind === "removed") return;
   const prop = new ICAL.Property("photo");
   if (version === "4.0") {
-    prop.resetType("uri");
-    prop.setValue(`data:${photo.mediaType};base64,${photo.base64}`);
-  } else {
-    prop.resetType("binary");
-    prop.setParameter("encoding", "b");
-    prop.setParameter("type", PHOTO_TYPES[photo.mediaType]);
-    prop.setValue(photo.base64);
+    addPropertyWithValue(raw, prop, `data:${photo.mediaType};base64,${photo.base64}`, "uri");
+    return;
   }
+  prop.resetType("binary");
+  prop.setParameter("encoding", "b");
+  prop.setParameter("type", PHOTO_TYPES[photo.mediaType]);
+  prop.setValue(photo.base64);
   raw.addProperty(prop);
 }

@@ -85,8 +85,54 @@ function escapeLabel(text: string): string {
   return text.replace(/[\\,;]/g, (char) => `\\${char}`).replace(/\r?\n/g, "\\n");
 }
 
+/** A 3.0 uri carries no escape (DECISIONS.md 053). */
+function escapesUri(raw: RawComponent, prop: RawProperty): boolean {
+  return versionOf(raw) !== "3.0" && (prop.toJSON() as [string, unknown, string])[2] === "uri";
+}
+
+function uriText(value: string): string {
+  return String(ICAL.design.vcard.value.text.fromICAL(value, ";"));
+}
+
+/** A property's first value as Natel shows and edits it. */
+export function valueText(raw: RawComponent, prop: RawProperty): string {
+  const value = String(prop.getFirstValue() ?? "");
+  return escapesUri(raw, prop) ? uriText(value) : value;
+}
+
+/**
+ * The value to set for `text`: `written`, the value the property holds, when
+ * it still reads as `text`, so an untouched uri keeps its bytes.
+ */
+export function writtenValue(
+  raw: RawComponent,
+  prop: RawProperty,
+  text: string,
+  written = String(prop.getFirstValue() ?? ""),
+): string {
+  if (!escapesUri(raw, prop)) return text;
+  if (uriText(written) === text) return written;
+  return ICAL.design.vcard.value.text.toICAL(text);
+}
+
+/**
+ * Adds `prop` to the card, then sets `text` as its value: in the card, it
+ * takes the default type of the card's version, which `writtenValue` reads.
+ */
+export function addPropertyWithValue(
+  raw: RawComponent,
+  prop: RawProperty,
+  text: string,
+  type?: string,
+): void {
+  raw.addProperty(prop);
+  if (type) prop.resetType(type);
+  prop.setValue(writtenValue(raw, prop, text));
+}
+
 export function labelledField(raw: RawComponent, prop: RawProperty): ContactField {
-  const field = propertyToField(prop);
+  const read = propertyToField(prop);
+  const field = escapesUri(raw, prop) ? { ...read, value: uriText(read.value) } : read;
   const label = appleLabelOf(raw, prop);
   return label === undefined ? field : { ...field, label };
 }
@@ -172,27 +218,26 @@ function freeGroup(raw: RawComponent): string {
   return `item${n}`;
 }
 
-/** Rebuild a RawProperty from a ContactField. */
-function fieldToProperty(name: string, field: ContactField): RawProperty {
+/** Add a RawProperty built from a ContactField. */
+function addFieldProperty(raw: RawComponent, name: string, field: ContactField): void {
   const prop = new ICAL.Property(name);
-  if (field.type) {
-    prop.resetType(field.type);
-  }
-  prop.setValue(field.value);
+  // Set on a property outside a card, so ical.js stores them as given.
   if (field.params) {
     for (const [key, val] of Object.entries(field.params)) {
       prop.setParameter(key, val);
     }
   }
-  return prop;
+  addPropertyWithValue(raw, prop, field.value, field.type);
 }
 
 /** Copy field data onto an existing property in place, preserving its position in the component. */
-function updatePropertyInPlace(prop: RawProperty, field: ContactField): void {
+function updatePropertyInPlace(raw: RawComponent, prop: RawProperty, field: ContactField): void {
+  // Read before `resetType`, which clears the values.
+  const written = String(prop.getFirstValue() ?? "");
   if (field.type) {
     prop.resetType(field.type);
   }
-  prop.setValue(field.value);
+  prop.setValue(writtenValue(raw, prop, field.value, written));
 
   // Remove any existing params that are absent from the incoming field,
   // so deleted/reordered properties don't carry stale parameters.
@@ -231,7 +276,7 @@ export function replacePropertiesInPlace(
   for (let i = 0; i < min; i++) {
     const prop = existing[i];
     if (prop) {
-      updatePropertyInPlace(prop, newFields[i] as ContactField);
+      updatePropertyInPlace(raw, prop, newFields[i] as ContactField);
     }
   }
 
@@ -247,7 +292,7 @@ export function replacePropertiesInPlace(
   for (let i = min; i < newFields.length; i++) {
     const field = newFields[i];
     if (field) {
-      raw.addProperty(fieldToProperty(propName, field));
+      addFieldProperty(raw, propName, field);
     }
   }
 }

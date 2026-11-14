@@ -440,6 +440,5 @@ test("keeps a vCard 4.0 photo as the server stored it when another field is save
   await page.getByLabel("First name", { exact: true }).fill("Amazing Grace");
   await page.getByRole("button", { name: "Save" }).click();
   await expect.poll(() => getCard("grace")).toContain("Amazing Grace");
-  // Xandikos keeps the comma as the fixture wrote it, and Natel escapes it.
-  expect(decoded(photoLines(await getCard("grace")))).toEqual(decoded(stored));
+  expect(photoLines(await getCard("grace"))).toEqual(stored);
 });
