@@ -1053,7 +1053,7 @@ its first property: in a card whose `VERSION:4.0` comes later, a property
 whose 3.0 type is not `uri`, such as `GEO`, is outside this entry. Amends ADR 023 and 024.
 Amended by ADR 054 for a card whose `VERSION` is not its first property.
 
-## 054 — A card's VERSION is moved to its first line
+## 054 — A card's VERSION is moved right after BEGIN:VCARD
 
 **Context.** ical.js reads a card with the 4.0 types only when `VERSION:4.0`
 is its first property, and writes it with the 3.0 types only when
@@ -1072,5 +1072,5 @@ opening with `VERSION`.
 when reading, adding a property and writing.
 
 **Consequences.** A card whose `VERSION` came later is saved with it on its
-second line; no other line moves. A card without `VERSION`, which both RFCs
-forbid, is outside this entry. Amends ADR 053.
+second line; no other line moves. A card without `VERSION`, which RFC 2426
+and RFC 6350 forbid, is outside this entry. Amends ADR 053.

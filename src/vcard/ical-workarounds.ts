@@ -106,6 +106,8 @@ export function unescapeDataUriSemicolons(raw: RawComponent): void {
 /** A content line with its line ending and folded continuations. */
 const CONTENT_LINE = /[^\r\n]*(?:\r\n|\n|\r|$)(?:[ \t][^\r\n]*(?:\r\n|\n|\r|$))*/g;
 
+const unfoldLine = (line: string) => line.replace(/(?:\r\n|\n|\r)[ \t]/g, "");
+
 /**
  * ical.js reads and writes a card with the types of its version only when
  * `VERSION` is its first property, where RFC 6350 §6.7.9 puts it. Move a
@@ -118,7 +120,7 @@ export function versionFirst(text: string): string {
   if (begin === -1) return text;
   const end = lines.findIndex((line, i) => i > begin && /^END:VCARD/i.test(line));
   const version = lines.findIndex(
-    (line, i) => i > begin && (end === -1 || i < end) && /^VERSION[;:]/i.test(line),
+    (line, i) => i > begin && (end === -1 || i < end) && /^VERSION[;:]/i.test(unfoldLine(line)),
   );
   if (version <= begin + 1) return text;
   const [line] = lines.splice(version, 1);
