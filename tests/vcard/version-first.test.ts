@@ -82,6 +82,21 @@ describe("a card whose VERSION comes later", () => {
     expect(readImportCard(card).uid).toBe(parse(card).raw.getFirstPropertyValue("uid"));
   });
 
+  it("moves VERSION after spaces before BEGIN:VCARD", () => {
+    const contact = parse(`  ${text(["FN:Ada", "VERSION:4.0", "GEO:geo:46.5,6.6"])}`);
+    contact.fields.fn = "Ada L";
+    expect(unfold(serialise(contact))).toContain("\r\nGEO:geo:46.5,6.6\r\n");
+  });
+
+  it("moves the card's own VERSION, not that of a nested AGENT card", () => {
+    const agent = ["AGENT:", "BEGIN:VCARD", "FN:Bob", "VERSION:2.1", "END:VCARD"];
+    const contact = parse(text(["FN:Ada", ...agent, "VERSION:3.0"]));
+    contact.fields.fn = "Ada L";
+    const saved = unfold(serialise(contact));
+    expect(saved.startsWith("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ada L\r\n")).toBe(true);
+    expect(saved).toContain("\r\nBEGIN:VCARD\r\nFN:Bob\r\nVERSION:2.1\r\nEND:VCARD\r\n");
+  });
+
   it("leaves a card without VERSION as it is", () => {
     const names = parse(text(["FN:Ada", "N:;Ada;;;"]))
       .raw.getAllProperties()
