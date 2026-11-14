@@ -287,6 +287,7 @@ function ContactFiche({
   // Bumped whenever edit mode ends, so late results are ignored.
   const editSession = useRef(0);
   const {
+    editGroups,
     draftGroups,
     setDraftGroups,
     groupFailures,
@@ -318,11 +319,19 @@ function ContactFiche({
       unresolved: added.none,
     };
   }, [delta, groupFormats, chosenFormat]);
+  // A name the edit started with, kept or taken out and typed again, is no new membership.
+  const needsFormat = useCallback(
+    (name: string) =>
+      !editGroups.includes(name) && membershipFormat(name, groupFormats, chosenFormat) === null,
+    [editGroups, groupFormats, chosenFormat],
+  );
   // The group the question is about, and the save waiting for the answer
   // with what started it.
   const [asking, setAsking] = useState<string | null>(null);
   const [heldSave, setHeldSave] = useState<{ from: HTMLElement | null } | null>(null);
   const groupInputRef = useRef<HTMLInputElement>(null);
+  // A name typed in the group field and not yet added.
+  const [groupText, setGroupText] = useState("");
 
   const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
   const dirtyLists = useMemo(() => LISTS.filter((name) => dirty[name]), [dirty]);
@@ -367,6 +376,7 @@ function ContactFiche({
       setAsking(null);
       setHeldSave(null);
       setAnswered(null);
+      setGroupText("");
       setChosenPhoto(null);
       setSaveError(null);
       setSaveStatus("idle");
@@ -417,7 +427,7 @@ function ContactFiche({
   });
 
   // When the blocker fires, show the discard dialog. A group still waiting
-  // for its format stays: the question comes back if editing goes on.
+  // for its format stays, and Save asks about it.
   useEffect(() => {
     if (blockerActive) {
       setShowDelete(false);
@@ -456,6 +466,18 @@ function ContactFiche({
       closeAnswered();
     },
     [formatKey, setFormat, closeAnswered],
+  );
+
+  // A group added with Enter asks for its format at once (ADR 052, rule 4).
+  // During a save, delete or move, Save asks instead: an answer would set
+  // the book's format for a contact that may be leaving it.
+  const changeGroups = useCallback(
+    (names: string[]) => {
+      const added = names.find((name) => !draftGroups.includes(name));
+      setDraftGroups(names);
+      if (added !== undefined && !busy && needsFormat(added)) setAsking(added);
+    },
+    [draftGroups, setDraftGroups, busy, needsFormat],
   );
 
   // Esc closes the open dialog (photo, delete, move, discard or the group
@@ -631,144 +653,77 @@ function ContactFiche({
   // Save — applies the draft to a detached copy: serialise() mutates `raw`
   // in place, so re-parsing keeps the cached contact intact on failure. The
   // card is written only when something on it changed.
-  const handleSave = useCallback(
-    async (from?: HTMLElement) => {
-      // A group without a format yet holds the save until the question is answered.
-      if (unresolved.length > 0) {
-        const active = from ?? document.activeElement;
-        setHeldSave({
-          from: active instanceof HTMLElement && active !== document.body ? active : null,
-        });
-        setAsking((name) => name ?? unresolved[0] ?? null);
-        return;
-      }
-      const validation = validateDraft(draft, dirty);
-      setErrors(validation);
-      setInvalidCount(Object.keys(validation).length);
-      if (!isValid(validation)) {
-        // The first field to correct may be out of sight, far above the bar.
-        requestAnimationFrame(() => {
-          const field = document.querySelector<HTMLElement>('article [aria-invalid="true"]');
-          field?.scrollIntoView?.({ block: "center" });
-          field?.focus({ preventScroll: true });
-        });
-        return;
-      }
-
-      await runSave(draft, async () => {
-        const categories = groupsOf(editBase);
-        const cardChanges =
-          isNew ||
-          isDirty(dirty) ||
-          delta.removed.some((name) => categories.includes(name)) ||
-          categoryAdded.length > 0 ||
-          (cardGroupAdded && editBase.uid.trim() === "");
-        if (!cardChanges) return null;
-        const detached = applyGroupChanges(
-          applyDraft(parse(editBase.raw.toString(), editBase.href, editBase.etag), draft),
-        );
-        if (onCreate !== undefined) return await onCreate(detached);
-        return await updateContact.mutateAsync(detached);
+  const handleSave = useCallback(async () => {
+    // A name still typed joins first, and a group without a format yet holds
+    // the save until the question is answered.
+    const typed = groupText.trim();
+    if (typed !== "" || unresolved.length > 0) {
+      const active = document.activeElement;
+      setHeldSave({
+        from: active instanceof HTMLElement && active !== document.body ? active : null,
       });
-    },
-    [
-      unresolved,
-      draft,
-      dirty,
-      delta,
-      categoryAdded,
-      cardGroupAdded,
-      editBase,
-      isNew,
-      applyGroupChanges,
-      updateContact,
-      runSave,
-      onCreate,
-    ],
-  );
-
-  // A press commits a typed group on blur, before its click. The question
-  // waits for that click, so it never opens under the pointer and swallows
-  // it: a click on Save then holds the save for the answer.
-  const [pressing, setPressing] = useState(false);
-  // The photo's file picker counts as a dialog until it closes, or until the
-  // photo it gave is read and the crop dialog takes over.
-  const [picking, setPicking] = useState(false);
-  useEffect(() => {
-    if (!edit) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const press = () => {
-      clearTimeout(timer);
-      setPressing(true);
-    };
-    // After the click's own handlers: a render in between would undo the
-    // change of a controlled radio. A press with no click, such as a
-    // right-click or one on a control the blur disabled, ends with its
-    // pointerup.
-    const release = (delay: number) => () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => setPressing(false), delay);
-    };
-    // The page gets no press or key while the picker is open, so one also
-    // tells that it closed where the browser fires no cancel.
-    const back = () => {
-      if (!photoInputRef.current?.files?.length) setPicking(false);
-    };
-    const pick = (event: Event) => {
-      if (event.target === photoInputRef.current) setPicking(true);
-    };
-    const unpick = (event: Event) => {
-      if (event.target === photoInputRef.current) back();
-    };
-    const ends: [string, () => void][] = [
-      ["click", release(0)],
-      ["auxclick", release(0)],
-      ["contextmenu", release(0)],
-      ["pointercancel", release(0)],
-      ["keydown", release(0)],
-      ["pointerup", release(500)],
-    ];
-    const listeners: [string, (event: Event) => void][] = [
-      ["pointerdown", press],
-      ["pointerdown", back],
-      ["keydown", back],
-      ...ends,
-      ["click", pick],
-      ["cancel", unpick],
-      ["change", unpick],
-    ];
-    for (const [type, listener] of listeners) document.addEventListener(type, listener, true);
-    return () => {
-      clearTimeout(timer);
-      setPressing(false);
-      setPicking(false);
-      for (const [type, listener] of listeners) {
-        document.removeEventListener(type, listener, true);
+      if (typed !== "") {
+        setGroupText("");
+        setDraftGroups((names) => (names.includes(typed) ? names : [...names, typed]));
       }
-    };
-  }, [edit]);
-
-  // A group added in the form with no format asks at once (ADR 052, rule 4),
-  // or once the dialog its press opened closes, or the delete or move it
-  // confirmed fails.
-  const otherDialog =
-    showDelete ||
-    showMove ||
-    showUnshown ||
-    showDiscard ||
-    picking ||
-    chosenPhoto !== null ||
-    deleting;
-  useEffect(() => {
-    if (edit && !pressing && !otherDialog && asking === null && unresolved.length > 0) {
-      setAsking(unresolved[0] ?? null);
+      const ask = typed !== "" && needsFormat(typed) ? typed : unresolved[0];
+      if (ask !== undefined) setAsking((name) => name ?? ask);
+      return;
     }
-  }, [edit, pressing, otherDialog, asking, unresolved]);
+    const validation = validateDraft(draft, dirty);
+    setErrors(validation);
+    setInvalidCount(Object.keys(validation).length);
+    if (!isValid(validation)) {
+      // The first field to correct may be out of sight, far above the bar.
+      requestAnimationFrame(() => {
+        const field = document.querySelector<HTMLElement>('article [aria-invalid="true"]');
+        field?.scrollIntoView?.({ block: "center" });
+        field?.focus({ preventScroll: true });
+      });
+      return;
+    }
 
-  // A refetch can give the group a format, from another client's change.
+    await runSave(draft, async () => {
+      const categories = groupsOf(editBase);
+      const cardChanges =
+        isNew ||
+        isDirty(dirty) ||
+        delta.removed.some((name) => categories.includes(name)) ||
+        categoryAdded.length > 0 ||
+        (cardGroupAdded && editBase.uid.trim() === "");
+      if (!cardChanges) return null;
+      const detached = applyGroupChanges(
+        applyDraft(parse(editBase.raw.toString(), editBase.href, editBase.etag), draft),
+      );
+      if (onCreate !== undefined) return await onCreate(detached);
+      return await updateContact.mutateAsync(detached);
+    });
+  }, [
+    groupText,
+    unresolved,
+    needsFormat,
+    setDraftGroups,
+    draft,
+    dirty,
+    delta,
+    categoryAdded,
+    cardGroupAdded,
+    editBase,
+    isNew,
+    applyGroupChanges,
+    updateContact,
+    runSave,
+    onCreate,
+  ]);
+
+  // A refetch can give the group a format, from another client's change. A held
+  // save then asks about the next group still waiting, if any.
   useEffect(() => {
-    if (asking !== null && !unresolved.includes(asking)) closeAnswered();
-  }, [asking, unresolved, closeAnswered]);
+    if (asking === null || unresolved.includes(asking)) return;
+    const next = unresolved[0];
+    if (heldSave !== null && next !== undefined) setAsking(next);
+    else closeAnswered();
+  }, [asking, unresolved, heldSave, closeAnswered]);
 
   // Once answered, the save that waited goes on.
   useEffect(() => {
@@ -979,16 +934,25 @@ function ContactFiche({
           dispatch={dispatch}
           errors={errors}
           onBlurValidate={handleBlurValidate}
-          groups={isNew ? null : draftGroups}
-          groupSuggestions={groupSuggestions}
-          onGroupsChange={setDraftGroups}
-          groupInputRef={groupInputRef}
+          groups={
+            isNew
+              ? null
+              : {
+                  names: draftGroups,
+                  suggestions: groupSuggestions,
+                  onChange: changeGroups,
+                  value: groupText,
+                  onValueChange: setGroupText,
+                  joinsOnBlur: (name) => !needsFormat(name),
+                  inputRef: groupInputRef,
+                }
+          }
           photo={{
             canChange: canChangePhoto,
             shown: showsPhoto,
             inputRef: photoInputRef,
             buttonRef: changePhotoRef,
-            onFile: (file) => void handlePhotoFile(file).finally(() => setPicking(false)),
+            onFile: (file) => void handlePhotoFile(file),
           }}
           unknownCount={unshown.length}
           onShowUnknown={() => setShowUnshown(true)}
@@ -1068,6 +1032,8 @@ function ContactFiche({
 
       {asking !== null && (
         <GroupFormatDialog
+          // A question moved to the next group starts over: its own preselection and focus.
+          key={asking}
           book={selectedBook ? bookName(selectedBook) : ""}
           group={asking}
           question={formatQuestion(groupFormats)}

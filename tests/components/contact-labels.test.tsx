@@ -41,9 +41,6 @@ function Editor() {
         errors={{}}
         onBlurValidate={vi.fn()}
         groups={null}
-        groupSuggestions={[]}
-        onGroupsChange={vi.fn()}
-        groupInputRef={createRef()}
         photo={{
           canChange: false,
           shown: false,

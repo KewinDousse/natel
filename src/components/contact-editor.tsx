@@ -4,7 +4,7 @@
  * optional sections open on demand. The page owns the draft, save and dialogs.
  */
 
-import { type Dispatch, type RefObject, useId, useRef, useState } from "react";
+import { type ComponentProps, type Dispatch, useId, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
 import type { ContactDraft, ValidationErrors } from "@/lib/contact-edit";
@@ -39,9 +39,6 @@ export function ContactEditor({
   errors,
   onBlurValidate,
   groups,
-  groupSuggestions,
-  onGroupsChange,
-  groupInputRef,
   photo,
   unknownCount,
   onShowUnknown,
@@ -56,10 +53,7 @@ export function ContactEditor({
   errors: ValidationErrors;
   onBlurValidate: () => void;
   /** The contact's groups as edited; none on a new contact. */
-  groups: string[] | null;
-  groupSuggestions: string[];
-  onGroupsChange: (names: string[]) => void;
-  groupInputRef: RefObject<HTMLInputElement | null>;
+  groups: ComponentProps<typeof GroupsEditor> | null;
   photo: EditorPhoto;
   /** Properties of the card the page doesn't show, kept as they are. */
   unknownCount: number;
@@ -170,12 +164,7 @@ export function ContactEditor({
 
         {groups !== null && (
           <Section icon={<UsersIcon />} title={t("s_groups")}>
-            <GroupsEditor
-              names={groups}
-              suggestions={groupSuggestions}
-              onChange={onGroupsChange}
-              inputRef={groupInputRef}
-            />
+            <GroupsEditor {...groups} />
           </Section>
         )}
 

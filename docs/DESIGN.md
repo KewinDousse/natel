@@ -373,7 +373,11 @@ current card can contain categories the loaded contact does not yet show.
 ### Group format question
 
 When a group added in the form gets no format from ADR 052's rules 1 to 3, a
-dialog asks right away, before the save.
+dialog asks as it is added: on `Enter` in the group field, or on a save
+that adds the name still typed there. Leaving the field adds a typed name
+only when its format is known; otherwise the name stays typed, and nothing
+asks. During a save, a delete or a move, `Enter` adds the chip without
+asking, and the next save asks.
 - Title: how “<book>” should store its groups. The text names the group
   being added, says it is stored on the server in the chosen format, and
   that other apps only see a group in their own format, so the user picks
@@ -407,11 +411,12 @@ dialog asks right away, before the save.
 - "Use this format" (primary) stores the choice and keeps the chip. Cancel,
   `Esc` or a click outside store nothing and remove that chip; the form's
   other changes stay.
-- A save that commits a group still typed in the field (pressing Save, or
-  `⌘` / `Ctrl` + `Enter`) waits for the answer: "Use this format" lets it go
-  on, a dismissal stops it and leaves the form open, unsaved, without that
-  chip. Leaving the form (Cancel, the back arrow, `Esc`) drops a group still
-  typed in the field without asking.
+- A save (pressing Save, or `⌘` / `Ctrl` + `Enter`) that adds a group still
+  typed in the field, or that finds a chip still waiting for its format,
+  such as one kept after a navigation was stopped, waits for the answer:
+  "Use this format" lets it go on, a dismissal stops it and leaves the form
+  open, unsaved, without that chip. Leaving the form (Cancel, the back
+  arrow, `Esc`) drops a group still typed in the field without asking.
 - Focus starts on the preselected option. It goes back to the group field
   after a dismissal, and after an answer given outside a save; a save that
   goes on moves it as any save does.

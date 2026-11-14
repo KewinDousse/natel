@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
 
 /**
@@ -19,8 +19,7 @@ export function useEditShortcuts({
   deleting: boolean;
   onToggleEdit: () => void;
   onEscape: () => void;
-  /** `from`: what started the save, when it no longer holds the focus. */
-  onSave: (from?: HTMLElement) => Promise<void>;
+  onSave: () => Promise<void>;
 }) {
   useEffect(() => {
     if (edit) return;
@@ -44,35 +43,12 @@ export function useEditShortcuts({
   }, [edit, deleting, onEscape]);
 
   // ⌘/Ctrl + Enter saves, from a field too (⌘S belongs to the browser).
-  const saveRef = useRef(onSave);
-  const canSaveRef = useRef(false);
-  const deferredSave = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => {
-    saveRef.current = onSave;
-    canSaveRef.current = edit && !busy;
-  });
-  useEffect(() => () => clearTimeout(deferredSave.current), []);
   useEffect(() => {
     if (!edit) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
       if (e.repeat || e.isComposing || busy || isDialogOpen()) return;
       e.preventDefault();
-      // A field that commits on blur, such as "Ajouter un groupe", commits its
-      // value first; the save then runs once the draft holds it, and waits
-      // if that value opened the group format question.
-      const active = document.activeElement;
-      if (
-        active instanceof HTMLInputElement &&
-        active.dataset.commitOnBlur !== undefined &&
-        active.value.trim() !== ""
-      ) {
-        active.blur();
-        deferredSave.current = setTimeout(() => {
-          if (canSaveRef.current) void saveRef.current(active);
-        }, 0);
-        return;
-      }
       void onSave();
     };
     window.addEventListener("keydown", handler);

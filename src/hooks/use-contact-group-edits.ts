@@ -124,6 +124,7 @@ export function useContactGroupEdits(
   );
 
   return {
+    editGroups,
     draftGroups,
     setDraftGroups,
     groupFailures,

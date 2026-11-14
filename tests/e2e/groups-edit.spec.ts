@@ -163,8 +163,8 @@ test("writes new groups in the format the settings choose", async ({ page }) => 
 test.describe("on a touch screen", () => {
   test.use({ hasTouch: true });
 
-  // A tap blurs the field after its pointerup: the question still waits for
-  // the tap's click, so Save gets it.
+  // A tap blurs the field, which leaves a name of unknown format typed: the
+  // tap's click on Save adds it and asks.
   test("holds a tapped Save on a typed group until its format is chosen", async ({ page }) => {
     await editAda(page);
     await page.getByRole("combobox", { name: "Add a group" }).fill("Club");

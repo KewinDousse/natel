@@ -3,7 +3,7 @@
  * type menu and remove button, an error line, and the groups editor.
  */
 
-import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useId, useRef } from "react";
 import { useI18n } from "@/i18n/react";
 import { cn } from "@/lib/utils";
 import { fieldClass } from "./ui/button";
@@ -78,24 +78,32 @@ const LEAVES_FORM = "[data-leaves-form], a[href]";
 /**
  * Groups in edit mode (DESIGN.md): the chips gain a ×, and an "Ajouter un
  * groupe" input ends the line, suggesting the book's other group names.
- * A name still typed when the form is left, through a link, a control
- * marked `data-leaves-form` or a dialog taking the focus (the discard dialog
- * asks about leaving), is dropped rather than added.
+ * Enter adds the typed name; leaving the field adds it only when
+ * `joinsOnBlur` says so, and otherwise leaves it typed. A name still typed
+ * when the form is left, through a link, a control marked
+ * `data-leaves-form` or a dialog taking the focus (the discard dialog asks
+ * about leaving), is dropped rather than added.
  */
 export function GroupsEditor({
   names,
   suggestions,
   onChange,
+  value,
+  onValueChange,
+  joinsOnBlur,
   inputRef,
 }: {
   names: string[];
   suggestions: string[];
   onChange: (names: string[]) => void;
+  /** The name typed in the input, which a save also adds. */
+  value: string;
+  onValueChange: (value: string) => void;
+  joinsOnBlur: (name: string) => boolean;
   /** The "Ajouter un groupe" input, for a caller that gives it the focus back. */
   inputRef: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useI18n();
-  const [value, setValue] = useState("");
   const listId = useId();
   // A pointer press lands before the blur it causes.
   const leaving = useRef(false);
@@ -111,7 +119,7 @@ export function GroupsEditor({
   function add() {
     const name = value.trim();
     if (name.length > 0 && !names.includes(name)) onChange([...names, name]);
-    setValue("");
+    onValueChange("");
   }
 
   return (
@@ -144,9 +152,9 @@ export function GroupsEditor({
           list={listId}
           aria-label={t("add_group")}
           placeholder={t("add_group")}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => onValueChange(event.target.value)}
           onKeyDown={(event) => {
-            // ⌘/Ctrl + Enter is the save shortcut, which commits the name itself.
+            // ⌘/Ctrl + Enter is the save shortcut, which adds the name itself.
             if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
               event.preventDefault();
               add();
@@ -162,12 +170,11 @@ export function GroupsEditor({
               (next instanceof Element &&
                 next.closest(`${LEAVES_FORM}, [aria-modal="true"]`) !== null)
             ) {
-              setValue("");
+              onValueChange("");
               return;
             }
-            add();
+            if (joinsOnBlur(value.trim())) add();
           }}
-          data-commit-on-blur
           className={fieldClass("h-11 min-w-44 sm:w-56 sm:text-sm lg:text-sm")}
         />
         <datalist id={listId}>
