@@ -102,3 +102,51 @@ export function unescapeDataUriSemicolons(raw: RawComponent): void {
     if (repaired !== value) prop.setValue(repaired);
   }
 }
+
+/**
+ * A content line with its line ending and folded continuations, split as
+ * ical.js splits them: a line ends at `\n`, a bare `\r` is part of the line.
+ */
+const CONTENT_LINE = /[^\n]*(?:\n|$)(?:[ \t][^\n]*(?:\n|$))*/g;
+
+const unfoldLine = (line: string) => line.replace(/\r?\n[ \t]/g, "");
+
+/**
+ * ical.js reads and writes a card with the types of its version only when
+ * `VERSION` is its first property, where RFC 6350 §6.7.9 puts it. Move a
+ * later `VERSION` line there, unchanged, before ical.js reads the card. See
+ * DECISIONS.md 054.
+ */
+export function versionFirst(text: string): string {
+  // The usual card, without splitting a text that may hold a photo.
+  if (/^[ \t]*BEGIN:VCARD[ \t]*\r?\nVERSION[;:]/i.test(text)) return text;
+  const lines = text.match(CONTENT_LINE) ?? [];
+  const begin = lines.findIndex((line) =>
+    /^[ \t]*BEGIN:VCARD[ \t]*\r?\n?$/i.test(unfoldLine(line)),
+  );
+  if (begin === -1) return text;
+  // The card's own VERSION, not that of a component nested in it, such as a
+  // vCard 2.1 AGENT card. ical.js nests on any BEGIN and closes on any END.
+  let nested = 0;
+  let version = -1;
+  for (let i = begin + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    // Unfold only a line that may matter, not a long PHOTO. ical.js drops an
+    // empty line, so a fold right after one starts the line.
+    if (!/^(?:\r?\n[ \t])*[BEV]/i.test(line)) continue;
+    const unfolded = unfoldLine(line);
+    if (/^BEGIN:/i.test(unfolded)) nested++;
+    else if (/^END:/i.test(unfolded)) {
+      if (nested === 0) {
+        if (version === -1 || version === begin + 1) return text;
+        lines.splice(begin + 1, 0, ...lines.splice(version, 1));
+        return lines.join("");
+      }
+      nested--;
+    } else if (nested === 0 && version === -1 && /^VERSION[;:]/i.test(unfolded)) {
+      version = i;
+    }
+  }
+  // Without its END, ical.js rejects the card anyway.
+  return text;
+}
