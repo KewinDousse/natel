@@ -131,8 +131,9 @@ export function versionFirst(text: string): string {
   let version = -1;
   for (let i = begin + 1; i < lines.length; i++) {
     const line = lines[i] ?? "";
-    // Unfold only a line that may matter, not a long PHOTO.
-    if (!/^[BEV]/i.test(line)) continue;
+    // Unfold only a line that may matter, not a long PHOTO. ical.js drops an
+    // empty line, so a fold right after one starts the line.
+    if (!/^(?:\r?\n[ \t])*[BEV]/i.test(line)) continue;
     const unfolded = unfoldLine(line);
     if (/^BEGIN:/i.test(unfolded)) nested++;
     else if (/^END:/i.test(unfolded)) {

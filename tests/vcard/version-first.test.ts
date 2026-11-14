@@ -65,6 +65,10 @@ describe("a card whose VERSION comes later", () => {
     ["a parameter", "BEGIN:VCARD\r\nFN:Ada\r\nVERSION;X-A=1:4.0\r\nEND:VCARD\r\n"],
     ["a fold inside its name", "BEGIN:VCARD\r\nFN:Ada\r\nVERS\r\n ION:4.0\r\nEND:VCARD\r\n"],
     ["a folded END:VCARD", "BEGIN:VCARD\r\nFN:Ada\r\nVERSION:4.0\r\nEND:VC\r\n ARD\r\n"],
+    [
+      "BEGIN and END as properties",
+      "BEGIN:VCARD\r\nFN:Ada\r\nBEGIN;X-A=1:a\r\nEND;X-A=1:b\r\nVERSION:4.0\r\nEND:VCARD\r\n",
+    ],
     ["VERSION already first", "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Ada\r\nEND:VCARD\r\n"],
   ])("reads the VERSION line first, with %s", (_, card) => {
     const [first, second] = parse(card).raw.getAllProperties();
@@ -103,6 +107,11 @@ describe("a card whose VERSION comes later", () => {
     [
       "another component",
       ["BEGIN:X-A", "VERSION:9", "END:X-A"],
+      "\r\nBEGIN:X-A\r\nVERSION:9\r\nEND:X-A\r\n",
+    ],
+    [
+      "a component after an empty line and a fold",
+      ["", " BEGIN:X-A", "VERSION:9", "END:X-A"],
       "\r\nBEGIN:X-A\r\nVERSION:9\r\nEND:X-A\r\n",
     ],
   ])("moves the card's own VERSION, not that of %s nested in it", (_, nest, kept) => {
