@@ -1231,7 +1231,9 @@ describe("toast timing", () => {
       act(async () => {
         vi.advanceTimersByTime(ms);
       });
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // jsdom runs animation frames on one setInterval it never restarts: a faked
+    // one would stop them for every later test in this file.
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] });
     try {
       await user.click(copy);
       await screen.findByText("Copié");
