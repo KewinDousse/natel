@@ -6,6 +6,22 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-15
+
+### Added
+
+- Natel signs in to a CardDAV server that asks for Digest authentication, as Baïkal does when left as installed, instead of reporting a wrong password.
+- A new group follows its address book's format, group cards or per-contact categories. When the book doesn't show which one its other apps use, Natel asks once and remembers the answer for that book in this browser; Settings → Address books changes it.
+
+### Changed
+
+- Adding a contact to a group that exists only as per-contact categories, as Nextcloud Contacts stores groups, adds the group to the contact's categories instead of creating a group card, so the membership shows in Nextcloud Contacts.
+
+### Fixed
+
+- Saving a vCard 4.0 contact no longer rewrites a photo, link, phone number or other URI value the edit didn't change.
+- Saving a contact whose card doesn't open with its VERSION line no longer rewrites a location or other value the edit didn't change; the VERSION line moves to the top of the card.
+
 ## [0.5.1] - 2026-11-09
 
 ### Added

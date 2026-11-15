@@ -32,7 +32,7 @@ or if you also want calendars, tasks or mail.
 ```yaml
 services:
   natel:
-    image: ghcr.io/kewindousse/natel:0.5.1
+    image: ghcr.io/kewindousse/natel:0.6.0
     environment:
       CARDDAV_URL: https://dav.example.com   # your server's origin, no path
     ports:

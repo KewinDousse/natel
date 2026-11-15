@@ -1,4 +1,0 @@
-{
-  "type": "Added",
-  "text": "Natel signs in to a CardDAV server that asks for Digest authentication, as Baïkal does when left as installed, instead of reporting a wrong password."
-}

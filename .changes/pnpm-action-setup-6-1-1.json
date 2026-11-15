@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Update the pinned pnpm setup action used by CI and releases. No application or deployment change."
-}

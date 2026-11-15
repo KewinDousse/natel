@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "Saving a contact whose card doesn't open with its VERSION line no longer rewrites a location or other value the edit didn't change; the VERSION line moves to the top of the card."
-}
