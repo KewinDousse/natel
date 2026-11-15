@@ -29,6 +29,7 @@ import {
   keepUrisAsWritten,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
+  versionFirst,
 } from "./ical-workarounds";
 import { updatePhotoProperty } from "./photo";
 import {
@@ -84,7 +85,7 @@ encodeVcard3Semicolons();
  * have the body text can still construct a Contact.
  */
 export function parse(text: string, href = "", etag = ""): Contact {
-  const jCal = ICAL.parse(text);
+  const jCal = ICAL.parse(versionFirst(text));
   const raw = new ICAL.Component(jCal);
   retypeTextBirthdays(raw);
   unescapeDataUriSemicolons(raw);
@@ -422,7 +423,7 @@ export function splitCards(fileText: string): string[] {
  * read it as a vCard.
  */
 export function readImportCard(cardText: string): { uid: string | null; name: string } {
-  const jCal = ICAL.parse(cardText);
+  const jCal = ICAL.parse(versionFirst(cardText));
   if (!Array.isArray(jCal) || jCal[0] !== "vcard") throw new Error("not a vCard");
   const raw = new ICAL.Component(jCal as unknown[]);
   const uid = readUid(raw);

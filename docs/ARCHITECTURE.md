@@ -190,7 +190,7 @@ byte-equal where the library allows it.
 ## Authentication
 
 Basic Auth, or Digest where the server asks for it, held by
-`natel-session` (ADR 032, ADR 054). The CardDAV server is
+`natel-session` (ADR 032, ADR 055). The CardDAV server is
 configuration, never user input (ADR 014). `POST /session` checks the
 password against the server and sets an HttpOnly cookie, `GET /session` at
 startup keeps a reload signed in, and `DELETE /session` signs out. The

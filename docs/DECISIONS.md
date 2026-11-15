@@ -571,7 +571,7 @@ session's lifetime. Sign-out revokes the session on the server; if that
 request fails, the user is told and stays signed in. Each `/dav` request
 costs a loopback round trip. The repository gains Go code with its own tests
 and CI job, security code reviewed before each release.
-ADR 046 amends the choice of cookie. ADR 054 adds Digest sign-in.
+ADR 046 amends the choice of cookie. ADR 055 adds Digest sign-in.
 
 ## 033 — The official Caddy binary on a plain Alpine base
 
@@ -1051,8 +1051,32 @@ that moves up when one before it is removed: it is written with the text
 escapes. ical.js reads a card with the 4.0 types only when `VERSION:4.0` is
 its first property: in a card whose `VERSION:4.0` comes later, a property
 whose 3.0 type is not `uri`, such as `GEO`, is outside this entry. Amends ADR 023 and 024.
+Amended by ADR 054 for a card whose `VERSION` is not its first property.
 
-## 054 — Sign in with Digest where the server asks for it
+## 054 — A card's VERSION is moved right after BEGIN:VCARD
+
+**Context.** ical.js reads a card with the 4.0 types only when `VERSION:4.0`
+is its first property, and writes a component (`Component#toString`) with
+the 3.0 types only when `VERSION:3.0` is. RFC 6350 §6.7.9 puts `VERSION` right
+after `BEGIN:VCARD`; RFC 2426 sets no place for it in 3.0. Some cards have it
+later (#15). A save of such a card rewrote properties the user never changed,
+against ADR 005: in 4.0, `GEO:geo:46.5,6.6` became `GEO;VALUE=FLOAT:0`; in
+3.0, `GEO:46.5;6.6` became `GEO;VALUE=FLOAT:46.5,6.6`; in both, `SOURCE`
+gained `VALUE=UNKNOWN`.
+
+**Decision.** Before ical.js reads a card, `versionFirst` in `src/vcard/`, a
+named workaround, moves a later `VERSION` line, unchanged, right after
+`BEGIN:VCARD`. The card is then read, edited and written as the same card
+opening with `VERSION`.
+
+**Rejected.** Keeping `VERSION` in place: ical.js would need a workaround
+when reading, adding a property and writing.
+
+**Consequences.** A card whose `VERSION` came later is saved with it on its
+second line; no other line moves. A card without `VERSION`, which RFC 2426
+and RFC 6350 forbid, is outside this entry. Amends ADR 053.
+
+## 055 — Sign in with Digest where the server asks for it
 
 **Context.** Baïkal ships with Digest authentication (RFC 7616). Natel sent
 only Basic, so on a Baïkal left as installed every sign-in failed as a wrong

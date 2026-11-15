@@ -293,7 +293,7 @@ jobs:
         env:
           E2E_EXTERNAL_APP: "1"
       # Digest signs each request's method and URI, which Caddy names to
-      # natel-session (ADR 054): sign-in and editing against Baïkal as it ships.
+      # natel-session (ADR 055): sign-in and editing against Baïkal as it ships.
       - run: pnpm e2e --project=desktop tests/e2e/login.spec.ts tests/e2e/contacts.spec.ts
         env:
           E2E_EXTERNAL_APP: "1"
