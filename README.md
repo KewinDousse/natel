@@ -75,7 +75,7 @@ shortcuts · installable as an app.
 - [User guide](docs/user-guide.md) · [Compatibility](docs/compatibility.md) ·
   [Deployment and updates](docs/deployment.md) ·
   [Troubleshooting](docs/troubleshooting.md)
-- **What's next:** [0.6.0](https://github.com/KewinDousse/natel/milestone/1),
+- **What's next:** [0.6.1](https://github.com/KewinDousse/natel/milestone/1),
   then [1.0.0](https://github.com/KewinDousse/natel/milestone/2) leaves beta.
 - **Update checks:** Natel looks for new releases from your server, sending
   no contacts or credentials. [Turn them off](docs/deployment.md#update-checks).
