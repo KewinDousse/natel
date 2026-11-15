@@ -69,7 +69,7 @@ jobs:
             echo run=false >> "$GITHUB_OUTPUT"
           fi
       # Reads the pnpm version from package.json's packageManager field.
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -116,7 +116,7 @@ jobs:
         with:
           sha: ${{ inputs.candidate_sha }}
           artifact: ${{ inputs.candidate_artifact }}
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -251,7 +251,7 @@ jobs:
           oci-archive:image.tar:ci docker-daemon:natel:ci
       # The e2e suite again, this time through the image's Caddy: its /dav
       # proxy, redirect mapping and dropped WWW-Authenticate are what users run.
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
