@@ -116,12 +116,25 @@ describe("the release preparation contract", () => {
     f.git("commit", "-qm", "Change dependency");
     expect(() => f.run('console.log(changes.verifyPrepared("0.4.0"))')).toThrow();
   });
+  it("asks for a note, not a new preparation, on a branch started after a release", () => {
+    const f = fixture();
+    f.prepare();
+    const released = f.git("rev-parse", "HEAD");
+    writeFileSync(join(f.cwd, "source.txt"), "another implementation\n");
+    f.git("add", ".");
+    f.git("commit", "-qm", "Change without a note");
+    expect(() => f.run(`changes.checkChanges(${JSON.stringify(released)})`)).toThrow(
+      /adds no committed file under \.changes\//,
+    );
+  });
   it("requires a changelog decision on ordinary pull requests", () => {
     const f = fixture();
     writeFileSync(join(f.cwd, "source.txt"), "another implementation\n");
     f.git("add", ".");
     f.git("commit", "-qm", "Change without a note");
-    expect(() => f.run(`changes.checkChanges(${JSON.stringify(f.base)})`)).toThrow();
+    expect(() => f.run(`changes.checkChanges(${JSON.stringify(f.base)})`)).toThrow(
+      /adds no committed file under \.changes\//,
+    );
     writeFileSync(
       join(f.cwd, ".changes/internal.json"),
       JSON.stringify({ type: "None", text: "Internal refactor with no change in behaviour." }),
