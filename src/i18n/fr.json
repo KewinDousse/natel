@@ -176,6 +176,7 @@
   "label_adr_label": "Libellé",
   "label_postal_code": "Code postal",
   "label_locality": "Localité",
+  "label_region": "Région",
   "label_country": "Pays",
   "label_url": "Site web",
   "delete_contact": "Supprimer le contact",

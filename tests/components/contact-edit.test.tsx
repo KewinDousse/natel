@@ -350,6 +350,27 @@ describe("edit mode — addresses", () => {
     expect(sent).toContain("ITEM1.X-ABLABEL:Atelier");
   });
 
+  it("edits an address's region in its own field, between locality and country", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+    const section = article.querySelector<HTMLElement>("#sec-adr");
+    if (!section) throw new Error("no address section");
+
+    const fields = within(section).getAllByRole("textbox");
+    const region = within(section).getByLabelText("Région");
+    const at = (label: string) => fields.indexOf(within(section).getByLabelText(label));
+    expect(fields.indexOf(region)).toBe(at("Localité") + 1);
+    expect(fields.indexOf(region)).toBe(at("Pays") - 1);
+
+    await user.type(region, "IL");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    expect(mockUpdateCard.mock.calls[0]?.[3]).toContain(
+      "ADR;TYPE=HOME:;;123 Main St;Springfield;IL;12345;US",
+    );
+  });
+
   it("removes an address, and offers to add one again once none is left", async () => {
     const { article } = await renderEditView("editable");
     const user = userEvent.setup();
