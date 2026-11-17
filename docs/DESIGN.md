@@ -306,7 +306,7 @@ stays the reading view's only ink pill.
 5. Rows: type menu | field | remove button. When the field would get narrower than 10rem, it takes its own line under the menu and the button. A row without a remove button keeps its room, so fields line up. Picking a type rewrites only the card's `cell`/`work`/`home` types and keeps the others (`INTERNET`, `PREF`, `VOICE`…); a type the menu doesn't offer still shows as it is. Phones offer mobile, work, home and other; e-mails, addresses and websites offer home, work and other.
    - Address: the extended line (c/o, building), then street, then postal code and locality on one line, then country, in the order the reading view shows them. A post office box and a region stay as the card has them.
    - Birthday: day / month / year.
-   - Website: any URI. A host typed without a scheme is saved with `https://`. A website the edit leaves untouched never blocks the save.
+   - Website: any URI. A host with a dot typed without a scheme is saved with `https://`. A website the edit leaves untouched never blocks the save.
    - Groups (ADR 022): chips with a ×, and a field suggesting the book's other groups (see Group format question). Group cards never show in the list.
 6. Below the sections: one "Add information" menu for absent optional sections. Choosing an entry opens the section and focuses its first field. The menu disappears when every section is open. The information-not-shown link follows (see States).
 7. A sticky bottom bar at the foot of the screen, even when the form is shorter: the error count after a failed save on the left, Cancel / Save on the right. Conflicts and errors show **inside this bar**, so they never push the form.
