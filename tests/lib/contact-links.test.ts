@@ -36,6 +36,11 @@ describe("isUri", () => {
     expect(isUri("1fb://profile")).toBe(false);
     expect(isUri("fb:")).toBe(false);
   });
+
+  it("refuses an http or https URL without a host", () => {
+    expect(isUri("https://")).toBe(false);
+    expect(isUri("http://")).toBe(false);
+  });
 });
 
 describe("websiteUri", () => {
@@ -52,6 +57,13 @@ describe("websiteUri", () => {
     expect(websiteUri("ada@website.example")).toBe("ada@website.example");
     expect(websiteUri("localhost")).toBe("localhost");
     expect(websiteUri("website.example ada")).toBe("website.example ada");
+    expect(websiteUri("website..example")).toBe("website..example");
+  });
+
+  it("reads a long run of dots quickly", () => {
+    const start = performance.now();
+    websiteUri(`${".".repeat(30000)} `);
+    expect(performance.now() - start).toBeLessThan(100);
   });
 });
 

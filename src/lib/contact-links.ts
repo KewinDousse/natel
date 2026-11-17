@@ -13,14 +13,19 @@ export function isWebUrl(value: string): boolean {
 
 /**
  * A URI with a scheme (RFC 3986), as a vCard's URL holds (RFC 6350): what a
- * draft may hold, since a card can name an app's profile (`fb://profile/1`).
+ * saved website must be, since a card can name an app's profile
+ * (`fb://profile/1`). An http or https one needs a host.
  */
 export function isUri(value: string): boolean {
-  return /^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(value);
+  if (!/^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(value)) return false;
+  return !/^https?:/i.test(value) || isWebUrl(value);
 }
 
-/** A host typed without a scheme, with an optional port and path. */
-const BARE_HOST = /^[^\s/?#:@]+\.[^\s/?#:@]+(?::\d+)?(?:[/?#]\S*)?$/;
+/**
+ * A host typed without a scheme, with an optional port and path. Its labels
+ * exclude the dot so a long run of dots is matched in linear time.
+ */
+const BARE_HOST = /^[^\s/?#:@.]+(?:\.[^\s/?#:@.]+)+(?::\d+)?(?:[/?#]\S*)?$/;
 
 /**
  * What a typed website is saved as: a bare host becomes an https URL, since

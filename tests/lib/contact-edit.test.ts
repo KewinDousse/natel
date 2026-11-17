@@ -578,9 +578,32 @@ describe("validateDraft: website", () => {
     const card = cardWith("URL:website.example");
     const draft = { ...buildDraft(card), urlType: "work" as const };
     const dirty = dirtyDiff(card, draft);
-    expect(dirty.url).toBe(true);
+    expect(dirty).toMatchObject({ url: false, urlType: true });
     expect(validateDraft(draft, dirty)).toEqual({});
     expect(applyDraft(card, draft, dirty).fields.url).toBe("website.example");
+  });
+
+  it("keeps a website that isn't a URI when its type alone changes", () => {
+    const card = cardWith("URL:My site");
+    const draft = { ...buildDraft(card), urlType: "work" as const };
+    const dirty = dirtyDiff(card, draft);
+    expect(validateDraft(draft, dirty)).toEqual({});
+    expect(applyDraft(card, draft, dirty).fields.url).toBe("My site");
+  });
+
+  it("keeps a website cleared then typed again as it was", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), url: "website.example" };
+    expect(applyDraft(card, draft).fields.url).toBe("website.example");
+  });
+
+  it("keeps the website changed elsewhere when overwriting a type change", () => {
+    const base = cardWith("URL:website.example");
+    const draft = { ...buildDraft(base), urlType: "work" as const };
+    const fetched = cardWith("URL:other.example");
+    const saved = applyDraft(fetched, draft, dirtyDiff(base, draft));
+    expect(saved.fields.url).toBe("other.example");
+    expect(buildDraft(saved).urlType).toBe("work");
   });
 
   it("refuses an edited website that is neither a URI nor a host", () => {

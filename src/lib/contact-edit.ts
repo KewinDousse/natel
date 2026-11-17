@@ -261,6 +261,7 @@ export type DirtyFields = {
   org: boolean;
   title: boolean;
   url: boolean;
+  urlType: boolean;
   note: boolean;
   photo: boolean;
 };
@@ -278,7 +279,8 @@ export function dirtyDiff(contact: Contact, draft: ContactDraft): DirtyFields {
     bday: birthdaysDiffer(f.bday, draft.bday),
     org: draft.org !== f.org,
     title: draft.title !== f.title,
-    url: draft.url !== f.url || (draft.urlType ?? "") !== (f.urlField ? fieldKind(f.urlField) : ""),
+    url: draft.url !== f.url,
+    urlType: (draft.urlType ?? "") !== (f.urlField ? fieldKind(f.urlField) : ""),
     note: draft.note !== f.note,
     photo: photosDiffer(f.photo, draft.photo),
   };
@@ -348,7 +350,7 @@ const SECTIONS = {
   email: ["email"],
   adr: ["adr"],
   bday: ["bday"],
-  url: ["url"],
+  url: ["url", "urlType"],
   nickname: ["nickname"],
   note: ["note"],
 } satisfies Record<string, (keyof DirtyFields)[]>;
@@ -553,9 +555,9 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
     }
   }
   if (take("title")) f.title = draft.title;
-  if (take("url")) {
-    // A website whose type alone changed keeps the value another client wrote.
-    const url = draft.url === f.url ? f.url : websiteUri(draft.url);
+  if (take("url") || take("urlType")) {
+    // A website whose value the edit left alone keeps what another client wrote.
+    const url = take("url") && draft.url !== f.url ? websiteUri(draft.url) : f.url;
     f.url = url;
     f.urlField = fromDraftField({
       id: "url",
