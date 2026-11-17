@@ -13,7 +13,7 @@ import type {
   VCardAddressField,
   VCardBirthdayField,
 } from "@/model/contact";
-import { savedLabelOf, writesAddress } from "@/vcard";
+import { type ContactList, changedLists, savedLabelOf, writesAddress } from "@/vcard";
 import { isWebUrl } from "./contact-links";
 
 // ---------------------------------------------------------------------------
@@ -147,6 +147,11 @@ function samePlace(a: VCardAddressField, b: VCardAddressField | undefined): bool
 /** Build a draft from a contact's fields. Each field gets a stable id. */
 export function buildDraft(contact: Contact): ContactDraft {
   resetCounter();
+  return draftOf(contact);
+}
+
+// Without resetting the ids, so it can run beside a draft being edited.
+function draftOf(contact: Contact): ContactDraft {
   return {
     family: contact.fields.n.family,
     given: contact.fields.n.given,
@@ -324,6 +329,64 @@ function birthdaysDiffer(orig: VCardBirthdayField | null, draft: DraftBirthday |
 /** True when any field is dirty. */
 export function isDirty(dirty: DirtyFields): boolean {
   return Object.values(dirty).some((v) => v);
+}
+
+// ---------------------------------------------------------------------------
+// Conflict summary
+// ---------------------------------------------------------------------------
+
+/**
+ * The contact page's sections a conflict names, in the form's order, by the
+ * draft fields they hold. Not the photo: a card is always read with it
+ * unchanged, so it never differs.
+ */
+const SECTIONS = {
+  name: ["family", "given"],
+  org: ["org"],
+  title: ["title"],
+  tel: ["tel"],
+  email: ["email"],
+  adr: ["adr"],
+  bday: ["bday"],
+  url: ["url"],
+  nickname: ["nickname"],
+  note: ["note"],
+} satisfies Record<string, (keyof DirtyFields)[]>;
+
+export type ContactSection = keyof typeof SECTIONS;
+
+const LISTS: ContactList[] = ["tel", "email", "adr"];
+
+/** The sections holding a dirty field, in the form's order. */
+export function dirtySections(dirty: DirtyFields): ContactSection[] {
+  return (Object.keys(SECTIONS) as ContactSection[]).filter((section) =>
+    SECTIONS[section].some((field) => dirty[field]),
+  );
+}
+
+/** What a 412 found on the card read again. Nothing is merged. */
+export type CardConflict = {
+  /** The lists changed on both sides (ADR 038), empty when overwriting is offered. */
+  lists: ContactList[];
+  /** The other sections changed elsewhere, in the form's order. */
+  elsewhere: ContactSection[];
+};
+
+/**
+ * How `fetched`, the card read again after a 412, differs from `base`, the
+ * one the draft was built from.
+ */
+export function cardConflict(base: Contact, fetched: Contact, dirty: DirtyFields): CardConflict {
+  const lists = changedLists(
+    base,
+    fetched,
+    LISTS.filter((list) => dirty[list]),
+  );
+  const changed = dirtySections(dirtyDiff(base, draftOf(fetched)));
+  return {
+    lists,
+    elsewhere: changed.filter((section) => !lists.includes(section as ContactList)),
+  };
 }
 
 // ---------------------------------------------------------------------------

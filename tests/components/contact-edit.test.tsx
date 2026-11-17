@@ -896,6 +896,82 @@ describe("edit mode — conflict on a list changed elsewhere (ADR 038)", () => {
   });
 });
 
+describe("edit mode — conflict summary", () => {
+  const elsewhere = (vcardText: string) =>
+    mockFetchCard.mockResolvedValue({
+      href: "https://dav.example.org/dav/books/a/editable.vcf",
+      etag: '"elsewhere"',
+      vcardText,
+    });
+
+  async function saveTheGivenName() {
+    mockUpdateCard.mockRejectedValueOnce(new DavError("Conflict", "CONFLICT"));
+    await renderEditView("editable");
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("John"), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+  }
+
+  it("names what changed elsewhere, which overwriting keeps", async () => {
+    elsewhere(CARD_EDITABLE.replace("BDAY:1987-03-14", "BDAY:1988-03-14"));
+    await saveTheGivenName();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "Modifiés ailleurs : Anniversaire. Écraser garde ces modifications et n'écrit que les vôtres.",
+        ),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByRole("button", { name: /écraser/i })).toBeTruthy();
+  });
+
+  it("says which of them overwriting replaces", async () => {
+    elsewhere(
+      CARD_EDITABLE.replace("N:Doe;John;;;", "N:Doe;Johnny;;;").replace(
+        "BDAY:1987-03-14",
+        "BDAY:1988-03-14",
+      ),
+    );
+    await saveTheGivenName();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "Modifiés ailleurs : Nom, Anniversaire. Écraser remplace l'autre version de : Nom.",
+        ),
+      ).toBeTruthy(),
+    );
+  });
+
+  it("follows the draft changed with the conflict shown", async () => {
+    elsewhere(CARD_EDITABLE.replace("END:VCARD", "ORG:Acme\r\nEND:VCARD"));
+    await saveTheGivenName();
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "Modifiés ailleurs : Organisation. Écraser garde ces modifications et n'écrit que les vôtres.",
+        ),
+      ).toBeTruthy(),
+    );
+
+    await userEvent.setup().type(screen.getByLabelText("Organisation"), "Mine");
+    expect(
+      screen.getByText(
+        "Modifiés ailleurs : Organisation. Écraser remplace l'autre version de : Organisation.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows the conflict without a summary when the card can't be read again", async () => {
+    mockFetchCard.mockRejectedValue(new DavError("Offline", "NETWORK"));
+    await saveTheGivenName();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /écraser/i })).toBeTruthy());
+    expect(screen.queryByText(/Modifiés ailleurs/)).toBeNull();
+  });
+});
+
 describe("edit mode — save success", () => {
   it("returns to view mode with the saved toast, no error", async () => {
     const { article } = await renderEditView("editable");
