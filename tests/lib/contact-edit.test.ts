@@ -566,9 +566,26 @@ describe("validateDraft: website", () => {
     expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({});
   });
 
-  it("refuses a website without a scheme once it is edited", () => {
-    const card = cardWith("URL:website.example");
+  it("saves a host typed without a scheme as an https URL", () => {
+    const card = cardWith("URL:https://example.org");
     const draft = { ...buildDraft(card), url: "website.example/ada" };
+    const dirty = dirtyDiff(card, draft);
+    expect(validateDraft(draft, dirty)).toEqual({});
+    expect(applyDraft(card, draft, dirty).fields.url).toBe("https://website.example/ada");
+  });
+
+  it("keeps a website without a scheme whose type alone changed", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), urlType: "work" as const };
+    const dirty = dirtyDiff(card, draft);
+    expect(dirty.url).toBe(true);
+    expect(validateDraft(draft, dirty)).toEqual({});
+    expect(applyDraft(card, draft, dirty).fields.url).toBe("website.example");
+  });
+
+  it("refuses an edited website that is neither a URI nor a host", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), url: "website example" };
     expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({ url: "field_url_invalid" });
   });
 

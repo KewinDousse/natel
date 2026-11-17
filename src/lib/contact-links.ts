@@ -19,6 +19,17 @@ export function isUri(value: string): boolean {
   return /^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(value);
 }
 
+/** A host typed without a scheme, with an optional port and path. */
+const BARE_HOST = /^[^\s/?#:@]+\.[^\s/?#:@]+(?::\d+)?(?:[/?#]\S*)?$/;
+
+/**
+ * What a typed website is saved as: a bare host becomes an https URL, since
+ * a vCard's URL is a URI and a link needs a scheme. Anything else is kept.
+ */
+export function websiteUri(value: string): string {
+  return BARE_HOST.test(value) ? `https://${value}` : value;
+}
+
 /**
  * What each scheme would read in a value as fields, an escape or a parameter
  * (RFC 6068, 5724, 3966). A `,` stays: it adds a recipient the user sees, or

@@ -14,7 +14,7 @@ import type {
   VCardBirthdayField,
 } from "@/model/contact";
 import { type ContactList, changedLists, savedLabelOf, writesAddress } from "@/vcard";
-import { isUri } from "./contact-links";
+import { isUri, websiteUri } from "./contact-links";
 
 // ---------------------------------------------------------------------------
 // Draft type — the shape the UI works with during editing
@@ -428,7 +428,7 @@ export function validateDraft(draft: ContactDraft, dirty?: DirtyFields): Validat
     }
   });
 
-  if ((dirty?.url ?? true) && draft.url.length > 0 && !isUri(draft.url)) {
+  if ((dirty?.url ?? true) && draft.url.length > 0 && !isUri(websiteUri(draft.url))) {
     errors.url = "field_url_invalid";
   }
 
@@ -554,10 +554,12 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
   }
   if (take("title")) f.title = draft.title;
   if (take("url")) {
-    f.url = draft.url;
+    // A website whose type alone changed keeps the value another client wrote.
+    const url = draft.url === f.url ? f.url : websiteUri(draft.url);
+    f.url = url;
     f.urlField = fromDraftField({
       id: "url",
-      value: draft.url,
+      value: url,
       type: draft.urlType ?? "",
       _orig: f.urlField ?? { value: f.url },
     });

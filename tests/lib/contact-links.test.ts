@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUri, isWebUrl, valueHref } from "@/lib/contact-links";
+import { isUri, isWebUrl, valueHref, websiteUri } from "@/lib/contact-links";
 
 describe("isWebUrl", () => {
   it("accepts http and https addresses", () => {
@@ -35,6 +35,23 @@ describe("isUri", () => {
     expect(isUri("https://example.org/a b")).toBe(false);
     expect(isUri("1fb://profile")).toBe(false);
     expect(isUri("fb:")).toBe(false);
+  });
+});
+
+describe("websiteUri", () => {
+  it("gives a host typed without a scheme https", () => {
+    expect(websiteUri("website.example")).toBe("https://website.example");
+    expect(websiteUri("www.website.example/a?b#c")).toBe("https://www.website.example/a?b#c");
+    expect(websiteUri("website.example:8080")).toBe("https://website.example:8080");
+  });
+
+  it("keeps a URI, and what isn't a host", () => {
+    expect(websiteUri("http://website.example")).toBe("http://website.example");
+    expect(websiteUri("fb://profile/0123456789")).toBe("fb://profile/0123456789");
+    expect(websiteUri("com.example.app:/open")).toBe("com.example.app:/open");
+    expect(websiteUri("ada@website.example")).toBe("ada@website.example");
+    expect(websiteUri("localhost")).toBe("localhost");
+    expect(websiteUri("website.example ada")).toBe("website.example ada");
   });
 });
 

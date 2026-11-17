@@ -412,6 +412,19 @@ describe("edit mode — validation", () => {
     await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
     expect(mockUpdateCard.mock.calls[0]?.[3]).toContain(`URL:${url}`);
   });
+
+  it("saves a website typed without a scheme as an https URL", async () => {
+    await renderEditView("fburl");
+    const user = userEvent.setup();
+
+    const website = screen.getByLabelText("Site web");
+    await user.clear(website);
+    await user.type(website, "website.example");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    expect(mockUpdateCard.mock.calls[0]?.[3]).toContain("URL:https://website.example");
+  });
 });
 
 describe("edit mode — name fields", () => {
