@@ -14,7 +14,7 @@ import type {
   VCardBirthdayField,
 } from "@/model/contact";
 import { type ContactList, changedLists, savedLabelOf, writesAddress } from "@/vcard";
-import { isWebUrl } from "./contact-links";
+import { isUri } from "./contact-links";
 
 // ---------------------------------------------------------------------------
 // Draft type — the shape the UI works with during editing
@@ -398,8 +398,8 @@ export type ValidationErrors = Record<string, string | undefined>;
 /**
  * Validate a draft. Returns an errors map keyed by field path.
  * Only fields with errors are present. With `dirty`, a day its month doesn't
- * have counts only on an edited birthday: one another client stored stays as
- * it is, and doesn't hold back a save of other fields.
+ * have and a website that isn't a URI count only once edited: what another
+ * client stored stays as it is, and doesn't hold back a save of other fields.
  */
 export function validateDraft(draft: ContactDraft, dirty?: DirtyFields): ValidationErrors {
   const errors: ValidationErrors = {};
@@ -428,8 +428,7 @@ export function validateDraft(draft: ContactDraft, dirty?: DirtyFields): Validat
     }
   });
 
-  // URL format validation (lenient)
-  if (draft.url.length > 0 && !isWebUrl(draft.url)) {
+  if ((dirty?.url ?? true) && draft.url.length > 0 && !isUri(draft.url)) {
     errors.url = "field_url_invalid";
   }
 

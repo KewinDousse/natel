@@ -1,0 +1,4 @@
+{
+  "type": "Fixed",
+  "text": "A contact whose website another app saved without `https://`, or as an app link such as `fb://profile/…`, can be saved again: an unedited website no longer blocks the save, and an edited one may use any scheme. Only `http` and `https` websites open as links."
+}

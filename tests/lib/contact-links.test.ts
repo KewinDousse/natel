@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isWebUrl, valueHref } from "@/lib/contact-links";
+import { isUri, isWebUrl, valueHref } from "@/lib/contact-links";
 
 describe("isWebUrl", () => {
   it("accepts http and https addresses", () => {
@@ -18,6 +18,23 @@ describe("isWebUrl", () => {
   it("refuses what isn't a URL", () => {
     expect(isWebUrl("example.org")).toBe(false);
     expect(isWebUrl("")).toBe(false);
+  });
+});
+
+describe("isUri", () => {
+  it("accepts a URI of any scheme", () => {
+    expect(isUri("https://example.org")).toBe(true);
+    expect(isUri("fb://profile/0123456789")).toBe(true);
+    expect(isUri("xmpp:ada@example.org")).toBe(true);
+  });
+
+  it("refuses a value without a scheme, or with whitespace", () => {
+    expect(isUri("example.org")).toBe(false);
+    expect(isUri("not-a-url")).toBe(false);
+    expect(isUri(" https://example.org")).toBe(false);
+    expect(isUri("https://example.org/a b")).toBe(false);
+    expect(isUri("1fb://profile")).toBe(false);
+    expect(isUri("fb:")).toBe(false);
   });
 });
 

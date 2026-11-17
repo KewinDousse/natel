@@ -493,6 +493,11 @@ describe("validateDraft", () => {
   });
 });
 
+const cardWith = (line: string) =>
+  parse(
+    ["BEGIN:VCARD", "VERSION:3.0", "FN:Ada", "N:Lovelace;Ada;;;", line, "END:VCARD"].join("\r\n"),
+  );
+
 describe("validateDraft: calendar dates", () => {
   const withBirthday = (year: string, month: string, day: string) =>
     validateDraft({
@@ -534,11 +539,6 @@ describe("validateDraft: calendar dates", () => {
     expect(withBirthday("2025", "13", "31")).toEqual({ bday_month: "field_bday_month" });
   });
 
-  const cardWith = (line: string) =>
-    parse(
-      ["BEGIN:VCARD", "VERSION:3.0", "FN:Ada", "N:Lovelace;Ada;;;", line, "END:VCARD"].join("\r\n"),
-    );
-
   it("accepts Apple's year-less 29 February, stored with 1604 as its year", () => {
     expect(validateDraft(buildDraft(cardWith("BDAY;X-APPLE-OMIT-YEAR=1604:1604-02-29")))).toEqual(
       {},
@@ -556,6 +556,26 @@ describe("validateDraft: calendar dates", () => {
     const base = buildDraft(card);
     const draft = { ...base, bday: base.bday && { ...base.bday, year: "2024" } };
     expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({ bday_day: "field_bday_day" });
+  });
+});
+
+describe("validateDraft: website", () => {
+  it("saves other fields of a card whose website isn't a URI", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), nickname: "Ada" };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({});
+  });
+
+  it("refuses a website without a scheme once it is edited", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), url: "website.example/ada" };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({ url: "field_url_invalid" });
+  });
+
+  it("accepts an edited website of an app's scheme", () => {
+    const card = cardWith("URL:https://example.org");
+    const draft = { ...buildDraft(card), url: "fb://profile/0123456789" };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({});
   });
 });
 

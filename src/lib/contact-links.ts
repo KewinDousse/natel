@@ -1,6 +1,6 @@
 /**
- * An http or https URL: the only kind a draft may hold, and the only kind
- * the contact page turns into a link, whatever another client wrote.
+ * An http or https URL: the only kind the contact page turns into a link,
+ * whatever the card holds.
  */
 export function isWebUrl(value: string): boolean {
   try {
@@ -9,6 +9,14 @@ export function isWebUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * A URI with a scheme (RFC 3986), as a vCard's URL holds (RFC 6350): what a
+ * draft may hold, since a card can name an app's profile (`fb://profile/1`).
+ */
+export function isUri(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(value);
 }
 
 /**
