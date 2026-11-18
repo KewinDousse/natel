@@ -14,6 +14,7 @@ import { create } from "zustand";
 import { clearCachedDavSessions, closeSession, currentSession } from "@/dav";
 import type { DavAddressBook, DavAuth } from "@/dav/types";
 import { bookParam } from "@/lib/book-param";
+import type { GroupChoice } from "@/lib/contact-groups";
 
 // ---------------------------------------------------------------------------
 // State
@@ -26,8 +27,8 @@ export interface SessionState {
   selectedBook: DavAddressBook | null;
   /** The last sign-out wasn't confirmed by the server: the user is still signed in. */
   signOutFailed: boolean;
-  /** The group the list is filtered on, or null for every contact. */
-  groupFilter: string | null;
+  /** The group the list is filtered on, NO_GROUP for contacts in none, or null for every contact. */
+  groupFilter: GroupChoice | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,8 +48,8 @@ export interface SessionActions {
   logout: () => Promise<boolean>;
   /** Select or deselect the active address book; another book starts from every group. */
   selectBook: (book: DavAddressBook | null) => void;
-  /** Filter the list on a group, or on every contact with null. */
-  setGroupFilter: (name: string | null) => void;
+  /** Filter the list on a group, on contacts in none with NO_GROUP, or on every contact with null. */
+  setGroupFilter: (choice: GroupChoice | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,8 +91,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     );
   },
 
-  setGroupFilter: (name: string | null) => {
-    set({ groupFilter: name });
+  setGroupFilter: (choice: GroupChoice | null) => {
+    set({ groupFilter: choice });
   },
 }));
 

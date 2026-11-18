@@ -141,6 +141,7 @@ describe("the group filter", () => {
     const items = within(menu).getAllByRole("menuitemradio");
     expect(items.map((item) => item.textContent)).toEqual([
       "Tous les groupes",
+      "Sans groupe0",
       "Club1",
       "Famille2",
     ]);
@@ -169,12 +170,12 @@ describe("the group filter", () => {
     await user.keyboard("{ArrowDown}");
     const items = within(screen.getByRole("menu")).getAllByRole("menuitemradio");
     expect(document.activeElement).toBe(items[0]);
-    await user.keyboard("{ArrowDown}{ArrowDown}");
-    expect(document.activeElement).toBe(items[2]);
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}");
+    expect(document.activeElement).toBe(items[3]);
     await user.keyboard("{ArrowDown}");
     expect(document.activeElement).toBe(items[0]);
     await user.keyboard("{End}");
-    expect(document.activeElement).toBe(items[2]);
+    expect(document.activeElement).toBe(items[3]);
     await user.keyboard("{Home}");
     expect(document.activeElement).toBe(items[0]);
     await user.keyboard("{Escape}");
@@ -225,6 +226,57 @@ describe("the group filter", () => {
     await refetch();
     await screen.findByText("3 contacts");
     expect(trigger().textContent).toBe("Tous les groupes");
+  });
+
+  it("shows the contacts in no group, and keeps the filter when one joins a group", async () => {
+    const book = books[BOOK.href] ?? {};
+    book[`${BOOK.href}bob.vcf`] = person("bob", "Byte", "Bob");
+    const user = await renderList();
+    await user.click(trigger());
+    const option = screen.getByRole("menuitemradio", { name: /^Sans groupe/ });
+    expect(option.textContent).toBe("Sans groupe1");
+    await user.click(option);
+
+    expect(trigger().textContent).toBe("Sans groupe");
+    expect(screen.getByText("1 contact sans groupe")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Byte/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Lovelace/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Hopper/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Turing/ })).toBeNull();
+
+    await user.click(trigger());
+    expect(
+      screen.getByRole("menuitemradio", { name: /^Sans groupe/ }).getAttribute("aria-checked"),
+    ).toBe("true");
+    await user.keyboard("{Escape}");
+
+    book[`${BOOK.href}bob.vcf`] = person("bob", "Byte", "Bob", ["CATEGORIES:Club"]);
+    await act(async () => {
+      await client.invalidateQueries();
+    });
+    await screen.findByText("Tous les contacts sont dans un groupe.");
+    expect(trigger().textContent).toBe("Sans groupe");
+
+    await user.click(screen.getByRole("button", { name: "Afficher tous les groupes" }));
+    expect(screen.getByText("4 contacts")).toBeTruthy();
+  });
+
+  it("ends the no-group filter when the book has no group left", async () => {
+    const user = await renderList();
+    await user.click(trigger());
+    await user.click(screen.getByRole("menuitemradio", { name: /^Sans groupe/ }));
+    expect(screen.getByText("Tous les contacts sont dans un groupe.")).toBeTruthy();
+
+    const book = books[BOOK.href] ?? {};
+    delete book[`${BOOK.href}family.vcf`];
+    delete book[`${BOOK.href}club.vcf`];
+    book[`${BOOK.href}grace.vcf`] = person("grace", "Hopper", "Grace");
+    await act(async () => {
+      await client.invalidateQueries();
+    });
+    await screen.findByText("3 contacts");
+    expect(screen.queryByRole("button", { name: /^Filtrer par groupe/ })).toBeNull();
+    expect(useSessionStore.getState().groupFilter).toBeNull();
   });
 
   it("searches within the group", async () => {

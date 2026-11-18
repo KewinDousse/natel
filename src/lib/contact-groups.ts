@@ -35,29 +35,48 @@ export function bookGroupNames(contacts: Contact[], groupCards: Contact[]): stri
 export type BookGroup = { name: string; count: number };
 
 /**
- * Every group of a book with its number of contacts, sorted by name; a
- * group card with no member that resolves counts 0.
+ * The list's group filter choice: a group's name, or NO_GROUP for the
+ * contacts in none. A symbol, since any string can be a group's name.
  */
-export function bookGroups(contacts: Contact[], groupCards: Contact[]): BookGroup[] {
+export const NO_GROUP = Symbol("no group");
+export type GroupChoice = string | typeof NO_GROUP;
+
+/**
+ * Every group of a book with its number of contacts, sorted by name, and
+ * the number of contacts in none; a group card with no member that
+ * resolves counts 0.
+ */
+export function bookGroups(
+  contacts: Contact[],
+  groupCards: Contact[],
+): { groups: BookGroup[]; noGroupCount: number } {
   const counts = new Map<string, number>();
   for (const name of bookGroupNames(contacts, groupCards)) counts.set(name, 0);
   const cards = groupCards.map(groupCardOf);
+  let noGroupCount = 0;
   for (const contact of contacts) {
-    for (const name of namesOf(contact, cards)) {
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
+    const names = namesOf(contact, cards);
+    if (names.length === 0) noGroupCount += 1;
+    for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
   }
-  return [...counts]
+  const groups = [...counts]
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => a.name.localeCompare(b.name));
+  return { groups, noGroupCount };
 }
 
-/** The contacts in the group `name`, from its group cards or their CATEGORIES. */
+/**
+ * The contacts in the group `choice`, from its group cards or their
+ * CATEGORIES; for NO_GROUP, those that neither puts in a group.
+ */
 export function contactsInGroup(
   contacts: Contact[],
   groupCards: Contact[],
-  name: string,
+  choice: GroupChoice,
 ): Contact[] {
   const cards = groupCards.map(groupCardOf);
-  return contacts.filter((contact) => namesOf(contact, cards).includes(name));
+  return contacts.filter((contact) => {
+    const names = namesOf(contact, cards);
+    return choice === NO_GROUP ? names.length === 0 : names.includes(choice);
+  });
 }
