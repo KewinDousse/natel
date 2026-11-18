@@ -6,11 +6,12 @@
  */
 import { create } from "zustand";
 import { storeChoice, storedChoice } from "@/i18n/preferences";
-import type { SortBy } from "@/lib/contact-list";
+import type { ListSort, SortBy } from "@/lib/contact-list";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import { chooseTheme, storedTheme, type Theme } from "@/lib/theme";
 
 const SORTS = ["family", "given"] as const satisfies readonly SortBy[];
+const ORDERS = ["edited"] as const;
 
 export type LabelPosition = "auto" | "left" | "above";
 const LABEL_POSITIONS = ["left", "above"] as const;
@@ -23,12 +24,15 @@ type PreferencesState = {
   setAvatarShape: (shape: AvatarShape) => void;
   labelPosition: LabelPosition;
   setLabelPosition: (position: LabelPosition) => void;
+  /** The order of names, and the list's sort unless `byRevision`. */
   sortBy: SortBy;
+  /** Whether the list sorts by last modification. */
+  byRevision: boolean;
   /** An explicit theme, or null for the system's. */
   theme: Theme | null;
   /** An explicit map, or null for the device's. */
   mapApp: MapApp | null;
-  setSortBy: (sortBy: SortBy) => void;
+  setSortBy: (sort: ListSort) => void;
   setTheme: (theme: Theme | null) => void;
   setMapApp: (mapApp: MapApp | null) => void;
 };
@@ -45,12 +49,20 @@ export const usePreferences = create<PreferencesState>()((set) => ({
     set({ labelPosition });
   },
   sortBy: storedChoice("sort", SORTS) ?? "given",
+  byRevision: storedChoice("order", ORDERS) !== null,
   theme: storedTheme(),
   mapApp: storedChoice("map", MAP_APPS),
-  setSortBy: (sortBy) => {
+  setSortBy: (sort) => {
+    if (sort === "edited") {
+      // The names keep the order of the last sort by name.
+      storeChoice("order", sort);
+      set({ byRevision: true });
+      return;
+    }
     // First name first is the default: only the other choice is stored.
-    storeChoice("sort", sortBy === "given" ? null : sortBy);
-    set({ sortBy });
+    storeChoice("order", null);
+    storeChoice("sort", sort === "given" ? null : sort);
+    set({ sortBy: sort, byRevision: false });
   },
   setTheme: (theme) => {
     chooseTheme(theme);

@@ -286,7 +286,7 @@ beforeEach(() => {
   localStorage.clear();
   useSessionStore.setState({ auth: null, selectedBook: null });
   // The sort is remembered: a test that changes it mustn't leave it changed.
-  usePreferences.setState({ sortBy: "family", theme: null });
+  usePreferences.setState({ sortBy: "family", byRevision: false, theme: null });
   vi.resetAllMocks();
 });
 
@@ -1191,6 +1191,19 @@ describe("large books", () => {
   it("brings a directly linked contact's row into view though it was not mounted", async () => {
     await renderBook(manyContacts(1001), "/contacts/a/many-987");
 
+    await waitFor(() => {
+      expect(
+        document.querySelector('#list a[data-contact-id="many-987"]')?.getAttribute("data-status"),
+      ).toBe("active");
+    });
+  });
+
+  it("keeps the list virtual in one section without a letter when sorted by revision", async () => {
+    usePreferences.setState({ byRevision: true });
+    await renderBook(manyContacts(1001), "/contacts/a/many-987");
+
+    expect(rowLinks().length).toBeLessThan(100);
+    expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0);
     await waitFor(() => {
       expect(
         document.querySelector('#list a[data-contact-id="many-987"]')?.getAttribute("data-status"),

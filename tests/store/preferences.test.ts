@@ -3,7 +3,7 @@
  * theme, display preferences stored like the language (ADR 026).
  */
 import { readFileSync } from "node:fs";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PREFERENCES_KEY } from "@/i18n/preferences";
 import { applyTheme } from "@/lib/theme";
 import { usePreferences } from "@/store/preferences";
@@ -40,6 +40,7 @@ beforeEach(() => {
   systemDark = false;
   usePreferences.setState({
     sortBy: "given",
+    byRevision: false,
     theme: null,
     mapApp: null,
     labelPosition: "auto",
@@ -58,6 +59,23 @@ describe("the list's sort", () => {
     expect(stored()).toEqual({ sort: "family" });
     usePreferences.getState().setSortBy("given");
     expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
+  });
+
+  it("stores the sort by last modification apart, keeping the order of names", () => {
+    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setSortBy("edited");
+    expect(stored()).toEqual({ sort: "family", order: "edited" });
+    expect(usePreferences.getState()).toMatchObject({ sortBy: "family", byRevision: true });
+    usePreferences.getState().setSortBy("given");
+    expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
+    expect(usePreferences.getState()).toMatchObject({ sortBy: "given", byRevision: false });
+  });
+
+  it("comes back on a reload sorted by last modification", async () => {
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ sort: "family", order: "edited" }));
+    vi.resetModules();
+    const { usePreferences: reloaded } = await import("@/store/preferences");
+    expect(reloaded.getState()).toMatchObject({ sortBy: "family", byRevision: true });
   });
 });
 

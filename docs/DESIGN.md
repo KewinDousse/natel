@@ -100,8 +100,15 @@ Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden fro
 - Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The page doesn't scroll meanwhile.
 - From `lg`, the rail sits outside the list's scrolling pane, so the whole scrollbar stays clickable.
 
+### Sort by last modification
+"Recently modified" orders the list by the card's `REV`, latest first. Cards without a readable `REV` follow, by name.
+- The list is one section without a letter, and the A–Z rail hides, while loading too: letters mean nothing in this order. The rows take the letter column's width; the rail's gutter on the right stays.
+- Names keep the order of the last sort by name. The choice is stored apart from it, so going back to names restores that order.
+- Each row ends with the short date of its `REV`, in a right-aligned column at least 4.5rem wide, muted and in tabular figures: day and month this year ("Nov 12"), month and year before ("Sep 2024"). Screen readers hear the full date. A card without a readable `REV` leaves the column empty.
+- Saving a card that has a `REV` in Natel refreshes it, so the contact moves to the top. A card without one keeps none (ADR 029) and stays with the undated cards.
+
 ### List toolbar
-The count (announced politely) on the left, the group filter, and from `sm` the first-name / last-name sort toggle on the right. The sort is a display preference, remembered like the language (ADR 026); below 640px only the settings offer it, so the count and the filter share a row.
+The count (announced politely) on the left, the group filter, and from `sm` the sort toggle on the right: first name, last name or recently modified. The sort is a display preference, remembered like the language (ADR 026); below 640px only the settings offer it, so the count and the filter share a row.
 
 ### List states
 - Loading: the toolbar shows a loading message in place of the count, with the sort toggle, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.

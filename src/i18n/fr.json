@@ -59,6 +59,7 @@
   "sort_label": "Trier par",
   "sort_family": "Nom",
   "sort_given": "Prénom",
+  "sort_edited": "Modifiés récemment",
   "map_label": "Ouvrir les adresses dans",
   "map_auto": "Automatique (selon l’appareil)",
   "map_osm": "OpenStreetMap",

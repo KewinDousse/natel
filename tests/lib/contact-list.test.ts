@@ -20,6 +20,7 @@ import {
   searchTargetOf,
   splitByQuery,
   trailingValueOf,
+  UNLETTERED,
 } from "@/lib/contact-list";
 import type { Contact, RawComponent } from "@/model/contact";
 import { parse } from "@/vcard";
@@ -394,6 +395,56 @@ describe("buildGroups", () => {
     const groups = buildGroups([jarvan, fiora, ezreal], "family", "laur");
     expect(groups).toHaveLength(1);
     expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["l1"]);
+  });
+});
+
+describe("buildGroups by last modification", () => {
+  function card(uid: string, n: string, ...lines: string[]): Contact {
+    return parse(
+      ["BEGIN:VCARD", "VERSION:3.0", `UID:${uid}`, `N:${n}`, ...lines, "END:VCARD"].join("\r\n"),
+    );
+  }
+  const old = card("old", "Anders;Alma;;;", "REV:2024-03-03T10:10:10Z");
+  const recent = card("recent", "Zuber;Zoé;;;", "REV:20261112T143000Z");
+  // 14:30 at +02:00 is 12:30 UTC, before `recent`.
+  const offset = card("offset", "Mertens;Mila;;;", "REV:20261112T143000+0200");
+  const dateOnly = card("day", "Keller;Kai;;;", "REV:2025-06-01");
+  const bad = card("bad", "Brun;Basile;;;", "REV:yesterday");
+  const none = card("none", "Aebi;Aline;;;");
+
+  it("puts the latest REV first, then the cards without a readable one by name", () => {
+    const groups = buildGroups([none, old, bad, recent, dateOnly, offset], "family", "", true);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.letter).toBe(UNLETTERED);
+    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual([
+      "recent",
+      "offset",
+      "day",
+      "old",
+      "none",
+      "bad",
+    ]);
+  });
+
+  it("sorts the cards without a date by the name order chosen", () => {
+    const adele = card("adele", "Zahn;Adèle;;;");
+    const yves = card("yves", "Amsler;Yves;;;");
+    const byGiven = buildGroups([yves, adele], "given", "", true);
+    expect(byGiven[0]?.contacts.map((c) => c.uid)).toEqual(["adele", "yves"]);
+    const byFamily = buildGroups([adele, yves], "family", "", true);
+    expect(byFamily[0]?.contacts.map((c) => c.uid)).toEqual(["yves", "adele"]);
+  });
+
+  it("orders cards with the same REV by name", () => {
+    const twin = card("twin", "Arnaud;Alex;;;", "REV:20261112T143000Z");
+    const groups = buildGroups([recent, twin], "family", "", true);
+    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["twin", "recent"]);
+  });
+
+  it("filters by query, and returns no group without a match", () => {
+    const groups = buildGroups([old, recent], "family", "zub", true);
+    expect(groups[0]?.contacts.map((c) => c.uid)).toEqual(["recent"]);
+    expect(buildGroups([old, recent], "family", "nobody", true)).toEqual([]);
   });
 });
 

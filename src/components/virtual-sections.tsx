@@ -24,7 +24,7 @@ import {
   useState,
 } from "react";
 import { flushSync } from "react-dom";
-import { type ContactGroup, contactIdOf, type SortBy } from "@/lib/contact-list";
+import { type ContactGroup, contactIdOf, type SortBy, UNLETTERED } from "@/lib/contact-list";
 import { isDesktop } from "@/lib/shortcuts";
 import type { Contact } from "@/model/contact";
 import { useBookParam } from "@/store/session";
@@ -402,7 +402,13 @@ function Sections({
               className="absolute inset-x-0 top-0"
               style={{ transform: `translateY(${item.start - origin}px)` }}
             >
-              <ContactRow book={book} contact={candidate.contact} query={query} sortBy={sortBy} />
+              <ContactRow
+                book={book}
+                contact={candidate.contact}
+                query={query}
+                sortBy={sortBy}
+                dated={group.letter === UNLETTERED}
+              />
             </li>,
           );
         }

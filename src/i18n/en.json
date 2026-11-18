@@ -59,6 +59,7 @@
   "sort_label": "Sort by",
   "sort_family": "Last name",
   "sort_given": "First name",
+  "sort_edited": "Recently modified",
   "map_label": "Open addresses in",
   "map_auto": "Automatic (by device)",
   "map_osm": "OpenStreetMap",

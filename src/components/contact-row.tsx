@@ -1,4 +1,7 @@
-/** The list's letter sections and their rows, with search matches marked. */
+/**
+ * The list's letter sections and their rows, with search matches marked, and
+ * each row's last modification when the list sorts by it.
+ */
 
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -15,10 +18,13 @@ import {
   type SortBy,
   splitByQuery,
   trailingValueOf,
+  UNLETTERED,
 } from "@/lib/contact-list";
+import { cardDateTime, formatCardDate, formatShortCardDate } from "@/lib/format-card-date";
 import { formatPhone } from "@/lib/format-phone";
 import type { Contact } from "@/model/contact";
 import { useBookParam } from "@/store/session";
+import { revisionOf } from "@/vcard";
 import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
 
 export function GroupSection({
@@ -39,7 +45,13 @@ export function GroupSection({
       <ul role="list" className="min-w-0">
         {group.contacts.map((contact) => (
           <li key={contact.href}>
-            <ContactRow book={book} contact={contact} query={query} sortBy={sortBy} />
+            <ContactRow
+              book={book}
+              contact={contact}
+              query={query}
+              sortBy={sortBy}
+              dated={group.letter === UNLETTERED}
+            />
           </li>
         ))}
       </ul>
@@ -47,8 +59,10 @@ export function GroupSection({
   );
 }
 
-/** A letter section around its list of rows. */
+/** A letter section around its list of rows; without a letter, the rows alone. */
 export function SectionFrame({ letter, children }: { letter: string; children: ReactNode }) {
+  // The same border and padding as a letter section, which virtual-sections.tsx models.
+  if (letter === UNLETTERED) return <section className="border-t py-2">{children}</section>;
   return (
     <section
       id={`g-${letter}`}
@@ -70,11 +84,14 @@ function ContactRowContent({
   contact,
   query,
   sortBy,
+  dated,
 }: {
   book: string;
   contact: Contact;
   query: string;
   sortBy: SortBy;
+  /** Whether the row shows the card's last modification. */
+  dated: boolean;
 }) {
   const { family, given } = namePartsOf(contact);
   const { lead, rest, display } = orderedNameOf(contact, sortBy);
@@ -194,8 +211,33 @@ function ContactRowContent({
               </span>
             ))}
         </span>
+        {dated && <RevisionDate contact={contact} />}
       </Link>
     </>
+  );
+}
+
+/**
+ * The day of the card's `REV`, in a column of its own width so the values
+ * before it line up; empty without a readable `REV`.
+ */
+function RevisionDate({ contact }: { contact: Contact }) {
+  const { t, locale } = useI18n();
+  const revised = revisionOf(contact);
+  return (
+    <span className="min-w-[4.5rem] shrink-0 text-right text-sm tabular text-muted-foreground">
+      {revised && (
+        <>
+          {/* The short form drops the day of an earlier year: the full date is read. */}
+          <span className="sr-only">
+            {t("card_revised")} {formatCardDate(revised, locale)}
+          </span>
+          <time aria-hidden="true" dateTime={cardDateTime(revised)}>
+            {formatShortCardDate(revised, locale, new Date())}
+          </time>
+        </>
+      )}
+    </span>
   );
 }
 

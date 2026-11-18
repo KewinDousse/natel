@@ -3,13 +3,18 @@
  * highlighting, and route-id mapping. No React, no I/O — fully unit-tested.
  *
  * Initials outside A–Z share a "#" group at the end of the list and rail.
+ * Sorted by last modification, the list is one group without a letter.
  */
 
 import { fnv1a } from "@/lib/hash";
 import type { Contact, ContactField } from "@/model/contact";
-import { orgOf, typeValuesOf } from "@/vcard";
+import { orgOf, revisionOf, typeValuesOf } from "@/vcard";
 
+/** The order of a name's parts, which the list sorts by too unless by "edited". */
 export type SortBy = "family" | "given";
+
+/** What the list sorts by: a name's part, or the card's last modification. */
+export type ListSort = SortBy | "edited";
 
 export type TrailingValue = { kind: "tel" | "email" | "org"; value: string };
 
@@ -23,6 +28,9 @@ export const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /** Group letter for contacts outside A–Z (digits, symbols, empty sort key). */
 export const OTHER_GROUP = "#";
+
+/** The letter of the one group of a list sorted by last modification: none. */
+export const UNLETTERED = "";
 
 // ---------------------------------------------------------------------------
 // Normalisation
@@ -255,24 +263,66 @@ export function splitByQuery(value: string, query: string): HighlightSegment[] {
 // Grouping / sorting
 // ---------------------------------------------------------------------------
 
-type SortedEntry = { contact: Contact; key: string; foldedKey: string; target: SearchTarget };
+type SortedEntry = {
+  contact: Contact;
+  key: string;
+  foldedKey: string;
+  target: SearchTarget;
+  /** The `REV` instant in ms, or null without a readable one. */
+  revised: number | null;
+};
+
+function byName(a: SortedEntry, b: SortedEntry): number {
+  if (a.foldedKey !== b.foldedKey) return a.foldedKey < b.foldedKey ? -1 : 1;
+  if (a.key !== b.key) return a.key < b.key ? -1 : 1;
+  return 0;
+}
+
+/** Latest `REV` first; cards without a readable one after, by name. */
+function newestFirst(a: SortedEntry, b: SortedEntry): number {
+  if (a.revised !== b.revised) {
+    if (a.revised === null) return 1;
+    if (b.revised === null) return -1;
+    return b.revised - a.revised;
+  }
+  return byName(a, b);
+}
+
+/** The list's sort from the two preferences that make it up. */
+export function listSortOf({
+  sortBy,
+  byRevision,
+}: {
+  sortBy: SortBy;
+  byRevision: boolean;
+}): ListSort {
+  return byRevision ? "edited" : sortBy;
+}
 
 /**
  * Filter by query and group into letter sections. Sections are ordered A–Z,
  * with the "#" group last. Within a section, contacts sort by the folded sort
- * key, tie-broken by the raw key for a stable accent order.
+ * key, tie-broken by the raw key for a stable accent order. By revision, the
+ * list is a single group with no letter, ordered by `newestFirst`.
  */
-export function buildGroups(contacts: Contact[], sortBy: SortBy, query: string): ContactGroup[] {
+export function buildGroups(
+  contacts: Contact[],
+  sortBy: SortBy,
+  query: string,
+  byRevision = false,
+): ContactGroup[] {
   const entries: SortedEntry[] = contacts.map((contact) => {
     const key = sortKeyOf(contact, sortBy);
-    return { contact, key, foldedKey: fold(key), target: searchTargetOf(contact) };
+    const revised = byRevision ? (revisionOf(contact)?.date.getTime() ?? null) : null;
+    return { contact, key, foldedKey: fold(key), target: searchTargetOf(contact), revised };
   });
   const visible = entries.filter((entry) => matchesQuery(entry.target, query));
-  visible.sort((a, b) => {
-    if (a.foldedKey !== b.foldedKey) return a.foldedKey < b.foldedKey ? -1 : 1;
-    if (a.key !== b.key) return a.key < b.key ? -1 : 1;
-    return 0;
-  });
+  visible.sort(byRevision ? newestFirst : byName);
+  if (byRevision) {
+    return visible.length === 0
+      ? []
+      : [{ letter: UNLETTERED, contacts: visible.map((entry) => entry.contact) }];
+  }
 
   const byLetter = new Map<string, Contact[]>();
   const other: Contact[] = [];

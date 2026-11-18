@@ -39,6 +39,7 @@ it("offers sorting while contacts load and keeps the alphabet non-interactive", 
           onRetry={vi.fn()}
           query={query}
           sortBy="given"
+          byRevision={false}
           onSortBy={onSortBy}
           groupCards={[]}
           groupFilter={null}

@@ -139,3 +139,41 @@ test("leaves the whole list scrollbar free of the rail", async ({ page, isMobile
   });
   expect(hits).toEqual(["list", "list", "list", "list", "list"]);
 });
+
+test("sorts by the last modification and moves a saved contact to the top", async ({
+  page,
+  isMobile,
+}) => {
+  await putCard(
+    "old",
+    vcard(["UID:old", "FN:Ada Old", "N:Old;Ada;;;", "REV:2021-05-04T08:00:00Z"]),
+  );
+  await putCard(
+    "new",
+    vcard(["UID:new", "FN:Bea New", "N:New;Bea;;;", "REV:2025-01-15T09:00:00Z"]),
+  );
+  await signIn(page);
+  if (isMobile) {
+    await page.getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("combobox", { name: "Sort by" }).selectOption("edited");
+    await page.getByRole("link", { name: "Back to “Contacts”" }).click();
+  } else {
+    await page.getByRole("button", { name: "Recently modified" }).click();
+  }
+  const rows = page.locator("#list [data-contact-id]");
+  await expect(rows.nth(0)).toContainText("Bea New");
+  await expect(rows.nth(1)).toContainText("Ada Old");
+  await expect(rows.nth(1).locator("time")).toHaveText("May 2021");
+  // Undated cards follow, with an empty date column.
+  await expect(rows.nth(2)).toContainText("Alain");
+  await expect(rows.nth(2).locator("time")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Alphabetical index" })).toHaveCount(0);
+
+  await rows.nth(1).click();
+  await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
+  await page.getByLabel("First name", { exact: true }).fill("Adèle");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  if (isMobile) await page.getByRole("link", { name: "Back to “Contacts”" }).click();
+  await expect(rows.nth(0)).toContainText("Adèle Old");
+});

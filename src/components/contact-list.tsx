@@ -1,9 +1,9 @@
 /**
  * ContactList — the directory list pane: the toolbar (count, group filter,
  * sort toggle), the letter sections (contact-row.tsx, or virtual-sections.tsx
- * for a large list) and the A–Z rail (alphabet-rail.tsx). Group, letter, sort
- * and search logic lives in src/lib/contact-list.ts; this file only composes
- * and styles it.
+ * for a large list) and the A–Z rail (alphabet-rail.tsx), hidden when the
+ * list sorts by last modification. Group, letter, sort and search logic lives
+ * in src/lib/contact-list.ts; this file only composes and styles it.
  */
 
 import type { ReactNode } from "react";
@@ -12,7 +12,7 @@ import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
 import { useOpenRowInView } from "@/hooks/use-open-row-in-view";
 import { useI18n } from "@/i18n/react";
 import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
-import { buildGroups, type SortBy } from "@/lib/contact-list";
+import { buildGroups, type ListSort, listSortOf, type SortBy } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { AlphabetRail } from "./alphabet-rail";
@@ -44,7 +44,9 @@ type ContactListProps = {
   onImport?: (file: File) => void;
   query: string;
   sortBy: SortBy;
-  onSortBy: (sortBy: SortBy) => void;
+  /** Whether the list sorts by last modification rather than by `sortBy`. */
+  byRevision: boolean;
+  onSortBy: (sort: ListSort) => void;
   /** The book's group cards, which the group filter reads with CATEGORIES. */
   groupCards: Contact[];
   /** The group the list is filtered on, or null for every contact. */
@@ -63,6 +65,7 @@ export function ContactList({
   onImport,
   query,
   sortBy,
+  byRevision,
   onSortBy,
   groupCards,
   groupFilter,
@@ -86,7 +89,10 @@ export function ContactList({
         : contactsInGroup(contacts ?? [], groupCards, activeGroup),
     [contacts, groupCards, activeGroup],
   );
-  const groups = useMemo(() => buildGroups(listed, sortBy, query), [listed, sortBy, query]);
+  const groups = useMemo(
+    () => buildGroups(listed, sortBy, query, byRevision),
+    [listed, sortBy, query, byRevision],
+  );
   // A group gone from the book ends the filter, which doesn't come back with it.
   useEffect(() => {
     if (contacts !== undefined && groupFilter !== null && activeGroup === null) {
@@ -156,7 +162,9 @@ export function ContactList({
   const showEmptyBook = !searching && count === 0 && !showIncompleteBook;
   const showEmptyGroup = !searching && !showEmptyBook && listed.length === 0;
   const showNoResults = searching && shown === 0;
-  const rail = <AlphabetRail present={new Set(groups.map((g) => g.letter))} hidden={searching} />;
+  const rail = byRevision ? null : (
+    <AlphabetRail present={new Set(groups.map((g) => g.letter))} hidden={searching} />
+  );
 
   return (
     <ListShell warning={warning} busy={loading}>
@@ -168,7 +176,7 @@ export function ContactList({
         {!loading && bookGroupList.length > 0 && (
           <GroupFilter groups={bookGroupList} selected={activeGroup} onSelect={onGroupFilter} />
         )}
-        <SortToggle sortBy={sortBy} onSortBy={onSortBy} />
+        <SortToggle sort={listSortOf({ sortBy, byRevision })} onSortBy={onSortBy} />
       </div>
 
       {loading ? (
@@ -198,29 +206,30 @@ export function ContactList({
   );
 }
 
-function SortToggle({ sortBy, onSortBy }: { sortBy: SortBy; onSortBy: (sortBy: SortBy) => void }) {
+const SORTS = [
+  ["given", "sort_given"],
+  ["family", "sort_family"],
+  ["edited", "sort_edited"],
+] as const;
+
+function SortToggle({ sort, onSortBy }: { sort: ListSort; onSortBy: (sort: ListSort) => void }) {
   const { t } = useI18n();
   return (
     <fieldset
       aria-label={t("sort_label")}
       className="m-0 hidden items-center gap-1 border-0 p-0 sm:inline-flex"
     >
-      <button
-        type="button"
-        aria-pressed={sortBy === "given"}
-        onClick={() => onSortBy("given")}
-        className={SORT_PILL}
-      >
-        {t("sort_given")}
-      </button>
-      <button
-        type="button"
-        aria-pressed={sortBy === "family"}
-        onClick={() => onSortBy("family")}
-        className={SORT_PILL}
-      >
-        {t("sort_family")}
-      </button>
+      {SORTS.map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={sort === value}
+          onClick={() => onSortBy(value)}
+          className={SORT_PILL}
+        >
+          {t(label)}
+        </button>
+      ))}
     </fieldset>
   );
 }
