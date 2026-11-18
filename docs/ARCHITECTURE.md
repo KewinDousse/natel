@@ -90,7 +90,7 @@ or PR is created. Publishing keeps package-write privileges away from repository
 scripts. The tested image and attestation precede the GitHub Release, alias
 promotion and stable demo/manifest. Promotions are recalculated on each attempt,
 including partial reruns. Operator steps are in
-[CONTRIBUTING.md](../CONTRIBUTING.md#releasing).
+[releasing.md](releasing.md).
 
 `scripts/changes.mjs` validates change notes and the release-only diff;
 `scripts/release.mjs` handles preparation, owner/environment validation and GitHub
