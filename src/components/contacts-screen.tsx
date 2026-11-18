@@ -154,7 +154,7 @@ export function ContactsScreen() {
           }}
           hiddenOnMobile={hasContact}
         />
-        <main className="lg:grid lg:min-h-0 lg:grid-cols-[minmax(26rem,34rem)_1fr]">
+        <main className="lg:grid lg:min-h-0 lg:grid-cols-[minmax(26rem,clamp(34rem,100%_-_56rem,44rem))_1fr]">
           {/* A contact, the settings or a new contact bring their own h1. */}
           {!hasContact && (
             <h1 className="sr-only">{selectedBook ? bookName(selectedBook) : t("list_label")}</h1>

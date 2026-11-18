@@ -50,11 +50,15 @@ The list's hierarchy follows what people look for: the name first, then its numb
 
 ## Layout
 
-**Desktop (`lg`, ≥ 1024px):** full-height grid. Header bar, then the list pane (own scroll) beside the detail pane on `bg-muted` (own scroll, content at most `44rem` wide).
+**Desktop (`lg`, ≥ 1024px):** full-height grid. Header bar, then the list pane (`26rem` to `34rem` up to 1440px, own scroll) beside the detail pane on `bg-muted` (own scroll, content at most `44rem` wide).
 
 **Mobile (< 1024px):** page scroll. Sticky header: wordmark, address-book switcher, settings and the round "+" on one row down to 320px, then the search. No detail pane: opening a contact is a separate route.
 
 Sticky offsets use `--header-h`, never hardcoded pixels.
+
+### Wide screens
+
+From 1440px the reading pane keeps the `56rem` it has there and the list takes the extra width, up to `44rem` at 1600px; wider screens give the rest to the reading pane. Rows keep their content and truncate less. The cap keeps a leader short enough for the eye to follow from a name to its number.
 
 ## Components
 

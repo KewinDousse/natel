@@ -666,7 +666,9 @@ describe("layout", () => {
     // Wait for the router to mount the route before inspecting the layout.
     const row = await screen.findByRole("link", { name: /Lightshield Jarvan/ });
     const main = document.querySelector("main");
-    expect(main?.className).toContain("lg:grid-cols-[minmax(26rem,34rem)_1fr]");
+    expect(main?.className).toContain(
+      "lg:grid-cols-[minmax(26rem,clamp(34rem,100%_-_56rem,44rem))_1fr]",
+    );
     expect(document.querySelector("aside")?.className).toContain("lg:bg-muted");
     expect(document.getElementById("app-header")?.className).toContain("lg:static");
 
