@@ -64,13 +64,19 @@ export function ageOf(birthday: Birthday, today: Date): number | null {
 /** dateTime attribute for <time>: "1987-03-14", "--03-14" or "1987". */
 export function birthdayDateTime(birthday: Birthday): string {
   const { year, month, day } = birthday;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (year !== null && month !== null && day !== null) {
-    return `${String(year).padStart(4, "0")}-${pad(month)}-${pad(day)}`;
-  }
+  if (year !== null && month !== null && day !== null) return isoDay(year, month, day);
   if (month !== null && day !== null) return `--${pad(month)}-${pad(day)}`;
   if (year !== null) return String(year);
   return birthday.source;
+}
+
+/** A day as `YYYY-MM-DD`, for a dateTime attribute. */
+export function isoDay(year: number, month: number, day: number): string {
+  return `${String(year).padStart(4, "0")}-${pad(month)}-${pad(day)}`;
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
 /**

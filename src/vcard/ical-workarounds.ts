@@ -51,6 +51,25 @@ export function keepUrisAsWritten(): void {
   codec.toICAL = (value) => value;
 }
 
+/**
+ * ical.js's vCard 4.0 timestamp codec, used only by REV, drops a UTC offset
+ * and garbles the extended and date-only forms clients write. Hold a 4.0
+ * timestamp as written; `revisionOf` reads each of those forms. See
+ * DECISIONS.md 057.
+ */
+export function keepTimestampsAsWritten(): void {
+  const values = ICAL.design.vcard.value as Record<string, ValueCodec | undefined>;
+  if (!values.timestamp) throw new Error("ical.js has no vCard timestamp value");
+  const asWritten = (value: string) => value;
+  // The codec is iCalendar's date-time; give 4.0 its own.
+  values.timestamp = {
+    fromICAL: asWritten,
+    toICAL: asWritten,
+    decorate: asWritten,
+    undecorate: asWritten,
+  } as ValueCodec;
+}
+
 /** RFC 2426 §2.3 requires semicolons escaped in every 3.0 text value. */
 export function encodeVcard3Semicolons(): void {
   const values = ICAL.design.vcard3.value;

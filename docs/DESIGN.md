@@ -290,6 +290,7 @@ changes apply without a save button.
    - A birthday with a day, a month and a year is followed by the age, muted, from 1 to 130: past that, the year is a placeholder.
    - Groups are chips; each filters the list on its group (see Group filter). On phones, where the list is another screen, it also goes back to the list.
    - The note keeps its line breaks.
+8. Under the sections, in small muted text: "Created April 18, 2021 · Modified November 12, 2026", the day the card's `CREATED` or `X-CREATED` and its `REV` give, in the interface language. A date the card doesn't have, or that can't be read, is left out; without either, so is the line. The information not shown leaves out the creation date shown here.
 
 Dotted leaders are used in the list only: they need right-aligned values.
 

@@ -82,6 +82,8 @@
   "s_bday": "Birthday",
   "age": "{n}\u00a0years old",
   "age_1": "1\u00a0year old",
+  "card_created": "Created",
+  "card_revised": "Modified",
   "s_groups": "Groups",
   "s_note": "Note",
   "s_name": "Name",
