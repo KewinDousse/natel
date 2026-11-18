@@ -133,8 +133,19 @@ const CARD_ORG = [
   "END:VCARD",
 ].join("\r\n");
 
+const CARD_REGION = [
+  "BEGIN:VCARD",
+  "VERSION:3.0",
+  "UID:region",
+  "FN:Ada Elm",
+  "N:Elm;Ada;;;",
+  "ADR;TYPE=WORK:;;1 Elm St;Austin;TX;73301;US",
+  "END:VCARD",
+].join("\r\n");
+
 const CARDS: Record<string, string> = {
   editable: CARD_EDITABLE,
+  region: CARD_REGION,
   minimal: CARD_MINIMAL,
   textbday: CARD_TEXT_BDAY,
   org: CARD_ORG,
@@ -348,6 +359,45 @@ describe("edit mode — addresses", () => {
     expect(sent).toContain("ADR;TYPE=HOME:;c/o Vi;123 Main St;Springfield;;12345;US");
     expect(sent).toContain("ITEM1.ADR:;;Quai 2;Zaun;;;");
     expect(sent).toContain("ITEM1.X-ABLABEL:Atelier");
+  });
+
+  it("edits an address's region in its own field, between locality and country", async () => {
+    const { article } = await renderEditView("editable");
+    const user = userEvent.setup();
+    const section = article.querySelector<HTMLElement>("#sec-adr");
+    if (!section) throw new Error("no address section");
+
+    const fields = within(section).getAllByRole("textbox");
+    const region = within(section).getByLabelText("État ou région");
+    const at = (label: string) => fields.indexOf(within(section).getByLabelText(label));
+    expect(fields.indexOf(region)).toBe(at("Localité") + 1);
+    expect(fields.indexOf(region)).toBe(at("Pays") - 1);
+
+    await user.type(region, "IL");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    expect(mockUpdateCard.mock.calls[0]?.[3]).toContain(
+      "ADR;TYPE=HOME:;;123 Main St;Springfield;IL;12345;US",
+    );
+  });
+
+  it("shows the region a card has, and replaces it alone", async () => {
+    const { article } = await renderEditView("region");
+    const user = userEvent.setup();
+    const section = article.querySelector<HTMLElement>("#sec-adr");
+    if (!section) throw new Error("no address section");
+
+    const region = within(section).getByLabelText<HTMLInputElement>("État ou région");
+    expect(region.value).toBe("TX");
+    await user.clear(region);
+    await user.type(region, "CA");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    expect(mockUpdateCard.mock.calls[0]?.[3]).toContain(
+      "ADR;TYPE=WORK:;;1 Elm St;Austin;CA;73301;US",
+    );
   });
 
   it("removes an address, and offers to add one again once none is left", async () => {
