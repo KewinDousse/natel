@@ -9,6 +9,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
+import { useHeightVar } from "@/hooks/use-height-var";
 import { useOpenRowInView } from "@/hooks/use-open-row-in-view";
 import { useI18n } from "@/i18n/react";
 import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
@@ -160,16 +161,16 @@ export function ContactList({
 
   return (
     <ListShell warning={warning} busy={loading}>
-      {/* The sort is a setting too: on phones the toolbar keeps the count and the filter. */}
-      <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-1 pt-3 text-sm">
+      <ListToolbar>
         <p className="mr-auto text-muted-foreground" aria-live="polite">
           <span className="tabular">{countLabel}</span>
         </p>
         {!loading && bookGroupList.length > 0 && (
           <GroupFilter groups={bookGroupList} selected={activeGroup} onSelect={onGroupFilter} />
         )}
+        {/* The sort is a setting too: on phones the toolbar keeps the count and the filter. */}
         <SortToggle sortBy={sortBy} onSortBy={onSortBy} />
-      </div>
+      </ListToolbar>
 
       {loading ? (
         <>
@@ -195,6 +196,21 @@ export function ContactList({
         </>
       )}
     </ListShell>
+  );
+}
+
+/** Its height sets `--list-toolbar-h`, under which the letters stick. */
+function ListToolbar({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useHeightVar(ref, "--list-toolbar-h");
+  return (
+    <div
+      ref={ref}
+      id="list-toolbar"
+      className="sticky top-[var(--header-h)] z-10 flex flex-wrap items-center gap-x-3 gap-y-1 bg-background px-2 pb-1 pt-3 text-sm lg:top-0"
+    >
+      {children}
+    </div>
   );
 }
 
@@ -290,13 +306,14 @@ function ListShell({
   const { t } = useI18n();
   // From lg the list scrolls itself; its right margin keeps the scrollbar
   // clear of the rail, which sits outside it.
+  // The scroll padding lands a row or a letter scrolled to below the toolbar.
   return (
     <nav
       id="list"
       aria-label={t("list_label")}
       aria-busy={busy || undefined}
       tabIndex={-1}
-      className="pb-24 pl-2 pr-7 lg:mr-8 lg:h-full lg:overflow-y-auto lg:pb-10 lg:pr-2"
+      className="pb-24 pl-2 pr-7 lg:mr-8 lg:h-full lg:scroll-pt-[var(--list-toolbar-h)] lg:overflow-y-auto lg:pb-10 lg:pr-2"
     >
       {warning}
       {children}

@@ -137,9 +137,13 @@ function isShown(element: HTMLElement | null): boolean {
   );
 }
 
-/** What the sticky header covers of the page on phones. */
-function headerHeight(): number {
-  return document.getElementById("app-header")?.offsetHeight ?? 0;
+/**
+ * What sticks over the top of the list's scroller: the list toolbar, under
+ * the header on phones.
+ */
+function coveredHeight(desktop: boolean): number {
+  const toolbar = document.getElementById("list-toolbar")?.offsetHeight ?? 0;
+  return desktop ? toolbar : toolbar + (document.getElementById("app-header")?.offsetHeight ?? 0);
 }
 
 function useSlotOptions(groups: ContactGroup[]) {
@@ -211,6 +215,8 @@ function PaneSections(props: SectionsProps & { anchor: Anchor }) {
     rangeExtractor: slot.rangeExtractor,
     overscan: OVERSCAN,
     scrollMargin: slot.scrollMargin,
+    // A row scrolled to lands below the sticky toolbar.
+    scrollPaddingStart: coveredHeight(true),
     initialRect: { width: 0, height: window.innerHeight },
     paddingEnd: SECTION_PADDING,
   });
@@ -238,8 +244,8 @@ function PageSections(props: SectionsProps & { anchor: Anchor }) {
     rangeExtractor: slot.rangeExtractor,
     overscan: OVERSCAN,
     scrollMargin: slot.scrollMargin,
-    // A row scrolled to lands below the sticky header.
-    scrollPaddingStart: headerHeight(),
+    // A row scrolled to lands below the sticky header and toolbar.
+    scrollPaddingStart: coveredHeight(false),
     initialRect: { width: 0, height: window.innerHeight },
     paddingEnd: SECTION_PADDING,
   });
@@ -356,7 +362,7 @@ function Sections({
     // Once the layout has switched, this scroller has lost its position, and a
     // hidden list has none.
     if (isDesktop() !== desktop || !isShown(containerRef.current)) return;
-    const covered = (virtualizer.scrollOffset ?? 0) + (desktop ? 0 : headerHeight());
+    const covered = (virtualizer.scrollOffset ?? 0) + coveredHeight(desktop);
     const first = virtualizer
       .getVirtualItems()
       .find((item) => item.end > covered && slots[item.index]?.kind === "row");

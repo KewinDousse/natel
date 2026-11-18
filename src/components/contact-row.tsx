@@ -52,9 +52,9 @@ export function SectionFrame({ letter, children }: { letter: string; children: R
   return (
     <section
       id={`g-${letter}`}
-      className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 sm:grid-cols-[3rem_1fr] lg:scroll-mt-0"
+      className="grid scroll-mt-[calc(var(--header-h)+var(--list-toolbar-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 sm:grid-cols-[3rem_1fr] lg:scroll-mt-0"
     >
-      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-4 font-display text-title-sm font-bold leading-[0.8] text-brand sm:pt-3.5 lg:top-2">
+      <h2 className="sticky top-[calc(var(--header-h)+var(--list-toolbar-h))] self-start pl-2 pt-4 font-display text-title-sm font-bold leading-[0.8] text-brand sm:pt-3.5 lg:top-[calc(var(--list-toolbar-h)+0.5rem)]">
         {letter}
       </h2>
       {children}

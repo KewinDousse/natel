@@ -4,12 +4,13 @@
  * DESIGN.md "Header". Signing out is in the settings, so the bar keeps its
  * room for the book's name.
  *
- * The measured header height sets `--header-h` for mobile sticky letters.
- * Desktop letters use `lg:top-2`.
+ * The measured header height sets `--header-h`, under which the list
+ * toolbar and the letters stick on phones.
  */
 
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { useHeightVar } from "@/hooks/use-height-var";
 import { useI18n } from "@/i18n/react";
 import { bookParam } from "@/lib/book-param";
 import { isDesktop, isDialogOpen, isInMenu, isPlainKey, isTyping } from "@/lib/shortcuts";
@@ -84,19 +85,7 @@ export function AppHeader({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  useEffect(() => {
-    const header = headerRef.current;
-    if (!header || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      const height = header.getBoundingClientRect().height;
-      if (height > 0) document.documentElement.style.setProperty("--header-h", `${height}px`);
-    });
-    observer.observe(header);
-    return () => {
-      observer.disconnect();
-      document.documentElement.style.removeProperty("--header-h");
-    };
-  }, []);
+  useHeightVar(headerRef, "--header-h");
 
   function clearSearch() {
     onQueryChange("");
