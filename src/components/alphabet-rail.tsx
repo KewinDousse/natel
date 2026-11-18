@@ -5,6 +5,13 @@ import { ALPHABET, OTHER_GROUP, railTarget } from "@/lib/contact-list";
 
 const LETTERS = [...ALPHABET, OTHER_GROUP];
 
+// min-h-0 and a font tied to the rail's height let a short landscape phone
+// still fit every letter.
+const CELL =
+  "grid min-h-0 max-h-8 flex-1 place-items-center rounded-sm text-[length:min(2.8cqh,1rem)]";
+const PRESENT = `${CELL} text-foreground transition-colors hover:text-brand`;
+const ABSENT = `${CELL} pointer-events-none text-leader`;
+
 /**
  * A–Z and # rail — absent entries are aria-hidden and out of the tab order; anchors
  * jump without smooth scrolling. Hidden entirely while a search is active.
@@ -47,29 +54,19 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
       onPointerMove={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) jumpTo(event);
       }}
-      className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex touch-none select-none flex-col [-webkit-touch-callout:none] items-center justify-center font-display text-small font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
+      className="fixed bottom-6 right-0.5 top-[calc(var(--header-h)+0.875rem)] z-10 flex touch-none select-none flex-col [-webkit-touch-callout:none] @container-size w-5 justify-center font-display font-bold leading-none lg:absolute lg:bottom-4 lg:right-1.5 lg:top-4"
     >
       {LETTERS.map((letter) => {
         if (present.has(letter)) {
           return (
-            <a
-              key={letter}
-              href={`#g-${letter}`}
-              data-letter={letter}
-              className="grid h-4 w-5 place-items-center rounded-sm text-foreground transition-colors hover:text-brand"
-            >
+            <a key={letter} href={`#g-${letter}`} data-letter={letter} className={PRESENT}>
               {letter}
             </a>
           );
         }
         // Absent letters are not navigable: a span, hidden from assistive tech.
         return (
-          <span
-            key={letter}
-            data-letter={letter}
-            aria-hidden="true"
-            className="pointer-events-none grid h-4 w-5 place-items-center rounded-sm text-leader"
-          >
+          <span key={letter} data-letter={letter} aria-hidden="true" className={ABSENT}>
             {letter}
           </span>
         );
