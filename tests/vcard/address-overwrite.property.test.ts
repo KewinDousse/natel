@@ -620,7 +620,8 @@ function runCase(seed: number): string[] {
   };
   const save = (mode: string, base: Generated, dirty?: DirtyFields) => {
     const contact = parse(render(base.lines));
-    const take = (f: "tel" | "email" | "url") => dirty === undefined || dirty[f];
+    const take = (f: "tel" | "email" | "url") =>
+      dirty === undefined || dirty[f] || (f === "url" && dirty.urlType);
     const baseAdrs = base.lines.filter((l) => l.name === "ADR");
     const written: Written[] =
       dirty === undefined || dirty.adr

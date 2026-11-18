@@ -133,6 +133,17 @@ const CARD_ORG = [
   "END:VCARD",
 ].join("\r\n");
 
+const cardWithUrl = (uid: string, url: string) =>
+  [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    `UID:${uid}`,
+    `FN:${uid}`,
+    `N:${uid};;;;`,
+    `URL:${url}`,
+    "END:VCARD",
+  ].join("\r\n");
+
 const CARD_REGION = [
   "BEGIN:VCARD",
   "VERSION:3.0",
@@ -145,6 +156,8 @@ const CARD_REGION = [
 
 const CARDS: Record<string, string> = {
   editable: CARD_EDITABLE,
+  fburl: cardWithUrl("fburl", "fb://profile/0123456789"),
+  bareurl: cardWithUrl("bareurl", "website.example"),
   region: CARD_REGION,
   minimal: CARD_MINIMAL,
   textbday: CARD_TEXT_BDAY,
@@ -434,6 +447,33 @@ describe("edit mode — validation", () => {
 
     expect(await screen.findByText("Adresse e\u2060-\u2060mail invalide")).toBeTruthy();
     expect(mockUpdateCard).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["fburl", "fb://profile/0123456789"],
+    ["bareurl", "website.example"],
+  ])("saves other fields of a card whose website another client wrote (%s)", async (id, url) => {
+    await renderEditView(id);
+    const user = userEvent.setup();
+
+    await user.type(screen.getAllByLabelText("Prénom")[0] as HTMLElement, "Ada");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    expect(mockUpdateCard.mock.calls[0]?.[3]).toContain(`URL:${url}`);
+  });
+
+  it("saves a website typed without a scheme as an https URL", async () => {
+    await renderEditView("fburl");
+    const user = userEvent.setup();
+
+    const website = screen.getByLabelText("Site web");
+    await user.clear(website);
+    await user.type(website, "website.example");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledTimes(1));
+    expect(mockUpdateCard.mock.calls[0]?.[3]).toContain("URL:https://website.example");
   });
 });
 

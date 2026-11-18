@@ -493,6 +493,11 @@ describe("validateDraft", () => {
   });
 });
 
+const cardWith = (line: string) =>
+  parse(
+    ["BEGIN:VCARD", "VERSION:3.0", "FN:Ada", "N:Lovelace;Ada;;;", line, "END:VCARD"].join("\r\n"),
+  );
+
 describe("validateDraft: calendar dates", () => {
   const withBirthday = (year: string, month: string, day: string) =>
     validateDraft({
@@ -534,11 +539,6 @@ describe("validateDraft: calendar dates", () => {
     expect(withBirthday("2025", "13", "31")).toEqual({ bday_month: "field_bday_month" });
   });
 
-  const cardWith = (line: string) =>
-    parse(
-      ["BEGIN:VCARD", "VERSION:3.0", "FN:Ada", "N:Lovelace;Ada;;;", line, "END:VCARD"].join("\r\n"),
-    );
-
   it("accepts Apple's year-less 29 February, stored with 1604 as its year", () => {
     expect(validateDraft(buildDraft(cardWith("BDAY;X-APPLE-OMIT-YEAR=1604:1604-02-29")))).toEqual(
       {},
@@ -556,6 +556,66 @@ describe("validateDraft: calendar dates", () => {
     const base = buildDraft(card);
     const draft = { ...base, bday: base.bday && { ...base.bday, year: "2024" } };
     expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({ bday_day: "field_bday_day" });
+  });
+});
+
+describe("validateDraft: website", () => {
+  it("saves other fields of a card whose website isn't a URI", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), nickname: "Ada" };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({});
+  });
+
+  it("saves a host typed without a scheme as an https URL", () => {
+    const card = cardWith("URL:https://example.org");
+    const draft = { ...buildDraft(card), url: "website.example/ada" };
+    const dirty = dirtyDiff(card, draft);
+    expect(validateDraft(draft, dirty)).toEqual({});
+    expect(applyDraft(card, draft, dirty).fields.url).toBe("https://website.example/ada");
+  });
+
+  it("keeps a website without a scheme whose type alone changed", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), urlType: "work" as const };
+    const dirty = dirtyDiff(card, draft);
+    expect(dirty).toMatchObject({ url: false, urlType: true });
+    expect(validateDraft(draft, dirty)).toEqual({});
+    expect(applyDraft(card, draft, dirty).fields.url).toBe("website.example");
+  });
+
+  it("keeps a website that isn't a URI when its type alone changes", () => {
+    const card = cardWith("URL:My site");
+    const draft = { ...buildDraft(card), urlType: "work" as const };
+    const dirty = dirtyDiff(card, draft);
+    expect(validateDraft(draft, dirty)).toEqual({});
+    expect(applyDraft(card, draft, dirty).fields.url).toBe("My site");
+  });
+
+  it("keeps a website cleared then typed again as it was", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), url: "website.example" };
+    expect(applyDraft(card, draft).fields.url).toBe("website.example");
+  });
+
+  it("keeps the website changed elsewhere when overwriting a type change", () => {
+    const base = cardWith("URL:website.example");
+    const draft = { ...buildDraft(base), urlType: "work" as const };
+    const fetched = cardWith("URL:other.example");
+    const saved = applyDraft(fetched, draft, dirtyDiff(base, draft));
+    expect(saved.fields.url).toBe("other.example");
+    expect(buildDraft(saved).urlType).toBe("work");
+  });
+
+  it("refuses an edited website that is neither a URI nor a host", () => {
+    const card = cardWith("URL:website.example");
+    const draft = { ...buildDraft(card), url: "website example" };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({ url: "field_url_invalid" });
+  });
+
+  it("accepts an edited website of an app's scheme", () => {
+    const card = cardWith("URL:https://example.org");
+    const draft = { ...buildDraft(card), url: "fb://profile/0123456789" };
+    expect(validateDraft(draft, dirtyDiff(card, draft))).toEqual({});
   });
 });
 

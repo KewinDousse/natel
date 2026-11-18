@@ -1,6 +1,6 @@
 /**
- * An http or https URL: the only kind a draft may hold, and the only kind
- * the contact page turns into a link, whatever another client wrote.
+ * An http or https URL: the only kind the contact page turns into a link,
+ * whatever the card holds.
  */
 export function isWebUrl(value: string): boolean {
   try {
@@ -9,6 +9,30 @@ export function isWebUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * A URI with a scheme (RFC 3986), as a vCard's URL holds (RFC 6350): what a
+ * saved website must be, since a card can name an app's profile
+ * (`fb://profile/1`). An http or https one needs a host.
+ */
+export function isUri(value: string): boolean {
+  if (!/^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(value)) return false;
+  return !/^https?:/i.test(value) || isWebUrl(value);
+}
+
+/**
+ * A host typed without a scheme, with an optional port and path. Its labels
+ * exclude the dot so a long run of dots is matched in linear time.
+ */
+const BARE_HOST = /^[^\s/?#:@.]+(?:\.[^\s/?#:@.]+)+(?::\d+)?(?:[/?#]\S*)?$/;
+
+/**
+ * What a typed website is saved as: a bare host becomes an https URL, since
+ * a vCard's URL is a URI and a link needs a scheme. Anything else is kept.
+ */
+export function websiteUri(value: string): string {
+  return BARE_HOST.test(value) ? `https://${value}` : value;
 }
 
 /**
