@@ -46,6 +46,7 @@ export function ContactView({
   onEdit,
   onCopy,
   onGroup,
+  showDates,
 }: {
   contact: Contact;
   /** The contact's groups, from its card and the book's group cards. */
@@ -55,6 +56,8 @@ export function ContactView({
   onCopy: (value: string) => void;
   /** Filters the list on a group. */
   onGroup: (name: string) => void;
+  /** Whether the card's dates show under the sections, as the settings choose. */
+  showDates: boolean;
 }) {
   const { t, locale } = useI18n();
   const parts = namePartsOf(contact);
@@ -356,7 +359,7 @@ export function ContactView({
         </div>
       </div>
 
-      <CardDates created={createdOf(contact)} revised={revisionOf(contact)} />
+      {showDates && <CardDates created={createdOf(contact)} revised={revisionOf(contact)} />}
     </div>
   );
 }

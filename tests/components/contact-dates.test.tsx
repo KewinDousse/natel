@@ -9,7 +9,7 @@ function card(...lines: string[]): string {
   return ["BEGIN:VCARD", "VERSION:3.0", "FN:Lina Moret", ...lines, "END:VCARD"].join("\r\n");
 }
 
-function datesOf(text: string, locale: "en" | "fr"): HTMLElement | null {
+function datesOf(text: string, locale: "en" | "fr", showDates = true): HTMLElement | null {
   localStorage.setItem("natel.preferences", JSON.stringify({ locale }));
   const { container } = render(
     <I18nProvider>
@@ -19,6 +19,7 @@ function datesOf(text: string, locale: "en" | "fr"): HTMLElement | null {
         onEdit={vi.fn()}
         onCopy={vi.fn()}
         onGroup={vi.fn()}
+        showDates={showDates}
       />
     </I18nProvider>,
   );
@@ -30,8 +31,12 @@ afterEach(() => {
   localStorage.clear();
 });
 
+const BOTH = card("X-CREATED:20210418", "REV:2026-11-12T12:30:00Z");
+
 describe("contact page dates", () => {
-  const BOTH = card("X-CREATED:20210418", "REV:2026-11-12T12:30:00Z");
+  it("shows nothing without showDates, even for a card with dates", () => {
+    expect(datesOf(BOTH, "en", false)).toBeNull();
+  });
 
   it("shows when the card was created and last modified, in English", () => {
     const dates = datesOf(BOTH, "en");

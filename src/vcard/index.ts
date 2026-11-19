@@ -185,13 +185,16 @@ export function changedLists(read: Contact, fetched: Contact, lists: ContactList
 /**
  * The card's properties the contact page neither shows nor edits, each as
  * its vCard line, for whoever wants to look: a save writes them back as they
- * are. Read-only.
+ * are. With `datesShown`, the page shows the creation date under the
+ * sections, so its property is left out. Read-only.
  */
-export function unshownPropertiesOf(contact: Contact): string[] {
+export function unshownPropertiesOf(
+  contact: Contact,
+  { datesShown }: { datesShown: boolean },
+): string[] {
   const seen = new Set<string>();
   const labels = new Set<RawProperty>();
-  // The page shows this one under the sections.
-  const created = readCreated(contact.raw)?.prop;
+  const created = datesShown ? readCreated(contact.raw)?.prop : undefined;
   for (const name of ["tel", "email", "adr", "url"]) {
     const properties = contact.raw.getAllProperties(name);
     for (const prop of name === "url" ? properties.slice(0, 1) : properties) {

@@ -70,6 +70,33 @@ test("opens addresses in the map the settings choose", async ({ page }) => {
   await expect(link).not.toHaveAttribute("target");
 });
 
+test("shows a contact's dates once the settings ask for them", async ({ page }) => {
+  await putCard(
+    "ada",
+    vcard([
+      "UID:ada",
+      "FN:Ada Lovelace",
+      "N:Lovelace;Ada;;;",
+      "X-CREATED:20210418",
+      "REV:2026-11-12T12:30:00Z",
+    ]),
+  );
+  await signIn(page);
+  await page.goto("/contacts/contacts/ada");
+  await expect(page.getByRole("heading", { level: 1, name: "Ada Lovelace" })).toBeAttached();
+  await expect(page.getByText(/^Created /)).toHaveCount(0);
+
+  await page.goto("/settings");
+  const checkbox = page.getByRole("checkbox", { name: "Show creation and modification dates" });
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  await page.reload();
+  await expect(checkbox).toBeChecked();
+
+  await page.goto("/contacts/contacts/ada");
+  await expect(page.getByText("Created April 18, 2021 · Modified November 12, 2026")).toBeVisible();
+});
+
 test("goes back to the list with Esc on desktop", async ({ page, isMobile }) => {
   test.skip(isMobile, "Esc is a desktop shortcut; phones use the back link");
   await signIn(page);

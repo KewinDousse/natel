@@ -1,8 +1,8 @@
 /**
- * Display preferences beside the language (ADR 019): the list's sort, the
- * theme and the map addresses open in (ADR 037). Stored in localStorage like
- * the language, since they say nothing about the account; credentials never
- * go there (invariant 3).
+ * Display preferences beside the language (ADR 019), the map addresses open
+ * in among them (ADR 037). Stored in localStorage like the language, since
+ * they say nothing about the account; credentials never go there
+ * (invariant 3).
  */
 import { create } from "zustand";
 import { storeChoice, storedChoice } from "@/i18n/preferences";
@@ -18,9 +18,14 @@ const LABEL_POSITIONS = ["left", "above"] as const;
 export type AvatarShape = "round" | "square";
 const AVATAR_SHAPES = ["round", "square"] as const;
 
+const CARD_DATES = ["shown"] as const;
+
 type PreferencesState = {
   avatarShape: AvatarShape;
   setAvatarShape: (shape: AvatarShape) => void;
+  /** Whether a contact page shows when its card was created and modified. */
+  showCardDates: boolean;
+  setShowCardDates: (show: boolean) => void;
   labelPosition: LabelPosition;
   setLabelPosition: (position: LabelPosition) => void;
   sortBy: SortBy;
@@ -38,6 +43,11 @@ export const usePreferences = create<PreferencesState>()((set) => ({
   setAvatarShape: (avatarShape) => {
     storeChoice("avatarShape", avatarShape === "round" ? null : avatarShape);
     set({ avatarShape });
+  },
+  showCardDates: storedChoice("cardDates", CARD_DATES) === "shown",
+  setShowCardDates: (showCardDates) => {
+    storeChoice("cardDates", showCardDates ? "shown" : null);
+    set({ showCardDates });
   },
   labelPosition: storedChoice("labelPosition", LABEL_POSITIONS) ?? "auto",
   setLabelPosition: (labelPosition) => {

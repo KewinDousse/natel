@@ -34,7 +34,7 @@ const CARD = [
 
 describe("unshownPropertiesOf", () => {
   it("lists what the page doesn't show, each as its vCard line", () => {
-    const lines = unshownPropertiesOf(parse(CARD));
+    const lines = unshownPropertiesOf(parse(CARD), { datesShown: false });
     expect(lines).toHaveLength(5);
     expect(lines).toContain("URL:https://example.org/other");
     expect(lines).toContain("NOTE:Seconde note");
@@ -44,7 +44,7 @@ describe("unshownPropertiesOf", () => {
   });
 
   it("leaves out what the page shows, every phone, e-mail, address and group included", () => {
-    const lines = unshownPropertiesOf(parse(CARD)).join("\n");
+    const lines = unshownPropertiesOf(parse(CARD), { datesShown: false }).join("\n");
     for (const shown of ["TEL", "EMAIL", "ADR", "CATEGORIES", "FN", "N:", "Première"]) {
       expect(lines).not.toContain(shown);
     }
@@ -55,13 +55,15 @@ describe("unshownPropertiesOf", () => {
       "END:VCARD",
       "PHOTO;VALUE=uri:https://example.org/a.png\r\nPHOTO;VALUE=uri:https://example.org/b.png\r\nEND:VCARD",
     );
-    expect(unshownPropertiesOf(parse(card)).join("\n")).not.toContain("PHOTO");
+    expect(unshownPropertiesOf(parse(card), { datesShown: false }).join("\n")).not.toContain(
+      "PHOTO",
+    );
   });
 
   it("reads without changing the card", () => {
     const contact = parse(CARD);
     const before = serialise(contact);
-    unshownPropertiesOf(contact);
+    unshownPropertiesOf(contact, { datesShown: false });
     expect(serialise(contact)).toBe(before);
   });
 });

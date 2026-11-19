@@ -78,9 +78,12 @@ describe("revisionOf", () => {
     });
   });
 
-  it("reads a 3.0 REV in the extended form and a date alone", () => {
+  it("reads a 3.0 REV in the extended form, with a fraction, and a date alone", () => {
     expect(revisionOf(parse(card("3.0", "REV:2026-11-12T14:30:00Z")))?.date).toEqual(
       new Date("2026-11-12T14:30:00Z"),
+    );
+    expect(revisionOf(parse(card("3.0", "REV:2026-11-12T14:30:00.250Z")))?.date).toEqual(
+      new Date("2026-11-12T14:30:00.250Z"),
     );
     expect(revisionOf(parse(card("3.0", "REV;VALUE=DATE:20261112")))).toEqual({
       date: new Date(2026, 10, 12),
@@ -173,8 +176,17 @@ describe("card dates on save", () => {
     expect(serialiseRaw(contact)).toBe(before);
   });
 
+  it("stay in the details not shown while the page hides them", () => {
+    const lines = unshownPropertiesOf(parse(card("3.0", ...LINES)), { datesShown: false });
+    expect(lines.some((line) => line.startsWith("CREATED;X-KEEP"))).toBe(true);
+    expect(lines).toContain("X-CREATED:2021-04-18T09:30:00Z");
+    expect(lines.some((line) => line.startsWith("REV"))).toBe(false);
+  });
+
   it("leave out of the details not shown only the creation date the page shows", () => {
-    const lines = unshownPropertiesOf(parse(card("3.0", "CREATED:soon", ...LINES)));
+    const lines = unshownPropertiesOf(parse(card("3.0", "CREATED:soon", ...LINES)), {
+      datesShown: true,
+    });
     expect(lines).toContain("CREATED:soon");
     expect(lines).toContain("X-CREATED:2021-04-18T09:30:00Z");
     expect(lines.map((line) => line.toUpperCase())).toContain("ITEM1.X-CREATED:GARBAGE");

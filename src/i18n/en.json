@@ -301,6 +301,7 @@
   "avatar_shape": "Contact image shape",
   "avatar_shape_round": "Round",
   "avatar_shape_square": "Rounded squares",
+  "card_dates_setting": "Show creation and modification dates",
   "label_position_auto": "Auto",
   "label_position_left": "Left",
   "label_position_above": "Above",
