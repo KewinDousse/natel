@@ -385,7 +385,7 @@ describe("buildGroups", () => {
     expect(groups[2]?.contacts.map((c) => c.uid)).toEqual(["n1"]);
   });
 
-  it("switches the grouping key with the sort toggle", () => {
+  it("switches the grouping key with the sort", () => {
     // given: Ezreal → E, Fiora → F, Jarvan → J
     const groups = buildGroups([jarvan, fiora, ezreal], "given", "");
     expect(groups.map((g) => g.letter)).toEqual(["E", "F", "J"]);

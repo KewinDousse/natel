@@ -114,7 +114,8 @@ const rowNames = (container: HTMLElement) =>
 it("sorts by the last modification without letters or rail, and shows each row's day", async () => {
   const { container, user } = await renderList();
   expect(container.querySelector("#rail")).toBeTruthy();
-  await user.click(screen.getByRole("button", { name: "Recently modified" }));
+  await user.click(screen.getByRole("button", { name: "Sort: Last name" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "Recently modified" }));
 
   expect(usePreferences.getState().byRevision).toBe(true);
   expect(rowNames(container)).toEqual(["grace", "ada", "alan"]);
@@ -131,7 +132,8 @@ it("sorts by the last modification without letters or rail, and shows each row's
   expect(ada).toHaveTextContent("Modified May 4, 2021");
   expect(screen.getByRole("link", { name: /Turing/ }).querySelector("time")).toBeNull();
 
-  await user.click(screen.getByRole("button", { name: "Last name" }));
+  await user.click(screen.getByRole("button", { name: "Sort: Recently modified" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "Last name" }));
   expect(rowNames(container)).toEqual(["grace", "ada", "alan"]);
   expect([...container.querySelectorAll("#list h2")].map((h) => h.textContent)).toEqual([
     "H",

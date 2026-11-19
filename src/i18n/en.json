@@ -60,6 +60,7 @@
   "sort_family": "Last name",
   "sort_given": "First name",
   "sort_edited": "Recently modified",
+  "sort_menu": "Sort: {sort}",
   "map_label": "Open addresses in",
   "map_auto": "Automatic (by device)",
   "map_osm": "OpenStreetMap",

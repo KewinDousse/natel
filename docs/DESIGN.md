@@ -108,10 +108,12 @@ Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden fro
 - Saving a card that has a `REV` in Natel refreshes it, so the contact moves to the top. A card without one keeps none (ADR 029) and stays with the undated cards.
 
 ### List toolbar
-The count (announced politely) on the left, the group filter, and from `sm` the sort toggle on the right: first name, last name or recently modified. The sort is a display preference, remembered like the language (ADR 026); below 640px only the settings offer it, so the count and the filter share a row.
+The count (announced politely) on the left; the group filter and the sort menu on the right.
+- Sort menu: a pill built like the group filter's, at every width, reading "Sort: First name" (« Tri : Prénom »). Its menu lists first name, last name and recently modified, the current one checked; a choice applies and closes it. The settings' "Sort by" select sets the same preference, remembered like the language (ADR 026).
+- When the row is too narrow, as on phones, the sort wraps to a second row, on the right under the filter. From 320px, its longest label fits whole.
 
 ### List states
-- Loading: the toolbar shows a loading message in place of the count, with the sort toggle, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.
+- Loading: the toolbar shows a loading message in place of the count, with the sort menu, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.
 - Failed: a state title, a hint and a retry button. An expired session offers to sign in again instead.
 - Empty book: offers a new contact and an import.
 - No book on the server, an empty group and no search result use the same state block, title and hint only.

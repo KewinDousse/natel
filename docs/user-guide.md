@@ -19,6 +19,8 @@ Choose an address book from the menu next to Natel's name. Search matches
 names, phone numbers, email addresses and organisations. Use the A–Z index
 when no search is active; on a touch screen, slide along it to browse.
 A group filter appears when the book contains groups.
+The **Sort** menu above the list orders it by first name, last name or
+most recent modification.
 On a contact's page, choose an address to look it up on a map: by
 default Apple Maps on Apple devices, your maps app on Android, and
 OpenStreetMap elsewhere. Settings also let you choose the map, the

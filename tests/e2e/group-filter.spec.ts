@@ -46,7 +46,7 @@ test("filters the list on a group from its group card and CATEGORIES", async ({ 
 });
 
 test("keeps the group filter on the count's row on a phone", async ({ page, isMobile }) => {
-  test.skip(!isMobile, "the sort toggle leaves the row below 640px");
+  test.skip(!isMobile, "the toolbar holds one row on wider screens");
   await signIn(page);
   const count = await page.getByText("3 contacts").boundingBox();
   const filter = await page.getByRole("button", { name: /^Filter by group/ }).boundingBox();
@@ -54,4 +54,12 @@ test("keeps the group filter on the count's row on a phone", async ({ page, isMo
   expect(count && filter && count.y < filter.y + filter.height).toBe(true);
   // The count stays on one line.
   expect(count && count.height < 24).toBe(true);
+  // Too narrow for the sort too: it wraps on the right, under the filter.
+  await page.setViewportSize({ width: 320, height: 700 });
+  const narrowFilter = await page.getByRole("button", { name: /^Filter by group/ }).boundingBox();
+  const sort = await page.getByRole("button", { name: /^Sort:/ }).boundingBox();
+  expect(sort && narrowFilter && sort.y >= narrowFilter.y + narrowFilter.height).toBe(true);
+  expect(
+    sort && narrowFilter && Math.abs(sort.x + sort.width - (narrowFilter.x + narrowFilter.width)),
+  ).toBeLessThan(1);
 });

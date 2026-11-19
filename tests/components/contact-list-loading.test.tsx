@@ -19,9 +19,8 @@ it("offers sorting while contacts load and keeps the alphabet non-interactive", 
   expect(container.querySelectorAll("#rail a")).toHaveLength(0);
   expect(container.querySelector("#rail")?.getAttribute("aria-hidden")).toBe("true");
   expect(container.querySelector('ul[aria-hidden="true"]')).toBeTruthy();
-  const buttons = screen.getAllByRole("button");
-  expect(buttons[0]?.getAttribute("aria-pressed")).toBe("true");
-  await userEvent.click(buttons[1] as HTMLButtonElement);
+  await userEvent.click(screen.getByRole("button", { name: "Sort: First name" }));
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "Last name" }));
   expect(onSortBy).toHaveBeenCalledWith("family");
   const focused = document.activeElement;
   rerender(view("Ada"));

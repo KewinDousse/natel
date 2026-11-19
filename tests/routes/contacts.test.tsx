@@ -468,7 +468,7 @@ describe("list grouping and rail", () => {
     ).toBeNull();
   });
 
-  it("switches the grouping key with the sort toggle", async () => {
+  it("switches the grouping key with the sort menu", async () => {
     await renderLoggedIn();
     const user = userEvent.setup();
 
@@ -476,14 +476,12 @@ describe("list grouping and rail", () => {
       ["C", "E", "L", "#"],
     );
 
-    await user.click(screen.getByRole("button", { name: "Prénom" }));
+    await user.click(screen.getByRole("button", { name: "Tri\u00a0: Nom" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Prénom" }));
 
     const headings = await screen.findAllByRole("heading", { level: 2 });
     expect(headings.map((h) => h.textContent)).toEqual(["E", "F", "J", "L", "#"]);
-    expect(screen.getByRole("button", { name: "Prénom" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-    expect(screen.getByRole("button", { name: "Nom" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "Tri\u00a0: Prénom" })).toBeTruthy();
   });
 });
 
@@ -572,7 +570,7 @@ describe("search keyboard shortcuts", () => {
     expect(document.activeElement).toBe(searchbox);
 
     // "/" focuses the search box even when another element has focus.
-    screen.getByRole("button", { name: "Prénom" }).focus();
+    screen.getByRole("button", { name: "Tri\u00a0: Nom" }).focus();
     fireEvent.keyDown(window, { key: "/" });
     expect(document.activeElement).toBe(searchbox);
 

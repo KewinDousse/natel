@@ -70,7 +70,7 @@ const PAIRS: [string, string, number][] = [
   ["input", "card", 3],
   ["ring", "background", 3],
   ["ring", "muted", 3],
-  // The pressed sort pill and the active group filter, whose × is an icon.
+  // The active group filter, whose × is an icon.
   ["foreground", "secondary", 4.5],
   ["muted-foreground", "secondary", 3],
   // The group format question's "Recommended" badge.

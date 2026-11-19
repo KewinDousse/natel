@@ -104,7 +104,8 @@ test("restores leaders when space returns and keeps sorting and search working",
     else await expect(long.locator(".leader")).toBeHidden();
   }
   await page.setViewportSize({ width: 900, height: 1000 });
-  await page.getByRole("button", { name: "Last name", exact: true }).click();
+  await page.getByRole("button", { name: /^Sort:/ }).click();
+  await page.getByRole("menuitemradio", { name: "Last name" }).click();
   await expect(long.locator("span[title]")).toHaveAttribute(
     "title",
     "de Montmollin-Bernasconi Alexandrine",

@@ -23,20 +23,14 @@ test.beforeEach(async () => {
   }
 });
 
-test("puts the sorted part of the name first", async ({ page, isMobile }) => {
+test("puts the sorted part of the name first", async ({ page }) => {
   await signIn(page);
   const row = page.getByRole("link", { name: /Aardin/ });
   // By first name unless the settings say otherwise.
   await expect(row.locator("b")).toHaveText("Alain");
   await expect(row).toContainText("Alain Aardin");
-  // Phones offer the sort in the settings only.
-  if (isMobile) {
-    await page.getByRole("link", { name: "Settings" }).click();
-    await page.getByRole("combobox", { name: "Sort by" }).selectOption("family");
-    await page.getByRole("link", { name: "Back to “Contacts”" }).click();
-  } else {
-    await page.getByRole("button", { name: "Last name" }).click();
-  }
+  await page.getByRole("button", { name: "Sort: First name" }).click();
+  await page.getByRole("menuitemradio", { name: "Last name" }).click();
   await expect(row.locator("b")).toHaveText("Aardin");
   await expect(row).toContainText("Aardin Alain");
 });
@@ -153,13 +147,8 @@ test("sorts by the last modification and moves a saved contact to the top", asyn
     vcard(["UID:new", "FN:Bea New", "N:New;Bea;;;", "REV:2025-01-15T09:00:00Z"]),
   );
   await signIn(page);
-  if (isMobile) {
-    await page.getByRole("link", { name: "Settings" }).click();
-    await page.getByRole("combobox", { name: "Sort by" }).selectOption("edited");
-    await page.getByRole("link", { name: "Back to “Contacts”" }).click();
-  } else {
-    await page.getByRole("button", { name: "Recently modified" }).click();
-  }
+  await page.getByRole("button", { name: "Sort: First name" }).click();
+  await page.getByRole("menuitemradio", { name: "Recently modified" }).click();
   const rows = page.locator("#list [data-contact-id]");
   await expect(rows.nth(0)).toContainText("Bea New");
   await expect(rows.nth(1)).toContainText("Ada Old");
@@ -176,4 +165,40 @@ test("sorts by the last modification and moves a saved contact to the top", asyn
   await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
   if (isMobile) await page.getByRole("link", { name: "Back to “Contacts”" }).click();
   await expect(rows.nth(0)).toContainText("Adèle Old");
+});
+
+test("offers the sort menu at every width, without overflow", async ({ page }) => {
+  await signIn(page);
+  for (const width of [320, 390, 640, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    const trigger = page.getByRole("button", { name: "Sort: First name" });
+    await expect(trigger).toBeVisible();
+    // The current sort is never cut off, nor is the page wider than the screen.
+    expect(await trigger.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.getByRole("button", { name: "Sort: First name" }).click();
+  const menu = page.getByRole("menu", { name: "Sort by" });
+  await expect(menu.getByRole("menuitemradio")).toHaveText([
+    "First name",
+    "Last name",
+    "Recently modified",
+  ]);
+  await expect(menu.getByRole("menuitemradio", { name: "First name" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(menu.getByRole("menuitemradio", { checked: true })).toHaveCount(1);
+  await menu.getByRole("menuitemradio", { name: "Last name" }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Aardin/ }).locator("b")).toHaveText("Aardin");
+
+  await page.getByRole("button", { name: "Sort: Last name" }).click();
+  await expect(menu.getByRole("menuitemradio", { checked: true })).toHaveText("Last name");
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
 });

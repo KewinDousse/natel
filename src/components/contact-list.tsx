@@ -1,6 +1,6 @@
 /**
  * ContactList — the directory list pane: the toolbar (count, group filter,
- * sort toggle), the letter sections (contact-row.tsx, or virtual-sections.tsx
+ * sort menu), the letter sections (contact-row.tsx, or virtual-sections.tsx
  * for a large list) and the A–Z rail (alphabet-rail.tsx), hidden when the
  * list sorts by last modification. Group, letter, sort and search logic lives
  * in src/lib/contact-list.ts; this file only composes and styles it.
@@ -13,13 +13,13 @@ import { useOpenRowInView } from "@/hooks/use-open-row-in-view";
 import { useI18n } from "@/i18n/react";
 import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
 import { buildGroups, type ListSort, listSortOf, type SortBy } from "@/lib/contact-list";
-import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
 import { AlphabetRail } from "./alphabet-rail";
+import { ChoiceMenu } from "./choice-menu";
 import { GroupSection } from "./contact-row";
 import { GroupFilter } from "./group-filter";
 import { EmptyBook, ListSkeleton, SignInAgain, StateBox } from "./list-states";
-import { buttonClass, FOCUS_RING } from "./ui/button";
+import { buttonClass } from "./ui/button";
 import { AlertIcon, RefreshIcon } from "./ui/icons";
 import {
   type ContactListHandle,
@@ -168,15 +168,15 @@ export function ContactList({
 
   return (
     <ListShell warning={warning} busy={loading}>
-      {/* The sort is a setting too: on phones the toolbar keeps the count and the filter. */}
-      <div className="relative flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-1 pt-3 text-sm">
+      {/* A sort that wraps stays on the right, under the group filter. */}
+      <div className="relative flex flex-wrap items-center justify-end gap-x-3 gap-y-1 px-2 pb-1 pt-3 text-sm">
         <p className="mr-auto text-muted-foreground" aria-live="polite">
           <span className="tabular">{countLabel}</span>
         </p>
         {!loading && bookGroupList.length > 0 && (
           <GroupFilter groups={bookGroupList} selected={activeGroup} onSelect={onGroupFilter} />
         )}
-        <SortToggle sort={listSortOf({ sortBy, byRevision })} onSortBy={onSortBy} />
+        <SortMenu sort={listSortOf({ sortBy, byRevision })} onSortBy={onSortBy} />
       </div>
 
       {loading ? (
@@ -212,25 +212,19 @@ const SORTS = [
   ["edited", "sort_edited"],
 ] as const;
 
-function SortToggle({ sort, onSortBy }: { sort: ListSort; onSortBy: (sort: ListSort) => void }) {
+function SortMenu({ sort, onSortBy }: { sort: ListSort; onSortBy: (sort: ListSort) => void }) {
   const { t } = useI18n();
+  const choices = SORTS.map(([value, label]) => ({ value, label: t(label) }));
+  const current = choices.find((choice) => choice.value === sort)?.label ?? "";
   return (
-    <fieldset
-      aria-label={t("sort_label")}
-      className="m-0 hidden items-center gap-1 border-0 p-0 sm:inline-flex"
-    >
-      {SORTS.map(([value, label]) => (
-        <button
-          key={value}
-          type="button"
-          aria-pressed={sort === value}
-          onClick={() => onSortBy(value)}
-          className={SORT_PILL}
-        >
-          {t(label)}
-        </button>
-      ))}
-    </fieldset>
+    <ChoiceMenu
+      id="sort-menu"
+      label={t("sort_menu", { sort: current })}
+      menuLabel={t("sort_label")}
+      sections={[choices]}
+      selected={sort}
+      onSelect={onSortBy}
+    />
   );
 }
 
@@ -312,9 +306,3 @@ function ListShell({
     </nav>
   );
 }
-
-/** The sort toggle's pills: small to look at, a full row high to tap. */
-const SORT_PILL = cn(
-  "relative rounded-full px-2 py-0.5 font-bold text-muted-foreground transition-colors after:absolute after:-inset-y-3 after:inset-x-0 after:content-[''] aria-pressed:bg-secondary aria-pressed:text-foreground",
-  FOCUS_RING,
-);
