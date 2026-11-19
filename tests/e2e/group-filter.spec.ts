@@ -54,7 +54,7 @@ test("shows the contacts in no group, and one leaves them when it joins a group"
   await expect(page.getByRole("menuitemradio", { name: /^No group/ })).toHaveText("No group1");
   await page.getByRole("menuitemradio", { name: /^No group/ }).click();
 
-  await expect(page.getByText("1 contact without a group")).toBeVisible();
+  await expect(page.getByText("1 contact", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /Turing/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Lovelace/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Hopper/ })).toHaveCount(0);

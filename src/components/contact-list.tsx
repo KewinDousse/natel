@@ -138,6 +138,7 @@ export function ContactList({
   // Loading keeps the toolbar and the rail: only the rows wait for the book.
   const loading = contacts === undefined;
   const count = contacts?.length ?? 0;
+  // The No group pill already names the filter, so its count stays plain.
   const countLabel = loading
     ? t("loading_contacts")
     : searching
@@ -146,11 +147,13 @@ export function ContactList({
         : shown === 1
           ? t("results_1")
           : t("results_n", { n: String(shown) })
-      : activeGroup !== null
-        ? groupCountLabel(t, activeGroup, listed.length)
-        : count === 1
+      : activeGroup === null || activeGroup === NO_GROUP
+        ? listed.length === 1
           ? t("count_1")
-          : t("count", { n: String(count) });
+          : t("count", { n: String(listed.length) })
+        : listed.length === 1
+          ? t("count_in_group_1", { group: activeGroup })
+          : t("count_in_group", { n: String(listed.length), group: activeGroup });
 
   const showIncompleteBook = count === 0 && skippedCount > 0;
   const showEmptyBook = !searching && count === 0 && !showIncompleteBook;
@@ -201,16 +204,6 @@ export function ContactList({
       )}
     </ListShell>
   );
-}
-
-function groupCountLabel(
-  t: ReturnType<typeof useI18n>["t"],
-  group: GroupChoice,
-  n: number,
-): string {
-  if (group === NO_GROUP)
-    return n === 1 ? t("count_no_group_1") : t("count_no_group", { n: String(n) });
-  return n === 1 ? t("count_in_group_1", { group }) : t("count_in_group", { n: String(n), group });
 }
 
 function SortToggle({ sortBy, onSortBy }: { sortBy: SortBy; onSortBy: (sortBy: SortBy) => void }) {

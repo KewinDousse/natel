@@ -238,7 +238,7 @@ describe("the group filter", () => {
     await user.click(option);
 
     expect(trigger().textContent).toBe("Sans groupe");
-    expect(screen.getByText("1 contact sans groupe")).toBeTruthy();
+    expect(screen.getByText("1 contact")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Byte/ })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Lovelace/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /Hopper/ })).toBeNull();
