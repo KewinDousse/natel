@@ -62,4 +62,16 @@ test("keeps the group filter on the count's row on a phone", async ({ page, isMo
   expect(
     sort && narrowFilter && Math.abs(sort.x + sort.width - (narrowFilter.x + narrowFilter.width)),
   ).toBeLessThan(1);
+  // The longest label, in French, still fits whole.
+  await page.evaluate(() => localStorage.setItem("natel.preferences", '{"locale":"fr"}'));
+  await page.reload();
+  await page.getByRole("button", { name: /^Tri/ }).click();
+  await page.getByRole("menuitemradio", { name: "Modifiés récemment" }).click();
+  const label = page.getByRole("button", { name: "Tri\u00a0: Modifiés récemment" }).locator("span");
+  expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
 });

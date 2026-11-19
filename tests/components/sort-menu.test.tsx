@@ -76,7 +76,7 @@ it("reads « Tri » in French", () => {
   });
   try {
     renderList("edited");
-    expect(screen.getByRole("button", { name: "Tri : Modifiés récemment" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tri\u00a0: Modifiés récemment" })).toBeTruthy();
   } finally {
     Object.defineProperty(window.navigator, "languages", {
       get: () => ["en-US"],

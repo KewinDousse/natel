@@ -174,7 +174,8 @@ test("offers the sort menu at every width, without overflow", async ({ page }) =
     const trigger = page.getByRole("button", { name: "Sort: First name" });
     await expect(trigger).toBeVisible();
     // The current sort is never cut off, nor is the page wider than the screen.
-    expect(await trigger.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    const label = trigger.locator("span");
+    expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
@@ -201,4 +202,5 @@ test("offers the sort menu at every width, without overflow", async ({ page }) =
   await expect(menu.getByRole("menuitemradio", { checked: true })).toHaveText("Last name");
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sort: Last name" })).toBeFocused();
 });

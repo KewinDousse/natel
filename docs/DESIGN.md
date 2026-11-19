@@ -110,7 +110,7 @@ Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden fro
 ### List toolbar
 The count (announced politely) on the left; the group filter and the sort menu on the right.
 - Sort menu: a pill built like the group filter's, at every width, reading "Sort: First name" (« Tri : Prénom »). Its menu lists first name, last name and recently modified, the current one checked; a choice applies and closes it. The settings' "Sort by" select sets the same preference, remembered like the language (ADR 026).
-- When the row is too narrow, as on phones, the sort wraps to a second row, on the right under the filter. From 320px, its longest label fits whole.
+- When the group filter leaves no room for it, the sort wraps to a second row, on the right under the filter. From 320px, its longest label fits whole.
 
 ### List states
 - Loading: the toolbar shows a loading message in place of the count, with the sort menu, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.
