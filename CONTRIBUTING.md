@@ -124,7 +124,9 @@ messages are one imperative line in English, saying why when it isn't obvious.
 
 The checks above pass before you ask for a review; Baïkal, and Xandikos
 without Docker, can be left to CI. A draft runs no CI: marking the pull
-request ready starts it, unless it only changes Markdown or `docs/`. The
+request ready starts it. When it only changes Markdown, `docs/` or change
+notes, CI runs only the lint. Its other checks then pass without testing. The
+user guide and `docs/brand/`, which the build reads, still run everything. The
 maintainer reviews the proposal before publication; changes under `src/vcard/`,
 `src/dav/` and photo encoding need particular care because they handle your
 data. Do not include credentials or personal contacts in issues, logs or
@@ -163,7 +165,7 @@ new dependency version alone does not establish that a vulnerability is fixed.
 
 Run `pnpm changes:validate` locally. The separate **Changelog decision** check
 requires a new valid note or a justified `None` before merging. It runs once the
-pull request is marked ready, even when it only changes Markdown.
+pull request is marked ready.
 
 Commit and pull request titles are not release notes. Publishing a release is
 described in [docs/releasing.md](docs/releasing.md).

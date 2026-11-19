@@ -191,8 +191,8 @@ that file.
 6. Except for an ADR proposal, mark it ready and squash-merge it once the
    last review has no blocking or major item, `src/vcard/` and `src/dav/`
    included, and CI is green. Marking it ready starts CI, the only place
-   Baïkal runs; a change to Markdown or `docs/` alone runs none, and merges
-   on the review alone. The squash title is the pull request's title,
+   Baïkal runs; on a change to Markdown or `docs/` alone, it runs only the
+   lint and its other checks pass without testing. The squash title is the pull request's title,
    without the ` (#N)` GitHub appends, with only the trailers as body.
 7. Report in a few lines: what changed, the review rounds, and whether
    `src/vcard/` or `src/dav/` was touched (the maintainer reads those diffs
