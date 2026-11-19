@@ -262,6 +262,16 @@ The choice applies immediately to photos, initials and organisation icons in the
 list, reading view and form, and persists in the browser. It changes only their
 display: the crop frame and saved photo stay square.
 
+### Card dates preference
+
+Settings offers a checkbox under Contacts and list, "Show creation and
+modification dates", off by default. It shows or hides the dates line at the
+foot of the reading view (see Reading view, item 8) at once, and persists in
+the browser. The list's date column in the "Recently modified" sort (see Sort
+by last modification) does not depend on it. Being a yes or no, it is a checkbox rather than a select: the box
+comes before its label on one row at every width, the whole row toggles it,
+and it is as tall as a select.
+
 ### Group format setting
 
 An "Address books" section (ADR 052) lists the account's books, each with a
@@ -278,7 +288,8 @@ browser. Without a book, the section is absent.
 
 Account, Display, Contacts and list, Address books, Keyboard shortcuts and
 About and help are separate sections. Display holds language and appearance.
-Contacts and list holds label position, sort order and the map preference.
+Contacts and list holds contact image shape, label position, sort order, the
+map preference and the card dates preference.
 Preference labels sit above controls on phones and beside them from `sm`;
 changes apply without a save button.
 
@@ -297,7 +308,7 @@ changes apply without a save button.
    - A birthday with a day, a month and a year is followed by the age, muted, from 1 to 130: past that, the year is a placeholder.
    - Groups are chips; each filters the list on its group (see Group filter). On phones, where the list is another screen, it also goes back to the list.
    - The note keeps its line breaks.
-8. Under the sections, in small muted text: "Created April 18, 2021 · Modified November 12, 2026", the day the card's `CREATED` or `X-CREATED` and its `REV` give, in the interface language. A date the card doesn't have, or that can't be read, is left out; without either, so is the line. The information not shown leaves out the creation date shown here.
+8. With the card dates preference on, under the sections, in small muted text: "Created April 18, 2021 · Modified November 12, 2026", the day the card's `CREATED` or `X-CREATED` and its `REV` give, in the interface language. A date the card doesn't have, or that can't be read, is left out; without either, so is the line. While the preference is on, the information not shown leaves out the creation date shown here.
 
 Dotted leaders are used in the list only: they need right-aligned values.
 

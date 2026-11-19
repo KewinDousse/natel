@@ -70,6 +70,7 @@ describe("contact labels", () => {
           onEdit={vi.fn()}
           onCopy={vi.fn()}
           onGroup={vi.fn()}
+          showDates={false}
         />
       </I18nProvider>,
     );

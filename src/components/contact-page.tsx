@@ -56,6 +56,7 @@ import {
   useUpdateContact,
 } from "@/queries";
 import { useBookFormat } from "@/store/group-formats";
+import { usePreferences } from "@/store/preferences";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
   addCategory,
@@ -898,8 +899,12 @@ function ContactFiche({
     draft.photo.kind === "replaced" ||
     (draft.photo.kind === "unchanged" && photoOf(editBase) !== null);
 
+  const showCardDates = usePreferences((state) => state.showCardDates);
   // What a save writes back unseen, from the version edited.
-  const unshown = useMemo(() => unshownPropertiesOf(editBase), [editBase]);
+  const unshown = useMemo(
+    () => unshownPropertiesOf(editBase, { datesShown: showCardDates }),
+    [editBase, showCardDates],
+  );
 
   // ---------------------------------------------------------------------------
   // Render
@@ -968,6 +973,7 @@ function ContactFiche({
           onEdit={enterEdit}
           onCopy={handleCopy}
           onGroup={handleGroup}
+          showDates={showCardDates}
         />
       )}
 
