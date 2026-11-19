@@ -45,7 +45,10 @@ test("filters the list on a group from its group card and CATEGORIES", async ({ 
   await expect(page.getByRole("link", { name: /Turing/ })).toBeVisible();
 });
 
-test("keeps the group filter on the count's row on a phone", async ({ page, isMobile }) => {
+test("keeps the group filter on the count's row on a phone, the whole sort under it at 320px", async ({
+  page,
+  isMobile,
+}) => {
   test.skip(!isMobile, "the toolbar holds one row on wider screens");
   await signIn(page);
   const count = await page.getByText("3 contacts").boundingBox();

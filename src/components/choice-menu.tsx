@@ -167,7 +167,7 @@ export function ChoiceMenu<T>({
             }
           }}
           className={cn(
-            "inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 text-sm font-bold transition-colors",
+            "relative inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-full px-2.5 text-sm font-bold transition-colors after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']",
             FOCUS_RING,
             clear
               ? "pl-3 pr-1 text-foreground"

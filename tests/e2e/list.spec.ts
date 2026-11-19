@@ -177,7 +177,9 @@ test("offers the sort menu at every width, without overflow", async ({ page }) =
     const label = trigger.locator("span");
     expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
   }
 
