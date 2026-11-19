@@ -62,6 +62,7 @@ export function ContactView({
     .map((address) => ({ address, lines: addressLinesOf(address) }))
     .filter(({ lines }) => lines.length > 0);
   const mapApp = usePreferences((state) => state.mapApp) ?? deviceMapApp(navigator.userAgent);
+  const phoneFormat = usePreferences((state) => state.phoneFormat);
   const birthday = birthdayOf(contact);
   const note = noteOf(contact);
   const nickname = contact.fields.nickname;
@@ -166,7 +167,7 @@ export function ContactView({
                     field === primary ? "text-lg font-bold sm:text-xl" : "lg:text-body",
                   )}
                 >
-                  {formatPhone(field.value)}
+                  {formatPhone(field.value, phoneFormat)}
                 </a>
               </Row>
             ))}

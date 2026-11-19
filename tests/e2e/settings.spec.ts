@@ -115,11 +115,12 @@ test("shows the running version and safe links to help", async ({ page, isMobile
   const column = page.getByRole("heading", { name: "Settings", level: 1 }).locator("..");
   await expect(column.getByRole("heading", { level: 2 })).toHaveText(
     isMobile
-      ? ["Account", "Display", "Contacts and list", "Address books", "About and help"]
+      ? ["Account", "Display", "Contact", "Contact details", "Address books", "About and help"]
       : [
           "Account",
           "Display",
-          "Contacts and list",
+          "Contact",
+          "Contact details",
           "Address books",
           "Keyboard shortcuts",
           "About and help",

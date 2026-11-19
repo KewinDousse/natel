@@ -166,7 +166,9 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 ### Settings
 `/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
 - Account: who is signed in, and sign-out. When the server doesn't confirm the sign-out, the user stays signed in and a toast says so.
-- Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
+- Display: language and appearance (system, light, dark). A change applies at once; there is no save button.
+- Contact: which name comes first, and the contact image shape.
+- Contact details: the phone number format, the label position, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps).
 - Address books: each book's group format (see Group format setting).
 - Keyboard shortcuts, desktop only.
 - About and help, last (see below).
@@ -250,14 +252,30 @@ Either explicit choice applies at every width. The choice applies immediately
 and persists in the browser; Auto is the default. It changes only row labels in
 the reading view, preserving section titles, information order and the form.
 A preview under the select shows a fictitious phone section using the same
-reading components as contact pages and updates when the choice changes.
+reading components as contact pages and updates when this choice or the phone
+number format changes.
 
 ### Contact image shape preference
 
-Settings offers Round (the default) and Rounded squares under Contacts and list.
+Settings offers Round (the default) and Rounded squares under Contact.
 The choice applies immediately to photos, initials and organisation icons in the
 list, reading view and form, and persists in the browser. It changes only their
 display: the crop frame and saved photo stay square.
+
+### Phone number format preference
+
+Settings offers Local (the default) and International under Contact details,
+above the label position. Local shows each valid number in its own country's
+national format (079 000 00 01, (212) 555-0166); International adds the
+country code (+41 79 000 00 01). A leading 00 counts as a country code, and a
+number stored without one reads as Swiss. A number of no country (+800) keeps
+its country code either way, and one that doesn't parse shows as stored.
+
+A hint under the select says that only the display changes, and the label
+position preview shows its number in the chosen format. The choice applies at
+once to the list and the reading view, and persists in the browser; the form,
+copy and `tel:` links keep the stored value. Search finds a number by its
+stored digits and by those of both formats, whichever the setting shows.
 
 ### Group format setting
 
@@ -273,9 +291,12 @@ browser. Without a book, the section is absent.
 
 ### Settings sections
 
-Account, Display, Contacts and list, Address books, Keyboard shortcuts and
-About and help are separate sections. Display holds language and appearance.
-Contacts and list holds label position, sort order and the map preference.
+Account, Display, Contact, Contact details, Address books, Keyboard shortcuts
+and About and help are separate sections. Display holds language and
+appearance. Contact holds which name comes first ("Show first": first name or
+last name, the same preference as the list's sort toggle, which also orders
+the list) and the contact image shape. Contact details holds the phone number
+format, the label position and its preview, and the map preference.
 Preference labels sit above controls on phones and beside them from `sm`;
 changes apply without a save button.
 

@@ -32,7 +32,7 @@ test("puts the sorted part of the name first", async ({ page, isMobile }) => {
   // Phones offer the sort in the settings only.
   if (isMobile) {
     await page.getByRole("link", { name: "Settings" }).click();
-    await page.getByRole("combobox", { name: "Sort by" }).selectOption("family");
+    await page.getByRole("combobox", { name: "Show first" }).selectOption("family");
     await page.getByRole("link", { name: "Back to “Contacts”" }).click();
   } else {
     await page.getByRole("button", { name: "Last name" }).click();
