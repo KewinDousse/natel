@@ -38,7 +38,7 @@ dates** to show, at the foot of a contact's page, the day its card was created
 and last modified, when the card records them. The choice is remembered in
 this browser.
 The list sorted by **Recently modified** shows each card's modification
-date whatever this choice.
+date regardless of this choice.
 
 ## Edit, create, move or delete
 

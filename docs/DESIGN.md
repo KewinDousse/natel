@@ -268,9 +268,9 @@ Settings offers a checkbox under Contacts and list, "Show creation and
 modification dates", off by default. It shows or hides the dates line at the
 foot of the reading view (see Reading view, item 8) at once, and persists in
 the browser. The list's date column in the "Recently modified" sort (see Sort
-by last modification) does not depend on it. Being a yes or no, it is a checkbox rather than a select: the box
-comes before its label on one row at every width, the whole row toggles it,
-and it is as tall as a select.
+by last modification) does not depend on it. Being a yes or no, it is a
+checkbox rather than a select: the box comes before its label on one row at
+every width, the whole row toggles it, and it is as tall as a select.
 
 ### Group format setting
 
