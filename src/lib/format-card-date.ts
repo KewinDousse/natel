@@ -4,7 +4,7 @@
  */
 
 import type { CardDate } from "@/vcard";
-import { isoDay } from "./format-birthday";
+import { isoDay } from "./iso-day";
 
 const FORMATS = {
   long: { year: "numeric", month: "long", day: "numeric" },

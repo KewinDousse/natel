@@ -62,12 +62,7 @@ export function keepTimestampsAsWritten(): void {
   if (!values.timestamp) throw new Error("ical.js has no vCard timestamp value");
   const asWritten = (value: string) => value;
   // The codec is iCalendar's date-time; give 4.0 its own.
-  values.timestamp = {
-    fromICAL: asWritten,
-    toICAL: asWritten,
-    decorate: asWritten,
-    undecorate: asWritten,
-  } as ValueCodec;
+  values.timestamp = { fromICAL: asWritten, toICAL: asWritten };
 }
 
 /** RFC 2426 §2.3 requires semicolons escaped in every 3.0 text value. */

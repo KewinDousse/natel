@@ -1,8 +1,8 @@
 /**
- * Display preferences beside the language (ADR 019), the map addresses open
- * in among them (ADR 037). Stored in localStorage like the language, since
- * they say nothing about the account; credentials never go there
- * (invariant 3).
+ * Display preferences beside the language (ADR 019): the list's sort, the
+ * theme and the map addresses open in (ADR 037). Stored in localStorage like
+ * the language, since they say nothing about the account; credentials never
+ * go there (invariant 3).
  */
 import { create } from "zustand";
 import { storeChoice, storedChoice } from "@/i18n/preferences";

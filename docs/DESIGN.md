@@ -290,8 +290,8 @@ browser. Without a book, the section is absent.
 
 Account, Display, Contacts and list, Address books, Keyboard shortcuts and
 About and help are separate sections. Display holds language and appearance.
-Contacts and list holds contact image shape, label position, sort order, the
-map preference and the card dates preference.
+Contacts and list holds label position, sort order, the map preference and
+the card dates preference.
 Preference labels sit above controls on phones and beside them from `sm`;
 changes apply without a save button.
 
