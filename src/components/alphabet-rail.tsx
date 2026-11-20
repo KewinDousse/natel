@@ -5,10 +5,10 @@ import { ALPHABET, OTHER_GROUP, railTarget } from "@/lib/contact-list";
 
 const LETTERS = [...ALPHABET, OTHER_GROUP];
 
-// min-h-0 and a font tied to the rail's height let a short landscape phone
-// still fit every letter.
+// The 27 letters share the rail's height (min-h-0 lets a cell shrink below its
+// text on a short screen), and each letter takes three quarters of its cell.
 const CELL =
-  "grid min-h-0 max-h-8 flex-1 place-items-center rounded-sm text-[length:min(2.8cqh,1rem)]";
+  "grid min-h-0 max-h-8 flex-1 place-items-center rounded-sm text-[length:min(100cqh/27*0.75,1rem)]";
 const PRESENT = `${CELL} text-foreground transition-colors hover:text-brand`;
 const ABSENT = `${CELL} pointer-events-none text-leader`;
 
