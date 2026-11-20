@@ -123,11 +123,11 @@ were deleted or that Natel knows why they could not be loaded.
 Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time.
 - Trigger: the address-book switcher's pill, "All groups" by default.
 - Menu: built like the book menu, "All groups" first, then "No group", a rule, and each group; "No group" and each group show their number of contacts; the chosen one is checked.
-- Filtered: the pill shows the group's name and a × that goes back to every group. For a named group, the count names it; search applies within it; the A–Z rail greys the letters without a contact in the group.
+- Filtered: the pill shows the group's name and a × that goes back to every group. For a named group, the count names it. Search applies within the choice; the A–Z rail greys the letters without a contact in it.
 - The choice lasts for the session; it goes back to every group when another book is selected, or when the group no longer exists.
 
 ### No group filter
-"No group" lists the contacts that no group card lists and whose `CATEGORIES` name no group, so they can be given one. It is offered only with the group filter: in a book without groups, every contact would match.
+"No group" lists the contacts that no group card lists and that have no non-blank `CATEGORIES` value, so they can be given one. It is offered only with the group filter: in a book without groups, every contact would match.
 - The pill shows "No group"; the count reads "N contacts", as without a filter, since the pill already names it.
 - A contact that joins a group leaves the list once saved; its page stays open, and the filter stays on.
 - With every contact in a group, the list says so in the empty-group state.

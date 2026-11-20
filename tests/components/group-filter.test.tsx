@@ -245,9 +245,9 @@ describe("the group filter", () => {
     expect(screen.queryByRole("link", { name: /Turing/ })).toBeNull();
 
     await user.click(trigger());
-    expect(
-      screen.getByRole("menuitemradio", { name: /^Sans groupe/ }).getAttribute("aria-checked"),
-    ).toBe("true");
+    const checked = screen.getByRole("menuitemradio", { name: /^Sans groupe/ });
+    expect(checked.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(checked);
     await user.keyboard("{Escape}");
 
     book[`${BOOK.href}bob.vcf`] = person("bob", "Byte", "Bob", ["CATEGORIES:Club"]);
@@ -289,6 +289,24 @@ describe("the group filter", () => {
     await user.type(screen.getByRole("searchbox"), "Alan");
     expect(screen.getAllByText("Aucun résultat").length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: /Turing/ })).toBeNull();
+  });
+
+  it("searches within the contacts in no group, and greys the rail's other letters", async () => {
+    const book = books[BOOK.href] ?? {};
+    book[`${BOOK.href}bob.vcf`] = person("bob", "Byte", "Bob");
+    const user = await renderList();
+    await user.click(trigger());
+    await user.click(screen.getByRole("menuitemradio", { name: /^Sans groupe/ }));
+    const rail = document.getElementById("rail");
+    expect(rail?.querySelector('a[href="#g-B"]')).not.toBeNull();
+    expect(rail?.querySelector('a[href="#g-L"]')).toBeNull();
+
+    await user.type(screen.getByRole("searchbox"), "Bob");
+    expect(screen.getByText("1 résultat")).toBeTruthy();
+    await user.clear(screen.getByRole("searchbox"));
+    await user.type(screen.getByRole("searchbox"), "Ada");
+    expect(screen.getAllByText("Aucun résultat").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: /Lovelace/ })).toBeNull();
   });
 
   it("starts from every group in another book, and hides itself in a book without groups", async () => {
