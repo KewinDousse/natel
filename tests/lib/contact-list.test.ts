@@ -18,6 +18,7 @@ import {
   orderedNameOf,
   RAIL_LETTERS,
   RAIL_SLOT_MIN,
+  railIndexAt,
   railSlots,
   railTarget,
   searchTargetOf,
@@ -509,5 +510,37 @@ describe("N components holding several values", () => {
   it("finds the card by any of the values", () => {
     expect(matchesQuery(searchTargetOf(alix), "alix")).toBe(true);
     expect(buildGroups([alix], "family", "alix").flatMap((g) => g.contacts)).toEqual([alix]);
+  });
+});
+
+describe("railIndexAt", () => {
+  const short = railSlots(RAIL_SLOT_MIN * 13);
+
+  it("maps a full rail evenly onto the 27 letters", () => {
+    expect(railIndexAt(RAIL_LETTERS, 0)).toBe(0);
+    expect(railIndexAt(RAIL_LETTERS, 0.5)).toBe(13);
+    expect(railIndexAt(RAIL_LETTERS, 1)).toBe(26);
+  });
+
+  it("gives a shown letter anywhere in its slot", () => {
+    expect(short).toEqual(["A", null, "E", null, "J", null, "N", null, "R", null, "W", null, "#"]);
+    for (const offset of [0.01, 0.5, 0.99]) {
+      expect(railIndexAt(short, offset / 13)).toBe(0);
+      expect(railIndexAt(short, (2 + offset) / 13)).toBe(4);
+      expect(railIndexAt(short, (12 + offset) / 13)).toBe(26);
+    }
+  });
+
+  it("spreads a dot's slot over the letters it hides", () => {
+    // Between A and E, the dot stands for B, C and D.
+    expect([0.1, 0.5, 0.9].map((offset) => railIndexAt(short, (1 + offset) / 13))).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it("clamps outside the column and has no letter on an empty rail", () => {
+    expect(railIndexAt(short, -1)).toBe(0);
+    expect(railIndexAt(short, 2)).toBe(26);
+    expect(railIndexAt([], 0.5)).toBeUndefined();
   });
 });

@@ -101,20 +101,50 @@ test("collapses the A–Z rail on short screens, and a finger still reaches ever
     const groupTop = (letter: string) =>
       page.evaluate((l) => document.getElementById(`g-${l}`)?.getBoundingClientRect().top, letter);
 
-    // Mid-way down the column, on a letter the short rail hides.
-    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const shown = rail.slots.map((slot) => slot.letter);
-    const index = [...letters.slice(10, 17)].findIndex((letter) => !shown.includes(letter)) + 10;
-    const hiddenLetter = letters[index];
-    if (index < 10 || !hiddenLetter) throw new Error(`no hidden letter mid-way at ${at}`);
-    const target = groups.find((letter) => letter !== "#" && letter >= hiddenLetter);
-    if (!target) throw new Error("no group after mid-way in the demo");
-    await send("touchStart", top + 2);
-    await send("touchMove", top + ((index + 0.5) * (bottom - top)) / 27);
     const under = await headerBottom();
-    await expect.poll(() => groupTop(target), at).toBeGreaterThanOrEqual(under - 1);
-    await expect.poll(() => groupTop(target), at).toBeLessThan(under + 8);
+    const landsOn = async (letter: string, y: number) => {
+      await send("touchStart", y);
+      await send("touchEnd");
+      await expect
+        .poll(() => groupTop(letter), `${letter} at ${at}`)
+        .toBeGreaterThanOrEqual(under - 1);
+      // Under the header, unless the page is scrolled to its end.
+      await expect
+        .poll(
+          async () =>
+            ((await groupTop(letter)) ?? Number.POSITIVE_INFINITY) < under + 8 ||
+            page.evaluate(
+              () =>
+                window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1,
+            ),
+          `${letter} at ${at}`,
+        )
+        .toBe(true);
+    };
 
+    // A tap on a shown letter lands on that letter.
+    for (const slot of rail.slots) {
+      if (slot.letter && groups.includes(slot.letter)) {
+        await landsOn(slot.letter, (slot.top + slot.bottom) / 2);
+      }
+    }
+
+    // A dot stands for the letters it hides, spread over its height.
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#";
+    const hidden = rail.slots.flatMap((slot, i) => {
+      const before = letters.indexOf(rail.slots[i - 1]?.letter ?? "");
+      const after = letters.indexOf(rail.slots[i + 1]?.letter ?? "");
+      if (slot.letter !== null || before < 0) return [];
+      return [...letters.slice(before + 1, after)].flatMap((letter, k, all) =>
+        groups.includes(letter)
+          ? [{ letter, y: slot.top + ((k + 0.5) * (slot.bottom - slot.top)) / all.length }]
+          : [],
+      );
+    });
+    if (hidden.length === 0) throw new Error(`no hidden group at ${at}`);
+    for (const { letter, y } of hidden) await landsOn(letter, y);
+
+    await send("touchStart", top + 2);
     // At the bottom, the last group comes into view.
     await send("touchMove", bottom - 1);
     await send("touchEnd");

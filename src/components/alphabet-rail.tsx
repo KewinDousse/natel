@@ -1,7 +1,7 @@
 import type { CSSProperties, PointerEvent } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
-import { RAIL_LETTERS, railSlots, railTarget } from "@/lib/contact-list";
+import { RAIL_LETTERS, railIndexAt, railSlots, railTarget } from "@/lib/contact-list";
 
 // The slots share the rail's height (min-h-0 lets a cell shrink below its
 // text), and each letter takes three quarters of its slot.
@@ -22,6 +22,7 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
   const { t } = useI18n();
   const nav = useRef<HTMLElement>(null);
   const shown = useRef<string | null>(null);
+  const touched = useRef(false);
   // Unmeasured (no ResizeObserver, as in jsdom), the rail shows every letter.
   const [height, setHeight] = useState<number | null>(null);
 
@@ -37,17 +38,14 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
 
   const slots = height === null ? RAIL_LETTERS : railSlots(height);
 
-  // The finger's place along the column picks one of all 27 letters, so the
-  // ones a short rail hides stay reachable.
+  // A dot's slot stands for the letters a short rail hides, so a finger still
+  // reaches all 27.
   function jumpTo(event: PointerEvent<HTMLElement>) {
     const first = event.currentTarget.firstElementChild?.getBoundingClientRect();
     const last = event.currentTarget.lastElementChild?.getBoundingClientRect();
-    if (!first || !last) return;
-    const step = (last.bottom - first.top) / RAIL_LETTERS.length;
-    const index = Math.min(
-      RAIL_LETTERS.length - 1,
-      Math.max(0, Math.floor((event.clientY - first.top) / step)),
-    );
+    if (!first || !last || last.bottom <= first.top) return;
+    const index = railIndexAt(slots, (event.clientY - first.top) / (last.bottom - first.top));
+    if (index === undefined) return;
     const target = railTarget(RAIL_LETTERS, present, index);
     if (!target || target === shown.current) return;
     shown.current = target;
@@ -63,10 +61,17 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
       aria-hidden={present.size === 0 || undefined}
       aria-label={t("index_label")}
       onPointerDown={(event) => {
-        if (event.pointerType === "mouse") return;
+        touched.current = event.pointerType !== "mouse";
+        if (!touched.current) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         shown.current = null;
         jumpTo(event);
+      }}
+      // The browser retargets a tap's click to the nearest anchor, which would
+      // override the finger's letter (a dot's hidden letter, say).
+      onClick={(event) => {
+        if (touched.current) event.preventDefault();
+        touched.current = false;
       }}
       onPointerMove={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) jumpTo(event);

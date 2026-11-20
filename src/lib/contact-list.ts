@@ -147,6 +147,27 @@ export function railSlots(height: number): (string | null)[] {
 }
 
 /**
+ * The index in `RAIL_LETTERS` of the letter at `fraction` (0 at the top, 1 at
+ * the bottom) of a rail showing `slots`: a letter's slot gives that letter, and
+ * a dot's slot spreads the letters it stands for, so a finger reaches them all.
+ */
+export function railIndexAt(
+  slots: readonly (string | null)[],
+  fraction: number,
+): number | undefined {
+  if (slots.length === 0) return undefined;
+  const at = Math.min(Math.max(fraction, 0), 1) * slots.length;
+  const slot = Math.min(slots.length - 1, Math.floor(at));
+  const letter = slots[slot];
+  if (letter !== null && letter !== undefined) return RAIL_LETTERS.indexOf(letter);
+  const before = RAIL_LETTERS.indexOf(slots[slot - 1] ?? "");
+  const after = RAIL_LETTERS.indexOf(slots[slot + 1] ?? "");
+  const hidden = after - before - 1;
+  if (before < 0 || hidden <= 0) return undefined;
+  return before + 1 + Math.min(hidden - 1, Math.floor((at - slot) * hidden));
+}
+
+/**
  * A row's name in the order of the sort toggle: the part the list is sorted
  * by leads (and is set bold), so "Fortune Sarah" by last name, "Sarah Fortune"
  * by first name. A missing part leaves the other one to lead alone.
