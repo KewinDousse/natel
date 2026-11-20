@@ -1120,17 +1120,11 @@ memory as the password did. This amends ADR 032.
 
 **Context.** ADR 029 moves `REV` only on a card that has one, so cards
 created in Natel, and cards another client wrote without `REV`, carry no
-date, even after a save in Natel. Sorting the list by last change (#27) is
-to read `REV`, and the contact page is to show it (#28): those cards would
-sit undated. RFC 6350 §6.7.4 gives `REV` the cardinality `*1`, "Exactly one
-instance per vCard MAY be present" (§3.3), and says its value "distinguishes
-the current revision of the information in this vCard". RFC 2426 §3.6.4 says
-"The default is a single date-time value. Can also be reset to a single date
-value." Neither RFC requires `REV`: RFC 6350 §3.3 says "A vCard object MUST
-include the VERSION and FN properties", and RFC 2426 §4 says "A vCard object
-MUST include the VERSION, FN and N types." In `tests/fixtures/public/`,
-`apple-bob.vcf`, written by the iCloud web address book, and
-`davx5-alice.vcf`, written by DAVx⁵, both carry `REV`.
+date, even after a save in Natel. Users ask to sort the list by last change
+(#27) and to see when a contact was last modified (#28), which those cards
+cannot answer. RFC 6350 §6.7.4 makes `REV` the card's current revision, at
+most one per card (cardinality `*1`, §3.3). Neither RFC 6350 nor RFC 2426
+requires it.
 
 **Decision.** Each time Natel writes a contact or a group card it creates or
 saves, it sets the card's `REV` to the time of that write by the browser's
@@ -1142,8 +1136,9 @@ contact, saving one (an overwrite after a conflict included, ADR 013 and
 create (ADR 016) or of a group card, takes the retry's time.
 - On a card with `REV`, the first `REV` line, grouped or not (`item1.REV`
   counts), takes the new value. It keeps its group and its parameters except
-  `VALUE`, which is dropped. Further `REV` lines stay as written
-  (invariant 4), and Natel reads only the first.
+  `VALUE`, which is dropped: the value written has the RFC's default type.
+  Further `REV` lines stay as written (invariant 4), and Natel reads only
+  the first.
 - A card without `REV` gains one line, `REV:` and the time, with no group or
   parameter.
 - The stamp changes no other line.
@@ -1157,4 +1152,6 @@ original text.
 **Consequences.** Every card Natel creates or saves says when. A card gains
 a line on its first save in Natel and loses none (invariant 4): it had no
 `REV`, and the RFCs allow one. An imported or moved card without `REV` stays
-undated until it is saved in Natel. This amends ADR 029.
+undated until it is saved in Natel. `REV` comes from the clock of the
+browser that saves: a client whose clock is off dates its saves wrong, and
+sorting by last change places those cards accordingly. This amends ADR 029.
