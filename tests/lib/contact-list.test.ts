@@ -16,6 +16,9 @@ import {
   matchesQuery,
   namePartsOf,
   orderedNameOf,
+  RAIL_LETTERS,
+  RAIL_SLOT_MIN,
+  railSlots,
   railTarget,
   searchTargetOf,
   splitByQuery,
@@ -193,6 +196,35 @@ describe("railTarget", () => {
 
   it("finds nothing in an empty list", () => {
     expect(railTarget(letters, new Set(), 0)).toBeUndefined();
+  });
+});
+
+describe("railSlots", () => {
+  it("shows every letter when they all fit", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 27)).toEqual(RAIL_LETTERS);
+    expect(railSlots(1000)).toEqual(RAIL_LETTERS);
+  });
+
+  it("alternates letters and dots from A to # when they do not", () => {
+    const slots = railSlots(RAIL_SLOT_MIN * 27 - 1);
+    expect(slots).toHaveLength(25);
+    expect(slots[0]).toBe("A");
+    expect(slots.at(-1)).toBe("#");
+    for (const [i, slot] of slots.entries()) expect(slot === null).toBe(i % 2 === 1);
+  });
+
+  it("spreads the letters evenly over the alphabet", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 9)).toEqual(["A", null, "H", null, "N", null, "U", null, "#"]);
+  });
+
+  it("keeps an odd count that fits the height", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 10)).toHaveLength(9);
+    expect(railSlots(RAIL_SLOT_MIN * 3)).toEqual(["A", null, "#"]);
+  });
+
+  it("shows nothing without room for A and #", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 3 - 1)).toEqual([]);
+    expect(railSlots(0)).toEqual([]);
   });
 });
 
