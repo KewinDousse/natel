@@ -151,6 +151,16 @@ test("collapses the A–Z rail on short screens, and a finger still reaches ever
     const lastGroup = groups.at(-1);
     if (!lastGroup) throw new Error("no group in the demo");
     await expect(page.locator(`[id="g-${lastGroup}"]`), at).toBeInViewport();
+
+    // After a slide, the keyboard still follows a letter's link. At 568×320
+    // the demo has no group under a shown letter, so the rail has no link.
+    const links = page.locator("#rail a");
+    if ((await links.count()) > 0) {
+      const linked = (await links.first().getAttribute("data-letter")) ?? "";
+      await links.first().focus();
+      await page.keyboard.press("Enter");
+      await expect(page, at).toHaveURL(new RegExp(`#g-${linked}$`));
+    }
     await page.evaluate(() => window.scrollTo(0, 0));
   }
 });

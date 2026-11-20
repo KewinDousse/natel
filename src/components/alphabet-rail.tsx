@@ -68,9 +68,10 @@ export function AlphabetRail({ present, hidden }: { present: Set<string>; hidden
         jumpTo(event);
       }}
       // The browser retargets a tap's click to the nearest anchor, which would
-      // override the finger's letter (a dot's hidden letter, say).
+      // override the finger's letter (a dot's hidden letter, say). A keyboard
+      // click (detail 0) still follows its link, even after a slide.
       onClick={(event) => {
-        if (touched.current) event.preventDefault();
+        if (touched.current && event.detail !== 0) event.preventDefault();
         touched.current = false;
       }}
       onPointerMove={(event) => {
