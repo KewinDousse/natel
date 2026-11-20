@@ -207,6 +207,7 @@ const ORG_ELSEWHERE = ADA.replace("ORG:Analytical Engines", "ORG:Difference Engi
 
 test("offers only to reload when the other client changed the phones too", async ({ page }) => {
   await saveOverConcurrentEdit(page, ORG_ELSEWHERE.replace("+41 79 000 00 01", "+41 79 000 00 21"));
+  await expect(page.getByText("Changed elsewhere: Organisation.", { exact: true })).toBeVisible();
   // Writing this list over theirs would mean guessing which phone is which (ADR 038).
   await expect(
     page.getByText("Changed here and elsewhere: Phones.", { exact: false }),
@@ -219,6 +220,11 @@ test("offers only to reload when the other client changed the phones too", async
 
 test("overwrites only the fields the user changed after a conflict", async ({ page }) => {
   await saveOverConcurrentEdit(page, ORG_ELSEWHERE);
+  await expect(
+    page.getByText(
+      "Changed elsewhere: Organisation. Overwriting keeps these changes and writes only yours.",
+    ),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Overwrite with my version" }).click();
   // The banner goes away as the PUT starts; the toast shows once it has landed.
   await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();

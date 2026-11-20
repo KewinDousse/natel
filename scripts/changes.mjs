@@ -56,23 +56,40 @@ export function compareVersions(left, right) {
   return 0;
 }
 
-export function readFragment(source) {
-  const entry = JSON.parse(source);
-  if (
-    !entry ||
-    Array.isArray(entry) ||
-    Object.keys(entry).some((key) => !["type", "text"].includes(key)) ||
-    ![...categories, "None"].includes(entry.type) ||
-    typeof entry.text !== "string" ||
-    !entry.text.trim() ||
-    entry.text.length > 1500 ||
-    /\r|\n|<\/?[A-Za-z]/.test(entry.text) ||
-    /\b(TODO|TBD|PLACEHOLDER)\b/i.test(entry.text)
-  ) {
-    throw new Error(
-      "A change note needs a supported type and one finished paragraph (or a reason for None)",
-    );
+const noteRules = "see « Changelog » in CONTRIBUTING.md";
+const noteTypes = [...categories, "None"];
+const notePath = /^\.changes\/[a-z0-9][a-z0-9-]*\.json$/;
+const quotedTypes = noteTypes.map((type) => JSON.stringify(type)).join(", ");
+
+/** A missing or invalid change note: its message is the whole diagnosis. */
+export class ChangeNoteError extends Error {}
+
+function fragmentProblem(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry))
+    return "it must be a JSON object with type and text";
+  const extra = Object.keys(entry).filter((key) => !["type", "text"].includes(key));
+  if (extra.length) return `unexpected ${extra.join(", ")}; only type and text are allowed`;
+  if (!noteTypes.includes(entry.type)) return `type must be one of ${quotedTypes}`;
+  if (typeof entry.text !== "string" || !entry.text.trim())
+    return entry.type === "None"
+      ? "text must give the reason no user-facing note is needed"
+      : "text must describe the change";
+  if (entry.text.length > 1500) return "text must stay within 1,500 characters";
+  if (/\r|\n/.test(entry.text)) return "text must be one paragraph, without line breaks";
+  if (/<\/?[A-Za-z]/.test(entry.text)) return "text must not contain HTML tags";
+  if (/\b(TODO|TBD|PLACEHOLDER)\b/i.test(entry.text))
+    return "text must be finished, without TODO, TBD or PLACEHOLDER";
+}
+
+export function readFragment(source, path = "Change note") {
+  let entry;
+  try {
+    entry = JSON.parse(source);
+  } catch (error) {
+    throw new ChangeNoteError(`${path} is not valid JSON (${error.message}); ${noteRules}`);
   }
+  const problem = fragmentProblem(entry);
+  if (problem) throw new ChangeNoteError(`${path}: ${problem}; ${noteRules}`);
   return { type: entry.type, text: entry.text.trim() };
 }
 
@@ -81,10 +98,12 @@ export function fragments() {
     ? readdirSync(".changes")
         .sort()
         .map((name) => {
-          if (!/^[a-z0-9][a-z0-9-]*\.json$/.test(name))
-            throw new Error(`Invalid change note name: ${name}`);
           const path = `.changes/${name}`;
-          return { path, ...readFragment(readFileSync(path, "utf8")) };
+          if (!notePath.test(path))
+            throw new ChangeNoteError(
+              `${path}: a change note is named with lowercase letters, digits and hyphens, ending in .json; ${noteRules}`,
+            );
+          return { path, ...readFragment(readFileSync(path, "utf8"), path) };
         })
     : [];
 }
@@ -231,9 +250,11 @@ export function verifyPrepared(version, ref = "HEAD") {
   if (JSON.stringify(previousNotes) !== JSON.stringify([...meta.fragments].sort()))
     throw new Error("Release must account for every pending change note");
   for (const path of meta.fragments) {
-    if (!/^\.changes\/[a-z0-9][a-z0-9-]*\.json$/.test(path) || pending.includes(path))
-      throw new Error("Unconsumed change note");
-    readFragment(git("show", `${meta.baseCommit}:${path}`));
+    if (!notePath.test(path) || pending.includes(path)) throw new Error("Unconsumed change note");
+    readFragment(
+      git("show", `${meta.baseCommit}:${path}`),
+      `${path} at release base ${meta.baseCommit}`,
+    );
   }
   const previousPackage = JSON.parse(git("show", `${meta.baseCommit}:package.json`));
   if (compareVersions(version, previousPackage.version) <= 0)
@@ -273,38 +294,46 @@ export function checkChanges(base) {
     "diff",
     "--name-only",
     "--diff-filter=A",
+    "--no-renames",
     `${base}...HEAD`,
     "--",
     ".changes",
   ).split("\n");
   if (notes.some((note) => added.includes(note.path))) return;
-  if (existsSync(".release/prepared.json")) {
-    const version = JSON.parse(readFileSync("package.json", "utf8")).version;
-    verifyPrepared(version);
-    if (
-      git("diff", "--name-only", `${base}...HEAD`)
-        .split("\n")
-        .every(
-          (path) =>
-            releaseFiles.includes(path) || /^\.changes\/[a-z0-9][a-z0-9-]*\.json$/.test(path),
-        )
-    )
-      return;
+  // Only the branch that prepares a release may skip the note; main keeps the last
+  // preparation's metadata, which every later branch inherits.
+  const changed = git("diff", "--name-only", `${base}...HEAD`).split("\n");
+  if (existsSync(".release/prepared.json") && changed.includes(".release/prepared.json")) {
+    verifyPrepared(JSON.parse(readFileSync("package.json", "utf8")).version);
+    if (changed.every((path) => releaseFiles.includes(path) || notePath.test(path))) return;
   }
-  throw new Error(
-    "Add a .changes/*.json note, or a None note explaining why no user-facing note is needed",
+  throw new ChangeNoteError(
+    [
+      `No change note: this branch adds no committed file under .changes/ since ${base}.`,
+      'Add .changes/<short-name>.json containing {"type": "<type>", "text": "<one finished paragraph>"},',
+      `with type one of ${quotedTypes}.`,
+      'A "None" note gives as its text the reason no user-facing note is needed.',
+      `Run pnpm changes:validate, and ${noteRules}.`,
+    ].join("\n"),
   );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [command, value] = process.argv.slice(2);
-  if (command === "check") checkChanges(value);
-  else if (command === "validate") fragments();
-  else if (command === "notes")
-    process.stdout.write(`${releaseNotes(readFileSync("CHANGELOG.md", "utf8"), value)}\n`);
-  else if (command === "verify") process.stdout.write(`${verifyPrepared(value)}\n`);
-  else
-    throw new Error(
-      "Usage: node scripts/changes.mjs check BASE | validate | notes VERSION | verify VERSION",
-    );
+  try {
+    if (command === "check") checkChanges(value);
+    else if (command === "validate") fragments();
+    else if (command === "notes")
+      process.stdout.write(`${releaseNotes(readFileSync("CHANGELOG.md", "utf8"), value)}\n`);
+    else if (command === "verify") process.stdout.write(`${verifyPrepared(value)}\n`);
+    else
+      throw new Error(
+        "Usage: node scripts/changes.mjs check BASE | validate | notes VERSION | verify VERSION",
+      );
+  } catch (error) {
+    // A stack trace would bury the note's diagnosis in the check's log.
+    if (!(error instanceof ChangeNoteError)) throw error;
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  }
 }

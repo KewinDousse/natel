@@ -7,22 +7,30 @@
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n/react";
 import type { TranslationKey } from "@/i18n/setup";
+import type { CardConflict, ContactSection } from "@/lib/contact-edit";
 import { DavError, type GroupFailure } from "@/queries";
-import type { ContactList } from "@/vcard";
 import { buttonClass } from "./ui/button";
 import { SpinnerIcon } from "./ui/icons";
 
 /** The same column as the form, so the buttons line up with its right edge. */
 const COLUMN = "mx-auto w-full max-w-[44rem] px-5 sm:px-8 lg:px-10 xl:px-14";
 
-const LIST_TITLES: Record<ContactList, TranslationKey> = {
+const SECTION_TITLES: Record<ContactSection, TranslationKey> = {
+  name: "s_name",
+  org: "label_org",
+  title: "label_title",
   tel: "s_phones",
   email: "s_emails",
   adr: "s_addresses",
+  bday: "s_bday",
+  url: "s_url",
+  nickname: "s_nickname",
+  note: "s_note",
 };
 
 export function ContactEditBar({
   conflict,
+  edited,
   deleteConflict,
   groupFailures,
   saveError,
@@ -36,11 +44,10 @@ export function ContactEditBar({
   onOverwrite,
   onGroupOverwrite,
 }: {
-  /**
-   * The card changed elsewhere since the edit began (412 on save): the lists
-   * changed on both sides (ADR 038), empty when overwriting is offered.
-   */
-  conflict: ContactList[] | null;
+  /** The card changed elsewhere since the edit began (412 on save). */
+  conflict: CardConflict | null;
+  /** The sections the draft changed, which overwriting writes. */
+  edited: ContactSection[];
   /** A 412 on delete or move: only reloading makes sense. */
   deleteConflict: "delete" | "move" | null;
   groupFailures: GroupFailure[];
@@ -57,6 +64,14 @@ export function ContactEditBar({
   onGroupOverwrite: () => void;
 }) {
   const { t } = useI18n();
+  const titles = (sections: ContactSection[]) =>
+    sections.map((section) => t(SECTION_TITLES[section])).join(", ");
+  const overwrite = conflict !== null && conflict.lists.length === 0;
+  const replaced = conflict?.elsewhere.filter((section) => edited.includes(section)) ?? [];
+  const consequence =
+    replaced.length > 0
+      ? t("conflict_overwrite_replaces", { sections: titles(replaced) })
+      : t("conflict_overwrite_keeps");
   const groupConflict = groupFailures.some(
     (f) => f.error instanceof DavError && f.error.code === "CONFLICT",
   );
@@ -68,19 +83,25 @@ export function ContactEditBar({
     >
       <div className={COLUMN}>
         {conflict && (
-          <Notice title={t("conflict_title")} alert={conflict.length > 0}>
-            {conflict.length > 0 && (
+          <Notice title={t("conflict_title")} alert={!overwrite}>
+            {conflict.elsewhere.length > 0 && (
+              <p
+                className={`mt-1 text-sm ${overwrite ? "text-muted-foreground" : "text-destructive"}`}
+              >
+                {t("conflict_elsewhere", { sections: titles(conflict.elsewhere) })}
+                {overwrite && ` ${consequence}`}
+              </p>
+            )}
+            {!overwrite && (
               <p className="mt-1 text-sm text-destructive">
-                {t("conflict_lists_hint", {
-                  sections: conflict.map((list) => t(LIST_TITLES[list])).join(", "),
-                })}
+                {t("conflict_lists_hint", { sections: titles(conflict.lists) })}
               </p>
             )}
             <div className="mt-2 flex flex-wrap gap-2">
               <button type="button" onClick={onReload} className={buttonClass({ size: "sm" })}>
                 {t("conflict_reload")}
               </button>
-              {conflict.length === 0 && (
+              {overwrite && (
                 <button
                   type="button"
                   onClick={onOverwrite}

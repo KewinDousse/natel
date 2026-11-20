@@ -15,6 +15,7 @@ export function assemble(
   date: string,
 ): string;
 export function compareVersions(left: string, right: string): number;
-export function readFragment(source: string): ChangeNote;
+export class ChangeNoteError extends Error {}
+export function readFragment(source: string, path?: string): ChangeNote;
 export function releaseNotes(changelog: string, version: string): string;
 export function validateVersion(version: unknown): string;
