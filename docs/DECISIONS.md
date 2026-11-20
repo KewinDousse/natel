@@ -20,6 +20,10 @@ From the entry and its explicit references, without consulting the code, an
 independent agent must be able to reconstruct the same feature or technical
 guarantees. Implementation choices remain open.
 
+Each sentence names who acts, Natel, a server or the user, and says what they
+do, in the active voice. A term is repeated, never referred back to as "that
+type" or "this value".
+
 ## 001 — Contacts only
 
 **Context.** InfCloud bundles CalDAV and CardDAV. The author doesn't use the
