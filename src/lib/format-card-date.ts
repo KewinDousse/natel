@@ -4,7 +4,7 @@
  */
 
 import type { CardDate } from "@/vcard";
-import { isoDay } from "./format-birthday";
+import { isoDay } from "./iso-day";
 
 /** The day alone, "12 novembre 2026" / "November 12, 2026". */
 export function formatCardDate(value: CardDate, locale: string): string {

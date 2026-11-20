@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "Importing or moving a vCard 4.0 contact keeps its revision date as written, instead of garbling some of its forms."
-}

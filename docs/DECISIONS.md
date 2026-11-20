@@ -1122,8 +1122,9 @@ memory as the password did. This amends ADR 032.
 reads a 4.0 `REV` through its `timestamp` value, which drops a UTC offset
 (`20261112T143000+0200` read as `2026-11-12T14:30:00`) and garbles the
 extended and date-only forms clients write (`2024-03-03T10:10:10Z` read as
-`2024--0-3-T3T:10::1`). A write that keeps `REV`, such as an import or a
-move, sent the garbled value to the server, against ADR 005.
+`2024--0-3-T3T:10::1`), so the page would show the wrong day or none. No
+server receives that value: a save moves `REV` first (ADR 029), and an import
+or a move sends the card's text unchanged.
 
 **Decision.** `keepTimestampsAsWritten` in `src/vcard/`, a named workaround,
 makes ical.js keep every 4.0 `timestamp` value as written. Natel reads a
@@ -1131,6 +1132,6 @@ makes ical.js keep every 4.0 `timestamp` value as written. Natel reads a
 without time and zone; a value it can't read shows no date. ADR 029's stamp
 in a 4.0 card is written in the basic form, `20261112T123000Z`.
 
-**Consequences.** An untouched 4.0 `REV` survives a save, and a value with an
-offset gives the right instant. `REV` is the only 4.0 property of that type.
-Amends ADR 029.
+**Consequences.** A 4.0 `REV` gives the instant it names, and a card read and
+written back unchanged keeps it as written. `REV` is the only 4.0 property of
+that type. Amends ADR 029.
