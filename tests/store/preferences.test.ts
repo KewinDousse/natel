@@ -56,18 +56,18 @@ afterEach(() => {
 
 describe("the list's sort", () => {
   it("stores only the last-name sort, the default being by first name", () => {
-    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setListSort("family");
     expect(stored()).toEqual({ sort: "family" });
-    usePreferences.getState().setSortBy("given");
+    usePreferences.getState().setListSort("given");
     expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
   });
 
   it("stores the sort by last modification apart, keeping the order of names", () => {
-    usePreferences.getState().setSortBy("family");
-    usePreferences.getState().setSortBy("edited");
+    usePreferences.getState().setListSort("family");
+    usePreferences.getState().setListSort("edited");
     expect(stored()).toEqual({ sort: "family", order: "edited" });
     expect(usePreferences.getState()).toMatchObject({ sortBy: "family", byRevision: true });
-    usePreferences.getState().setSortBy("given");
+    usePreferences.getState().setListSort("given");
     expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
     expect(usePreferences.getState()).toMatchObject({ sortBy: "given", byRevision: false });
   });
@@ -150,7 +150,7 @@ describe("the theme", () => {
 
 describe("what the preferences hold", () => {
   it("is display choices only, next to the language", () => {
-    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setListSort("family");
     usePreferences.getState().setTheme("light");
     usePreferences.getState().setMapApp("osm");
     expect(Object.keys(stored() as object).sort()).toEqual(["map", "sort", "theme"]);
@@ -175,7 +175,7 @@ describe("contact image shape", () => {
   });
 
   it("stores rounded squares and clears the default while preserving other preferences", () => {
-    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setListSort("family");
     usePreferences.getState().setAvatarShape("square");
     expect(stored()).toEqual({ sort: "family", avatarShape: "square" });
     expect(usePreferences.getState().avatarShape).toBe("square");

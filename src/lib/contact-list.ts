@@ -11,10 +11,12 @@ import type { Contact, ContactField } from "@/model/contact";
 import { orgOf, revisionOf, typeValuesOf } from "@/vcard";
 
 /** The order of a name's parts, which the list sorts by too unless by "edited". */
-export type SortBy = "family" | "given";
+export const NAME_SORTS = ["given", "family"] as const;
+export type SortBy = (typeof NAME_SORTS)[number];
 
-/** What the list sorts by: a name's part, or the card's last modification. */
-export type ListSort = SortBy | "edited";
+/** What the list sorts by, in the order menus offer it. */
+export const LIST_SORTS = [...NAME_SORTS, "edited"] as const;
+export type ListSort = (typeof LIST_SORTS)[number];
 
 export type TrailingValue = { kind: "tel" | "email" | "org"; value: string };
 

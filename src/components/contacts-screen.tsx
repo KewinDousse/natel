@@ -52,7 +52,7 @@ export function ContactsScreen() {
   const [query, setQuery] = useState("");
   const sortBy = usePreferences((state) => state.sortBy);
   const byRevision = usePreferences((state) => state.byRevision);
-  const setSortBy = usePreferences((state) => state.setSortBy);
+  const setListSort = usePreferences((state) => state.setListSort);
   const groupFilter = useSessionStore((state) => state.groupFilter);
   const setGroupFilter = useSessionStore((state) => state.setGroupFilter);
 
@@ -176,7 +176,7 @@ export function ContactsScreen() {
               query={query}
               sortBy={sortBy}
               byRevision={byRevision}
-              onSortBy={setSortBy}
+              onListSort={setListSort}
               groupCards={book?.groups ?? []}
               groupFilter={groupFilter}
               onGroupFilter={setGroupFilter}

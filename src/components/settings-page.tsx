@@ -11,7 +11,7 @@ import { type ReactNode, useEffect } from "react";
 import { useSignOut } from "@/hooks/use-sign-out";
 import { useI18n } from "@/i18n/react";
 import { APP_REVISION, APP_VERSION } from "@/lib/app-info";
-import { type ListSort, listSortOf } from "@/lib/contact-list";
+import { LIST_SORTS, listSortOf } from "@/lib/contact-list";
 import { IS_DEMO } from "@/lib/demo";
 import { GROUP_FORMATS } from "@/lib/group-format";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
@@ -44,7 +44,7 @@ export function SettingsPage() {
   const {
     sortBy,
     byRevision,
-    setSortBy,
+    setListSort,
     theme,
     setTheme,
     mapApp,
@@ -161,12 +161,17 @@ export function SettingsPage() {
             <NativeSelect
               id="setting-sort"
               value={listSortOf({ sortBy, byRevision })}
-              onChange={(event) => setSortBy(event.target.value as ListSort)}
+              onChange={(event) => {
+                const sort = LIST_SORTS.find((one) => one === event.target.value);
+                if (sort) setListSort(sort);
+              }}
               className={fieldClass("h-12 lg:h-11")}
             >
-              <option value="given">{t("sort_given")}</option>
-              <option value="family">{t("sort_family")}</option>
-              <option value="edited">{t("sort_edited")}</option>
+              {LIST_SORTS.map((sort) => (
+                <option key={sort} value={sort}>
+                  {t(`sort_${sort}`)}
+                </option>
+              ))}
             </NativeSelect>
           </Field>
           <Field id="setting-map" label={t("map_label")}>

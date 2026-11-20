@@ -15,7 +15,7 @@ vi.mock("@/hooks/use-open-row-in-view", () => ({ useOpenRowInView: vi.fn() }));
 
 afterEach(cleanup);
 
-function renderList(sort: ListSort, onSortBy = vi.fn()) {
+function renderList(sort: ListSort, onListSort = vi.fn()) {
   render(
     <I18nProvider>
       <ContactList
@@ -26,14 +26,14 @@ function renderList(sort: ListSort, onSortBy = vi.fn()) {
         query=""
         sortBy={sort === "edited" ? "family" : sort}
         byRevision={sort === "edited"}
-        onSortBy={onSortBy}
+        onListSort={onListSort}
         groupCards={[]}
         groupFilter={null}
         onGroupFilter={vi.fn()}
       />
     </I18nProvider>,
   );
-  return { onSortBy, user: userEvent.setup() };
+  return { onListSort, user: userEvent.setup() };
 }
 
 it("names the current sort and checks it in the menu", async () => {
@@ -61,10 +61,10 @@ it("names the current sort and checks it in the menu", async () => {
 });
 
 it("changes the sort and closes on a choice", async () => {
-  const { user, onSortBy } = renderList("given");
+  const { user, onListSort } = renderList("given");
   await user.click(screen.getByRole("button", { name: "Sort: First name" }));
   await user.click(screen.getByRole("menuitemradio", { name: "Recently modified" }));
-  expect(onSortBy).toHaveBeenCalledWith("edited");
+  expect(onListSort).toHaveBeenCalledWith("edited");
   expect(screen.queryByRole("menu")).toBeNull();
   expect(screen.getByRole("button", { name: "Sort: First name" })).toHaveFocus();
 });

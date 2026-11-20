@@ -80,26 +80,30 @@ export function EmptyBook({ onImport }: { onImport?: (file: File) => void }) {
   );
 }
 
-/** Rows standing in for the book while it loads. */
-export function ListSkeleton() {
+/** Rows standing in for the book while it loads, in the list's layout. */
+export function ListSkeleton({ lettered }: { lettered: boolean }) {
   const widths = ["w-40", "w-28", "w-36", "w-44", "w-32", "w-24", "w-48", "w-20"];
+  const rows = (
+    <ul aria-hidden="true" className="animate-pulse">
+      {widths.map((width) => (
+        <li key={width} className="flex min-h-[3.5rem] items-center gap-3 px-2 sm:min-h-[3.25rem]">
+          <span className="size-10 shrink-0 rounded-lg bg-muted" />
+          <span className={cn("h-3.5 rounded-full bg-muted", width)} />
+          <span className="ml-auto hidden h-3.5 w-24 rounded-full bg-muted sm:block" />
+        </li>
+      ))}
+    </ul>
+  );
   return (
     <div className="pt-3">
-      <div className="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[3rem_1fr]">
-        <span aria-hidden="true" />
-        <ul aria-hidden="true" className="animate-pulse">
-          {widths.map((width) => (
-            <li
-              key={width}
-              className="flex min-h-[3.5rem] items-center gap-3 px-2 sm:min-h-[3.25rem]"
-            >
-              <span className="size-10 shrink-0 rounded-lg bg-muted" />
-              <span className={cn("h-3.5 rounded-full bg-muted", width)} />
-              <span className="ml-auto hidden h-3.5 w-24 rounded-full bg-muted sm:block" />
-            </li>
-          ))}
-        </ul>
-      </div>
+      {lettered ? (
+        <div className="grid grid-cols-[2.75rem_1fr] sm:grid-cols-[3rem_1fr]">
+          <span aria-hidden="true" />
+          {rows}
+        </div>
+      ) : (
+        rows
+      )}
     </div>
   );
 }

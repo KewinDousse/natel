@@ -12,7 +12,13 @@ import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
 import { useOpenRowInView } from "@/hooks/use-open-row-in-view";
 import { useI18n } from "@/i18n/react";
 import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
-import { buildGroups, type ListSort, listSortOf, type SortBy } from "@/lib/contact-list";
+import {
+  buildGroups,
+  LIST_SORTS,
+  type ListSort,
+  listSortOf,
+  type SortBy,
+} from "@/lib/contact-list";
 import type { Contact } from "@/model/contact";
 import { AlphabetRail } from "./alphabet-rail";
 import { ChoiceMenu } from "./choice-menu";
@@ -46,7 +52,7 @@ type ContactListProps = {
   sortBy: SortBy;
   /** Whether the list sorts by last modification rather than by `sortBy`. */
   byRevision: boolean;
-  onSortBy: (sort: ListSort) => void;
+  onListSort: (sort: ListSort) => void;
   /** The book's group cards, which the group filter reads with CATEGORIES. */
   groupCards: Contact[];
   /** The group the list is filtered on, or null for every contact. */
@@ -66,7 +72,7 @@ export function ContactList({
   query,
   sortBy,
   byRevision,
-  onSortBy,
+  onListSort,
   groupCards,
   groupFilter,
   onGroupFilter,
@@ -176,12 +182,12 @@ export function ContactList({
         {!loading && bookGroupList.length > 0 && (
           <GroupFilter groups={bookGroupList} selected={activeGroup} onSelect={onGroupFilter} />
         )}
-        <SortMenu sort={listSortOf({ sortBy, byRevision })} onSortBy={onSortBy} />
+        <SortMenu sort={listSortOf({ sortBy, byRevision })} onSort={onListSort} />
       </div>
 
       {loading ? (
         <>
-          <ListSkeleton />
+          <ListSkeleton lettered={!byRevision} />
           {rail}
         </>
       ) : showIncompleteBook ? null : showEmptyBook ? (
@@ -206,15 +212,9 @@ export function ContactList({
   );
 }
 
-const SORTS = [
-  ["given", "sort_given"],
-  ["family", "sort_family"],
-  ["edited", "sort_edited"],
-] as const;
-
-function SortMenu({ sort, onSortBy }: { sort: ListSort; onSortBy: (sort: ListSort) => void }) {
+function SortMenu({ sort, onSort }: { sort: ListSort; onSort: (sort: ListSort) => void }) {
   const { t } = useI18n();
-  const choices = SORTS.map(([value, label]) => ({ value, label: t(label) }));
+  const choices = LIST_SORTS.map((value) => ({ value, label: t(`sort_${value}`) }));
   const current = choices.find((choice) => choice.value === sort)?.label ?? "";
   return (
     <ChoiceMenu
@@ -223,7 +223,7 @@ function SortMenu({ sort, onSortBy }: { sort: ListSort; onSortBy: (sort: ListSor
       menuLabel={t("sort_label")}
       sections={[choices]}
       selected={sort}
-      onSelect={onSortBy}
+      onSelect={onSort}
     />
   );
 }

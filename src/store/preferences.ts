@@ -6,11 +6,10 @@
  */
 import { create } from "zustand";
 import { storeChoice, storedChoice } from "@/i18n/preferences";
-import type { ListSort, SortBy } from "@/lib/contact-list";
+import { type ListSort, NAME_SORTS, type SortBy } from "@/lib/contact-list";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import { chooseTheme, storedTheme, type Theme } from "@/lib/theme";
 
-const SORTS = ["family", "given"] as const satisfies readonly SortBy[];
 const ORDERS = ["edited"] as const;
 
 export type LabelPosition = "auto" | "left" | "above";
@@ -37,7 +36,7 @@ type PreferencesState = {
   theme: Theme | null;
   /** An explicit map, or null for the device's. */
   mapApp: MapApp | null;
-  setSortBy: (sort: ListSort) => void;
+  setListSort: (sort: ListSort) => void;
   setTheme: (theme: Theme | null) => void;
   setMapApp: (mapApp: MapApp | null) => void;
 };
@@ -58,11 +57,11 @@ export const usePreferences = create<PreferencesState>()((set) => ({
     storeChoice("labelPosition", labelPosition === "auto" ? null : labelPosition);
     set({ labelPosition });
   },
-  sortBy: storedChoice("sort", SORTS) ?? "given",
+  sortBy: storedChoice("sort", NAME_SORTS) ?? "given",
   byRevision: storedChoice("order", ORDERS) !== null,
   theme: storedTheme(),
   mapApp: storedChoice("map", MAP_APPS),
-  setSortBy: (sort) => {
+  setListSort: (sort) => {
     if (sort === "edited") {
       // The names keep the order of the last sort by name.
       storeChoice("order", sort);
