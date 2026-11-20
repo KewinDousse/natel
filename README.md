@@ -84,4 +84,11 @@ shortcuts · installable as an app.
 - **Contribute:** [CONTRIBUTING.md](CONTRIBUTING.md) runs the app on made-up
   contacts, no server needed.
 
+## How Natel is made
+
+Natel's code is mostly written by AI agents. The maintainer drives the work:
+sets the backlog, decides the design with the agents (recorded in
+[decisions](docs/DECISIONS.md)) and approves each release. The agents implement
+and merge the changes, and independent agent sessions review them.
+
 [MIT license](LICENSE).

@@ -75,6 +75,7 @@ validated exception that consumes notes instead of adding one.
 
 - Vite, React 19, TypeScript `strict` + `noUncheckedIndexedAccess`
 - TanStack Router (file-based, `src/routes/`) and TanStack Query
+- `@tanstack/react-virtual` for the contact list above ADR 050's threshold
 - Zustand for session state
 - Tailwind + shadcn/ui (a shadcn component, when one is needed, is vendored in
   `src/components/ui/`; the current controls are built by hand)

@@ -18,8 +18,11 @@ import { bookParam } from "@/lib/book-param";
 import {
   applyDraft,
   buildDraft,
+  type CardConflict,
   type ContactDraft,
+  cardConflict,
   dirtyDiff,
+  dirtySections,
   isDirty,
   isValid,
   rebaseDraft,
@@ -56,9 +59,7 @@ import { useBookFormat } from "@/store/group-formats";
 import { useAuth, useSelectedBook, useSessionStore } from "@/store/session";
 import {
   addCategory,
-  type ContactList,
   canReplacePhoto,
-  changedLists,
   ensureUid,
   groupsOf,
   newContact,
@@ -79,12 +80,11 @@ import { SpinnerIcon, TrashIcon } from "./ui/icons";
 import { useToast } from "./ui/toast";
 import { writeErrorText } from "./write-error";
 
-const LISTS: ContactList[] = ["tel", "email", "adr"];
 const NO_GROUPS: BookGroupFormats = { cards: new Set(), categories: new Set(), complete: true };
 
 /** Lists the overwrite found changed elsewhere since they were read (ADR 038). */
 class ListsConflict extends Error {
-  constructor(readonly lists: ContactList[]) {
+  constructor(readonly conflict: CardConflict) {
     super("Lists changed elsewhere");
   }
 }
@@ -258,8 +258,7 @@ function ContactFiche({
   const [errors, setErrors] = useState<ValidationErrors>({});
   // Fields the last save attempt found to correct, for the bottom bar.
   const [invalidCount, setInvalidCount] = useState(0);
-  // The lists changed on both sides (ADR 038); empty when overwriting is offered.
-  const [conflict, setConflict] = useState<ContactList[] | null>(null);
+  const [conflict, setConflict] = useState<CardConflict | null>(null);
   // A 412 on delete or move: only reloading makes sense, there is no version
   // to push. The value picks the hint.
   const [deleteConflict, setDeleteConflict] = useState<"delete" | "move" | null>(null);
@@ -334,7 +333,6 @@ function ContactFiche({
   const [groupText, setGroupText] = useState("");
 
   const dirty = useMemo(() => dirtyDiff(editBase, draft), [editBase, draft]);
-  const dirtyLists = useMemo(() => LISTS.filter((name) => dirty[name]), [dirty]);
   const hasChanges = isDirty(dirty) || hasGroupChanges(delta);
 
   // Draft and base are taken from the current version when edit mode starts,
@@ -557,16 +555,15 @@ function ContactFiche({
     [selectedBook, saveGroups, showToast, t, exitEdit],
   );
 
-  // The lists the draft changed that the card on the server no longer holds
-  // as read. When it can't be fetched, the overwrite checks again first.
-  const listsChangedElsewhere = useCallback(async (): Promise<ContactList[]> => {
-    if (dirtyLists.length === 0) return [];
+  // When the card can't be fetched, the warning has no summary and the
+  // overwrite checks the lists again first.
+  const readConflict = useCallback(async (): Promise<CardConflict> => {
     try {
-      return changedLists(editBase, await refetchCard(editBase.href), dirtyLists);
+      return cardConflict(editBase, await refetchCard(editBase.href), dirty);
     } catch {
-      return [];
+      return { lists: [], elsewhere: [] };
     }
-  }, [dirtyLists, editBase, refetchCard]);
+  }, [dirty, editBase, refetchCard]);
 
   // Runs one save attempt and maps its outcome onto the bottom bar. `put`
   // writes the contact's card and resolves to the saved version, or to null
@@ -588,7 +585,7 @@ function ContactFiche({
       } catch (err) {
         if (session !== editSession.current) return;
         if (err instanceof ListsConflict) {
-          setConflict(err.lists);
+          setConflict(err.conflict);
         } else if (err instanceof DavError && err.code === "CONFLICT") {
           // A 412 on a create means a card already has this UID's href, most
           // likely an earlier attempt whose answer was lost: reload/overwrite
@@ -596,9 +593,9 @@ function ContactFiche({
           if (isNew) setSaveError(t("err_create_exists"));
           else {
             // Still saving: the bar offers nothing until it knows what to offer.
-            const changed = await listsChangedElsewhere();
+            const found = await readConflict();
             if (session !== editSession.current) return;
-            setConflict(changed);
+            setConflict(found);
           }
         } else {
           setSaveError(writeErrorText(err, "save", t, locale));
@@ -633,7 +630,7 @@ function ContactFiche({
       routeId,
       onIdChange,
       locale,
-      listsChangedElsewhere,
+      readConflict,
       clearGroupFailures,
       book,
     ],
@@ -755,12 +752,12 @@ function ContactFiche({
   const handleConflictOverwrite = useCallback(async () => {
     await runSave(draft, async () => {
       const fetched = await refetchCard(editBase.href);
-      const changed = changedLists(editBase, fetched, dirtyLists);
-      if (changed.length > 0) throw new ListsConflict(changed);
+      const found = cardConflict(editBase, fetched, dirty);
+      if (found.lists.length > 0) throw new ListsConflict(found);
       const freshContact = applyGroupChanges(applyDraft(fetched, draft, dirty));
       return await updateContact.mutateAsync(freshContact);
     });
-  }, [draft, dirty, dirtyLists, editBase, refetchCard, applyGroupChanges, updateContact, runSave]);
+  }, [draft, dirty, editBase, refetchCard, applyGroupChanges, updateContact, runSave]);
 
   // A group card changed elsewhere (ADR 022, as ADR 013): fetch each failed
   // one again and apply only this contact's change to it; a group card that
@@ -977,6 +974,7 @@ function ContactFiche({
       {edit && (
         <ContactEditBar
           conflict={conflict}
+          edited={dirtySections(dirty)}
           deleteConflict={deleteConflict}
           groupFailures={groupFailures}
           saveError={saveError}

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assemble,
+  ChangeNoteError,
   compareVersions,
   readFragment,
   releaseNotes,
@@ -52,6 +53,20 @@ describe("release notes", () => {
   ])("rejects unfinished or invalid notes: %s", (text) =>
     expect(() => readFragment(text)).toThrow(),
   );
+  it.each([
+    ['{"type":"Fix","text":"A change."}', ": type must be one of"],
+    ['{"type":"None","text":" "}', ": text must give the reason"],
+    ['{"type":"Added","text":"A change.","date":"x"}', ": unexpected date"],
+    ['["Added"]', ": it must be a JSON object"],
+    ['{"type":"Added","text":"One.\\nTwo."}', ": text must be one paragraph"],
+    ['{"type":"Added","text":"TODO"}', ": text must be finished"],
+    ['{"type":"Added",', " is not valid JSON"],
+  ])("names the note and what is wrong with it: %s", (text, problem) => {
+    expect(() => readFragment(text, ".changes/example.json")).toThrow(ChangeNoteError);
+    expect(() => readFragment(text, ".changes/example.json")).toThrow(
+      new RegExp(`^\\.changes/example\\.json${problem}.*CONTRIBUTING\\.md$`),
+    );
+  });
   it("includes preview features in the stable release even without new fragments", () => {
     const preview = assemble(changelog, [], "0.4.0-rc.1", "2026-10-24");
     const stable = assemble(preview, [], "0.4.0", "2026-10-25");

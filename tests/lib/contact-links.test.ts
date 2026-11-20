@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isWebUrl, valueHref } from "@/lib/contact-links";
+import { isUri, isWebUrl, valueHref, websiteUri } from "@/lib/contact-links";
 
 describe("isWebUrl", () => {
   it("accepts http and https addresses", () => {
@@ -18,6 +18,52 @@ describe("isWebUrl", () => {
   it("refuses what isn't a URL", () => {
     expect(isWebUrl("example.org")).toBe(false);
     expect(isWebUrl("")).toBe(false);
+  });
+});
+
+describe("isUri", () => {
+  it("accepts a URI of any scheme", () => {
+    expect(isUri("https://example.org")).toBe(true);
+    expect(isUri("fb://profile/0123456789")).toBe(true);
+    expect(isUri("xmpp:ada@example.org")).toBe(true);
+  });
+
+  it("refuses a value without a scheme, or with whitespace", () => {
+    expect(isUri("example.org")).toBe(false);
+    expect(isUri("not-a-url")).toBe(false);
+    expect(isUri(" https://example.org")).toBe(false);
+    expect(isUri("https://example.org/a b")).toBe(false);
+    expect(isUri("1fb://profile")).toBe(false);
+    expect(isUri("fb:")).toBe(false);
+  });
+
+  it("refuses an http or https URL without a host", () => {
+    expect(isUri("https://")).toBe(false);
+    expect(isUri("http://")).toBe(false);
+  });
+});
+
+describe("websiteUri", () => {
+  it("gives a host typed without a scheme https", () => {
+    expect(websiteUri("website.example")).toBe("https://website.example");
+    expect(websiteUri("www.website.example/a?b#c")).toBe("https://www.website.example/a?b#c");
+    expect(websiteUri("website.example:8080")).toBe("https://website.example:8080");
+  });
+
+  it("keeps a URI, and what isn't a host", () => {
+    expect(websiteUri("http://website.example")).toBe("http://website.example");
+    expect(websiteUri("fb://profile/0123456789")).toBe("fb://profile/0123456789");
+    expect(websiteUri("com.example.app:/open")).toBe("com.example.app:/open");
+    expect(websiteUri("ada@website.example")).toBe("ada@website.example");
+    expect(websiteUri("localhost")).toBe("localhost");
+    expect(websiteUri("website.example ada")).toBe("website.example ada");
+    expect(websiteUri("website..example")).toBe("website..example");
+  });
+
+  it("reads a long run of dots quickly", () => {
+    const start = performance.now();
+    websiteUri(`${".".repeat(30000)} `);
+    expect(performance.now() - start).toBeLessThan(1000);
   });
 });
 

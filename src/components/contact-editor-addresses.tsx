@@ -145,6 +145,22 @@ export function ContactEditorAddresses({
                 </div>
                 <input
                   type="text"
+                  aria-label={t("label_region")}
+                  placeholder={t("label_region")}
+                  autoComplete="address-level1"
+                  value={adr.region}
+                  onChange={(e) =>
+                    dispatch({
+                      type: "SET_ADR_PART",
+                      index: i,
+                      part: "region",
+                      value: e.target.value,
+                    })
+                  }
+                  className={fieldClass("h-11")}
+                />
+                <input
+                  type="text"
                   aria-label={t("label_country")}
                   placeholder={t("label_country")}
                   autoComplete="country-name"

@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Contributor documentation only: AGENTS.md lists `@tanstack/react-virtual`, already a dependency, among the allowed stack, with no change to Natel itself."
+}

@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Contributor tooling only: the changelog check no longer reports a missing change note as a stale release preparation, and it names an invalid note and the rule it breaks, with no change to Natel itself."
+}
