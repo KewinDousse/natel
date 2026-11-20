@@ -1132,6 +1132,7 @@ makes ical.js keep every 4.0 `timestamp` value as written. Natel reads a
 without time and zone; a value it can't read shows no date. ADR 029's stamp
 in a 4.0 card is written in the basic form, `20261112T123000Z`.
 
-**Consequences.** A 4.0 `REV` gives the instant it names, and a card read and
-written back unchanged keeps it as written. `REV` is the only 4.0 property of
-that type. Amends ADR 029.
+**Consequences.** Natel shows the day a 4.0 `REV` names, whatever its form or
+time zone. Parsing and serialising a 4.0 card leaves its `REV` as written. The
+workaround only affects `REV`, the one vCard 4.0 property whose value is a
+`timestamp`. Amends ADR 029.
