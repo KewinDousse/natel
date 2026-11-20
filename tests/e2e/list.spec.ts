@@ -146,30 +146,50 @@ test("keeps the toolbar in view while the list scrolls", async ({ page, isMobile
       ? page.evaluate(() => document.getElementById("app-header")?.getBoundingClientRect().bottom)
       : page.evaluate(() => document.getElementById("list")?.getBoundingClientRect().top);
 
-  // Far down the list, by the page on phones and by the pane from lg.
-  await page.evaluate((mobile) => {
-    const scroller = mobile ? document.scrollingElement : document.getElementById("list");
-    scroller?.scrollBy(0, 2000);
-  }, isMobile);
+  // By the page on phones and by the pane from lg.
+  const scrollList = (by: number) =>
+    page.evaluate(
+      ({ mobile, by }) => {
+        const scroller = mobile ? document.scrollingElement : document.getElementById("list");
+        scroller?.scrollBy(0, by);
+      },
+      { mobile: isMobile, by },
+    );
+
+  await scrollList(2000);
   await expect(page.getByRole("link", { name: /Aardin/ })).not.toBeInViewport();
   await expect(count).toBeInViewport();
   await expect(filter).toBeInViewport();
   const top = (await stickTop()) ?? Number.NaN;
   await expect.poll(async () => (await toolbar.boundingBox())?.y).toBeCloseTo(top, 0);
 
-  // The letter stuck at the top sits below the toolbar, not under it.
+  // The letter of the section crossing the toolbar's bottom edge sticks below
+  // the toolbar, not under it. A few pixels into that section, so its letter
+  // is stuck rather than pushed up by the section's end.
   const bottom = await toolbarBottom(page);
-  const stuck = await page.evaluate((limit) => {
-    const headings = [...document.querySelectorAll<HTMLElement>("#list section > h2")];
-    const shown = headings.filter((h) => h.getBoundingClientRect().bottom > limit);
-    const first = shown[0]?.getBoundingClientRect();
-    if (!first) return null;
-    return {
-      top: first.top,
-      hit: document.elementFromPoint(first.left + first.width / 2, first.top + first.height / 2)
-        ?.tagName,
-    };
+  const crossing = await page.evaluate((edge) => {
+    const section = [...document.querySelectorAll<HTMLElement>("#list section")].find((s) => {
+      const rect = s.getBoundingClientRect();
+      return rect.top < edge && rect.bottom > edge;
+    });
+    return section && { id: section.id, top: section.getBoundingClientRect().top };
   }, bottom);
+  expect(crossing).toBeDefined();
+  await scrollList((crossing?.top ?? 0) - bottom + 20);
+  const stuck = await page.evaluate((id) => {
+    const heading = document
+      .getElementById(id)
+      ?.querySelector(":scope > h2")
+      ?.getBoundingClientRect();
+    if (!heading) return null;
+    return {
+      top: heading.top,
+      hit: document.elementFromPoint(
+        heading.left + heading.width / 2,
+        heading.top + heading.height / 2,
+      )?.tagName,
+    };
+  }, crossing?.id ?? "");
   expect(stuck).not.toBeNull();
   expect(stuck?.top ?? 0).toBeGreaterThanOrEqual(bottom - 1);
   expect(stuck?.hit).toBe("H2");

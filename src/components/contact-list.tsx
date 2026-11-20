@@ -24,6 +24,7 @@ import { buttonClass, FOCUS_RING } from "./ui/button";
 import { AlertIcon, RefreshIcon } from "./ui/icons";
 import {
   type ContactListHandle,
+  LIST_TOOLBAR_ID,
   usePrinting,
   VIRTUAL_ABOVE,
   VirtualSections,
@@ -206,7 +207,7 @@ function ListToolbar({ children }: { children: ReactNode }) {
   return (
     <div
       ref={ref}
-      id="list-toolbar"
+      id={LIST_TOOLBAR_ID}
       className="sticky top-[var(--header-h)] z-10 flex flex-wrap items-center gap-x-3 gap-y-1 bg-background px-2 pb-1 pt-3 text-sm lg:top-0"
     >
       {children}

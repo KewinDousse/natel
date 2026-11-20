@@ -70,8 +70,8 @@
     0 24px 48px -12px oklch(0.2 0.006 270 / 0.28);
   /* Mobile header height (56px bar + search row), measured at runtime. */
   --header-h: 7rem;
-  /* The list toolbar's height, measured like --header-h. */
-  --list-toolbar-h: 2.25rem;
+  /* List toolbar height with the group filter (pt-3 + 2rem button + pb-1), measured at runtime. */
+  --list-toolbar-h: 3rem;
 }
 
 :root[data-theme="dark"] {
