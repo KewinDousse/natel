@@ -44,7 +44,7 @@ Sizes are tokens in `src/index.css` (`--text-*`), used as `text-<name>`; `cn` kn
 | `title` | 44px / 0.95 | Screen titles from `sm` |
 | `person` | 56px / 0.95 | Screen titles from `lg` |
 
-Tailwind's own sizes, `text-sm` (14px) to `text-5xl`, cover the rest, apart from the sign-in's giant wordmark and the A–Z rail, whose letters follow its height.
+Tailwind's own sizes, `text-sm` (14px) to `text-5xl`, cover the rest, apart from the sign-in's giant wordmark.
 
 The list's hierarchy follows what people look for: the name first, then its number, then the photo and the letter that help find it. The group letters mark the position without outweighing the names.
 
@@ -97,7 +97,7 @@ the value under the name without leaders.
 
 ### A–Z rail
 Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden from screen readers and out of the tab order. Jumps are instant. Hidden while a search is active. Contacts whose initial isn't A–Z share the "#" group at the end of the list.
-- Height: the letters share the rail's full height, up to 32px each and centred beyond that; the letter size follows, up to 16px, so a short landscape phone still fits all 27 without overlap.
+- Height: the 27 cells share the rail's full height, up to 32px each and centred beyond that, so a short landscape phone still fits them all. The letters take three quarters of a cell, up to 16px, outside the size tokens.
 - Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The page doesn't scroll meanwhile.
 - From `lg`, the rail sits outside the list's scrolling pane, so the whole scrollbar stays clickable.
 
