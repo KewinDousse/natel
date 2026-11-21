@@ -34,6 +34,14 @@ updates:
       - dependency-name: alpine
         update-types: ["version-update:semver-minor"]
 
+  # Apart, so a PHP update Baïkal can't take doesn't hold up the images above.
+  - package-ecosystem: docker
+    directory: /tests/e2e/baikal
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: npm
     directory: /
     schedule:

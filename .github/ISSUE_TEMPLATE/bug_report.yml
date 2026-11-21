@@ -20,7 +20,7 @@ body:
     id: server
     attributes:
       label: CardDAV server
-      description: Name and version, e.g. Baïkal 0.10.1.
+      description: Name and version, e.g. Baïkal 0.13.0.
     validations:
       required: true
   - type: input

@@ -250,7 +250,8 @@ last two don't install from pip.
 Baïkal.
 
 **Consequences.** CI runs one e2e job per server. The Baïkal leg needs Docker
-locally; Radicale stays the default. ADR 048 amends the Xandikos setup.
+locally; Radicale stays the default. ADR 048 amends the Xandikos setup,
+ADR 063 the Baïkal image.
 
 ## 019 — Display preferences: browser defaults, overrides in localStorage
 
@@ -1161,3 +1162,43 @@ a line on its first save in Natel and loses none (invariant 4): it had no
 undated until it is saved in Natel. `REV` comes from the clock of the
 browser that saves: a client whose clock is off dates its saves wrong, and
 sorting by last change places those cards accordingly. This amends ADR 029.
+
+## 063 — Baïkal tested from its release archive
+
+**Context.** Issue #21 asks for the e2e suite to cover current Baïkal. CI
+tested Baïkal 0.10.1 from `ckulka/baikal`, whose last versioned tag is
+0.10.1, which its rebuilt `latest` still ships, and whose repository,
+`ckulka/baikal-docker`, was last committed to on 2025-07-31. Baïkal 0.13.0,
+out on 2026-10-19, ships sabre/dav 4.7.1, where 0.10.1 has 4.7.0. Baïkal
+publishes no image of its own.
+
+**Decision.**
+- The e2e suite builds its Baïkal image from `tests/e2e/baikal/`: the
+  `baikal-<version>.zip` asset of the `sabre-io/Baikal` GitHub release,
+  checked against the SHA-256 GitHub lists for it, on the official `php`
+  Apache image pinned by digest.
+- Baïkal runs under Apache with mod_php, which the official `php` image
+  ships with the extensions Baïkal needs. The `DocumentRoot` is the
+  archive's `html/` folder, whose `.htaccess` sets the `/.well-known`
+  redirects; mod_php hands the credentials to sabre/dav.
+- The setup of ADR 018 is kept: no install wizard, and a SQLite database
+  holding the test user.
+- The Basic and the Digest legs run 0.13.0 only: a 0.10.1 leg would add a
+  job of about 13 minutes on the self-hosted runners, for the same
+  sabre/dav minor version.
+- A new Baïkal release is moved by hand, with its archive's checksum.
+
+**Rejected.**
+- `anmutech/baikal`, a fork of ckulka's image that publishes 0.13.0:
+  created on 2026-10-27 by one person, an unproven publisher for CI.
+- `ghcr.io/aalmenar/baikal`, named on issue #21 as where users moved, with
+  nginx and PHP-FPM: a third-party build of the archive, unchecked, on
+  unpinned bases.
+
+**Consequences.** Each Baïkal job builds the image before the suite. No e2e
+leg runs Baïkal behind nginx and PHP-FPM. Baïkal publishes neither checksum
+nor signature, so the SHA-256 GitHub computed at upload guards against a
+replaced asset, not a compromised upload. Dependabot moves the `php` tag and
+its digest, but cannot see the Baïkal version: a new release is noticed only
+by someone checking Baïkal's releases. A regression specific to 0.10.1 would
+go unnoticed. This amends ADR 018.
