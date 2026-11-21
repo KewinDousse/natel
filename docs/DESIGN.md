@@ -76,7 +76,7 @@ From 1440px the reading pane keeps the `56rem` it has there and the list takes t
 Once the selected book's cards are loaded, a single `.vcf` file dropped anywhere in the window opens the import's preview for that book, as the book menu's import does. While files are dragged over the window, the whole screen is veiled behind a dashed frame with the upload icon and "Drop to import into “<book>”" in the display face; it is hidden from screen readers, which reach the import through the book menu. Another file, or several, gets a toast asking for one `.vcf` file. During an import or behind a dialog, a dropped file is refused before the drop. The browser never opens a dropped file in place of the app.
 
 ### Group (letter section)
-A two-column grid: the letter, sticky under the header, then the section's rows. The letter sits centred on its section's first row, never above it.
+A two-column grid: the letter, sticky under the list toolbar, then the section's rows. The letter sits centred on its section's first row, never above it.
 
 ### Contact row
 - The name puts the part the list sorts by first, in bold, the other in medium weight so it stays legible; the full name is in `title`. A card with neither a name nor an organisation shows "Unnamed contact" in muted italic (the muted grey keeps 4.5:1; transparency wouldn't), on its page too.
@@ -106,6 +106,7 @@ Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden fro
 
 ### List toolbar
 The count (announced politely) on the left, the group filter, and from `sm` the first-name / last-name sort toggle on the right. The sort is a display preference, remembered like the language (ADR 026); below 640px only the settings offer it, so the count and the filter share a row.
+- It stays in view while the list scrolls: under the header on phones, at the top of the list pane from `lg`. Its measured height, `--list-toolbar-h`, places the sticky letters below it. A jump to a letter lands below it too.
 
 ### List states
 - Loading: the toolbar shows a loading message in place of the count, with the sort toggle, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.
