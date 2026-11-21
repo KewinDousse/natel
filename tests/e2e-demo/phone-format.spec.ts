@@ -48,6 +48,7 @@ test("puts the phone format among the contact details settings, above the label 
     "Phone format",
     "Label position",
     "Open addresses in",
+    "Show creation and modification dates",
   ]);
 });
 
