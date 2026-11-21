@@ -96,19 +96,21 @@ test("collapses the A–Z rail on short screens, and a finger still reaches ever
     const groups = await page
       .locator('[id^="g-"]')
       .evaluateAll((sections) => sections.map((section) => section.id.slice(2)));
-    const headerBottom = () =>
-      page.evaluate(() => document.querySelector("header")?.getBoundingClientRect().bottom ?? 0);
+    const toolbarBottom = () =>
+      page.evaluate(
+        () => document.getElementById("list-toolbar")?.getBoundingClientRect().bottom ?? 0,
+      );
     const groupTop = (letter: string) =>
       page.evaluate((l) => document.getElementById(`g-${l}`)?.getBoundingClientRect().top, letter);
 
-    const under = await headerBottom();
+    const under = await toolbarBottom();
     const landsOn = async (letter: string, y: number) => {
       await send("touchStart", y);
       await send("touchEnd");
       await expect
         .poll(() => groupTop(letter), `${letter} at ${at}`)
         .toBeGreaterThanOrEqual(under - 1);
-      // Under the header, unless the page is scrolled to its end.
+      // Under the list toolbar, unless the page is scrolled to its end.
       await expect
         .poll(
           async () =>
