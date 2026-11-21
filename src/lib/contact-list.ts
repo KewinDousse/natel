@@ -123,6 +123,51 @@ export function railTarget(
   );
 }
 
+/** The A–Z rail's letters, top to bottom. */
+export const RAIL_LETTERS: readonly string[] = [...ALPHABET, OTHER_GROUP];
+
+/** Height in px of a rail slot whose letter, at three quarters of it, stays at 11px. */
+export const RAIL_SLOT_MIN = 15;
+
+/**
+ * What the A–Z rail shows in `height` px: every letter when they all fit a
+ * slot of `RAIL_SLOT_MIN`, else letters alternating with dots (`null`), from A
+ * to #, the letters spread evenly over the alphabet, as iOS collapses its index.
+ */
+export function railSlots(height: number): (string | null)[] {
+  const fit = Math.floor(height / RAIL_SLOT_MIN);
+  if (fit >= RAIL_LETTERS.length) return [...RAIL_LETTERS];
+  // An odd count, so the sequence starts and ends on a letter.
+  const count = fit % 2 === 1 ? fit : fit - 1;
+  if (count < 3) return [];
+  const letters = (count + 1) / 2;
+  const last = RAIL_LETTERS.length - 1;
+  return Array.from({ length: count }, (_, slot) =>
+    slot % 2 === 1 ? null : (RAIL_LETTERS[Math.round(((slot / 2) * last) / (letters - 1))] ?? null),
+  );
+}
+
+/**
+ * The index in `RAIL_LETTERS` of the letter at `fraction` (0 at the top, 1 at
+ * the bottom) of a rail showing `slots`: a letter's slot gives that letter, and
+ * a dot's slot spreads the letters it stands for, so a finger reaches them all.
+ */
+export function railIndexAt(
+  slots: readonly (string | null)[],
+  fraction: number,
+): number | undefined {
+  if (slots.length === 0) return undefined;
+  const at = Math.min(Math.max(fraction, 0), 1) * slots.length;
+  const slot = Math.min(slots.length - 1, Math.floor(at));
+  const letter = slots[slot];
+  if (letter !== null && letter !== undefined) return RAIL_LETTERS.indexOf(letter);
+  const before = RAIL_LETTERS.indexOf(slots[slot - 1] ?? "");
+  const after = RAIL_LETTERS.indexOf(slots[slot + 1] ?? "");
+  const hidden = after - before - 1;
+  if (before < 0 || hidden <= 0) return undefined;
+  return before + 1 + Math.min(hidden - 1, Math.floor((at - slot) * hidden));
+}
+
 /**
  * A row's name in the order of the sort toggle: the part the list is sorted
  * by leads (and is set bold), so "Fortune Sarah" by last name, "Sarah Fortune"

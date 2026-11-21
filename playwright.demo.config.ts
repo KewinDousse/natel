@@ -7,6 +7,9 @@ const PORT = 4399;
 export default defineConfig({
   testDir: "tests/e2e-demo",
   workers: 1,
+  // A CI runner shares its host with other jobs: there, a page now and then
+  // takes longer to render than the 5 s an expect waits by default.
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

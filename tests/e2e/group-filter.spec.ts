@@ -45,6 +45,39 @@ test("filters the list on a group from its group card and CATEGORIES", async ({ 
   await expect(page.getByRole("link", { name: /Turing/ })).toBeVisible();
 });
 
+test("shows the contacts in no group, and one leaves them when it joins a group", async ({
+  page,
+  isMobile,
+}) => {
+  await signIn(page);
+  await page.getByRole("button", { name: /^Filter by group/ }).click();
+  await expect(page.getByRole("menuitemradio", { name: /^No group/ })).toHaveText("No group1");
+  await page.getByRole("menuitemradio", { name: /^No group/ }).click();
+
+  await expect(page.getByText("1 contact", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Turing/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Lovelace/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Hopper/ })).toHaveCount(0);
+  // The groups editor is the same on phones.
+  if (isMobile) return;
+
+  await page.getByRole("link", { name: /Turing/ }).click();
+  await page.getByRole("button", { name: /^Edit/ }).filter({ visible: true }).first().click();
+  const input = page.getByRole("combobox", { name: "Add a group" });
+  await input.fill("Famille");
+  await input.press("Enter");
+  const dialog = page.getByRole("dialog", { name: /How should .* store its groups\?/ });
+  await dialog.getByRole("radio", { name: /^Group cards/ }).check();
+  await dialog.getByRole("button", { name: "Use this format" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved")).toBeVisible();
+
+  await expect(page.getByText("Every contact is in a group.")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Turing/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Filter by group/ })).toHaveText("No group");
+  await expect(page.getByRole("heading", { name: "Alan Turing" })).toBeVisible();
+});
+
 test("keeps the group filter on the count's row on a phone", async ({ page, isMobile }) => {
   test.skip(!isMobile, "the sort toggle leaves the row below 640px");
   await signIn(page);

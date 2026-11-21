@@ -63,7 +63,8 @@ the draft stays open. See [troubleshooting](troubleshooting.md#photos-and-large-
 ## Groups
 
 On a contact's page, choose one of its groups to show only that group's
-contacts in the list.
+contacts in the list. In the list's group filter, **No group** shows the
+contacts that are in none, so you can add them to one.
 
 Use the groups section in edit mode to add or remove a membership. Natel
 reads group cards and per-contact categories, and a group that already
