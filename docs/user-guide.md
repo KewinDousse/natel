@@ -32,6 +32,13 @@ In **Settings → Contact**, choose **Contact image shape** to use
 rounded squares instead. The choice is remembered in this browser and applies
 to the list, contact pages and forms. It does not change the saved photos.
 
+## Creation and modification dates
+
+In **Settings → Contact details**, turn on **Show creation and modification
+dates** to show, at the foot of a contact's page, the day its card was created
+and last modified, when the card records them. The choice is remembered in
+this browser.
+
 ## Edit, create, move or delete
 
 Open a contact, then choose **Edit**. Changes are sent when you choose

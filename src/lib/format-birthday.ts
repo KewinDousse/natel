@@ -8,6 +8,7 @@
  */
 
 import type { Birthday } from "@/vcard";
+import { isoDay } from "./iso-day";
 
 /** Local midnight on the given date. `new Date(year, …)` reads a year from 0 to 99 as 1900 + year. */
 function dateOf(year: number, monthIndex: number, day: number): Date {
@@ -74,9 +75,7 @@ export function ageOf(birthday: Birthday, today: Date): number | null {
 export function birthdayDateTime(birthday: Birthday): string {
   const { year, month, day } = birthday;
   const pad = (n: number) => String(n).padStart(2, "0");
-  if (year !== null && month !== null && day !== null) {
-    return `${String(year).padStart(4, "0")}-${pad(month)}-${pad(day)}`;
-  }
+  if (year !== null && month !== null && day !== null) return isoDay(year, month, day);
   if (month !== null && day !== null) return `--${pad(month)}-${pad(day)}`;
   if (year !== null) return String(year);
   return birthday.source;

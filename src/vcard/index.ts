@@ -26,6 +26,7 @@ import {
 import {
   decodeEscapedSemicolons,
   encodeVcard3Semicolons,
+  keepTimestampsAsWritten,
   keepUrisAsWritten,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
@@ -37,6 +38,7 @@ import {
   groupsOf,
   readAddresses,
   readBirthday,
+  readCreated,
   readNote,
   readOrg,
   readTitle,
@@ -56,12 +58,15 @@ export {
   addressTypesOf,
   type Birthday,
   birthdayOf,
+  type CardDate,
+  createdOf,
   groupCardOf,
   groupsOf,
   isGroupCard,
   jobTitleOf,
   noteOf,
   orgOf,
+  revisionOf,
   type TypedProp,
   typeValuesOf,
   type VCardAddress,
@@ -72,6 +77,7 @@ export { savedLabelOf, writesAddress } from "./write";
 ICAL.foldLength = 74;
 decodeEscapedSemicolons();
 keepUrisAsWritten();
+keepTimestampsAsWritten();
 encodeVcard3Semicolons();
 
 // ---------------------------------------------------------------------------
@@ -179,11 +185,16 @@ export function changedLists(read: Contact, fetched: Contact, lists: ContactList
 /**
  * The card's properties the contact page neither shows nor edits, each as
  * its vCard line, for whoever wants to look: a save writes them back as they
- * are. Read-only.
+ * are. With `datesShown`, the page shows the creation date under the
+ * sections, so its property is left out. Read-only.
  */
-export function unshownPropertiesOf(contact: Contact): string[] {
+export function unshownPropertiesOf(
+  contact: Contact,
+  { datesShown }: { datesShown: boolean },
+): string[] {
   const seen = new Set<string>();
   const labels = new Set<RawProperty>();
+  const created = datesShown ? readCreated(contact.raw)?.prop : undefined;
   for (const name of ["tel", "email", "adr", "url"]) {
     const properties = contact.raw.getAllProperties(name);
     for (const prop of name === "url" ? properties.slice(0, 1) : properties) {
@@ -196,7 +207,7 @@ export function unshownPropertiesOf(contact: Contact): string[] {
     .getAllProperties()
     .filter((prop) => {
       const name = prop.name.toLowerCase();
-      if (labels.has(prop)) return false;
+      if (labels.has(prop) || prop === created) return false;
       if (SHOWN_ALL.has(name)) return false;
       if (!SHOWN_FIRST.has(name) || seen.has(name)) return true;
       seen.add(name);
@@ -337,9 +348,16 @@ function cardText(raw: RawComponent): string {
 export function stampRevision(contact: Contact, now: Date = new Date()): void {
   const rev = contact.raw.getFirstProperty("rev");
   if (!rev) return;
-  // A timestamp has no VALUE parameter to write; to the second, as clients write it.
-  rev.resetType(contact.raw.getFirstPropertyValue("version") === "4.0" ? "timestamp" : "date-time");
-  rev.setValue(now.toISOString().replace(/\.\d+Z$/, "Z"));
+  const instant = now.toISOString().replace(/\.\d+Z$/, "Z");
+  if (contact.raw.getFirstPropertyValue("version") === "4.0") {
+    // A timestamp has no VALUE parameter to write, and is held as written
+    // (ADR 057): the basic form RFC 6350 §4.3.5 shows, to the second.
+    rev.resetType("timestamp");
+    rev.setValue(instant.replace(/[-:]/g, ""));
+  } else {
+    rev.resetType("date-time");
+    rev.setValue(instant);
+  }
 }
 
 /** Gives a contact without a UID a fresh one (ADR 022). Mutates `raw`. */

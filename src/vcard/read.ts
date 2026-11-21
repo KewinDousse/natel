@@ -246,3 +246,67 @@ export function groupCardOf(contact: Contact): { name: string; members: string[]
   }
   return { name, members };
 }
+
+/** A date a card records about itself, such as its `REV`. */
+export type CardDate = {
+  /** Local midnight for a date alone, local time for a time without a zone. */
+  date: Date;
+  /** False for a date alone. */
+  hasTime: boolean;
+};
+
+// A date, basic or extended, then an optional time down to the hour, fraction and zone.
+const CARD_DATE =
+  /^(\d{4})-?(\d{2})-?(\d{2})(?:T(\d{2})(?::?(\d{2})(?::?(\d{2})([.,]\d+)?)?)?(?:(Z)|([+-]\d{2})(?::?(\d{2}))?)?)?$/i;
+
+/**
+ * A `REV`, `CREATED` or `X-CREATED` value as a date, or null when it isn't
+ * one: clients write them with or without separators, zone or time.
+ */
+function parseCardDate(text: string): CardDate | null {
+  const match = CARD_DATE.exec(text.trim());
+  if (!match) return null;
+  const [, year = "", month = "", day = "", hour = "00", minute = "00", second = "00"] = match;
+  const [fraction, utc, offsetHour, offsetMinute = "00"] = match.slice(7);
+  // ECMAScript rolls 31 April over to 1 May, and 24:00 over to the next day.
+  const utcDay = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (utcDay.getUTCDate() !== Number(day) || Number(hour) > 23) return null;
+  const ms = fraction ? `.${fraction.slice(1, 4).padEnd(3, "0")}` : "";
+  const zone = utc ? "Z" : offsetHour ? `${offsetHour}:${offsetMinute}` : "";
+  // Without a zone, ECMAScript reads a date and time as local time.
+  const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}${ms}${zone}`);
+  return Number.isNaN(date.getTime()) ? null : { date, hasTime: match[4] !== undefined };
+}
+
+/** The value of a property as the card writes it, or as ical.js normalised it. */
+function cardDateOf(prop: RawProperty): CardDate | null {
+  const jcal = prop.toJSON() as [string, unknown, string, unknown];
+  return typeof jcal[3] === "string" ? parseCardDate(jcal[3]) : null;
+}
+
+/**
+ * When the card was last changed: its `REV` (RFC 6350 §6.7.4), or null
+ * without a readable one. Read-only.
+ */
+export function revisionOf(contact: Contact): CardDate | null {
+  const rev = contact.raw.getFirstProperty("rev");
+  return rev ? cardDateOf(rev) : null;
+}
+
+/**
+ * When the card was created: its first readable `CREATED` or `X-CREATED`,
+ * which some clients write though RFC 6350 has no such property, with that
+ * property. Read-only.
+ */
+export function readCreated(raw: RawComponent): { prop: RawProperty; date: CardDate } | null {
+  for (const prop of [...raw.getAllProperties("created"), ...raw.getAllProperties("x-created")]) {
+    const date = cardDateOf(prop);
+    if (date) return { prop, date };
+  }
+  return null;
+}
+
+/** When the card was created, from `CREATED` or `X-CREATED`, or null. Read-only. */
+export function createdOf(contact: Contact): CardDate | null {
+  return readCreated(contact.raw)?.date ?? null;
+}

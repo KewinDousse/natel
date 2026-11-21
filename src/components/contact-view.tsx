@@ -5,6 +5,7 @@
  * pencil switch to the form.
  */
 
+import { Fragment } from "react";
 import { useI18n } from "@/i18n/react";
 import { isWebUrl, valueHref } from "@/lib/contact-links";
 import {
@@ -15,6 +16,7 @@ import {
   primaryNumberOf,
 } from "@/lib/contact-list";
 import { ageOf, birthdayCopyText, birthdayDateTime, formatBirthday } from "@/lib/format-birthday";
+import { cardDateTime, formatCardDate } from "@/lib/format-card-date";
 import { formatPhone } from "@/lib/format-phone";
 import { deviceMapApp, mapLinkOf } from "@/lib/map-link";
 import { cn } from "@/lib/utils";
@@ -23,9 +25,12 @@ import { usePreferences } from "@/store/preferences";
 import {
   addressesOf,
   birthdayOf,
+  type CardDate,
+  createdOf,
   jobTitleOf,
   noteOf,
   orgOf,
+  revisionOf,
   typeValuesOf,
   type VCardAddress,
 } from "@/vcard";
@@ -41,6 +46,7 @@ export function ContactView({
   onEdit,
   onCopy,
   onGroup,
+  showDates,
 }: {
   contact: Contact;
   /** The contact's groups, from its card and the book's group cards. */
@@ -50,6 +56,8 @@ export function ContactView({
   onCopy: (value: string) => void;
   /** Filters the list on a group. */
   onGroup: (name: string) => void;
+  /** Whether the card's dates show under the sections, as the settings choose. */
+  showDates: boolean;
 }) {
   const { t, locale } = useI18n();
   const parts = namePartsOf(contact);
@@ -351,7 +359,32 @@ export function ContactView({
           )}
         </div>
       </div>
+
+      {showDates && <CardDates created={createdOf(contact)} revised={revisionOf(contact)} />}
     </div>
+  );
+}
+
+/** When the card was created and last changed, as the card records them. */
+function CardDates({ created, revised }: { created: CardDate | null; revised: CardDate | null }) {
+  const { t, locale } = useI18n();
+  const dates = [
+    { key: "card_created", value: created },
+    { key: "card_revised", value: revised },
+  ] as const;
+  const shown = dates.flatMap(({ key, value }) => (value === null ? [] : [{ key, value }]));
+  if (shown.length === 0) return null;
+  return (
+    <p data-card-dates className="mt-8 text-sm text-muted-foreground tabular">
+      {shown.map(({ key, value }, index) => (
+        <Fragment key={key}>
+          {index > 0 && " · "}
+          <span className="whitespace-nowrap">
+            {t(key)} <time dateTime={cardDateTime(value)}>{formatCardDate(value, locale)}</time>
+          </span>
+        </Fragment>
+      ))}
+    </p>
   );
 }
 
