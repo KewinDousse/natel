@@ -36,7 +36,7 @@ Sizes are tokens in `src/index.css` (`--text-*`), used as `text-<name>`; `cn` kn
 | Token | Size / line height | Use |
 |---|---|---|
 | `caption` | 12 / 16px | Counts, hints, kbd |
-| `small` | 13 / 18px | A–Z rail, sign-in tabs |
+| `small` | 13 / 18px | Sign-in tabs |
 | `body` | 15 / 24px | Running text from `lg` (16px below, so iOS doesn't zoom) |
 | `name` | 17 / 24px | Names in the list, the page's main information |
 | `wordmark` | 32px / 1 | "Natel" in the header |
@@ -76,7 +76,7 @@ From 1440px the reading pane keeps the `56rem` it has there and the list takes t
 Once the selected book's cards are loaded, a single `.vcf` file dropped anywhere in the window opens the import's preview for that book, as the book menu's import does. While files are dragged over the window, the whole screen is veiled behind a dashed frame with the upload icon and "Drop to import into “<book>”" in the display face; it is hidden from screen readers, which reach the import through the book menu. Another file, or several, gets a toast asking for one `.vcf` file. During an import or behind a dialog, a dropped file is refused before the drop. The browser never opens a dropped file in place of the app.
 
 ### Group (letter section)
-A two-column grid: the letter, sticky under the header, then the section's rows. The letter sits centred on its section's first row, never above it.
+A two-column grid: the letter, sticky under the list toolbar, then the section's rows. The letter sits centred on its section's first row, never above it.
 
 ### Contact row
 - The name puts the part the list sorts by first, in bold, the other in medium weight so it stays legible; the full name is in `title`. A card with neither a name nor an organisation shows "Unnamed contact" in muted italic (the muted grey keeps 4.5:1; transparency wouldn't), on its page too.
@@ -101,11 +101,14 @@ the value under the name without leaders.
 
 ### A–Z rail
 Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden from screen readers and out of the tab order. Jumps are instant. Hidden while a search is active. Contacts whose initial isn't A–Z share the "#" group at the end of the list.
+- Height: the 27 cells share the rail's full height, up to 32px each and centred beyond that. The letters take three quarters of a cell, up to 16px, outside the size tokens.
+- Short rail: when a cell would drop under 15px (letters under 11px), the rail shows letters alternating with dots, from A to #, the letters spread evenly over the alphabet, as iOS does. A finger sliding along it still maps onto all 27 letters; mouse and keyboard reach the shown ones only.
 - Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The page doesn't scroll meanwhile.
 - From `lg`, the rail sits outside the list's scrolling pane, so the whole scrollbar stays clickable.
 
 ### List toolbar
 The count (announced politely) on the left, the group filter, and from `sm` the first-name / last-name sort toggle on the right. The sort is a display preference, remembered like the language (ADR 026); below 640px only the settings offer it, so the count and the filter share a row.
+- It stays in view while the list scrolls: under the header on phones, at the top of the list pane from `lg`. Its measured height, `--list-toolbar-h`, places the sticky letters below it. A jump to a letter lands below it too.
 
 ### List states
 - Loading: the toolbar shows a loading message in place of the count, with the sort toggle, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.
@@ -124,11 +127,18 @@ card failed, the empty-book state doesn't show. It never claims the cards
 were deleted or that Natel knows why they could not be loaded.
 
 ### Group filter
-Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time; contacts without a group aren't a choice.
+Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time.
 - Trigger: the address-book switcher's pill, "All groups" by default.
-- Menu: built like the book menu, "All groups" first, then each group with its number of contacts; the chosen one is checked.
-- Filtered: the pill shows the group's name and a × that goes back to every group. The count names the group; search applies within it; the A–Z rail greys the letters without a contact in the group.
+- Menu: built like the book menu, "All groups" first, then "No group", a rule, and each group; "No group" and each group show their number of contacts; the chosen one is checked.
+- Filtered: the pill shows the group's name and a × that goes back to every group. For a named group, the count names it. Search applies within the choice; the A–Z rail greys the letters without a contact in it.
 - The choice lasts for the session; it goes back to every group when another book is selected, or when the group no longer exists.
+
+### No group filter
+"No group" lists the contacts that no group card lists and that have no non-blank `CATEGORIES` value, so they can be given one. It is offered only with the group filter: in a book without groups, every contact would match.
+- The pill shows "No group"; the count reads "N contacts", as without a filter, since the pill already names it.
+- A contact that joins a group leaves the list once saved; its page stays open, and the filter stays on.
+- With every contact in a group, the list says so in the empty-group state.
+- The filter ends when the book has no group left.
 
 ### Buttons
 `buttonClass({ variant, size })` gives every button and button-like link its classes. Variants: `primary` (the ink pill), `outline`, `destructive` (always icon + label), `ghost` (quiet; an icon-only one has a translated `aria-label`). Sizes `sm`, `md` (default), `lg`, `icon`, `icon-sm`.
