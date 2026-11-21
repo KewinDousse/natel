@@ -1,7 +1,7 @@
 # Base images are pinned by digest; Dependabot moves the digests.
 # Build stage. Its output is static files, the same for every platform: it
 # runs once, natively, and each platform's image copies it.
-FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS builder
+FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 WORKDIR /app
 # Corepack and pnpm handle installs; the bundled npm is not needed.
 RUN apk add --no-cache zlib=1.3.2-r1 \
@@ -29,7 +29,7 @@ RUN setcap -r /usr/bin/caddy
 
 # Runtime stage: what the official image adds to Alpine, minus curl and
 # libcap, which nothing here runs.
-FROM alpine:3.23@sha256:ff7f0c727dd796aa36787bfcd9a64bf35a6ce72a73451b3359fde849b6703d63
+FROM alpine:3.23@sha256:469c9ea410b9215eaee7976ba6c0639039b444be8e5d638f7abbada189971eb2
 # Caddy runs as an unprivileged user, owning what it writes: certificates in
 # /data, the autosaved config in /config.
 RUN apk add --no-cache ca-certificates mailcap zlib=1.3.2-r1 \
