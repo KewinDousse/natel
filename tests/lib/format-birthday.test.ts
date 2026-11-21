@@ -35,6 +35,38 @@ describe("formatBirthday", () => {
     expect(formatBirthday(bday({ year: 1987, month: null, day: null }), "en")).toBe("1987");
   });
 
+  it.each([
+    { year: 5, fr: ["12 mars 5", "mars 5", "5"], en: ["March 12, 5", "March 5", "5"] },
+    { year: 45, fr: ["12 mars 45", "mars 45", "45"], en: ["March 12, 45", "March 45", "45"] },
+    { year: 99, fr: ["12 mars 99", "mars 99", "99"], en: ["March 12, 99", "March 99", "99"] },
+    {
+      year: 100,
+      fr: ["12 mars 100", "mars 100", "100"],
+      en: ["March 12, 100", "March 100", "100"],
+    },
+  ])("shows the year $year as stored, not in the 1900s", ({ year, fr, en }) => {
+    const forms = [
+      bday({ year, month: 3, day: 12 }),
+      bday({ year, month: 3, day: null }),
+      bday({ year, month: null, day: null }),
+    ];
+    expect(forms.map((form) => formatBirthday(form, "fr"))).toEqual(fr);
+    expect(forms.map((form) => formatBirthday(form, "en"))).toEqual(en);
+  });
+
+  it("keeps 29 February of a leap year below 100", () => {
+    expect(formatBirthday(bday({ year: 96, month: 2, day: 29 }), "en")).toBe("February 29, 96");
+  });
+
+  it("shows a year 0 as its stored date", () => {
+    const stored = (source: string, parts: Partial<Birthday>) =>
+      formatBirthday(bday({ source, year: 0, ...parts }), "en");
+    expect(stored("0000-03-12", { month: 3, day: 12 })).toBe("0000-03-12");
+    expect(stored("0000-03-12T10:15:00Z", { month: 3, day: 12 })).toBe("0000-03-12");
+    expect(stored("0000-03", { month: 3 })).toBe("0000-03");
+    expect(stored("0000", {})).toBe("0000");
+  });
+
   it("falls back to the raw source when no part is usable", () => {
     expect(formatBirthday(bday({ source: "--" }), "fr")).toBe("--");
   });
