@@ -68,10 +68,10 @@
   --elevation-overlay:
     0 0 0 1px transparent, 0 2px 4px oklch(0.2 0.006 270 / 0.06),
     0 24px 48px -12px oklch(0.2 0.006 270 / 0.28);
-  /* Mobile header height (56px bar + search row), consumed by
-     sticky group letters (top-[var(--header-h)]) and section scroll margins.
-     On lg+ Tailwind overrides (lg:top-2 / lg:scroll-mt-0) take precedence. */
+  /* Mobile header height (56px bar + search row), measured at runtime. */
   --header-h: 7rem;
+  /* List toolbar height with the group filter (pt-3 + 2rem button + pb-1), measured at runtime. */
+  --list-toolbar-h: 3rem;
 }
 
 :root[data-theme="dark"] {
@@ -175,7 +175,7 @@
   --text-caption: 0.75rem;
   --text-caption--line-height: 1rem;
   --text-small: 0.8125rem;
-  --text-small--line-height: 1.125rem; /* lettres de l'index, onglets */
+  --text-small--line-height: 1.125rem; /* onglets */
   --text-body: 0.9375rem;
   --text-body--line-height: 1.5rem; /* texte courant à partir de lg */
   --text-name: 1.0625rem;

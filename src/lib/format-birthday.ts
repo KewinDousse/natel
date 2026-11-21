@@ -10,22 +10,31 @@
 import type { Birthday } from "@/vcard";
 import { isoDay } from "./iso-day";
 
+/** Local midnight on the given date. `new Date(year, …)` reads a year from 0 to 99 as 1900 + year. */
+function dateOf(year: number, monthIndex: number, day: number): Date {
+  const date = new Date(2000, 0, 1);
+  date.setFullYear(year, monthIndex, day);
+  return date;
+}
+
 /**
  * Format a structured birthday for display:
  * - full date → "14 mars 1987" / "March 14, 1987"
  * - month-day → "14 mars" / "March 14" (no year)
  * - year-month → "mars 1987" / "March 1987"
  * - year only → "1987"
+ * - a year below 1, which Intl prints as another year → the stored date, without its time
  * - anything unrecognisable → the raw stored text, untouched.
  */
 export function formatBirthday(birthday: Birthday, locale: string): string {
   const { year, month, day, source } = birthday;
+  if (year !== null && year < 1) return source.replace(/T.*$/, "");
   if (year !== null && month !== null && day !== null) {
     return new Intl.DateTimeFormat(locale, {
       year: "numeric",
       month: "long",
       day: "numeric",
-    }).format(new Date(year, month - 1, day));
+    }).format(dateOf(year, month - 1, day));
   }
   if (month !== null && day !== null) {
     return new Intl.DateTimeFormat(locale, {
@@ -37,12 +46,12 @@ export function formatBirthday(birthday: Birthday, locale: string): string {
     return new Intl.DateTimeFormat(locale, {
       year: "numeric",
       month: "long",
-    }).format(new Date(year, month - 1, 1));
+    }).format(dateOf(year, month - 1, 1));
   }
   if (year !== null) {
     return new Intl.DateTimeFormat(locale, {
       year: "numeric",
-    }).format(new Date(year, 0, 1));
+    }).format(dateOf(year, 0, 1));
   }
   return source;
 }

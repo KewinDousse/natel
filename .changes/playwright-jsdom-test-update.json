@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Update Playwright and jsdom, which only the tests use. The application and its deployment do not change."
+}

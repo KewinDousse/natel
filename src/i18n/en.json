@@ -266,6 +266,8 @@
   "count_in_group": "{n} contacts in {group}",
   "group_empty": "No contact in this group.",
   "count_in_group_1": "1 contact in {group}",
+  "group_none": "No group",
+  "group_none_empty": "Every contact is in a group.",
   "demo_mark": "Demo",
   "demo_separator": ": ",
   "demo_notice": "Nothing is saved, change anything you like.",
