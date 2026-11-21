@@ -45,6 +45,7 @@ beforeEach(() => {
     labelPosition: "auto",
     avatarShape: "round",
     showCardDates: false,
+    phoneFormat: "local",
   });
 });
 
@@ -180,5 +181,16 @@ describe("card dates", () => {
     usePreferences.getState().setShowCardDates(false);
     expect(stored()).toEqual({ map: "osm" });
     expect(usePreferences.getState().showCardDates).toBe(false);
+  });
+});
+
+describe("phone number format", () => {
+  it("defaults to the local format and stores only the international one", () => {
+    expect(usePreferences.getInitialState().phoneFormat).toBe("local");
+    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setPhoneFormat("international");
+    expect(stored()).toEqual({ sort: "family", phoneFormat: "international" });
+    usePreferences.getState().setPhoneFormat("local");
+    expect(stored()).toEqual({ sort: "family" });
   });
 });

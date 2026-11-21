@@ -50,11 +50,15 @@ The list's hierarchy follows what people look for: the name first, then its numb
 
 ## Layout
 
-**Desktop (`lg`, ≥ 1024px):** full-height grid. Header bar, then the list pane (own scroll) beside the detail pane on `bg-muted` (own scroll, content at most `44rem` wide).
+**Desktop (`lg`, ≥ 1024px):** full-height grid. Header bar, then the list pane (`26rem` to `34rem` up to 1440px, own scroll) beside the detail pane on `bg-muted` (own scroll, content at most `44rem` wide).
 
 **Mobile (< 1024px):** page scroll. Sticky header: wordmark, address-book switcher, settings and the round "+" on one row down to 320px, then the search. No detail pane: opening a contact is a separate route.
 
 Sticky offsets use `--header-h`, never hardcoded pixels.
+
+### Wide screens
+
+From 1440px the reading pane keeps the `56rem` it has there and the list takes the extra width, up to `44rem` at 1600px; wider screens give the rest to the reading pane. Rows keep their content and truncate less. The cap keeps a leader short enough for the eye to follow from a name to its number.
 
 ## Components
 
@@ -162,7 +166,9 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 ### Settings
 `/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
 - Account: who is signed in, and sign-out. When the server doesn't confirm the sign-out, the user stays signed in and a toast says so.
-- Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
+- Display: language and appearance (system, light, dark). A change applies at once; there is no save button.
+- Contact: which name comes first, and the contact image shape.
+- Contact details: the phone number format, the label position, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps).
 - Address books: each book's group format (see Group format setting).
 - Keyboard shortcuts, desktop only.
 - About and help, last (see below).
@@ -246,18 +252,34 @@ Either explicit choice applies at every width. The choice applies immediately
 and persists in the browser; Auto is the default. It changes only row labels in
 the reading view, preserving section titles, information order and the form.
 A preview under the select shows a fictitious phone section using the same
-reading components as contact pages and updates when the choice changes.
+reading components as contact pages and updates when this choice or the phone
+number format changes.
 
 ### Contact image shape preference
 
-Settings offers Round (the default) and Rounded squares under Contacts and list.
+Settings offers Round (the default) and Rounded squares under Contact.
 The choice applies immediately to photos, initials and organisation icons in the
 list, reading view and form, and persists in the browser. It changes only their
 display: the crop frame and saved photo stay square.
 
+### Phone number format preference
+
+Settings offers Local (the default) and International under Contact details,
+above the label position. Local shows each valid number in its own country's
+national format (079 000 00 01, (212) 555-0166); International adds the
+country code (+41 79 000 00 01). A leading 00 counts as a country code, and a
+number stored without one reads as Swiss. A number of no country (+800) keeps
+its country code either way, and one that doesn't parse shows as stored.
+
+A hint under the select says that only the display changes, and the label
+position preview shows its number in the chosen format. The choice applies at
+once to the list and the reading view, and persists in the browser; the form,
+copy and `tel:` links keep the stored value. Search finds a number by its
+stored digits and by those of both formats, whichever the setting shows.
+
 ### Card dates preference
 
-Settings offers a checkbox under Contacts and list, "Show creation and
+Settings offers a checkbox at the end of Contact details, "Show creation and
 modification dates", off by default. It shows or hides the dates line at the
 foot of the reading view (see Reading view, item 8) at once, and persists in
 the browser. Being a yes or no, it is a checkbox rather than a select: the box
@@ -278,10 +300,13 @@ browser. Without a book, the section is absent.
 
 ### Settings sections
 
-Account, Display, Contacts and list, Address books, Keyboard shortcuts and
-About and help are separate sections. Display holds language and appearance.
-Contacts and list holds label position, sort order, the map preference and
-the card dates preference.
+Account, Display, Contact, Contact details, Address books, Keyboard shortcuts
+and About and help are separate sections. Display holds language and
+appearance. Contact holds which name comes first ("Show first": first name or
+last name, the same preference as the list's sort toggle, which also orders
+the list) and the contact image shape. Contact details holds the phone number
+format, the label position and its preview, the map preference and the card
+dates preference.
 Preference labels sit above controls on phones and beside them from `sm`;
 changes apply without a save button.
 

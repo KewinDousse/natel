@@ -1,14 +1,13 @@
 name: CI
 
 # Actions minutes are counted: a draft pull request runs nothing (its author
-# runs the checks locally), and a push to main, whose pull request already
+# runs the checks locally), one that changes only documentation and change
+# notes skips the tests, and a push to main, whose pull request already
 # passed, runs only the unit checks, and the image when it changed (against
 # the previous push, so a cancelled run's changes wait for the next tag).
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    # The English guide is bundled into the app.
-    paths: ["**", "!**/*.md", "!docs/**", "docs/user-guide.md"]
   push:
     branches: [main]
   workflow_call:
@@ -35,8 +34,34 @@ concurrency:
   cancel-in-progress: ${{ inputs.candidate_sha == '' }}
 
 jobs:
+  # Every pull request runs this workflow, so its required checks always
+  # report, even when their tests are skipped.
+  changes:
+    if: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft }}
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      # The app bundles the English guide, and the demo build reads its link
+      # preview image from docs/brand. A move counts its old path too.
+      - id: diff
+        run: |
+          files=$(git diff --name-only --no-renames HEAD^1 HEAD)
+          if printf '%s\n' "$files" | grep -qvE '^(docs|\.changes)/|\.md$' ||
+            printf '%s\n' "$files" | grep -qE '^docs/(user-guide\.md$|brand/)'; then
+            echo code=true >> "$GITHUB_OUTPUT"
+          else
+            echo code=false >> "$GITHUB_OUTPUT"
+          fi
+
   check:
-    if: ${{ !github.event.pull_request.draft }}
+    needs: changes
+    if: ${{ !cancelled() && !github.event.pull_request.draft }}
     # The RUNNER repository variable moves the jobs that run on this repository
     # to a self-hosted runner; publish and demo run only on KewinDousse/natel.
     runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
@@ -44,6 +69,10 @@ jobs:
     timeout-minutes: ${{ vars.RUNNER && 45 || 15 }}
     outputs:
       image: ${{ steps.image.outputs.run }}
+    # Biome also checks the change notes, so only the lint runs on a
+    # documentation change. A failed or skipped diff runs everything.
+    env:
+      TESTS: ${{ needs.changes.outputs.code != 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -75,23 +104,29 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check
+      - run: pnpm lint
+      - if: env.TESTS == 'true'
+        run: pnpm typecheck && pnpm test
       # natel-session (ADR 032), with the Go image the Dockerfile builds it in.
-      - run: |
+      - if: env.TESTS == 'true'
+        run: |
           # shellcheck disable=SC2016
           image=$(sed -n 's/^FROM --platform=$BUILDPLATFORM \(golang:[^ ]*\) AS session$/\1/p' Dockerfile)
           test -n "$image"
           docker run --rm -v "$PWD/session:/src" -w /src "$image" \
             sh -c 'test -z "$(gofmt -l .)" && go vet ./... && go test ./...'
-      - run: pnpm build
+      - if: env.TESTS == 'true'
+        run: pnpm build
       # The demo's CardDAV stand-in (ADR 025) never ships in the image's build.
-      - run: |
+      - if: env.TESTS == 'true'
+        run: |
           if grep -rq demo.natel.invalid dist; then
             echo "The demo's CardDAV stand-in is in the normal build" >&2
             exit 1
           fi
       # Nor does the demo's preview image, which names the demo's address.
-      - run: |
+      - if: env.TESTS == 'true'
+        run: |
           if grep -rqE 'og:image|og-image\.png|github\.io' dist; then
             echo "The demo's link preview image is in the normal build" >&2
             exit 1
@@ -99,7 +134,10 @@ jobs:
 
   e2e:
     name: e2e (${{ matrix.server }})
-    if: ${{ !github.event.pull_request.draft && !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    needs: changes
+    if: >-
+      ${{ !cancelled() && !github.event.pull_request.draft
+      && !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: ${{ vars.RUNNER && 45 || 15 }}
     # The compatibility matrix: the same suite against each CardDAV server.
@@ -107,8 +145,14 @@ jobs:
       fail-fast: false
       matrix:
         server: [radicale, baikal, baikal-digest, xandikos, nextcloud]
+    # Its steps are skipped rather than the job: a skipped matrix job reports
+    # under its unexpanded name, not the required "e2e (radicale)". So every
+    # step that needs the checkout is guarded by TESTS.
+    env:
+      TESTS: ${{ needs.changes.outputs.code != 'false' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: env.TESTS == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/release-candidate
@@ -116,23 +160,29 @@ jobs:
         with:
           sha: ${{ inputs.candidate_sha }}
           artifact: ${{ inputs.candidate_artifact }}
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - if: env.TESTS == 'true'
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - if: env.TESTS == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - if: env.TESTS == 'true'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: tests/e2e/requirements.txt
-      - run: pip install -r tests/e2e/requirements.txt
-      - run: pnpm install --frozen-lockfile
+      - if: env.TESTS == 'true'
+        run: pip install -r tests/e2e/requirements.txt
+      - if: env.TESTS == 'true'
+        run: pnpm install --frozen-lockfile
       # The browsers' system packages come from the Ubuntu mirror, which now
       # and then stalls a runner for longer than the job's timeout. A stalled
       # download fails fast and is retried, and the packages are cached: apt
       # checks each cached one against the signed index before installing it.
-      - id: playwright
+      - if: env.TESTS == 'true'
+        id: playwright
         run: |
           printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::Retries "5";' \
             'APT::Keep-Downloaded-Packages "true";' |
@@ -140,21 +190,24 @@ jobs:
           version=$(node -p "require('@playwright/test/package.json').version")
           echo "key=playwright-apt-$ImageOS-$version-$ImageVersion" >> "$GITHUB_OUTPUT"
           echo "prefix=playwright-apt-$ImageOS-$version-" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: env.TESTS == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/apt-archives
           key: ${{ steps.playwright.outputs.key }}
           restore-keys: ${{ steps.playwright.outputs.prefix }}
-      - run: |
+      - if: env.TESTS == 'true'
+        run: |
           mkdir -p ~/apt-archives
           sudo find ~/apt-archives -name '*.deb' -exec cp -t /var/cache/apt/archives {} +
           pnpm exec playwright install --with-deps chromium firefox webkit
           find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp -t ~/apt-archives {} +
-      - run: pnpm e2e
+      - if: env.TESTS == 'true'
+        run: pnpm e2e
         env:
           E2E_SERVER: ${{ matrix.server }}
       # The demo build (ADR 025) needs no server: once is enough.
-      - if: matrix.server == 'radicale'
+      - if: env.TESTS == 'true' && matrix.server == 'radicale'
         run: pnpm e2e:demo
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -167,9 +220,10 @@ jobs:
 
   image:
     # Build the release image only after the other checks pass.
-    needs: [check, e2e]
+    needs: [changes, check, e2e]
     if: >-
-      ${{ !cancelled() && needs.check.result == 'success'
+      ${{ !cancelled() && needs.changes.outputs.code != 'false'
+      && needs.check.result == 'success'
       && (needs.e2e.result == 'success'
       || (needs.e2e.result == 'skipped' && !startsWith(github.ref, 'refs/tags/')))
       && needs.check.outputs.image == 'true' }}

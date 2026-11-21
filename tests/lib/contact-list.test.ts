@@ -238,7 +238,7 @@ describe("trailingValueOf", () => {
 });
 
 describe("searchTargetOf", () => {
-  it("folds name, org, emails and phones as stored", () => {
+  it("folds name, org, emails, and phones as stored and as shown in either format", () => {
     const target = searchTargetOf(
       makeContact({
         family: "Medarda",
@@ -249,7 +249,8 @@ describe("searchTargetOf", () => {
       }),
     );
     expect(target.folded).toBe("medarda mel mel medarda mel@medarda.example piltover");
-    expect(target.digits).toBe("medardamelmelmedardamel@medardaexamplepiltover0780000003");
+    expect(target.digits).toContain("medardamelmelmedardamel@medardaexamplepiltover");
+    expect(matchesQuery(target, "0780000003")).toBe(true);
   });
 });
 
@@ -274,6 +275,37 @@ describe("matchesQuery", () => {
     expect(matchesQuery(targetOf(contact), "078000")).toBe(true);
     expect(matchesQuery(targetOf(contact), "078 000")).toBe(true);
     expect(matchesQuery(targetOf(contact), "000 00")).toBe(true);
+  });
+
+  it("matches the digits of a number's local display, which drops its country code", () => {
+    const amumu = makeContact({ family: "Amumu", tel: [{ value: "+33 1 99 00 12 34" }] });
+    expect(matchesQuery(searchTargetOf(amumu), "01 99 00")).toBe(true);
+    expect(matchesQuery(searchTargetOf(amumu), "+33 1 99")).toBe(true);
+    const zilean = makeContact({ family: "Zilean", tel: [{ value: "+12125550166" }] });
+    expect(matchesQuery(searchTargetOf(zilean), "(212) 555")).toBe(true);
+    // The stored and local forms are kept apart: no match spans both.
+    expect(matchesQuery(searchTargetOf(zilean), "01662125")).toBe(false);
+  });
+
+  it("matches the digits of a number's international display", () => {
+    const vi = makeContact({ family: "Vi", tel: [{ value: "+41 (0)79 000 00 01" }] });
+    expect(matchesQuery(searchTargetOf(vi), "41 79 000")).toBe(true);
+    expect(matchesQuery(searchTargetOf(vi), "0041 79 000")).toBe(true);
+  });
+
+  it("matches a country code dialled with 00 on every number of that country", () => {
+    const caitlyn = makeContact({ family: "Caitlyn", tel: [{ value: "079 000 00 02" }] });
+    expect(matchesQuery(searchTargetOf(caitlyn), "0041")).toBe(true);
+    const ekko = makeContact({ family: "Ekko", tel: [{ value: "+12125550166" }] });
+    expect(matchesQuery(searchTargetOf(ekko), "0041")).toBe(false);
+  });
+
+  it("never matches digits spanning two numbers", () => {
+    const jinx = makeContact({
+      family: "Jinx",
+      tel: [{ value: "+41 78 000 00 03" }, { value: "+41 79 000 00 01" }],
+    });
+    expect(matchesQuery(searchTargetOf(jinx), "00034179")).toBe(false);
   });
 
   it("uses the compact-digit rule only from 3 digits", () => {

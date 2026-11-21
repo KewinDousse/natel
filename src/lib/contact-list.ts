@@ -5,6 +5,7 @@
  * Initials outside A–Z share a "#" group at the end of the list and rail.
  */
 
+import { phoneDisplays } from "@/lib/format-phone";
 import { fnv1a } from "@/lib/hash";
 import type { Contact, ContactField } from "@/model/contact";
 import { orgOf, typeValuesOf } from "@/vcard";
@@ -173,29 +174,64 @@ export function primaryNumberOf(contact: Contact): ContactField | null {
 // Search
 // ---------------------------------------------------------------------------
 
+const searchTargets = new WeakMap<Contact, SearchTarget>();
+
 /**
- * Precomputed search text: folded lowercase name + emails + org (no TEL —
- * phones match only through the digits field, gated to ≥3-digit queries),
- * plus the same with spaces/dots/+/- stripped for compact digit matching.
+ * Precomputed search text. `folded`: the folded name, emails and org.
+ * `digits`: the same with digitsOf's separators stripped, followed by each
+ * number's digit forms (see phoneDigitsOf). Phones are only in `digits`, so
+ * they match only digit queries of 3 digits or more. Cached per contact, since
+ * the list filters on every keystroke and parsing numbers is costly.
  */
 export function searchTargetOf(contact: Contact): SearchTarget {
+  const cached = searchTargets.get(contact);
+  if (cached !== undefined) return cached;
   const parts = namePartsOf(contact);
   // Both orders, since the list shows "Given Family" when sorted by first name.
   const reversed = parts.family && parts.given ? `${parts.given} ${parts.family}` : "";
-  const textParts = [
+  const text = [
     parts.display,
     reversed,
     ...contact.fields.email.map((email) => email.value),
     orgOf(contact),
-  ].filter((part) => part.length > 0);
-  const telText = contact.fields.tel
-    .map((tel) => tel.value)
+  ]
     .filter((part) => part.length > 0)
     .join(" ");
-  const folded = fold(textParts.join(" "));
-  const allText = telText.length > 0 ? `${textParts.join(" ")} ${telText}` : textParts.join(" ");
-  const digits = fold(allText).replace(/[\s.+-]/g, "");
-  return { folded, digits };
+  // "|" survives digitsOf, so no digit match spans two numbers.
+  const phones = contact.fields.tel
+    .map((tel) => tel.value)
+    .filter((value) => value.length > 0)
+    .map((value) => `|${phoneDigitsOf(value)}`)
+    .join("");
+  const target = { folded: fold(text), digits: `${digitsOf(text)}${phones}` };
+  searchTargets.set(contact, target);
+  return target;
+}
+
+/** Text with the separators a phone number may carry stripped, for digit matching. */
+function digitsOf(text: string): string {
+  return fold(text).replace(/[\s.()+-]/g, "");
+}
+
+/**
+ * A number's digits as stored, as shown in local format, and as shown in
+ * international format with its + written 00, so a number is found by the
+ * digits it is stored with and by those the list shows in either format.
+ */
+export function phoneDigitsOf(value: string): string {
+  const { local, international } = phoneDisplays(value);
+  const plus = international.startsWith("+") ? "00" : "";
+  // "|" keeps the forms apart, so no match spans two of them.
+  return `${digitsOf(value)}|${local.replace(/\D/g, "")}|${plus}${international.replace(/\D/g, "")}`;
+}
+
+/**
+ * The digits of a query that matches phone numbers: digits only, at least 3
+ * (a single "1" would match every number). Null for any other query.
+ */
+export function digitQueryOf(rawQuery: string): string | null {
+  const qDigits = digitsOf(rawQuery.trim());
+  return qDigits.length > 2 && /^\d+$/.test(qDigits) ? qDigits : null;
 }
 
 /**
@@ -208,11 +244,8 @@ export function matchesQuery(target: SearchTarget, rawQuery: string): boolean {
   const q = fold(rawQuery.trim());
   if (q.length === 0) return true;
   if (target.folded.includes(q)) return true;
-  const qDigits = q.replace(/[\s.+-]/g, "");
-  if (qDigits.length > 2 && /^\d+$/.test(qDigits)) {
-    return target.digits.includes(qDigits);
-  }
-  return false;
+  const qDigits = digitQueryOf(rawQuery);
+  return qDigits !== null && target.digits.includes(qDigits);
 }
 
 /**
@@ -255,7 +288,7 @@ export function splitByQuery(value: string, query: string): HighlightSegment[] {
 // Grouping / sorting
 // ---------------------------------------------------------------------------
 
-type SortedEntry = { contact: Contact; key: string; foldedKey: string; target: SearchTarget };
+type SortedEntry = { contact: Contact; key: string; foldedKey: string };
 
 /**
  * Filter by query and group into letter sections. Sections are ordered A–Z,
@@ -265,9 +298,13 @@ type SortedEntry = { contact: Contact; key: string; foldedKey: string; target: S
 export function buildGroups(contacts: Contact[], sortBy: SortBy, query: string): ContactGroup[] {
   const entries: SortedEntry[] = contacts.map((contact) => {
     const key = sortKeyOf(contact, sortBy);
-    return { contact, key, foldedKey: fold(key), target: searchTargetOf(contact) };
+    return { contact, key, foldedKey: fold(key) };
   });
-  const visible = entries.filter((entry) => matchesQuery(entry.target, query));
+  // Without a query every contact shows, so no search target is built.
+  const visible =
+    query.trim().length === 0
+      ? entries
+      : entries.filter((entry) => matchesQuery(searchTargetOf(entry.contact), query));
   visible.sort((a, b) => {
     if (a.foldedKey !== b.foldedKey) return a.foldedKey < b.foldedKey ? -1 : 1;
     if (a.key !== b.key) return a.key < b.key ? -1 : 1;

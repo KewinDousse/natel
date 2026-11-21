@@ -13,6 +13,7 @@ import { useI18n } from "@/i18n/react";
 import { APP_REVISION, APP_VERSION } from "@/lib/app-info";
 import type { SortBy } from "@/lib/contact-list";
 import { IS_DEMO } from "@/lib/demo";
+import { formatPhone, type PhoneFormat } from "@/lib/format-phone";
 import { GROUP_FORMATS } from "@/lib/group-format";
 import { MAP_APPS, type MapApp } from "@/lib/map-link";
 import type { Theme } from "@/lib/theme";
@@ -33,6 +34,7 @@ import { UpdateStatus } from "./update-notice";
 
 const SYSTEM = "system";
 const AUTO = "auto";
+const PREVIEW_PHONE = "+41 79 000 00 01";
 const BUG_REPORT_URL = "https://github.com/KewinDousse/natel/issues/new/choose";
 
 export function SettingsPage() {
@@ -54,6 +56,8 @@ export function SettingsPage() {
     setAvatarShape,
     showCardDates,
     setShowCardDates,
+    phoneFormat,
+    setPhoneFormat,
   } = usePreferences();
 
   useEffect(() => {
@@ -115,7 +119,18 @@ export function SettingsPage() {
             </NativeSelect>
           </Field>
         </SettingsSection>
-        <SettingsSection title={t("settings_contacts")}>
+        <SettingsSection title={t("settings_contact")}>
+          <Field id="setting-sort" label={t("name_first")}>
+            <NativeSelect
+              id="setting-sort"
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as SortBy)}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value="given">{t("sort_given")}</option>
+              <option value="family">{t("sort_family")}</option>
+            </NativeSelect>
+          </Field>
           <Field id="setting-avatar-shape" label={t("avatar_shape")}>
             <NativeSelect
               id="setting-avatar-shape"
@@ -126,6 +141,23 @@ export function SettingsPage() {
               <option value="round">{t("avatar_shape_round")}</option>
               <option value="square">{t("avatar_shape_square")}</option>
             </NativeSelect>
+          </Field>
+        </SettingsSection>
+        <SettingsSection title={t("settings_contact_details")}>
+          <Field id="setting-phone-format" label={t("phone_format")}>
+            <NativeSelect
+              id="setting-phone-format"
+              aria-describedby="phone-format-hint"
+              value={phoneFormat}
+              onChange={(event) => setPhoneFormat(event.target.value as PhoneFormat)}
+              className={fieldClass("h-12 lg:h-11")}
+            >
+              <option value="local">{t("phone_format_local")}</option>
+              <option value="international">{t("phone_format_international")}</option>
+            </NativeSelect>
+            <p id="phone-format-hint" className="text-sm text-muted-foreground">
+              {t("phone_format_hint")}
+            </p>
           </Field>
           <Field id="setting-label-position" label={t("label_position")}>
             <NativeSelect
@@ -144,29 +176,18 @@ export function SettingsPage() {
             </p>
           </Field>
           <figure
-            aria-label={t("label_position_preview")}
+            aria-label={t("settings_preview")}
             className="rounded-lg border bg-background p-4"
           >
             <figcaption className="mb-3 text-sm text-muted-foreground">
-              {t("label_position_preview")}
+              {t("settings_preview")}
             </figcaption>
             <ReadingSection title={t("s_phones_1")} heading="h3">
               <ReadingRow label={t("t_cell")}>
-                <span className="tabular font-bold">079 000 00 01</span>
+                <span className="tabular font-bold">{formatPhone(PREVIEW_PHONE, phoneFormat)}</span>
               </ReadingRow>
             </ReadingSection>
           </figure>
-          <Field id="setting-sort" label={t("sort_label")}>
-            <NativeSelect
-              id="setting-sort"
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as SortBy)}
-              className={fieldClass("h-12 lg:h-11")}
-            >
-              <option value="given">{t("sort_given")}</option>
-              <option value="family">{t("sort_family")}</option>
-            </NativeSelect>
-          </Field>
           <Field id="setting-map" label={t("map_label")}>
             <NativeSelect
               id="setting-map"

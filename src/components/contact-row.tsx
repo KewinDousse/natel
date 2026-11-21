@@ -2,22 +2,25 @@
 
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import {
   type ContactGroup,
   contactIdOf,
+  digitQueryOf,
   type HighlightSegment,
   isOrgCard,
   isUnnamed,
   namePartsOf,
   orderedNameOf,
+  phoneDigitsOf,
   type SortBy,
   splitByQuery,
   trailingValueOf,
 } from "@/lib/contact-list";
 import { formatPhone } from "@/lib/format-phone";
 import type { Contact } from "@/model/contact";
+import { usePreferences } from "@/store/preferences";
 import { useBookParam } from "@/store/session";
 import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
 
@@ -207,23 +210,23 @@ function Marked({ value, query }: { value: string; query: string }) {
 }
 
 /**
- * Like Marked but for phone numbers: also matches digit-only queries against
- * the digit form of the displayed value. When a digit query matches the
- * digits-only form, the entire formatted value is marked.
+ * Like Marked but for phone numbers: a digit-only query that search matched
+ * on this number (its stored or displayed digits) marks the entire formatted
+ * value.
  */
 function TelMarked({ value, query }: { value: string; query: string }) {
-  const formatted = formatPhone(value);
+  const phoneFormat = usePreferences((state) => state.phoneFormat);
+  const formatted = useMemo(() => formatPhone(value, phoneFormat), [value, phoneFormat]);
+  const qDigits = digitQueryOf(query);
+  const digitQuery = qDigits !== null;
+  // Parsed only while a digit query is typed, and once per number then.
+  const digits = useMemo(() => (digitQuery ? phoneDigitsOf(value) : ""), [value, digitQuery]);
   const segments = splitByQuery(formatted, query);
   if (segments.length > 1 || (segments[0]?.hit ?? false)) {
     return <MarkedSegments segments={segments} />;
   }
-  const qDigits = query.replace(/[\s.+-]/g, "");
-  if (qDigits.length >= 3) {
-    const formattedDigits = formatted.replace(/[\s.+-]/g, "");
-    const digitSegments = splitByQuery(formattedDigits, qDigits);
-    if (digitSegments.length > 1 || (digitSegments[0]?.hit ?? false)) {
-      return <mark>{formatted}</mark>;
-    }
+  if (qDigits !== null && digits.includes(qDigits)) {
+    return <mark>{formatted}</mark>;
   }
   return <>{formatted}</>;
 }
