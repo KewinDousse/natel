@@ -10,6 +10,9 @@ export default defineConfig({
   // CI runners share their host with other jobs: there, every step of a
   // healthy test can run seconds slower, past Playwright's default 30 s.
   timeout: 60_000,
+  // There too, the CardDAV server now and then takes seconds to answer one
+  // request, past the 5 s an expect waits by default.
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
