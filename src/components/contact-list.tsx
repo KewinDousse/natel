@@ -12,7 +12,7 @@ import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
 import { useHeightVar } from "@/hooks/use-height-var";
 import { useOpenRowInView } from "@/hooks/use-open-row-in-view";
 import { useI18n } from "@/i18n/react";
-import { bookGroups, contactsInGroup } from "@/lib/contact-groups";
+import { bookGroups, contactsInGroup, type GroupChoice, NO_GROUP } from "@/lib/contact-groups";
 import { buildGroups, type SortBy } from "@/lib/contact-list";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/model/contact";
@@ -49,9 +49,9 @@ type ContactListProps = {
   onSortBy: (sortBy: SortBy) => void;
   /** The book's group cards, which the group filter reads with CATEGORIES. */
   groupCards: Contact[];
-  /** The group the list is filtered on, or null for every contact. */
-  groupFilter: string | null;
-  onGroupFilter: (name: string | null) => void;
+  /** The group the list is filtered on, NO_GROUP for contacts in none, or null for every contact. */
+  groupFilter: GroupChoice | null;
+  onGroupFilter: (choice: GroupChoice | null) => void;
   skippedCount?: number;
   retrying?: boolean;
 };
@@ -73,14 +73,16 @@ export function ContactList({
   retrying = false,
 }: ContactListProps) {
   const { t } = useI18n();
-  const bookGroupList = useMemo(
+  const { groups: bookGroupList, noGroupCount } = useMemo(
     () => bookGroups(contacts ?? [], groupCards),
     [contacts, groupCards],
   );
-  // A group that no longer exists filters nothing.
-  const activeGroup = bookGroupList.some((group) => group.name === groupFilter)
-    ? groupFilter
-    : null;
+  // A group that no longer exists filters nothing, nor does NO_GROUP in a book without groups.
+  const activeGroup =
+    (groupFilter === NO_GROUP && bookGroupList.length > 0) ||
+    bookGroupList.some((group) => group.name === groupFilter)
+      ? groupFilter
+      : null;
   const listed = useMemo(
     () =>
       activeGroup === null
@@ -138,6 +140,7 @@ export function ContactList({
   // Loading keeps the toolbar and the rail: only the rows wait for the book.
   const loading = contacts === undefined;
   const count = contacts?.length ?? 0;
+  // The No group pill already names the filter, so its count stays plain.
   const countLabel = loading
     ? t("loading_contacts")
     : searching
@@ -146,13 +149,13 @@ export function ContactList({
         : shown === 1
           ? t("results_1")
           : t("results_n", { n: String(shown) })
-      : activeGroup !== null
+      : activeGroup === null || activeGroup === NO_GROUP
         ? listed.length === 1
-          ? t("count_in_group_1", { group: activeGroup })
-          : t("count_in_group", { n: String(listed.length), group: activeGroup })
-        : count === 1
           ? t("count_1")
-          : t("count", { n: String(count) });
+          : t("count", { n: String(listed.length) })
+        : listed.length === 1
+          ? t("count_in_group_1", { group: activeGroup })
+          : t("count_in_group", { n: String(listed.length), group: activeGroup });
 
   const showIncompleteBook = count === 0 && skippedCount > 0;
   const showEmptyBook = !searching && count === 0 && !showIncompleteBook;
@@ -167,7 +170,12 @@ export function ContactList({
           <span className="tabular">{countLabel}</span>
         </p>
         {!loading && bookGroupList.length > 0 && (
-          <GroupFilter groups={bookGroupList} selected={activeGroup} onSelect={onGroupFilter} />
+          <GroupFilter
+            groups={bookGroupList}
+            noGroupCount={noGroupCount}
+            selected={activeGroup}
+            onSelect={onGroupFilter}
+          />
         )}
         {/* The sort is a setting too: on phones the toolbar keeps the count and the filter. */}
         <SortToggle sortBy={sortBy} onSortBy={onSortBy} />
@@ -181,7 +189,7 @@ export function ContactList({
       ) : showIncompleteBook ? null : showEmptyBook ? (
         <EmptyBook onImport={onImport} />
       ) : showEmptyGroup ? (
-        <StateBox title={t("group_empty")} />
+        <StateBox title={t(activeGroup === NO_GROUP ? "group_none_empty" : "group_empty")} />
       ) : showNoResults ? (
         <StateBox title={t("results_0")} hint={t("empty_hint")} />
       ) : (

@@ -4,35 +4,45 @@
  * Escape closes and restores focus to the trigger, arrow keys move between
  * items, the chosen entry is marked with aria-checked (menuitemradio), and
  * clicking outside closes the menu. Once filtered, the pill names the group
- * and a × goes back to every group.
+ * (or "No group") and a × goes back to every group.
  */
 
 import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
-import type { BookGroup } from "@/lib/contact-groups";
+import { type BookGroup, type GroupChoice, NO_GROUP } from "@/lib/contact-groups";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING } from "./ui/button";
 import { CheckIcon, ChevronDownIcon, XSmallIcon } from "./ui/icons";
 
 type GroupFilterProps = {
   groups: BookGroup[];
-  /** The group shown, or null for every contact. */
-  selected: string | null;
-  onSelect: (name: string | null) => void;
+  /** How many contacts are in no group. */
+  noGroupCount: number;
+  /** The group shown, NO_GROUP for contacts in none, or null for every contact. */
+  selected: GroupChoice | null;
+  onSelect: (choice: GroupChoice | null) => void;
 };
 
 const ITEMS = '[role="menuitemradio"]';
 
-export function GroupFilter({ groups, selected, onSelect }: GroupFilterProps) {
+export function GroupFilter({ groups, noGroupCount, selected, onSelect }: GroupFilterProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // "Tous les groupes" comes first, then each group in order.
-  const currentIndex =
-    selected === null ? 0 : groups.findIndex((group) => group.name === selected) + 1;
+  // "All groups" and "No group" come first, then each group in order.
+  const entries: { choice: GroupChoice | null; count?: number }[] = [
+    { choice: null },
+    { choice: NO_GROUP, count: noGroupCount },
+    ...groups.map((group) => ({ choice: group.name, count: group.count })),
+  ];
+  // A choice no longer in the menu leaves the focus on "All groups".
+  const currentIndex = Math.max(
+    entries.findIndex((entry) => entry.choice === selected),
+    0,
+  );
 
   const close = useCallback(() => {
     setOpen(false);
@@ -91,26 +101,30 @@ export function GroupFilter({ groups, selected, onSelect }: GroupFilterProps) {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open, close]);
 
-  function choose(name: string | null) {
-    onSelect(name);
+  function choose(choice: GroupChoice | null) {
+    onSelect(choice);
     close();
   }
 
-  const label = selected ?? t("group_all");
-  const item = (name: string | null, index: number, count?: number) => {
-    const checked = name === selected;
+  const nameOf = (choice: GroupChoice | null) =>
+    choice === null ? t("group_all") : choice === NO_GROUP ? t("group_none") : choice;
+  const label = nameOf(selected);
+  const keyOf = (choice: GroupChoice | null) =>
+    choice === null ? "all" : choice === NO_GROUP ? "none" : `group:${choice}`;
+  const item = ({ choice, count }: (typeof entries)[number], index: number) => {
+    const checked = choice === selected;
     return (
-      <div key={name ?? ""} role="none">
+      <div key={keyOf(choice)} role="none">
         <button
           type="button"
           role="menuitemradio"
           aria-checked={checked}
           tabIndex={index === focusedIndex ? 0 : -1}
           onMouseEnter={() => setFocusedIndex(index)}
-          onClick={() => choose(name)}
+          onClick={() => choose(choice)}
           className="flex h-10 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
         >
-          <span className="truncate">{name ?? t("group_all")}</span>
+          <span className="truncate">{nameOf(choice)}</span>
           {checked ? (
             <span className="ml-auto shrink-0 text-success" aria-hidden="true">
               <CheckIcon />
@@ -192,9 +206,9 @@ export function GroupFilter({ groups, selected, onSelect }: GroupFilterProps) {
           onKeyDown={onMenuKeyDown}
           className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-30 max-h-[60vh] overflow-y-auto rounded-lg bg-popover py-1 shadow-float sm:inset-x-auto sm:right-0 sm:min-w-[13rem]"
         >
-          {item(null, 0)}
+          {entries.slice(0, 2).map(item)}
           <hr className="my-1 border-t" />
-          {groups.map((group, index) => item(group.name, index + 1, group.count))}
+          {entries.slice(2).map((entry, index) => item(entry, index + 2))}
         </div>
       )}
     </div>
