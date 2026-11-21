@@ -6,6 +6,7 @@
  * Sorted by last modification, the list is one group without a letter.
  */
 
+import { phoneDisplays } from "@/lib/format-phone";
 import { fnv1a } from "@/lib/hash";
 import type { Contact, ContactField } from "@/model/contact";
 import { orgOf, revisionOf, typeValuesOf } from "@/vcard";
@@ -132,6 +133,51 @@ export function railTarget(
   );
 }
 
+/** The A–Z rail's letters, top to bottom. */
+export const RAIL_LETTERS: readonly string[] = [...ALPHABET, OTHER_GROUP];
+
+/** Height in px of a rail slot whose letter, at three quarters of it, stays at 11px. */
+export const RAIL_SLOT_MIN = 15;
+
+/**
+ * What the A–Z rail shows in `height` px: every letter when they all fit a
+ * slot of `RAIL_SLOT_MIN`, else letters alternating with dots (`null`), from A
+ * to #, the letters spread evenly over the alphabet, as iOS collapses its index.
+ */
+export function railSlots(height: number): (string | null)[] {
+  const fit = Math.floor(height / RAIL_SLOT_MIN);
+  if (fit >= RAIL_LETTERS.length) return [...RAIL_LETTERS];
+  // An odd count, so the sequence starts and ends on a letter.
+  const count = fit % 2 === 1 ? fit : fit - 1;
+  if (count < 3) return [];
+  const letters = (count + 1) / 2;
+  const last = RAIL_LETTERS.length - 1;
+  return Array.from({ length: count }, (_, slot) =>
+    slot % 2 === 1 ? null : (RAIL_LETTERS[Math.round(((slot / 2) * last) / (letters - 1))] ?? null),
+  );
+}
+
+/**
+ * The index in `RAIL_LETTERS` of the letter at `fraction` (0 at the top, 1 at
+ * the bottom) of a rail showing `slots`: a letter's slot gives that letter, and
+ * a dot's slot spreads the letters it stands for, so a finger reaches them all.
+ */
+export function railIndexAt(
+  slots: readonly (string | null)[],
+  fraction: number,
+): number | undefined {
+  if (slots.length === 0) return undefined;
+  const at = Math.min(Math.max(fraction, 0), 1) * slots.length;
+  const slot = Math.min(slots.length - 1, Math.floor(at));
+  const letter = slots[slot];
+  if (letter !== null && letter !== undefined) return RAIL_LETTERS.indexOf(letter);
+  const before = RAIL_LETTERS.indexOf(slots[slot - 1] ?? "");
+  const after = RAIL_LETTERS.indexOf(slots[slot + 1] ?? "");
+  const hidden = after - before - 1;
+  if (before < 0 || hidden <= 0) return undefined;
+  return before + 1 + Math.min(hidden - 1, Math.floor((at - slot) * hidden));
+}
+
 /**
  * A row's name in the order of the name sort (first or last name): the part
  * the list is sorted by leads (and is set bold), so "Fortune Sarah" by last
@@ -183,29 +229,64 @@ export function primaryNumberOf(contact: Contact): ContactField | null {
 // Search
 // ---------------------------------------------------------------------------
 
+const searchTargets = new WeakMap<Contact, SearchTarget>();
+
 /**
- * Precomputed search text: folded lowercase name + emails + org (no TEL —
- * phones match only through the digits field, gated to ≥3-digit queries),
- * plus the same with spaces/dots/+/- stripped for compact digit matching.
+ * Precomputed search text. `folded`: the folded name, emails and org.
+ * `digits`: the same with digitsOf's separators stripped, followed by each
+ * number's digit forms (see phoneDigitsOf). Phones are only in `digits`, so
+ * they match only digit queries of 3 digits or more. Cached per contact, since
+ * the list filters on every keystroke and parsing numbers is costly.
  */
 export function searchTargetOf(contact: Contact): SearchTarget {
+  const cached = searchTargets.get(contact);
+  if (cached !== undefined) return cached;
   const parts = namePartsOf(contact);
   // Both orders, since the list shows "Given Family" when sorted by first name.
   const reversed = parts.family && parts.given ? `${parts.given} ${parts.family}` : "";
-  const textParts = [
+  const text = [
     parts.display,
     reversed,
     ...contact.fields.email.map((email) => email.value),
     orgOf(contact),
-  ].filter((part) => part.length > 0);
-  const telText = contact.fields.tel
-    .map((tel) => tel.value)
+  ]
     .filter((part) => part.length > 0)
     .join(" ");
-  const folded = fold(textParts.join(" "));
-  const allText = telText.length > 0 ? `${textParts.join(" ")} ${telText}` : textParts.join(" ");
-  const digits = fold(allText).replace(/[\s.+-]/g, "");
-  return { folded, digits };
+  // "|" survives digitsOf, so no digit match spans two numbers.
+  const phones = contact.fields.tel
+    .map((tel) => tel.value)
+    .filter((value) => value.length > 0)
+    .map((value) => `|${phoneDigitsOf(value)}`)
+    .join("");
+  const target = { folded: fold(text), digits: `${digitsOf(text)}${phones}` };
+  searchTargets.set(contact, target);
+  return target;
+}
+
+/** Text with the separators a phone number may carry stripped, for digit matching. */
+function digitsOf(text: string): string {
+  return fold(text).replace(/[\s.()+-]/g, "");
+}
+
+/**
+ * A number's digits as stored, as shown in local format, and as shown in
+ * international format with its + written 00, so a number is found by the
+ * digits it is stored with and by those the list shows in either format.
+ */
+export function phoneDigitsOf(value: string): string {
+  const { local, international } = phoneDisplays(value);
+  const plus = international.startsWith("+") ? "00" : "";
+  // "|" keeps the forms apart, so no match spans two of them.
+  return `${digitsOf(value)}|${local.replace(/\D/g, "")}|${plus}${international.replace(/\D/g, "")}`;
+}
+
+/**
+ * The digits of a query that matches phone numbers: digits only, at least 3
+ * (a single "1" would match every number). Null for any other query.
+ */
+export function digitQueryOf(rawQuery: string): string | null {
+  const qDigits = digitsOf(rawQuery.trim());
+  return qDigits.length > 2 && /^\d+$/.test(qDigits) ? qDigits : null;
 }
 
 /**
@@ -218,11 +299,8 @@ export function matchesQuery(target: SearchTarget, rawQuery: string): boolean {
   const q = fold(rawQuery.trim());
   if (q.length === 0) return true;
   if (target.folded.includes(q)) return true;
-  const qDigits = q.replace(/[\s.+-]/g, "");
-  if (qDigits.length > 2 && /^\d+$/.test(qDigits)) {
-    return target.digits.includes(qDigits);
-  }
-  return false;
+  const qDigits = digitQueryOf(rawQuery);
+  return qDigits !== null && target.digits.includes(qDigits);
 }
 
 /**
@@ -269,7 +347,6 @@ type SortedEntry = {
   contact: Contact;
   key: string;
   foldedKey: string;
-  target: SearchTarget;
   /** The `REV` instant in ms, or null without a readable one. */
   revised: number | null;
 };
@@ -316,9 +393,13 @@ export function buildGroups(
   const entries: SortedEntry[] = contacts.map((contact) => {
     const key = sortKeyOf(contact, sortBy);
     const revised = byRevision ? (revisionOf(contact)?.date.getTime() ?? null) : null;
-    return { contact, key, foldedKey: fold(key), target: searchTargetOf(contact), revised };
+    return { contact, key, foldedKey: fold(key), revised };
   });
-  const visible = entries.filter((entry) => matchesQuery(entry.target, query));
+  // Without a query every contact shows, so no search target is built.
+  const visible =
+    query.trim().length === 0
+      ? entries
+      : entries.filter((entry) => matchesQuery(searchTargetOf(entry.contact), query));
   visible.sort(byRevision ? newestFirst : byName);
   if (byRevision) {
     return visible.length === 0

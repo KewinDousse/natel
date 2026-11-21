@@ -16,6 +16,10 @@ import {
   matchesQuery,
   namePartsOf,
   orderedNameOf,
+  RAIL_LETTERS,
+  RAIL_SLOT_MIN,
+  railIndexAt,
+  railSlots,
   railTarget,
   searchTargetOf,
   splitByQuery,
@@ -197,6 +201,35 @@ describe("railTarget", () => {
   });
 });
 
+describe("railSlots", () => {
+  it("shows every letter when they all fit", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 27)).toEqual(RAIL_LETTERS);
+    expect(railSlots(1000)).toEqual(RAIL_LETTERS);
+  });
+
+  it("alternates letters and dots from A to # when they do not", () => {
+    const slots = railSlots(RAIL_SLOT_MIN * 27 - 1);
+    expect(slots).toHaveLength(25);
+    expect(slots[0]).toBe("A");
+    expect(slots.at(-1)).toBe("#");
+    for (const [i, slot] of slots.entries()) expect(slot === null).toBe(i % 2 === 1);
+  });
+
+  it("spreads the letters evenly over the alphabet", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 9)).toEqual(["A", null, "H", null, "N", null, "U", null, "#"]);
+  });
+
+  it("keeps an odd count that fits the height", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 10)).toHaveLength(9);
+    expect(railSlots(RAIL_SLOT_MIN * 3)).toEqual(["A", null, "#"]);
+  });
+
+  it("shows nothing without room for A and #", () => {
+    expect(railSlots(RAIL_SLOT_MIN * 3 - 1)).toEqual([]);
+    expect(railSlots(0)).toEqual([]);
+  });
+});
+
 describe("trailingValueOf", () => {
   it("prefers the first TEL with TYPE=cell over other tels", () => {
     const contact = makeContact({
@@ -239,7 +272,7 @@ describe("trailingValueOf", () => {
 });
 
 describe("searchTargetOf", () => {
-  it("folds name, org, emails and phones as stored", () => {
+  it("folds name, org, emails, and phones as stored and as shown in either format", () => {
     const target = searchTargetOf(
       makeContact({
         family: "Medarda",
@@ -250,7 +283,8 @@ describe("searchTargetOf", () => {
       }),
     );
     expect(target.folded).toBe("medarda mel mel medarda mel@medarda.example piltover");
-    expect(target.digits).toBe("medardamelmelmedardamel@medardaexamplepiltover0780000003");
+    expect(target.digits).toContain("medardamelmelmedardamel@medardaexamplepiltover");
+    expect(matchesQuery(target, "0780000003")).toBe(true);
   });
 });
 
@@ -275,6 +309,37 @@ describe("matchesQuery", () => {
     expect(matchesQuery(targetOf(contact), "078000")).toBe(true);
     expect(matchesQuery(targetOf(contact), "078 000")).toBe(true);
     expect(matchesQuery(targetOf(contact), "000 00")).toBe(true);
+  });
+
+  it("matches the digits of a number's local display, which drops its country code", () => {
+    const amumu = makeContact({ family: "Amumu", tel: [{ value: "+33 1 99 00 12 34" }] });
+    expect(matchesQuery(searchTargetOf(amumu), "01 99 00")).toBe(true);
+    expect(matchesQuery(searchTargetOf(amumu), "+33 1 99")).toBe(true);
+    const zilean = makeContact({ family: "Zilean", tel: [{ value: "+12125550166" }] });
+    expect(matchesQuery(searchTargetOf(zilean), "(212) 555")).toBe(true);
+    // The stored and local forms are kept apart: no match spans both.
+    expect(matchesQuery(searchTargetOf(zilean), "01662125")).toBe(false);
+  });
+
+  it("matches the digits of a number's international display", () => {
+    const vi = makeContact({ family: "Vi", tel: [{ value: "+41 (0)79 000 00 01" }] });
+    expect(matchesQuery(searchTargetOf(vi), "41 79 000")).toBe(true);
+    expect(matchesQuery(searchTargetOf(vi), "0041 79 000")).toBe(true);
+  });
+
+  it("matches a country code dialled with 00 on every number of that country", () => {
+    const caitlyn = makeContact({ family: "Caitlyn", tel: [{ value: "079 000 00 02" }] });
+    expect(matchesQuery(searchTargetOf(caitlyn), "0041")).toBe(true);
+    const ekko = makeContact({ family: "Ekko", tel: [{ value: "+12125550166" }] });
+    expect(matchesQuery(searchTargetOf(ekko), "0041")).toBe(false);
+  });
+
+  it("never matches digits spanning two numbers", () => {
+    const jinx = makeContact({
+      family: "Jinx",
+      tel: [{ value: "+41 78 000 00 03" }, { value: "+41 79 000 00 01" }],
+    });
+    expect(matchesQuery(searchTargetOf(jinx), "00034179")).toBe(false);
   });
 
   it("uses the compact-digit rule only from 3 digits", () => {
@@ -528,5 +593,37 @@ describe("N components holding several values", () => {
   it("finds the card by any of the values", () => {
     expect(matchesQuery(searchTargetOf(alix), "alix")).toBe(true);
     expect(buildGroups([alix], "family", "alix").flatMap((g) => g.contacts)).toEqual([alix]);
+  });
+});
+
+describe("railIndexAt", () => {
+  const short = railSlots(RAIL_SLOT_MIN * 13);
+
+  it("maps a full rail evenly onto the 27 letters", () => {
+    expect(railIndexAt(RAIL_LETTERS, 0)).toBe(0);
+    expect(railIndexAt(RAIL_LETTERS, 0.5)).toBe(13);
+    expect(railIndexAt(RAIL_LETTERS, 1)).toBe(26);
+  });
+
+  it("gives a shown letter anywhere in its slot", () => {
+    expect(short).toEqual(["A", null, "E", null, "J", null, "N", null, "R", null, "W", null, "#"]);
+    for (const offset of [0.01, 0.5, 0.99]) {
+      expect(railIndexAt(short, offset / 13)).toBe(0);
+      expect(railIndexAt(short, (2 + offset) / 13)).toBe(4);
+      expect(railIndexAt(short, (12 + offset) / 13)).toBe(26);
+    }
+  });
+
+  it("spreads a dot's slot over the letters it hides", () => {
+    // Between A and E, the dot stands for B, C and D.
+    expect([0.1, 0.5, 0.9].map((offset) => railIndexAt(short, (1 + offset) / 13))).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it("clamps outside the column and has no letter on an empty rail", () => {
+    expect(railIndexAt(short, -1)).toBe(0);
+    expect(railIndexAt(short, 2)).toBe(26);
+    expect(railIndexAt([], 0.5)).toBeUndefined();
   });
 });

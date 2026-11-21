@@ -36,6 +36,12 @@ import { ContactRow, SectionFrame } from "./contact-row";
  */
 export const VIRTUAL_ABOVE = 1000;
 
+/**
+ * The list toolbar's id, so that the virtualizer measures the element whose
+ * height also sets `--list-toolbar-h`.
+ */
+export const LIST_TOOLBAR_ID = "list-toolbar";
+
 /** Brings a contact's row into view, mounting it if needed. */
 export type ContactListHandle = { reveal: (contactId: string) => void };
 
@@ -142,6 +148,11 @@ function headerHeight(): number {
   return document.getElementById("app-header")?.offsetHeight ?? 0;
 }
 
+/** What the sticky list toolbar covers of the list's scroller. */
+function toolbarHeight(): number {
+  return document.getElementById(LIST_TOOLBAR_ID)?.offsetHeight ?? 0;
+}
+
 function useSlotOptions(groups: ContactGroup[]) {
   const model = useMemo(() => slotsOf(groups), [groups]);
   const { slots } = model;
@@ -211,6 +222,8 @@ function PaneSections(props: SectionsProps & { anchor: Anchor }) {
     rangeExtractor: slot.rangeExtractor,
     overscan: OVERSCAN,
     scrollMargin: slot.scrollMargin,
+    // A row scrolled to lands below the sticky toolbar.
+    scrollPaddingStart: toolbarHeight(),
     initialRect: { width: 0, height: window.innerHeight },
     paddingEnd: SECTION_PADDING,
   });
@@ -238,8 +251,8 @@ function PageSections(props: SectionsProps & { anchor: Anchor }) {
     rangeExtractor: slot.rangeExtractor,
     overscan: OVERSCAN,
     scrollMargin: slot.scrollMargin,
-    // A row scrolled to lands below the sticky header.
-    scrollPaddingStart: headerHeight(),
+    // A row scrolled to lands below the sticky header and toolbar.
+    scrollPaddingStart: headerHeight() + toolbarHeight(),
     initialRect: { width: 0, height: window.innerHeight },
     paddingEnd: SECTION_PADDING,
   });
@@ -356,7 +369,8 @@ function Sections({
     // Once the layout has switched, this scroller has lost its position, and a
     // hidden list has none.
     if (isDesktop() !== desktop || !isShown(containerRef.current)) return;
-    const covered = (virtualizer.scrollOffset ?? 0) + (desktop ? 0 : headerHeight());
+    const covered =
+      (virtualizer.scrollOffset ?? 0) + (desktop ? 0 : headerHeight()) + toolbarHeight();
     const first = virtualizer
       .getVirtualItems()
       .find((item) => item.end > covered && slots[item.index]?.kind === "row");

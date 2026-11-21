@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Fix an end-to-end test of the A–Z index, which expected a jump to a letter to land under the header instead of under the list toolbar. The application does not change."
+}

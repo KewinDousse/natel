@@ -20,10 +20,10 @@ function emailKey(value: string): string | null {
 }
 
 /**
- * The number in international form, with Swiss numbers written nationally
- * read as Swiss (as formatPhone does), else its digits when there are enough
- * of them to tell numbers apart. Such a number only matches when written the
- * same way: a hint may miss, never invent a likeness.
+ * The number in international form, with numbers written nationally read as
+ * Swiss, else its digits when there are enough of them to tell numbers apart.
+ * Such a number only matches when written the same way: a hint may miss, never
+ * invent a likeness.
  */
 function phoneKey(value: string): string | null {
   const parsed = parsePhoneNumberFromString(value, { defaultCountry: "CH", extract: false });

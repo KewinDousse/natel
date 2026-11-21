@@ -1,0 +1,4 @@
+{
+  "type": "Fixed",
+  "text": "On the public demo, a shared link to a contact, an address book, the settings or the help answers with a success status instead of a 404, so link previews and crawlers see the page."
+}

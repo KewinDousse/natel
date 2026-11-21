@@ -5,16 +5,18 @@
 
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/i18n/react";
 import {
   type ContactGroup,
   contactIdOf,
+  digitQueryOf,
   type HighlightSegment,
   isOrgCard,
   isUnnamed,
   namePartsOf,
   orderedNameOf,
+  phoneDigitsOf,
   type SortBy,
   splitByQuery,
   trailingValueOf,
@@ -23,6 +25,7 @@ import {
 import { cardDateTime, formatCardDate, formatShortCardDate } from "@/lib/format-card-date";
 import { formatPhone } from "@/lib/format-phone";
 import type { Contact } from "@/model/contact";
+import { usePreferences } from "@/store/preferences";
 import { useBookParam } from "@/store/session";
 import { revisionOf } from "@/vcard";
 import { BuildingAvatar, InitialsAvatar, PhotoAvatar } from "./photo-avatar";
@@ -66,9 +69,9 @@ export function SectionFrame({ letter, children }: { letter: string; children: R
   return (
     <section
       id={`g-${letter}`}
-      className="grid scroll-mt-[calc(var(--header-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 sm:grid-cols-[3rem_1fr] lg:scroll-mt-0"
+      className="grid scroll-mt-[calc(var(--header-h)+var(--list-toolbar-h)+0.125rem)] grid-cols-[2.75rem_1fr] border-t py-2 sm:grid-cols-[3rem_1fr] lg:scroll-mt-0"
     >
-      <h2 className="sticky top-[var(--header-h)] self-start pl-2 pt-4 font-display text-title-sm font-bold leading-[0.8] text-brand sm:pt-3.5 lg:top-2">
+      <h2 className="sticky top-[calc(var(--header-h)+var(--list-toolbar-h))] self-start pl-2 pt-4 font-display text-title-sm font-bold leading-[0.8] text-brand sm:pt-3.5 lg:top-[calc(var(--list-toolbar-h)+0.5rem)]">
         {letter}
       </h2>
       {children}
@@ -249,23 +252,23 @@ function Marked({ value, query }: { value: string; query: string }) {
 }
 
 /**
- * Like Marked but for phone numbers: also matches digit-only queries against
- * the digit form of the displayed value. When a digit query matches the
- * digits-only form, the entire formatted value is marked.
+ * Like Marked but for phone numbers: a digit-only query that search matched
+ * on this number (its stored or displayed digits) marks the entire formatted
+ * value.
  */
 function TelMarked({ value, query }: { value: string; query: string }) {
-  const formatted = formatPhone(value);
+  const phoneFormat = usePreferences((state) => state.phoneFormat);
+  const formatted = useMemo(() => formatPhone(value, phoneFormat), [value, phoneFormat]);
+  const qDigits = digitQueryOf(query);
+  const digitQuery = qDigits !== null;
+  // Parsed only while a digit query is typed, and once per number then.
+  const digits = useMemo(() => (digitQuery ? phoneDigitsOf(value) : ""), [value, digitQuery]);
   const segments = splitByQuery(formatted, query);
   if (segments.length > 1 || (segments[0]?.hit ?? false)) {
     return <MarkedSegments segments={segments} />;
   }
-  const qDigits = query.replace(/[\s.+-]/g, "");
-  if (qDigits.length >= 3) {
-    const formattedDigits = formatted.replace(/[\s.+-]/g, "");
-    const digitSegments = splitByQuery(formattedDigits, qDigits);
-    if (digitSegments.length > 1 || (digitSegments[0]?.hit ?? false)) {
-      return <mark>{formatted}</mark>;
-    }
+  if (qDigits !== null && digits.includes(qDigits)) {
+    return <mark>{formatted}</mark>;
   }
   return <>{formatted}</>;
 }

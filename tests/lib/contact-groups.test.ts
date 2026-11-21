@@ -8,6 +8,7 @@ import {
   bookGroups,
   contactGroupNames,
   contactsInGroup,
+  NO_GROUP,
 } from "@/lib/contact-groups";
 import { parse } from "@/vcard";
 
@@ -72,17 +73,20 @@ describe("bookGroups", () => {
   const grace = card(["VERSION:3.0", "UID:grace", "FN:Grace", "CATEGORIES:Famille"]);
   const alan = card(["VERSION:3.0", "UID:alan", "FN:Alan"]);
 
-  it("counts each group's contacts once, empty groups at 0, sorted", () => {
-    expect(bookGroups([ada, grace, alan], [family, club, empty])).toEqual([
-      { name: "Club", count: 1 },
-      { name: "Famille", count: 2 },
-      { name: "Travail", count: 1 },
-      { name: "Vide", count: 0 },
-    ]);
+  it("counts each group's contacts once, empty groups at 0, sorted, and those in none", () => {
+    expect(bookGroups([ada, grace, alan], [family, club, empty])).toEqual({
+      groups: [
+        { name: "Club", count: 1 },
+        { name: "Famille", count: 2 },
+        { name: "Travail", count: 1 },
+        { name: "Vide", count: 0 },
+      ],
+      noGroupCount: 1,
+    });
   });
 
-  it("is empty for a book without groups", () => {
-    expect(bookGroups([alan], [])).toEqual([]);
+  it("has no group, and counts every contact in none, for a book without groups", () => {
+    expect(bookGroups([alan], [])).toEqual({ groups: [], noGroupCount: 1 });
   });
 });
 
@@ -93,5 +97,25 @@ describe("contactsInGroup", () => {
   it("keeps the members from group cards and from CATEGORIES", () => {
     expect(contactsInGroup([ada, grace, alan], [family], "Famille")).toEqual([ada, grace]);
     expect(contactsInGroup([ada, grace, alan], [family], "Vide")).toEqual([]);
+  });
+});
+
+describe("contactsInGroup with NO_GROUP", () => {
+  const grace = card(["VERSION:3.0", "UID:grace", "FN:Grace", "CATEGORIES:Famille"]);
+  const alan = card(["VERSION:3.0", "UID:alan", "FN:Alan"]);
+  const bob = card(["VERSION:4.0", "UID:urn:uuid:bob", "FN:Bob"]);
+  const bobsClub = card(["VERSION:4.0", "UID:g4", "FN:Club", "KIND:group", "MEMBER:urn:uuid:bob"]);
+
+  it("keeps only the contacts no group card lists and with no CATEGORIES", () => {
+    expect(contactsInGroup([ada, grace, alan, bob], [family, empty], NO_GROUP)).toEqual([
+      alan,
+      bob,
+    ]);
+    expect(contactsInGroup([ada, grace, alan, bob], [bobsClub], NO_GROUP)).toEqual([alan]);
+  });
+
+  it("counts a contact whose CATEGORIES are blank as in no group", () => {
+    const blank = card(["VERSION:3.0", "UID:blank", "FN:Blank", "CATEGORIES: "]);
+    expect(contactsInGroup([blank, grace], [], NO_GROUP)).toEqual([blank]);
   });
 });

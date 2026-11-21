@@ -46,6 +46,7 @@ beforeEach(() => {
     labelPosition: "auto",
     avatarShape: "round",
     showCardDates: false,
+    phoneFormat: "local",
   });
 });
 
@@ -70,6 +71,15 @@ describe("the list's sort", () => {
     usePreferences.getState().setListSort("given");
     expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
     expect(usePreferences.getState()).toMatchObject({ sortBy: "given", byRevision: false });
+  });
+
+  it("changes the order of names from the settings without leaving the sort by last modification", () => {
+    usePreferences.getState().setListSort("edited");
+    usePreferences.getState().setSortBy("family");
+    expect(stored()).toEqual({ sort: "family", order: "edited" });
+    expect(usePreferences.getState()).toMatchObject({ sortBy: "family", byRevision: true });
+    usePreferences.getState().setSortBy("given");
+    expect(stored()).toEqual({ order: "edited" });
   });
 
   it("comes back on a reload sorted by last modification", async () => {
@@ -198,5 +208,16 @@ describe("card dates", () => {
     usePreferences.getState().setShowCardDates(false);
     expect(stored()).toEqual({ map: "osm" });
     expect(usePreferences.getState().showCardDates).toBe(false);
+  });
+});
+
+describe("phone number format", () => {
+  it("defaults to the local format and stores only the international one", () => {
+    expect(usePreferences.getInitialState().phoneFormat).toBe("local");
+    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setPhoneFormat("international");
+    expect(stored()).toEqual({ sort: "family", phoneFormat: "international" });
+    usePreferences.getState().setPhoneFormat("local");
+    expect(stored()).toEqual({ sort: "family" });
   });
 });

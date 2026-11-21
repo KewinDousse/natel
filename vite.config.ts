@@ -1,11 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { devSession } from "./session/dev-session.ts";
+import { DEMO_BOOKS } from "./src/dav/demo-seed.ts";
 import { proxyLocation } from "./src/dav/proxy-location.ts";
 
 // The app's security headers, read from the Caddyfile so the e2e suite runs
@@ -44,11 +45,37 @@ export function buildRevision(): string {
 
 const OG_IMAGE = "og-image.png";
 
+// Group cards have no page of their own. The seed's form of what `isGroupCard`
+// reads, from the text: parsing would bring ical.js into the config.
+// tests/demo-pages.test.ts checks that both agree.
+const GROUP_KIND = /^(?:X-ADDRESSBOOKSERVER-)?KIND:group\r?$/im;
+
+/**
+ * The demo's pages, one per route and seed book and contact: GitHub Pages
+ * serves `/a/b` from `a/b.html` with a 200, where 404.html answers 404.
+ */
+export function demoPages(): string[] {
+  return [
+    "contacts",
+    "login",
+    "logout",
+    "settings",
+    "settings/help",
+    ...DEMO_BOOKS.flatMap(({ slug, cards }) => [
+      `contacts/${slug}`,
+      `contacts/${slug}/new`,
+      ...Object.entries(cards)
+        .filter(([, card]) => !GROUP_KIND.test(card))
+        .map(([id]) => `contacts/${slug}/${id}`),
+    ]),
+  ];
+}
+
 /**
  * What a static host can't send as headers: the CSP as a meta tag (without
- * frame-ancestors, which a meta tag can't set), and a 404.html that loads
- * the app on a deep link. The README links to /contacts, so that one page
- * also exists as contacts.html, which GitHub Pages serves with a 200. With DEMO_URL, also the link preview's image.
+ * frame-ancestors, which a meta tag can't set), a page for each link a
+ * visitor can share (`demoPages`), and a 404.html that loads the app on any
+ * other path. With DEMO_URL, also each page's link preview: its URL and image.
  */
 function demoStaticHost(): Plugin {
   let outDir = "dist";
@@ -93,9 +120,18 @@ function demoStaticHost(): Plugin {
       }
     },
     writeBundle() {
-      if (existsSync(`${outDir}/index.html`)) {
-        copyFileSync(`${outDir}/index.html`, `${outDir}/404.html`);
-        copyFileSync(`${outDir}/index.html`, `${outDir}/contacts.html`);
+      if (!existsSync(`${outDir}/index.html`)) return;
+      copyFileSync(`${outDir}/index.html`, `${outDir}/404.html`);
+      const html = readFileSync(`${outDir}/index.html`, "utf8");
+      for (const page of demoPages()) {
+        const file = `${outDir}/${page}.html`;
+        mkdirSync(dirname(file), { recursive: true });
+        // A preview of a shared link names that link, not the demo's root.
+        const own = demoUrl && new URL(page, demoUrl).href;
+        writeFileSync(
+          file,
+          own ? html.replace(/(property="og:url" content=")[^"]*/, (_, tag) => tag + own) : html,
+        );
       }
     },
   };

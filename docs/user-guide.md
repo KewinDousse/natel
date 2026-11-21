@@ -24,18 +24,19 @@ most recent modification.
 On a contact's page, choose an address to look it up on a map: by
 default Apple Maps on Apple devices, your maps app on Android, and
 OpenStreetMap elsewhere. Settings also let you choose the map, the
-language, theme and sort order.
+language, theme, which name comes first, and whether phone numbers show
+in their country's local format or in international format.
 
 ## Contact image shape
 
 Contact photos, initials and organisation icons are round by default.
-In **Settings → Contacts and list**, choose **Contact image shape** to use
+In **Settings → Contact**, choose **Contact image shape** to use
 rounded squares instead. The choice is remembered in this browser and applies
 to the list, contact pages and forms. It does not change the saved photos.
 
 ## Creation and modification dates
 
-In **Settings → Contacts and list**, turn on **Show creation and modification
+In **Settings → Contact details**, turn on **Show creation and modification
 dates** to show, at the foot of a contact's page, the day its card was created
 and last modified, when the card records them. The choice is remembered in
 this browser.
@@ -73,7 +74,8 @@ the draft stays open. See [troubleshooting](troubleshooting.md#photos-and-large-
 ## Groups
 
 On a contact's page, choose one of its groups to show only that group's
-contacts in the list.
+contacts in the list. In the list's group filter, **No group** shows the
+contacts that are in none, so you can add them to one.
 
 Use the groups section in edit mode to add or remove a membership. Natel
 reads group cards and per-contact categories, and a group that already

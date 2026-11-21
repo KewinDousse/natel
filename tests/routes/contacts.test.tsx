@@ -11,7 +11,17 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { type DavAddressBook, type DavAuth, DavError } from "@/dav/types";
 import { I18nProvider } from "@/i18n/react";
 import type { Contact, RawComponent } from "@/model/contact";
@@ -664,7 +674,9 @@ describe("layout", () => {
     // Wait for the router to mount the route before inspecting the layout.
     const row = await screen.findByRole("link", { name: /Lightshield Jarvan/ });
     const main = document.querySelector("main");
-    expect(main?.className).toContain("lg:grid-cols-[minmax(26rem,34rem)_1fr]");
+    expect(main?.className).toContain(
+      "lg:grid-cols-[minmax(26rem,clamp(34rem,100%_-_56rem,44rem))_1fr]",
+    );
     expect(document.querySelector("aside")?.className).toContain("lg:bg-muted");
     expect(document.getElementById("app-header")?.className).toContain("lg:static");
 
@@ -1279,6 +1291,45 @@ describe("large books", () => {
     switchTo(true);
     await waitFor(() => {
       expect(Math.abs(list.scrollTop - 20_000)).toBeLessThan(100);
+    });
+  });
+
+  it("keeps the first row below the sticky bars when the layout switches scroller", async () => {
+    // The phone's header and the list toolbar, which also sticks atop the pane from lg.
+    const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    onTestFinished(() => {
+      if (offsetHeight) Object.defineProperty(HTMLElement.prototype, "offsetHeight", offsetHeight);
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.id === "app-header" ? 112 : this.id === "list-toolbar" ? 48 : 0;
+      },
+    });
+    const { switchTo, pageY } = phoneSwitch();
+    await renderBook(manyContacts(1001));
+    const list = document.getElementById("list");
+    if (list === null) throw new Error("No list");
+    // The eleventh row: the first section's border and padding, then ten 52 px rows.
+    const rowTop = 9 + 10 * 52;
+    act(() => {
+      list.scrollTo({ top: rowTop - 48 });
+    });
+    await waitFor(() => {
+      expect(rowLinks().length).toBeGreaterThan(0);
+    });
+
+    switchTo(false);
+    await waitFor(() => {
+      expect(pageY()).toBe(rowTop - 112 - 48);
+    });
+
+    act(() => {
+      list.scrollTop = 0;
+    });
+    switchTo(true);
+    await waitFor(() => {
+      expect(list.scrollTop).toBe(rowTop - 48);
     });
   });
 

@@ -36,7 +36,7 @@ Sizes are tokens in `src/index.css` (`--text-*`), used as `text-<name>`; `cn` kn
 | Token | Size / line height | Use |
 |---|---|---|
 | `caption` | 12 / 16px | Counts, hints, kbd |
-| `small` | 13 / 18px | A–Z rail, sign-in tabs |
+| `small` | 13 / 18px | Sign-in tabs |
 | `body` | 15 / 24px | Running text from `lg` (16px below, so iOS doesn't zoom) |
 | `name` | 17 / 24px | Names in the list, the page's main information |
 | `wordmark` | 32px / 1 | "Natel" in the header |
@@ -50,11 +50,15 @@ The list's hierarchy follows what people look for: the name first, then its numb
 
 ## Layout
 
-**Desktop (`lg`, ≥ 1024px):** full-height grid. Header bar, then the list pane (own scroll) beside the detail pane on `bg-muted` (own scroll, content at most `44rem` wide).
+**Desktop (`lg`, ≥ 1024px):** full-height grid. Header bar, then the list pane (`26rem` to `34rem` up to 1440px, own scroll) beside the detail pane on `bg-muted` (own scroll, content at most `44rem` wide).
 
 **Mobile (< 1024px):** page scroll. Sticky header: wordmark, address-book switcher, settings and the round "+" on one row down to 320px, then the search. No detail pane: opening a contact is a separate route.
 
 Sticky offsets use `--header-h`, never hardcoded pixels.
+
+### Wide screens
+
+From 1440px the reading pane keeps the `56rem` it has there and the list takes the extra width, up to `44rem` at 1600px; wider screens give the rest to the reading pane. Rows keep their content and truncate less. The cap keeps a leader short enough for the eye to follow from a name to its number.
 
 ## Components
 
@@ -72,7 +76,7 @@ Sticky offsets use `--header-h`, never hardcoded pixels.
 Once the selected book's cards are loaded, a single `.vcf` file dropped anywhere in the window opens the import's preview for that book, as the book menu's import does. While files are dragged over the window, the whole screen is veiled behind a dashed frame with the upload icon and "Drop to import into “<book>”" in the display face; it is hidden from screen readers, which reach the import through the book menu. Another file, or several, gets a toast asking for one `.vcf` file. During an import or behind a dialog, a dropped file is refused before the drop. The browser never opens a dropped file in place of the app.
 
 ### Group (letter section)
-A two-column grid: the letter, sticky under the header, then the section's rows. The letter sits centred on its section's first row, never above it.
+A two-column grid: the letter, sticky under the list toolbar, then the section's rows. The letter sits centred on its section's first row, never above it.
 
 ### Contact row
 - The name puts the part the list sorts by first, in bold, the other in medium weight so it stays legible; the full name is in `title`. A card with neither a name nor an organisation shows "Unnamed contact" in muted italic (the muted grey keeps 4.5:1; transparency wouldn't), on its page too.
@@ -97,6 +101,8 @@ the value under the name without leaders.
 
 ### A–Z rail
 Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden from screen readers and out of the tab order. Jumps are instant. Hidden while a search is active. Contacts whose initial isn't A–Z share the "#" group at the end of the list.
+- Height: the 27 cells share the rail's full height, up to 32px each and centred beyond that. The letters take three quarters of a cell, up to 16px, outside the size tokens.
+- Short rail: when a cell would drop under 15px (letters under 11px), the rail shows letters alternating with dots, from A to #, the letters spread evenly over the alphabet, as iOS does. A finger sliding along it still maps onto all 27 letters; mouse and keyboard reach the shown ones only.
 - Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The page doesn't scroll meanwhile.
 - From `lg`, the rail sits outside the list's scrolling pane, so the whole scrollbar stays clickable.
 
@@ -109,8 +115,9 @@ Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden fro
 
 ### List toolbar
 The count (announced politely) on the left; the group filter and the sort menu on the right.
-- Sort menu: a pill built like the group filter's, at every width, reading "Sort: First name" (« Tri : Prénom »). Its menu lists first name, last name and recently modified, the current one checked; a choice applies and closes it. The settings' "Sort by" select sets the same preference, remembered like the language (ADR 026).
+- Sort menu: a pill built like the group filter's, at every width, reading "Sort: First name" (« Tri : Prénom »). Its menu lists first name, last name and recently modified, the current one checked; a choice applies and closes it. Its first-name and last-name choices set the order of names, the same preference as the settings' "Show first", remembered like the language (ADR 026); recently modified keeps the names in that order.
 - When the group filter leaves no room for it, the sort wraps to a second row, on the right under the filter. From 320px, its longest label fits whole.
+- It stays in view while the list scrolls: under the header on phones, at the top of the list pane from `lg`. Its measured height, `--list-toolbar-h`, places the sticky letters below it. A jump to a letter lands below it too.
 
 ### List states
 - Loading: the toolbar shows a loading message in place of the count, with the sort menu, and the rail shows every letter greyed. Only the rows are skeletons, hidden from screen readers.
@@ -129,11 +136,18 @@ card failed, the empty-book state doesn't show. It never claims the cards
 were deleted or that Natel knows why they could not be loaded.
 
 ### Group filter
-Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time; contacts without a group aren't a choice.
+Shown only when the book has a group (ADR 022: group cards and `CATEGORIES`). One group at a time.
 - Trigger: the address-book switcher's pill, "All groups" by default.
-- Menu: built like the book menu, "All groups" first, then each group with its number of contacts; the chosen one is checked.
-- Filtered: the pill shows the group's name and a × that goes back to every group. The count names the group; search applies within it; the A–Z rail greys the letters without a contact in the group.
+- Menu: built like the book menu, "All groups" first, then "No group", a rule, and each group; "No group" and each group show their number of contacts; the chosen one is checked.
+- Filtered: the pill shows the group's name and a × that goes back to every group. For a named group, the count names it. Search applies within the choice; the A–Z rail greys the letters without a contact in it.
 - The choice lasts for the session; it goes back to every group when another book is selected, or when the group no longer exists.
+
+### No group filter
+"No group" lists the contacts that no group card lists and that have no non-blank `CATEGORIES` value, so they can be given one. It is offered only with the group filter: in a book without groups, every contact would match.
+- The pill shows "No group"; the count reads "N contacts", as without a filter, since the pill already names it.
+- A contact that joins a group leaves the list once saved; its page stays open, and the filter stays on.
+- With every contact in a group, the list says so in the empty-group state.
+- The filter ends when the book has no group left.
 
 ### Buttons
 `buttonClass({ variant, size })` gives every button and button-like link its classes. Variants: `primary` (the ink pill), `outline`, `destructive` (always icon + label), `ghost` (quiet; an icon-only one has a translated `aria-label`). Sizes `sm`, `md` (default), `lg`, `icon`, `icon-sm`.
@@ -171,7 +185,9 @@ The page root is `<article data-mode="view|edit">` with a visually hidden `<h1>`
 ### Settings
 `/settings` (ADR 019): in the detail pane on desktop, its own screen with the contact page's top bar on phones. Sections open like the contact page's:
 - Account: who is signed in, and sign-out. When the server doesn't confirm the sign-out, the user stays signed in and a toast says so.
-- Display: language, appearance (system, light, dark), sort order, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps). A change applies at once; there is no save button.
+- Display: language and appearance (system, light, dark). A change applies at once; there is no save button.
+- Contact: which name comes first, and the contact image shape.
+- Contact details: the phone number format, the label position, and the map addresses open in (automatic, OpenStreetMap, the device's maps app, Apple Maps, Google Maps).
 - Address books: each book's group format (see Group format setting).
 - Keyboard shortcuts, desktop only.
 - About and help, last (see below).
@@ -255,18 +271,34 @@ Either explicit choice applies at every width. The choice applies immediately
 and persists in the browser; Auto is the default. It changes only row labels in
 the reading view, preserving section titles, information order and the form.
 A preview under the select shows a fictitious phone section using the same
-reading components as contact pages and updates when the choice changes.
+reading components as contact pages and updates when this choice or the phone
+number format changes.
 
 ### Contact image shape preference
 
-Settings offers Round (the default) and Rounded squares under Contacts and list.
+Settings offers Round (the default) and Rounded squares under Contact.
 The choice applies immediately to photos, initials and organisation icons in the
 list, reading view and form, and persists in the browser. It changes only their
 display: the crop frame and saved photo stay square.
 
+### Phone number format preference
+
+Settings offers Local (the default) and International under Contact details,
+above the label position. Local shows each valid number in its own country's
+national format (079 000 00 01, (212) 555-0166); International adds the
+country code (+41 79 000 00 01). A leading 00 counts as a country code, and a
+number stored without one reads as Swiss. A number of no country (+800) keeps
+its country code either way, and one that doesn't parse shows as stored.
+
+A hint under the select says that only the display changes, and the label
+position preview shows its number in the chosen format. The choice applies at
+once to the list and the reading view, and persists in the browser; the form,
+copy and `tel:` links keep the stored value. Search finds a number by its
+stored digits and by those of both formats, whichever the setting shows.
+
 ### Card dates preference
 
-Settings offers a checkbox under Contacts and list, "Show creation and
+Settings offers a checkbox at the end of Contact details, "Show creation and
 modification dates", off by default. It shows or hides the dates line at the
 foot of the reading view (see Reading view, item 8) at once, and persists in
 the browser. The list's date column in the "Recently modified" sort (see Sort
@@ -288,10 +320,13 @@ browser. Without a book, the section is absent.
 
 ### Settings sections
 
-Account, Display, Contacts and list, Address books, Keyboard shortcuts and
-About and help are separate sections. Display holds language and appearance.
-Contacts and list holds label position, sort order, the map preference and
-the card dates preference.
+Account, Display, Contact, Contact details, Address books, Keyboard shortcuts
+and About and help are separate sections. Display holds language and
+appearance. Contact holds which name comes first ("Show first": first name or
+last name, the same preference as the sort menu's first-name and last-name
+choices, which also orders the list unless it sorts by last modification) and the contact image shape. Contact details holds the phone number
+format, the label position and its preview, the map preference and the card
+dates preference.
 Preference labels sit above controls on phones and beside them from `sm`;
 changes apply without a save button.
 
