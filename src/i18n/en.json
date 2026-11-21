@@ -176,6 +176,7 @@
   "label_adr_label": "Label",
   "label_postal_code": "Postcode",
   "label_locality": "Town",
+  "label_region": "State or region",
   "label_country": "Country",
   "label_url": "Website",
   "delete_contact": "Delete contact",

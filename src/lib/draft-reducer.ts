@@ -17,7 +17,7 @@ import {
 } from "./contact-edit";
 
 /** The parts of an address the form edits. */
-export type AddressPart = "extended" | "street" | "postalCode" | "locality" | "country";
+export type AddressPart = "extended" | "street" | "postalCode" | "locality" | "region" | "country";
 
 export type DraftAction =
   | { type: "REBUILD"; draft: ContactDraft }

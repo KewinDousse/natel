@@ -14,7 +14,7 @@ import type {
   VCardBirthdayField,
 } from "@/model/contact";
 import { type ContactList, changedLists, savedLabelOf, writesAddress } from "@/vcard";
-import { isWebUrl } from "./contact-links";
+import { isUri, websiteUri } from "./contact-links";
 
 // ---------------------------------------------------------------------------
 // Draft type — the shape the UI works with during editing
@@ -261,6 +261,7 @@ export type DirtyFields = {
   org: boolean;
   title: boolean;
   url: boolean;
+  urlType: boolean;
   note: boolean;
   photo: boolean;
 };
@@ -278,7 +279,8 @@ export function dirtyDiff(contact: Contact, draft: ContactDraft): DirtyFields {
     bday: birthdaysDiffer(f.bday, draft.bday),
     org: draft.org !== f.org,
     title: draft.title !== f.title,
-    url: draft.url !== f.url || (draft.urlType ?? "") !== (f.urlField ? fieldKind(f.urlField) : ""),
+    url: draft.url !== f.url,
+    urlType: (draft.urlType ?? "") !== (f.urlField ? fieldKind(f.urlField) : ""),
     note: draft.note !== f.note,
     photo: photosDiffer(f.photo, draft.photo),
   };
@@ -348,7 +350,7 @@ const SECTIONS = {
   email: ["email"],
   adr: ["adr"],
   bday: ["bday"],
-  url: ["url"],
+  url: ["url", "urlType"],
   nickname: ["nickname"],
   note: ["note"],
 } satisfies Record<string, (keyof DirtyFields)[]>;
@@ -398,8 +400,8 @@ export type ValidationErrors = Record<string, string | undefined>;
 /**
  * Validate a draft. Returns an errors map keyed by field path.
  * Only fields with errors are present. With `dirty`, a day its month doesn't
- * have counts only on an edited birthday: one another client stored stays as
- * it is, and doesn't hold back a save of other fields.
+ * have and a website that isn't a URI count only once edited: what another
+ * client stored stays as it is, and doesn't hold back a save of other fields.
  */
 export function validateDraft(draft: ContactDraft, dirty?: DirtyFields): ValidationErrors {
   const errors: ValidationErrors = {};
@@ -428,8 +430,7 @@ export function validateDraft(draft: ContactDraft, dirty?: DirtyFields): Validat
     }
   });
 
-  // URL format validation (lenient)
-  if (draft.url.length > 0 && !isWebUrl(draft.url)) {
+  if ((dirty?.url ?? true) && draft.url.length > 0 && !isUri(websiteUri(draft.url))) {
     errors.url = "field_url_invalid";
   }
 
@@ -554,11 +555,13 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
     }
   }
   if (take("title")) f.title = draft.title;
-  if (take("url")) {
-    f.url = draft.url;
+  if (take("url") || take("urlType")) {
+    // A website whose value the edit left alone keeps what another client wrote.
+    const url = take("url") && draft.url !== f.url ? websiteUri(draft.url) : f.url;
+    f.url = url;
     f.urlField = fromDraftField({
       id: "url",
-      value: draft.url,
+      value: url,
       type: draft.urlType ?? "",
       _orig: f.urlField ?? { value: f.url },
     });
