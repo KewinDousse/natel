@@ -22,12 +22,13 @@ A group filter appears when the book contains groups.
 On a contact's page, choose an address to look it up on a map: by
 default Apple Maps on Apple devices, your maps app on Android, and
 OpenStreetMap elsewhere. Settings also let you choose the map, the
-language, theme and sort order.
+language, theme, which name comes first, and whether phone numbers show
+in their country's local format or in international format.
 
 ## Contact image shape
 
 Contact photos, initials and organisation icons are round by default.
-In **Settings → Contacts and list**, choose **Contact image shape** to use
+In **Settings → Contact**, choose **Contact image shape** to use
 rounded squares instead. The choice is remembered in this browser and applies
 to the list, contact pages and forms. It does not change the saved photos.
 

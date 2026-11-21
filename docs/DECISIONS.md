@@ -426,7 +426,8 @@ maintainer declined.
   above `src/dav/` runs unchanged.
 - It is a build mode, `VITE_DEMO=1`, never in the Docker image (a test
   checks). The build can be served under a subpath, carries the CSP as a
-  meta tag, and ships a `404.html` for deep links.
+  meta tag, and loads deep links from a `404.html`. Every link a visitor can
+  share (a route, a seed book or contact) answers 200.
 - Sign-in accepts anything, and every screen says it is a demo. The contacts
   are made up (`src/dav/demo-seed.ts`), with phone numbers from ranges
   reserved for fiction. A reload brings the seed back, so there is nothing

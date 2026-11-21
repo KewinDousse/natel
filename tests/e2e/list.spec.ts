@@ -32,7 +32,7 @@ test("puts the sorted part of the name first", async ({ page, isMobile }) => {
   // Phones offer the sort in the settings only.
   if (isMobile) {
     await page.getByRole("link", { name: "Settings" }).click();
-    await page.getByRole("combobox", { name: "Sort by" }).selectOption("family");
+    await page.getByRole("combobox", { name: "Show first" }).selectOption("family");
     await page.getByRole("link", { name: "Back to “Contacts”" }).click();
   } else {
     await page.getByRole("button", { name: "Last name" }).click();
@@ -138,4 +138,30 @@ test("leaves the whole list scrollbar free of the rail", async ({ page, isMobile
     );
   });
   expect(hits).toEqual(["list", "list", "list", "list", "list"]);
+});
+
+test("widens the list from 1440px and leaves the reading pane its room", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "the list pane exists from lg");
+  await signIn(page);
+  // The list column ends where the reading pane starts.
+  const widths = async () => {
+    const box = await page.locator("aside").boundingBox();
+    return [Math.round(box?.x ?? 0), Math.round(box?.width ?? 0)];
+  };
+  // Ends on a change of the list's width, after which the last row must stay reachable.
+  for (const [viewport, expected] of [
+    [1280, 544],
+    [1440, 544],
+    [1920, 704],
+    [1600, 704],
+    [1520, 624],
+  ] as const) {
+    await page.setViewportSize({ width: viewport, height: 800 });
+    await expect.poll(widths, `${viewport}px`).toEqual([expected, viewport - expected]);
+  }
+  await page.locator("#list").evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await expect(page.getByRole("link", { name: /Zernier/ })).toBeVisible();
 });

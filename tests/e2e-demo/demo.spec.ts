@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { demoPages } from "../../vite.config";
 
 async function signIn(page: Page): Promise<void> {
   await expect(page.getByText("Demo: any username and password work.")).toBeVisible();
@@ -69,9 +71,19 @@ test("opens the contact list directly without signing in", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Sign in" })).not.toBeVisible();
 });
 
-test("ships the contact list as a page of its own", async ({ request }) => {
-  const response = await request.get("./contacts.html");
-  expect(response.ok()).toBe(true);
+// The preview server answers 200 to any path, so the build's files tell
+// whether GitHub Pages will.
+test("ships a page of its own for every link a visitor can share", ({ isMobile, baseURL }) => {
+  test.skip(isMobile, "the build doesn't depend on the viewport");
+  const dist = resolve(import.meta.dirname, "../../dist-demo");
+  const ogUrl = (href: string) => `<meta property="og:url" content="${href}">`;
+  for (const page of demoPages()) {
+    const html = readFileSync(`${dist}/${page}.html`, "utf8");
+    expect(html, page).toContain(ogUrl(new URL(page, baseURL).href));
+  }
+  for (const page of ["index", "404"]) {
+    expect(readFileSync(`${dist}/${page}.html`, "utf8"), page).toContain(ogUrl(baseURL ?? ""));
+  }
 });
 
 test("opens a contact deep link directly without signing in", async ({ page }) => {

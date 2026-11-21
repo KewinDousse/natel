@@ -44,6 +44,7 @@ beforeEach(() => {
     mapApp: null,
     labelPosition: "auto",
     avatarShape: "round",
+    phoneFormat: "local",
   });
 });
 
@@ -163,5 +164,16 @@ describe("contact image shape", () => {
     usePreferences.getState().setAvatarShape("round");
     expect(stored()).toEqual({ sort: "family" });
     expect(usePreferences.getState().avatarShape).toBe("round");
+  });
+});
+
+describe("phone number format", () => {
+  it("defaults to the local format and stores only the international one", () => {
+    expect(usePreferences.getInitialState().phoneFormat).toBe("local");
+    usePreferences.getState().setSortBy("family");
+    usePreferences.getState().setPhoneFormat("international");
+    expect(stored()).toEqual({ sort: "family", phoneFormat: "international" });
+    usePreferences.getState().setPhoneFormat("local");
+    expect(stored()).toEqual({ sort: "family" });
   });
 });

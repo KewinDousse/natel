@@ -63,7 +63,6 @@ test("logs DAV status and timing without private request or response data", asyn
   });
   const reservation = createServer();
   const containerName = `natel-logging-test-${process.pid}`;
-  let containerStarted = false;
   try {
     const upstreamPort = await listen(backend);
     const port = await listen(reservation);
@@ -74,7 +73,6 @@ test("logs DAV status and timing without private request or response data", asyn
     await run("docker", [
       "run",
       "-d",
-      "--rm",
       "--name",
       containerName,
       "--network",
@@ -97,16 +95,28 @@ test("logs DAV status and timing without private request or response data", asyn
       `CARDDAV_URL=http://127.0.0.1:${upstreamPort}`,
       process.env.E2E_PROXY_IMAGE ?? "natel:ci",
     ]);
-    containerStarted = true;
-    await expect
-      .poll(async () => {
-        try {
-          return (await fetch(origin)).status;
-        } catch {
-          return 0;
-        }
-      })
-      .toBe(200);
+    try {
+      await expect
+        .poll(
+          async () => {
+            try {
+              return (await fetch(origin)).status;
+            } catch {
+              return 0;
+            }
+          },
+          // A busy CI runner can need more than expect's default 5 s to start the container.
+          { timeout: 30_000 },
+        )
+        .toBe(200);
+    } catch (error) {
+      // Kept after its exit, the container still has the logs that say why it never answered.
+      const logs = await run("docker", ["logs", containerName]).then(
+        (result) => result.stdout + result.stderr,
+        (failure: unknown) => String(failure),
+      );
+      throw new Error(`The container did not answer 200:\n${logs}`, { cause: error });
+    }
     // Static successes and failures must not create access records.
     await fetch(`${origin}/assets/${secrets.contact}.js`);
     // The backend's 207 to natel-session's check accepts the sign-in.
@@ -186,7 +196,8 @@ test("logs DAV status and timing without private request or response data", asyn
     }
   } finally {
     try {
-      if (containerStarted) await run("docker", ["rm", "-f", containerName]);
+      // Also removes a container that was created but failed to start; a missing one is no error.
+      await run("docker", ["rm", "-f", containerName]);
     } finally {
       backend.closeAllConnections();
       await new Promise<void>((resolve) => backend.close(() => resolve()));

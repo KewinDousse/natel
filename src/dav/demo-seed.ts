@@ -11,6 +11,10 @@
  * dark pages (ADR 051).
  */
 
+/**
+ * `cards` is keyed by each card's UID, URL-safe: the demo's page names use it
+ * (vite.config.ts, checked by tests/demo-pages.test.ts).
+ */
 export type DemoBook = { slug: string; displayName: string; cards: Record<string, string> };
 
 export const DEMO_BOOKS: DemoBook[] = [

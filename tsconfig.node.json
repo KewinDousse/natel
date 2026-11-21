@@ -21,6 +21,7 @@
     "vitest.config.ts",
     "session/dev-session.ts",
     "session/digest.ts",
+    "src/dav/demo-seed.ts",
     "src/dav/proxy-location.ts"
   ]
 }
