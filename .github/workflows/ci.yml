@@ -348,7 +348,11 @@ jobs:
           E2E_EXTERNAL_APP: "1"
       # Digest signs each request's method and URI, which Caddy names to
       # natel-session (ADR 055): sign-in and editing against Baïkal as it ships.
-      - run: pnpm e2e --project=desktop tests/e2e/login.spec.ts tests/e2e/contacts.spec.ts
+      # headers.spec.ts checks the headers Caddy sets on a DAV answer, which
+      # must hold whatever headers the server adds of its own.
+      - run: >
+          pnpm e2e --project=desktop tests/e2e/login.spec.ts tests/e2e/contacts.spec.ts
+          tests/e2e/headers.spec.ts
         env:
           E2E_EXTERNAL_APP: "1"
           E2E_SERVER: baikal-digest

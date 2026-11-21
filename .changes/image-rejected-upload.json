@@ -1,0 +1,4 @@
+{
+  "type": "Fixed",
+  "text": "Behind Natel's Caddyfile over HTTP/1.1, when the CardDAV server rejects a stalled save with a 408 before the app's 60-second wait ends, the browser now gets that answer at once. It then reports the failure or resends the save, which goes through if the connection has recovered. A bare-metal install that merged the Caddyfile into its own configuration needs its new `@rejected` block: see [bare metal](docs/bare-metal.md#a-servers-408-to-a-stalled-upload)."
+}

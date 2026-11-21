@@ -79,6 +79,16 @@ This bounds stalled and trickling uploads while keeping keep-alive for completed
 requests. A pause may last until the total budget expires; there is no
 separate body inactivity limit or minimum transfer rate.
 
+### A server's 408 to a stalled upload
+
+A CardDAV server that gives up on a stalled upload may answer 408 before the
+body has arrived. On a kept-alive HTTP/1 connection with less than 256 KiB of
+the body still to come, Caddy first reads the rest, so the client sees the
+answer only when the total read budget expires. The Caddyfile closes the
+connection on that 408 so it goes out at once. Keep its `@rejected`
+`handle_response` block in the CardDAV proxy when integrating Natel into an
+existing configuration.
+
 ## Install
 
 Copy `dist/` alone into a folder of its own. Caddy serves every file in that

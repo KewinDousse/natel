@@ -178,6 +178,17 @@ http://:{$NATEL_HEALTH_PORT:2021} {
           copy_response
         }
       }
+      # A server that gives up on a stalled upload may answer 408 before the
+      # body has arrived. Closing the connection sends that answer at once:
+      # kept alive, Caddy would first wait for the rest, up to read_body.
+      # On HTTP/2 the answer arrives at once anyway, and Connection: close
+      # would end the whole shared connection.
+      @rejected status 408
+      handle_response @rejected {
+        @http1 not protocol http/2+
+        header @http1 Connection close
+        copy_response
+      }
       # A 401 carrying WWW-Authenticate makes the browser open its own login
       # prompt over the app. Natel sends credentials itself and reports a
       # rejected login on its own, so the challenge is dropped.

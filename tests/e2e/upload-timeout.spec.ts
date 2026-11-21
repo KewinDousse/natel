@@ -38,22 +38,29 @@ async function listen(server: Server): Promise<number> {
   return address.port;
 }
 
-function interruptedUpload(origin: string, path: string, trickle: boolean): Promise<number> {
+function interruptedUpload(
+  origin: string,
+  path: string,
+  { trickle = false, close = false } = {},
+): Promise<{ elapsed: number; statusLine: string }> {
   const url = new URL(origin);
   return new Promise((resolve, reject) => {
     const started = performance.now();
     let progress: NodeJS.Timeout | undefined;
+    let reply = "";
     const socket = createConnection({ host: url.hostname, port: Number(url.port) }, () => {
       socket.write(
-        `PUT /dav/${path} HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${cookie}\r\nIf-None-Match: *\r\nContent-Length: 1000\r\n\r\nBEGIN:VCARD`,
+        `PUT /dav/${path} HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${cookie}\r\n${close ? "Connection: close\r\n" : ""}If-None-Match: *\r\nContent-Length: 1000\r\n\r\nBEGIN:VCARD`,
       );
       if (trickle) progress = setInterval(() => socket.write("x"), 200);
     });
     const deadline = setTimeout(() => {
-      reject(new Error("The incomplete keep-alive upload survived its read budget"));
+      reject(new Error("The incomplete upload survived its read budget"));
       socket.destroy();
     }, 6_000);
-    socket.resume();
+    socket.on("data", (chunk: Buffer) => {
+      reply += chunk.toString("latin1");
+    });
     socket.on("error", (error: NodeJS.ErrnoException) => {
       if (error.code !== "ECONNRESET") {
         reject(error);
@@ -63,7 +70,7 @@ function interruptedUpload(origin: string, path: string, trickle: boolean): Prom
     socket.on("close", () => {
       clearTimeout(deadline);
       clearInterval(progress);
-      resolve(performance.now() - started);
+      resolve({ elapsed: performance.now() - started, statusLine: reply.split("\r\n")[0] ?? "" });
     });
   });
 }
@@ -99,7 +106,7 @@ function http2Upload(
   session: ClientHttp2Session,
   path: string,
   trickle?: boolean,
-): Promise<number> {
+): Promise<{ elapsed: number; status: number | undefined }> {
   return new Promise((resolve, reject) => {
     const started = performance.now();
     const stream = session.request({
@@ -124,7 +131,7 @@ function http2Upload(
       clearTimeout(deadline);
       clearInterval(progress);
       if (trickle === undefined && status !== 200) reject(new Error("The HTTP/2 upload failed"));
-      else resolve(performance.now() - started);
+      else resolve({ elapsed: performance.now() - started, status });
     });
     stream.resume();
     if (trickle === undefined) stream.end("BEGIN:VCARD\r\nEND:VCARD\r\n");
@@ -135,13 +142,27 @@ function http2Upload(
   });
 }
 
-test("bounds stalled and trickling keep-alive uploads and releases their upstream requests", async ({
+test("bounds stalled and trickling uploads and releases their upstream requests", async ({
   isMobile,
 }) => {
   test.skip(isMobile, "HTTP read budgets don't depend on the viewport");
   test.skip(process.env.E2E_EXTERNAL_APP !== "1", "Caddy enforces the HTTP read budgets");
   const aborted: string[] = [];
+  const givenUp: string[] = [];
   const backend = createServer((request, response) => {
+    // How servers give up on a stalled upload: some answer 408, others close
+    // the connection without an answer. Both only after their own body
+    // timeout: these reproduce the outcome, not the timing.
+    if (request.url === "/rejected.vcf" || request.url === "/rejected-kept-alive.vcf") {
+      givenUp.push(request.url);
+      response.writeHead(408, { Connection: "close" }).end();
+      return;
+    }
+    if (request.url === "/abandoned.vcf") {
+      givenUp.push(request.url);
+      request.socket.destroy();
+      return;
+    }
     request.on("aborted", () => aborted.push(request.url ?? ""));
     request.on("error", () => {});
     request.on("end", () => {
@@ -251,14 +272,28 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
       })
       .toBe(200);
     cookie = await openSession(origin, "synthetic", "password");
-    const elapsed = await Promise.all([
-      interruptedUpload(origin, "stalled.vcf", false),
-      interruptedUpload(origin, "trickling.vcf", true),
+    const [rejected, keptAlive, stalled, trickling, abandoned] = await Promise.all([
+      interruptedUpload(origin, "rejected.vcf", { close: true }),
+      interruptedUpload(origin, "rejected-kept-alive.vcf"),
+      interruptedUpload(origin, "stalled.vcf"),
+      interruptedUpload(origin, "trickling.vcf", { trickle: true }),
+      interruptedUpload(origin, "abandoned.vcf", { close: true }),
     ]);
-    for (const duration of elapsed) {
-      expect(duration).toBeGreaterThanOrEqual(1_500);
-      expect(duration).toBeLessThan(5_000);
+    expect(givenUp.sort()).toEqual(["/abandoned.vcf", "/rejected-kept-alive.vcf", "/rejected.vcf"]);
+    // The upstream's 408 ends the upload at once, whether the client closes
+    // the connection or keeps it alive, as a browser does.
+    for (const { statusLine, elapsed } of [rejected, keptAlive]) {
+      expect(statusLine).toBe("HTTP/1.1 408 Request Timeout");
+      expect(elapsed).toBeLessThan(1_500);
     }
+    for (const { elapsed } of [stalled, trickling]) {
+      expect(elapsed).toBeGreaterThanOrEqual(1_500);
+      expect(elapsed).toBeLessThan(5_000);
+    }
+    // Caddy's proxy waits for the rest of the body before giving up, so this
+    // client gets a 502 or 504 at the budget; failing sooner would pass too.
+    expect(abandoned.statusLine).toMatch(/^HTTP\/1\.1 50[24] /);
+    expect(abandoned.elapsed).toBeLessThan(5_000);
     await expect.poll(() => [...aborted].sort()).toEqual(["/stalled.vcf", "/trickling.vcf"]);
     for (const server of productionBudgets) {
       expect(server.protocols).toEqual(["h1", "h2"]);
@@ -276,13 +311,18 @@ test("bounds stalled and trickling keep-alive uploads and releases their upstrea
       http2?.once("connect", resolve);
     });
     expect(http2.alpnProtocol).toBe("h2");
+    // A 408 already arrives at once on HTTP/2, and the uploads below check
+    // that it leaves the shared connection open.
+    const rejectedHttp2 = await http2Upload(http2, "rejected.vcf", false);
+    expect(rejectedHttp2.status).toBe(408);
+    expect(rejectedHttp2.elapsed).toBeLessThan(1_500);
     const http2Elapsed = await Promise.all([
       http2Upload(http2, "http2-stalled.vcf", false),
       http2Upload(http2, "http2-trickling.vcf", true),
     ]);
-    for (const duration of http2Elapsed) {
-      expect(duration).toBeGreaterThanOrEqual(1_500);
-      expect(duration).toBeLessThan(5_000);
+    for (const { elapsed } of http2Elapsed) {
+      expect(elapsed).toBeGreaterThanOrEqual(1_500);
+      expect(elapsed).toBeLessThan(5_000);
     }
     await expect
       .poll(() => [...aborted].sort())
