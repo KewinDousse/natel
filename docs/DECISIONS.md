@@ -20,6 +20,11 @@ From the entry and its explicit references, without consulting the code, an
 independent agent must be able to reconstruct the same feature or technical
 guarantees. Implementation choices remain open.
 
+A sentence that describes an action names who does it (Natel, a server, the
+user), in the active voice, with a verb that says exactly what they do: "reads"
+or "keeps", not "gives". Repeat a term defined in an earlier paragraph rather
+than pointing back to it with "that type" or "this value".
+
 ## 001 — Contacts only
 
 **Context.** InfCloud bundles CalDAV and CardDAV. The author doesn't use the
