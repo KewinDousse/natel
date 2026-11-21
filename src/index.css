@@ -175,7 +175,7 @@
   --text-caption: 0.75rem;
   --text-caption--line-height: 1rem;
   --text-small: 0.8125rem;
-  --text-small--line-height: 1.125rem; /* lettres de l'index, onglets */
+  --text-small--line-height: 1.125rem; /* onglets */
   --text-body: 0.9375rem;
   --text-body--line-height: 1.5rem; /* texte courant à partir de lg */
   --text-name: 1.0625rem;

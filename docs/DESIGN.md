@@ -36,7 +36,7 @@ Sizes are tokens in `src/index.css` (`--text-*`), used as `text-<name>`; `cn` kn
 | Token | Size / line height | Use |
 |---|---|---|
 | `caption` | 12 / 16px | Counts, hints, kbd |
-| `small` | 13 / 18px | A–Z rail, sign-in tabs |
+| `small` | 13 / 18px | Sign-in tabs |
 | `body` | 15 / 24px | Running text from `lg` (16px below, so iOS doesn't zoom) |
 | `name` | 17 / 24px | Names in the list, the page's main information |
 | `wordmark` | 32px / 1 | "Natel" in the header |
@@ -101,6 +101,8 @@ the value under the name without leaders.
 
 ### A–Z rail
 Right edge, all 26 letters followed by "#"; absent groups are greyed, hidden from screen readers and out of the tab order. Jumps are instant. Hidden while a search is active. Contacts whose initial isn't A–Z share the "#" group at the end of the list.
+- Height: the 27 cells share the rail's full height, up to 32px each and centred beyond that. The letters take three quarters of a cell, up to 16px, outside the size tokens.
+- Short rail: when a cell would drop under 15px (letters under 11px), the rail shows letters alternating with dots, from A to #, the letters spread evenly over the alphabet, as iOS does. A finger sliding along it still maps onto all 27 letters; mouse and keyboard reach the shown ones only.
 - Touch: sliding a finger along the rail follows the letter under it, as native contact apps do; an absent letter lands on the next present one (or the last one before it). The page doesn't scroll meanwhile.
 - From `lg`, the rail sits outside the list's scrolling pane, so the whole scrollbar stays clickable.
 
