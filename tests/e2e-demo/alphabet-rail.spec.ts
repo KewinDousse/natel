@@ -103,10 +103,10 @@ test("collapses the A–Z rail on short screens, and a finger still reaches ever
     const groupTop = (letter: string) =>
       page.evaluate((l) => document.getElementById(`g-${l}`)?.getBoundingClientRect().top, letter);
 
-    const under = await toolbarBottom();
     const landsOn = async (letter: string, y: number) => {
       await send("touchStart", y);
       await send("touchEnd");
+      const under = await toolbarBottom();
       await expect
         .poll(() => groupTop(letter), `${letter} at ${at}`)
         .toBeGreaterThanOrEqual(under - 1);
