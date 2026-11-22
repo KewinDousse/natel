@@ -562,7 +562,8 @@ export function applyDraft(contact: Contact, draft: ContactDraft, only?: DirtyFi
     f.urlField = fromDraftField({
       id: "url",
       value: url,
-      type: draft.urlType ?? "",
+      // Likewise its type, so another client's TYPE or label stays.
+      type: take("urlType") ? (draft.urlType ?? "") : f.urlField ? fieldKind(f.urlField) : "",
       _orig: f.urlField ?? { value: f.url },
     });
   }

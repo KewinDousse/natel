@@ -18,7 +18,7 @@ import {
   withKind,
 } from "../../src/lib/contact-edit";
 import type { Contact } from "../../src/model/contact";
-import { parse } from "../../src/vcard";
+import { parse, serialise } from "../../src/vcard";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -604,6 +604,31 @@ describe("validateDraft: website", () => {
     const saved = applyDraft(fetched, draft, dirtyDiff(base, draft));
     expect(saved.fields.url).toBe("other.example");
     expect(buildDraft(saved).urlType).toBe("work");
+  });
+
+  it("keeps the website's type changed elsewhere when overwriting a value change", () => {
+    const base = cardWith("URL;TYPE=work:https://example.org");
+    const draft = { ...buildDraft(base), url: "https://mine.example" };
+    const fetched = cardWith("URL;TYPE=home,pref;X-FOO=bar:https://example.org");
+    const text = serialise(applyDraft(fetched, draft, dirtyDiff(base, draft)));
+    expect(text).toContain("URL;TYPE=home,pref;X-FOO=bar:https://mine.example");
+  });
+
+  it("writes the user's type over another client's when both the address and the type were edited", () => {
+    const base = cardWith("URL;TYPE=work:https://example.org");
+    const draft = { ...buildDraft(base), url: "https://mine.example", urlType: "home" as const };
+    const fetched = cardWith("URL;TYPE=cell:https://example.org");
+    const text = serialise(applyDraft(fetched, draft, dirtyDiff(base, draft)));
+    expect(text).toContain("URL;TYPE=home:https://mine.example");
+  });
+
+  it("keeps the website's label added elsewhere when overwriting a value change", () => {
+    const base = cardWith("URL:https://example.org");
+    const draft = { ...buildDraft(base), url: "https://mine.example" };
+    const fetched = cardWith("item1.URL:https://example.org\r\nitem1.X-ABLabel:Blog");
+    const text = serialise(applyDraft(fetched, draft, dirtyDiff(base, draft)));
+    expect(text).toContain("ITEM1.URL:https://mine.example");
+    expect(text).toContain("ITEM1.X-ABLABEL:Blog");
   });
 
   it("refuses an edited website that is neither a URI nor a host", () => {
