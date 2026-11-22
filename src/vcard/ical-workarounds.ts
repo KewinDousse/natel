@@ -4,7 +4,7 @@
  */
 
 import ICAL from "ical.js";
-import type { RawComponent } from "../model/contact";
+import type { RawComponent, RawProperty } from "../model/contact";
 import { versionOf } from "./fields";
 
 type FromICAL = ((value: string, structuredEscape?: string | false) => unknown) & {
@@ -49,6 +49,59 @@ export function keepUrisAsWritten(): void {
   if (!codec) throw new Error("ical.js has no vCard uri value");
   codec.fromICAL = (value) => value;
   codec.toICAL = (value) => value;
+}
+
+/**
+ * ical.js writes back an `integer`, `float` or `boolean` as the number or
+ * boolean it read, rewriting an untouched `007` as `7`. Hold each as written,
+ * in both versions. See DECISIONS.md 060.
+ */
+export function keepNumbersAndBooleansAsWritten(): void {
+  const asWritten = (value: string) => value;
+  for (const values of [ICAL.design.vcard.value, ICAL.design.vcard3.value]) {
+    for (const type of ["integer", "float", "boolean"] as const) {
+      const codec = values[type];
+      if (!codec) throw new Error(`ical.js has no vCard ${type} value`);
+      // iCalendar shares these codecs: give vCard its own.
+      values[type] = { ...codec, fromICAL: asWritten, toICAL: asWritten };
+    }
+  }
+}
+
+/**
+ * Held as written, an `integer`, `float` or `boolean` value is also written
+ * unescaped, so an edited line break would cut the card. Give each property
+ * Natel edits its version's default type, with its value decoded as that
+ * type reads it. See DECISIONS.md 060.
+ */
+export function retypeEditedNumbersAndBooleans(edited: RawProperty[]): void {
+  for (const prop of edited) {
+    const type = (prop.toJSON() as [string, unknown, string])[2];
+    if (type !== "integer" && type !== "float" && type !== "boolean") continue;
+    const defaultType = prop.getDefaultType();
+    // A uri is held as written too (ADR 053). 3.0 and 4.0 decode the other
+    // default types alike.
+    const codec =
+      defaultType === "uri"
+        ? undefined
+        : (ICAL.design.vcard.value as Record<string, ValueCodec | undefined>)[defaultType];
+    const decode = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(decode);
+      return codec && typeof value === "string" ? codec.fromICAL(value, ";") : value;
+    };
+    const values = prop.getValues().map(decode);
+    prop.resetType(defaultType);
+    if (values.length <= 1) prop.setValue(values[0] ?? "");
+    else {
+      try {
+        prop.setValues(values);
+      } catch {
+        // A card with VERSION 2.1 or none is read with the 3.0 design, which
+        // may split a value the 4.0 design takes as one.
+        prop.setValue(values.join(","));
+      }
+    }
+  }
 }
 
 /** RFC 2426 §2.3 requires semicolons escaped in every 3.0 text value. */

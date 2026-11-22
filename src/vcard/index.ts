@@ -26,7 +26,9 @@ import {
 import {
   decodeEscapedSemicolons,
   encodeVcard3Semicolons,
+  keepNumbersAndBooleansAsWritten,
   keepUrisAsWritten,
+  retypeEditedNumbersAndBooleans,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
   versionFirst,
@@ -72,6 +74,7 @@ export { savedLabelOf, writesAddress } from "./write";
 ICAL.foldLength = 74;
 decodeEscapedSemicolons();
 keepUrisAsWritten();
+keepNumbersAndBooleansAsWritten();
 encodeVcard3Semicolons();
 
 // ---------------------------------------------------------------------------
@@ -89,6 +92,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
   const raw = new ICAL.Component(jCal);
   retypeTextBirthdays(raw);
   unescapeDataUriSemicolons(raw);
+  retypeEditedProperties(raw);
 
   const uid = readUid(raw) ?? "";
 
@@ -131,12 +135,23 @@ export function parse(text: string, href = "", etag = ""): Contact {
   return { href, etag, uid, fields, raw };
 }
 
+/**
+ * Properties Natel edits as text, every occurrence or the first only. BDAY
+ * and PHOTO set their own type when edited.
+ */
+const EDITED_ALL = ["tel", "email", "adr", "categories"];
+const EDITED_FIRST = ["fn", "n", "nickname", "org", "title", "url", "note"];
+
+function retypeEditedProperties(raw: RawComponent): void {
+  retypeEditedNumbersAndBooleans([
+    ...EDITED_ALL.flatMap((name) => raw.getAllProperties(name)),
+    ...EDITED_FIRST.flatMap((name) => raw.getFirstProperty(name) ?? []),
+  ]);
+}
+
 /** Properties the contact page shows every occurrence of, and the card's framing. */
 const SHOWN_ALL = new Set([
-  "tel",
-  "email",
-  "adr",
-  "categories",
+  ...EDITED_ALL,
   // The photo control shows one and replaces them all (ADR 023).
   "photo",
   "version",
@@ -146,7 +161,7 @@ const SHOWN_ALL = new Set([
 ]);
 
 /** Properties the contact page reads once: a later occurrence isn't shown. */
-const SHOWN_FIRST = new Set(["fn", "n", "nickname", "bday", "org", "title", "url", "note"]);
+const SHOWN_FIRST = new Set([...EDITED_FIRST, "bday"]);
 
 const COMPANIONS = ["x-ablabel", "x-abadr"];
 
@@ -426,6 +441,7 @@ export function readImportCard(cardText: string): { uid: string | null; name: st
   const jCal = ICAL.parse(versionFirst(cardText));
   if (!Array.isArray(jCal) || jCal[0] !== "vcard") throw new Error("not a vCard");
   const raw = new ICAL.Component(jCal as unknown[]);
+  retypeEditedProperties(raw);
   const uid = readUid(raw);
   const fn = String(raw.getFirstPropertyValue("fn") ?? "").trim();
   const n = raw.getFirstProperty("n");

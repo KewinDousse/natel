@@ -1165,6 +1165,41 @@ undated until it is saved in Natel. `REV` comes from the clock of the
 browser that saves: a client whose clock is off dates its saves wrong, and
 sorting by last change places those cards accordingly. This amends ADR 029.
 
+## 060 — A vCard integer, float or boolean is kept as written
+
+**Context.** ical.js reads an `integer`, `float` or `boolean` value as a
+number or a boolean, and writes back what it read. A save therefore rewrote
+values the user never changed, against ADR 005: `X-ID;VALUE=integer:007`
+became `7`, the list `1,2` became `1` and `VALUE=boolean:true` became
+`FALSE`. A 3.0 `GEO` holds two floats, so `GEO:46.50;6.60` lost its zeros.
+Clients don't write these types for the properties Natel edits.
+
+**Decision.** `keepNumbersAndBooleansAsWritten` in `src/vcard/`, a named
+workaround, makes ical.js hold every `integer`, `float` and `boolean` value
+of a vCard as the string written, in 3.0 and 4.0 alike: ical.js reads a card
+with VERSION 2.1 or none with the 3.0 types and writes it with the 4.0 ones.
+iCalendar values stay as ical.js reads them. ical.js also writes a value held
+as the string written without escaping it. So when Natel reads the card,
+`retypeEditedNumbersAndBooleans` resets each property Natel edits as text to
+the default type of the card's version, and decodes the property's value as
+ical.js decodes a value of the default type: every `TEL`, `EMAIL`, `ADR` and
+`CATEGORIES`, and the first `FN`, `N`, `NICKNAME`, `ORG`, `TITLE`, `URL` and
+`NOTE`. A card with VERSION 2.1 or none takes the 4.0 default types. A `uri`
+keeps its value as written (ADR 053).
+
+**Rejected.** Retyping such a property only when the user edits its field:
+until then an edit elsewhere would still write it unescaped, and RFC 6350
+allows none of these three types on the properties Natel edits.
+
+**Consequences.** A value of these types in any other property survives a
+save, and “Details not shown” lists it as written. A property Natel edits,
+such as `NOTE;VALUE=integer:0042`, shows its value. A save writes it with the
+default type (`NOTE:0042`), even when its field is not edited, so an edit is
+escaped as text. In a card with VERSION 2.1 or none, a `GEO` is still written
+as one 4.0 float list (`GEO;VALUE=FLOAT:46.50,6.60`). `VALUE=float` is still
+written `VALUE=FLOAT`, as ical.js writes every VALUE type. Code that reads
+one of these values gets a string, not a number or a boolean.
+
 ## 063 — Baïkal tested from its release archive
 
 **Context.** Issue #21 asks for the e2e suite to cover current Baïkal. CI

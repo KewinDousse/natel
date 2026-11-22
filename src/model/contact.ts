@@ -19,6 +19,7 @@ export interface RawProperty {
   getValues(): unknown[];
   setValues(values: unknown[]): void;
   resetType(type: string): void;
+  getDefaultType(): string;
   setValue(value: unknown): void;
   setParameter(name: string, value: string | string[]): void;
   removeParameter(name: string): void;

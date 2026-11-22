@@ -1,0 +1,4 @@
+{
+  "type": "Fixed",
+  "text": "Saving a contact no longer rewrites a whole number, decimal or yes/no value that Natel doesn't edit, and “Details not shown” lists it as written: `VALUE=integer:007` stays `007` and `VALUE=boolean:true` no longer becomes `FALSE`. A note, job title or organisation written with one of these types, such as `NOTE;VALUE=integer:0042`, now shows its value, and a save no longer deletes it."
+}
