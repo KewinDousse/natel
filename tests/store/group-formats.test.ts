@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for src/store/group-formats.ts — each book's group format, kept
  * under a hash (ADR 052).

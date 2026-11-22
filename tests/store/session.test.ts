@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for src/store/session.ts — Zustand session store.
  *

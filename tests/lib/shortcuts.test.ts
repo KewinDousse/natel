@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for the shortcut gates in src/lib/shortcuts.ts.
  */

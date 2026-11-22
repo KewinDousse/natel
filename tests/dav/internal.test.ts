@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Integration tests for src/dav/internal.ts with tsdav mocked.
  *

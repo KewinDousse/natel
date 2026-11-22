@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for src/i18n/preferences.ts — the stored choices of ADR 019, and
  * the per-book map of ADR 052.
