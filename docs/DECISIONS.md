@@ -4,8 +4,8 @@ Why Natel works the way it does. AI agents write these entries, as they
 write the code; the choices that call for a decision are the maintainer's.
 The entries that keep contacts safe are 005 (data Natel doesn't edit), 006
 and 013 (conflicts), 016 (no duplicate on a retried save), 020 (import),
-021 (moving a contact), 032 (where the password lives) and 038 (overwriting
-after a conflict).
+021 (moving a contact), 032 (where the password lives), 038 (overwriting
+after a conflict) and 065 (what an edit conflict keeps).
 
 One entry per decision, newest last. Write only what is necessary and useful to
 answer why: the context, the decision, its reason and what it gives up. A
@@ -165,7 +165,9 @@ never touched.
 **Consequences.** "My version" means "my changes": a field changed on both
 sides is still overwritten, as the button says. A phone or e-mail list the
 user changed is written whole, since rows match by position. ADR 038
-amends this for phones, e-mails and addresses.
+amends this for phones, e-mails and addresses. ADR 065 writes this merge
+onto the card read again on the 412, with its ETag, and adds the choice of
+the user's version of every field the form edits but group membership.
 
 ## 014 — The server is set by the operator, the login asks only for credentials
 
@@ -710,7 +712,8 @@ were read from, as a plain save does, and a list can no longer land on
 another client's properties. When two
 clients change the same list at once, the user loses their changes to it
 and types them again after reloading, rather than another client's data
-being changed unseen.
+being changed unseen. ADR 065 adds keeping the user's version, which
+replaces a list whole, even one another client changed.
 
 ## 039 — iOS 3.0 birthdays without the omitted-year marker
 
@@ -1201,3 +1204,49 @@ replaced asset, not a compromised upload. Dependabot moves the `php` tag and
 its digest, but cannot see the Baïkal version: a new release is noticed only
 by someone checking Baïkal's releases. A regression specific to 0.10.1 would
 go unnoticed. This amends ADR 018.
+
+## 065 — On an edit conflict, the user picks what to keep, then confirms
+
+**Context.** On a 412 when saving an edited contact, Natel offers to reload
+or to overwrite with ADR 013's merge. The maintainer's answer on pull request
+#350 found it unclear what Natel will write, since the user may not remember
+what they changed. The answer on issue #328 ruled out automatic
+reconciliation. The merge also can't keep the user's value of a field changed
+only elsewhere.
+
+**Decision.**
+- On such a 412, Natel reads the card again and shows, before any write,
+  each field where the draft or the card read again differs from the version
+  edited. A phone, e-mail or address list differs as ADR 038 compares it,
+  so nothing an outcome replaces goes unshown.
+- The user picks one of the outcomes offered and confirms it, or goes back
+  to the form with the draft and the version edited's ETag unchanged, so
+  its next save meets the conflict again. Natel writes nothing before that
+  confirmation.
+- The merge is ADR 013's, under ADR 038's rule. Natel doesn't offer it when
+  ADR 038 refuses it.
+- Keeping the user's version writes the draft's value of every field the
+  form edits but group membership, changed or not. Everything the form
+  doesn't edit keeps its value on the card read again (ADR 005). Natel
+  writes the lists whole and places addresses as ADR 036 does on an
+  overwrite. Natel doesn't offer this outcome when the two cards' `VERSION`
+  differ, since the draft is typed for the version edited.
+- Keeping the other version drops the user's changes and sends no request.
+- In both writing outcomes, group membership follows the user's changes.
+  Natel writes onto the card read again with `If-Match` on its ETag, and a
+  further 412 shows the conflict again.
+- When Natel can't read the card again, it keeps the draft. It never writes
+  without `If-Match` and never creates the card again.
+
+**Rejected.**
+- Choosing field by field: the list of choices grows with each field in
+  conflict.
+- Offering only the merge and keeping the other version: the user can't
+  keep their value of a field changed only elsewhere.
+
+**Consequences.** The user can undo a change made elsewhere, deliberately
+and after seeing it, which ADR 013 prevented. Keeping the user's version
+replaces a phone, e-mail or address list another client changed, its labels
+and parameters included. The merge stays a choice the user confirms, so ADR
+006 holds. A move, a delete and a group write keep their own conflict. This
+amends ADR 013 and 038.
