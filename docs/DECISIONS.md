@@ -7,18 +7,17 @@ and 013 (conflicts), 016 (no duplicate on a retried save), 020 (import),
 021 (moving a contact), 032 (where the password lives) and 038 (overwriting
 after a conflict).
 
-One entry per decision, newest last. Write only what is necessary and useful:
-the context, the decision and its consequences. A rejected alternative is named
-only when it was a real candidate, in one line with its reason. An entry records
-what was decided and why; how it is built belongs in the code, its tests,
-ARCHITECTURE.md or DESIGN.md. A decision that changes gets a new entry, and
+One entry per decision, newest last. Write only what is necessary and useful to
+answer why: the context, the decision, its reason and what it gives up. A
+rejected alternative is named only when it was a real candidate, in one line
+with its reason. An entry states the guarantees a later change must keep,
+precisely enough that a reviewer can tell whether a change breaks one. How it
+is built, layout and wording included, belongs in the code, its tests,
+ARCHITECTURE.md or DESIGN.md. A detail left to them is not a gap in the entry.
+A decision that changes gets a new entry, and
 the old one says which entry amends or replaces it. Each part opens its own
 paragraph with its name in bold. The order is **Context.**, **Decision.**,
 then **Rejected.** when an alternative is named, and **Consequences.**
-
-From the entry and its explicit references, without consulting the code, an
-independent agent must be able to reconstruct the same feature or technical
-guarantees. Implementation choices remain open.
 
 A sentence that describes an action names who does it (Natel, a server, the
 user), in the active voice, with a verb that says exactly what they do: "reads"

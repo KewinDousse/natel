@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Documentation only: the decision log asks an entry to answer why and to state the guarantees a later change must keep, and leaves how it is built to the code, its tests, ARCHITECTURE.md or DESIGN.md."
+}
