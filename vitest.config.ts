@@ -15,7 +15,7 @@ export default defineConfig({
     // fails with its query's message.
     testTimeout: 15_000,
     // A DOM costs each file's setup, so only `.test.tsx` files get one by default; a
-    // .ts test that needs it asks with `// @vitest-environment jsdom`.
+    // `.ts` test that needs it asks with `// @vitest-environment jsdom`.
     projects: [
       {
         extends: true,
