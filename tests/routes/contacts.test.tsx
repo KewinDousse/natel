@@ -267,13 +267,21 @@ function shimMatchMedia() {
   });
 }
 
+/** The app's query client, retrying as it does but without seconds of backoff. */
+function testQueryClient() {
+  const queryClient = createQueryClient();
+  const defaults = queryClient.getDefaultOptions();
+  queryClient.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 0 } });
+  return queryClient;
+}
+
 function renderApp(path: string) {
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [path] }),
   });
   render(
-    <QueryClientProvider client={createQueryClient()}>
+    <QueryClientProvider client={testQueryClient()}>
       <I18nProvider>
         <RouterProvider router={router} />
       </I18nProvider>
@@ -818,7 +826,7 @@ describe("sync", () => {
     useSessionStore.setState({ auth: AUTH, selectedBook: null });
     mockDiscoverAddressBooks.mockResolvedValue([BOOK_A]);
     loadBook(bookAContacts());
-    const queryClient = createQueryClient();
+    const queryClient = testQueryClient();
     const router = createRouter({
       routeTree,
       history: createMemoryHistory({ initialEntries: [path] }),
@@ -840,11 +848,7 @@ describe("sync", () => {
 
     mockListContacts.mockRejectedValue(new DavError("down", "NETWORK"));
     void queryClient.refetchQueries();
-    const warning = await screen.findByRole(
-      "button",
-      { name: "Synchronisation impossible" },
-      { timeout: 8000 },
-    );
+    const warning = await screen.findByRole("button", { name: "Synchronisation impossible" });
     // The contacts already shown stay.
     expect(screen.getByRole("link", { name: /Lightshield Jarvan/ })).toBeTruthy();
 
@@ -891,9 +895,7 @@ describe("sync", () => {
     mockListContacts.mockRejectedValue(new DavError("down", "NETWORK"));
     void queryClient.refetchQueries();
     const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole("button", { name: "Synchronisation impossible" }, { timeout: 8000 }),
-    );
+    await user.click(await screen.findByRole("button", { name: "Synchronisation impossible" }));
     await user.click(document.body);
     expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
 
@@ -909,9 +911,7 @@ describe("sync", () => {
     mockListContacts.mockRejectedValue(new DavError("expired", "AUTH"));
     void queryClient.refetchQueries();
     const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole("button", { name: "Votre session a expiré" }, { timeout: 8000 }),
-    );
+    await user.click(await screen.findByRole("button", { name: "Votre session a expiré" }));
     await user.click(screen.getByRole("button", { name: "Se reconnecter" }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
@@ -978,9 +978,7 @@ describe("while the book loads, fails or is empty", () => {
     renderApp("/contacts");
     const user = userEvent.setup();
 
-    expect(
-      await screen.findByText("Impossible de charger les contacts", {}, { timeout: 8000 }),
-    ).toBeTruthy();
+    expect(await screen.findByText("Impossible de charger les contacts")).toBeTruthy();
     // The list says it; the header doesn't warn about a book never shown.
     expect(screen.queryByRole("button", { name: "Synchronisation impossible" })).toBeNull();
     loadBook(bookAContacts());
@@ -993,7 +991,7 @@ describe("while the book loads, fails or is empty", () => {
     mockDiscoverAddressBooks.mockRejectedValue(new DavError("expired", "AUTH"));
     renderApp("/contacts");
 
-    expect(await screen.findByText("Votre session a expiré", {}, { timeout: 8000 })).toBeTruthy();
+    expect(await screen.findByText("Votre session a expiré")).toBeTruthy();
     await userEvent.setup().click(screen.getByRole("button", { name: "Se reconnecter" }));
     expect(await screen.findByRole("heading", { name: "Ouvrir le carnet" })).toBeTruthy();
   });

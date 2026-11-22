@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for src/dav/session.ts — the calls to natel-session's /session,
  * with fetch mocked.

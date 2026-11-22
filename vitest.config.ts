@@ -9,12 +9,22 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
     globals: true,
-    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     setupFiles: ["tests/setup.ts"],
     // Well above Testing Library's wait (tests/setup.ts), so a missing element
     // fails with its query's message.
     testTimeout: 15_000,
+    // A DOM costs each file's setup, so only `.test.tsx` files get one by default; a
+    // .ts test that needs it asks with `// @vitest-environment jsdom`.
+    projects: [
+      {
+        extends: true,
+        test: { name: "dom", environment: "jsdom", include: ["tests/**/*.test.tsx"] },
+      },
+      {
+        extends: true,
+        test: { name: "node", environment: "node", include: ["tests/**/*.test.ts"] },
+      },
+    ],
   },
 });

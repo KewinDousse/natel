@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { digestCredential, negotiate, parseChallenges } from "../../session/digest.ts";

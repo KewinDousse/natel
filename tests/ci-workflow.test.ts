@@ -1,4 +1,3 @@
-// @vitest-environment node
 /**
  * The CI workflow's documentation-only path: its required checks pass without
  * testing, so a wrong classification or an unguarded step lets a broken

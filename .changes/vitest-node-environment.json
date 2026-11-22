@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Tests only: unit tests run without a simulated browser unless they need one, and contact list tests retry failed requests without waiting, with no change to Natel itself."
+}

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Tests for src/store/preferences.ts and src/lib/theme.ts — the sort and the
  * theme, display preferences stored like the language (ADR 026).

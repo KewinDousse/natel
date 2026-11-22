@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { execFileSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildRevision } from "../vite.config";

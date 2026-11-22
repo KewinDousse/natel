@@ -1,4 +1,3 @@
-// @vitest-environment node
 /**
  * Seeded randomized test of how addresses are written on a save and on an
  * overwrite (ADR 013, 036). Each case builds a card, another client's
