@@ -26,26 +26,28 @@ their evidence.
 | ---------------------------- | :-------------: | :----: | :-: |
 | Photos                       |       ✅        |  ✅¹   | ⬜  |
 | Photo from Safari, cropped   |        –        |   ✅   | ⬜  |
-| Birthday without a year      |       ⬜        |   ✅   | ⬜  |
+| Birthday without a year      |       ✅        |   ✅   | ⬜  |
 | Custom address label         |       ✅        |   ✅   | ⬜  |
-| Notes                        |       ⬜        |   ✅   | ⬜  |
-| Groups                       |      ✅²        |   ✅   | ⬜  |
-| Deletion and conflicts       |       ⬜        |   ✅   | ⬜  |
+| Notes                        |       ✅        |   ✅   | ⬜  |
+| Groups                       |       ✅²       |   ✅   | ⬜  |
+| Deletion and conflicts       |       ✅        |   ✅   | ⬜  |
 | `.vcf` import from Safari    |        –        |   ⬜   | ⬜  |
 
 ¹ iPhone photos: in both checks, the cards iOS wrote back held a JPEG, and
 an animated GIF showed still.
 
-² Android groups: DAVx⁵ in categories mode doesn't show Natel's group cards.
+² Android groups: DAVx⁵ handles one group form, and an edit on the phone
+lost a group stored in the other; see
+[Groups edited on Android](#groups-edited-on-android).
 
 **Browsers**
 
-| Browser               | Status | Limit                                       |
-| --------------------- | :----: | ------------------------------------------- |
-| Chromium              |   ✅   |                                             |
-| Safari on iPhone      |   ✅   |                                             |
-| WebKit (Playwright)   |   ◐    | Sign-in, list, editing and photos only      |
-| Firefox               |   ◐    | Sign-in only                                |
+| Browser               | Status | Limit                                          |
+| --------------------- | :----: | ---------------------------------------------- |
+| Chromium              |   ✅   |                                                |
+| Safari on iPhone      |   ✅   |                                                |
+| WebKit (Playwright)   |   ◐    | Sign-in, list, editing and photos only         |
+| Firefox               |   ✅   |                                                |
 
 ## CardDAV servers
 
@@ -77,10 +79,20 @@ properties Natel does not edit.
 - A custom address label round-trips: Natel's shows in Google Contacts,
   and a rename there shows in Natel
   ([2026-10-29](device-checks/2026-10-29-android.md)).
+- Deletions sync both ways, and Natel reports a contact edited on both
+  sides as a conflict. A birthday without a year and a note sync both
+  ways ([2026-11-22](device-checks/2026-11-22-android.md)).
+- In "groups are separate vCards" mode, a group card shows as a label with
+  its members, not as a contact
+  ([2026-11-23](device-checks/2026-11-23-android.md)).
+- One edit on the phone in each DAVx⁵ group mode lost a group
+  ([2026-11-23](device-checks/2026-11-23-android.md)); see
+  [Groups edited on Android](#groups-edited-on-android).
 
 ### iPhone: Contacts and Safari
 
-Checked on an iPhone SE with iOS 26.6.1.
+Checked on an iPhone SE with iOS 26.6.1, except semicolons, checked on an
+iPhone 4S with iOS 9.3.6.
 
 - JPEG, PNG and WebP photos display
   ([2026-10-23](device-checks/2026-10-23-iphone.md)), and so do GIF and
@@ -104,6 +116,9 @@ Checked on an iPhone SE with iOS 26.6.1.
   other fields and the Apple photo's bytes. Group membership, deletion,
   conflict handling and installation from Safari were checked
   ([2026-10-23](device-checks/2026-10-23-iphone.md)).
+- A text semicolon Natel wrote as `\;` in vCard 3.0 showed as a single
+  semicolon in Contacts, and stayed intact after an edit there
+  ([2026-11-23](device-checks/2026-11-23-iphone.md)).
 
 Not checked: importing a `.vcf` through Safari's file picker, other iOS
 versions, and iCloud as the server.
@@ -118,10 +133,10 @@ export/import does not validate those applications.
 Clients store groups in two ways:
 
 - Separate group cards, the form used by Apple Contacts, iCloud and DAVx⁵
-  in its default setup.
+  in its default setup. DAVx⁵ then does not show `CATEGORIES`.
 - `CATEGORIES` on each contact, the form used by Nextcloud's web app and
-  DAVx⁵ in "groups are per-contact categories" mode. They do not show group
-  cards.
+  DAVx⁵ in "groups are per-contact categories" mode. Nextcloud's web app
+  does not show group cards; that DAVx⁵ mode shows one as a contact.
 
 Natel reads both forms. When it adds a contact to a group (ADR 052):
 
@@ -168,9 +183,11 @@ patches the decoder rather than writing nonconforming 3.0 text.
 
 The library behaviour was reproduced locally on 2026-11-05. The Nextcloud
 Contacts web interface was not exercised for this case; this is distinct
-from the Nextcloud CardDAV server checks above. Semicolons have not been
-checked on a physical iPhone or Mac. Avoid editing affected text in a
-client that displays an extra backslash.
+from the Nextcloud CardDAV server checks above. Contacts on an iPhone 4S
+with iOS 9.3.6 showed a single semicolon
+([2026-11-23](device-checks/2026-11-23-iphone.md)); current iOS and a Mac
+were not checked. Avoid editing affected text in a client that displays an
+extra backslash.
 
 ### Yearless birthdays from Apple Contacts
 
@@ -179,8 +196,31 @@ Apple's unmarked year 1604 convention needs special handling in Natel
 
 ### Group formats
 
-Nextcloud Contacts and DAVx⁵ in categories mode do not show group cards.
-For a book you use with them, choose categories; see [Groups](#groups).
+Nextcloud Contacts does not show group cards. For a book you use with it,
+choose categories; see [Groups](#groups). For DAVx⁵, see
+[Groups edited on Android](#groups-edited-on-android).
+
+### Groups edited on Android
+
+> [!WARNING]
+> DAVx⁵ handles one group form, set by its "Contact group method" setting.
+> On the phone, it lost groups stored in the other form
+> ([2026-11-23](device-checks/2026-11-23-android.md)):
+>
+> - In "groups are separate vCards" mode, its default, a contact added to
+>   a group on the phone no longer had its `CATEGORIES` afterwards. Other
+>   edits were not checked.
+> - In "groups are per-contact categories" mode, a group card shows as a
+>   contact. A phone number added to it on the phone turned it into a
+>   plain contact: the group and its membership were lost, and the member
+>   contacts remained. Other edits were not checked.
+
+For a book synced with DAVx⁵, choose its format in Natel's Settings →
+Address books: group cards for "groups are separate vCards", categories for
+"groups are per-contact categories"; see [Groups](#groups). Groups already
+stored in the other form stay in it, and Natel adds new members to them in
+that form, so they remain exposed to the loss above. Categories with
+"groups are per-contact categories" were not checked.
 
 ### Photos rewritten by iPhone Contacts
 
@@ -192,9 +232,11 @@ JPEG and an animated GIF shown still, without establishing a standards violation
 Automated browser tests use Chromium, with desktop and phone viewports.
 They include accessibility checks in light and dark themes. Sign-in also
 runs in Firefox, and sign-in, the list, editing and photos in WebKit,
-Safari's engine. Phone emulation does not replace a test on a physical
-phone, and Playwright's WebKit does not replace Safari itself. Use a current
-browser and report issues with its version and device.
+Safari's engine. All of Natel was checked by hand in Firefox 160 on
+Windows 11 ([2026-11-22](device-checks/2026-11-22-firefox.md)). Phone
+emulation does not replace a test on a physical phone, and Playwright's
+WebKit does not replace Safari itself. Use a current browser and report
+issues with its version and device.
 
 The app has an installable manifest. Installation depends on the browser's
 support and normally requires HTTPS; it adds no offline mode.
