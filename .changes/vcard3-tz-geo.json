@@ -1,0 +1,4 @@
+{
+  "type": "Fixed",
+  "text": "A vCard 3.0 contact's time zone, which Natel doesn't edit, is no longer cut down on save or in “Details not shown”: `TZ:Europe/Zurich` stays as written."
+}

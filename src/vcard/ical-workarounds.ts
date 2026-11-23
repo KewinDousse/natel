@@ -52,6 +52,17 @@ export function keepUrisAsWritten(): void {
 }
 
 /**
+ * In a 3.0 card, ical.js reads `TZ` as a UTC offset, which would cut an
+ * untouched `TZ:Europe/Zurich`, the 4.0 form some clients write there. Natel
+ * doesn't show it: hold it as written. See DECISIONS.md 061.
+ */
+export function keepVcard3OffsetsAsWritten(): void {
+  const values = ICAL.design.vcard3.value;
+  if (!values["utc-offset"]) throw new Error("ical.js has no vCard 3.0 utc-offset value");
+  values["utc-offset"] = { fromICAL: (value: string) => value, toICAL: (value: string) => value };
+}
+
+/**
  * ical.js writes back an `integer`, `float` or `boolean` as the number or
  * boolean it read, rewriting an untouched `007` as `7`. Hold each as written,
  * in both versions. See DECISIONS.md 060.

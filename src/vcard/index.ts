@@ -28,6 +28,7 @@ import {
   encodeVcard3Semicolons,
   keepNumbersAndBooleansAsWritten,
   keepUrisAsWritten,
+  keepVcard3OffsetsAsWritten,
   retypeEditedNumbersAndBooleans,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
@@ -76,6 +77,7 @@ decodeEscapedSemicolons();
 keepUrisAsWritten();
 keepNumbersAndBooleansAsWritten();
 encodeVcard3Semicolons();
+keepVcard3OffsetsAsWritten();
 
 // ---------------------------------------------------------------------------
 // Public API

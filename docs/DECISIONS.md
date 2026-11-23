@@ -1200,6 +1200,27 @@ as one 4.0 float list (`GEO;VALUE=FLOAT:46.50,6.60`). `VALUE=float` is still
 written `VALUE=FLOAT`, as ical.js writes every VALUE type. Code that reads
 one of these values gets a string, not a number or a boolean.
 
+## 061 — A vCard 3.0 TZ is kept as written
+
+**Context.** ical.js reads a 3.0 `TZ` as a UTC offset, then writes back what
+it parsed. A save therefore cut down a value the user never changed, against
+ADR 005: `TZ:Europe/Zurich` became `TZ:Europe/`. Clients write the 4.0
+time-zone name `Europe/Zurich` in 3.0 cards.
+
+**Decision.** `keepVcard3OffsetsAsWritten` in `src/vcard/`, a named
+workaround, makes ical.js hold every 3.0 `utc-offset` value as the string
+written, in reading and in writing. Natel shows `TZ` in no field and
+never edits it.
+
+**Consequences.** An untouched 3.0 `TZ` read as a `utc-offset` keeps its
+value as written on save, as does any 3.0 property written with
+`VALUE=utc-offset`. It is listed as written among the card's unshown
+properties. Code that one day shows or edits it reads a string, not a parsed
+offset. A card that ical.js reads with the 3.0 types but writes with the 4.0
+ones, such as one with `VERSION:2.1` or none, still has its `TZ` rewritten,
+which this entry leaves to its own fix. Related to ADR 053, which keeps a
+4.0 `uri` as written.
+
 ## 063 — Baïkal tested from its release archive
 
 **Context.** Issue #21 asks for the e2e suite to cover current Baïkal. CI
