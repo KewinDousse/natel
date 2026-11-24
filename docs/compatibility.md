@@ -18,6 +18,7 @@ their evidence.
 | Xandikos                             |   ✅   | Behind Caddy, with one account      |
 | Nextcloud                            |   ✅   | Personal books; see the test setup   |
 | SOGo                                 |   ⚠️   | Server ignores a stale ETag on delete |
+| RustiCal                             |   ◐    | Sign-in and group books, by hand    |
 | Other RFC 6352 servers                |   ⬜   |                                     |
 
 **Synced clients**
@@ -58,6 +59,7 @@ lost a group stored in the other; see
 | Xandikos                             | The same end-to-end suite runs locally and in CI, behind [the documented Caddy site](deployment.md#protecting-xandikos-with-a-password). | Caddy checks the password, for a single account. Other authenticating proxies and Xandikos's own `--htpasswd` are not tested. |
 | Nextcloud | The shared suite is configured locally and in CI; see [the Nextcloud test setup](testing/nextcloud.md). | Tested with a synthetic user and personal address books; server-generated books are disabled. Group formats differ from Nextcloud’s Contacts web app. |
 | SOGo | Not in the compatibility suite. Direct requests to SOGo 5.12.13, outside Natel, got 201 for a PUT, 204 for a DELETE with a stale `If-Match`, then 404 for a GET of the card (checked on 2026-11-04); 5.12.1 behaved the same on 2026-11-02. | SOGo ignores `If-Match` on DELETE: deleting a contact that changed elsewhere since Natel loaded it deletes it anyway, with no conflict shown, and that change is lost. Reported upstream as [SOGo #6269](https://bugs.sogo.nu/view.php?id=6269). Everything else is unverified. |
+| RustiCal | Not in the compatibility suite. Checked by hand against RustiCal 0.19.2 in Docker on 2026-11-23: a group member signs in, sees their own and their group’s address books, and saves an edit in the group’s book. | Everything else is unverified. |
 | Other RFC 6352 servers | Not in the compatibility suite. | Compatibility is unverified; group formats can differ. |
 
 Natel authenticates with a CardDAV

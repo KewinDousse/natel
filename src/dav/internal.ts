@@ -111,11 +111,15 @@ function extractDisplayName(response: DAVResponse, fallback: string): string {
   return fallback;
 }
 
-/** Read the `href` child of a property such as current-user-principal. */
-function extractHrefProp(prop: unknown): string | undefined {
-  if (typeof prop !== "object" || prop === null) return undefined;
+/**
+ * Read the `href` children of a property such as addressbook-home-set. tsdav
+ * gives one href as a string and several as an array.
+ */
+function extractHrefsProp(prop: unknown): string[] {
+  if (typeof prop !== "object" || prop === null) return [];
   const href = (prop as Record<string, unknown>).href;
-  return typeof href === "string" && href.length > 0 ? href : undefined;
+  const hrefs = Array.isArray(href) ? href : [href];
+  return hrefs.filter((h): h is string => typeof h === "string" && h.length > 0);
 }
 
 /**
@@ -379,24 +383,25 @@ function baikalContextRoot(): string {
 }
 
 /**
- * Find the address book home of the authenticated user.
+ * Find the address book homes of the authenticated user. RFC 6352 §7.1.1
+ * allows several: RustiCal adds one per group the user belongs to.
  *
  * A root that does not answer with a principal is skipped. An auth failure
  * or a timeout stops the search at once: every root is on the same server,
  * so another one would not fix the password or answer sooner.
  */
-async function discoverHomeUrl(client: DAVClient): Promise<string> {
+async function discoverHomeUrls(client: DAVClient): Promise<[string, ...string[]]> {
   let lastError: unknown;
   const wellKnown = new URL(".well-known/carddav", proxyRoot()).href;
   for (const root of [wellKnown, proxyRoot(), baikalContextRoot()]) {
     try {
-      const principalUrl = await fetchHrefProp(
+      const [principalUrl] = await fetchHrefsProp(
         client,
         root,
         "d:current-user-principal",
         "currentUserPrincipal",
       );
-      return await fetchHrefProp(
+      return await fetchHrefsProp(
         client,
         principalUrl,
         "card:addressbook-home-set",
@@ -410,13 +415,13 @@ async function discoverHomeUrl(client: DAVClient): Promise<string> {
   throw lastError;
 }
 
-/** PROPFIND a single href-valued property and map it into proxy space. */
-async function fetchHrefProp(
+/** PROPFIND an href-valued property and map its hrefs, at least one, into proxy space. */
+async function fetchHrefsProp(
   client: DAVClient,
   url: string,
   prop: string,
   parsedName: string,
-): Promise<string> {
+): Promise<[string, ...string[]]> {
   const context = `discovering ${prop} on ${url}`;
   const responses = await wrap(
     () => client.propfind({ url, props: { [prop]: {} }, depth: "0" }),
@@ -424,11 +429,64 @@ async function fetchHrefProp(
   );
   const response = responses[0];
   assertOk(response, context);
-  const href = extractHrefProp(response.props?.[parsedName]);
-  if (href === undefined) {
-    throw new DavError(`CardDAV unexpected error: ${context} — no href`, "UNEXPECTED");
+  // A malformed href is left out rather than failing sign-in while another maps.
+  let rejected: unknown;
+  const mapped = extractHrefsProp(response.props?.[parsedName]).flatMap((href) => {
+    try {
+      return [fromServerHref(href, url)];
+    } catch (err) {
+      rejected ??= err;
+      return [];
+    }
+  });
+  const [first, ...rest] = new Set(mapped);
+  if (first === undefined) {
+    throw rejected ?? new DavError(`CardDAV unexpected error: ${context} — no href`, "UNEXPECTED");
   }
-  return fromServerHref(href, url);
+  return [first, ...rest];
+}
+
+/**
+ * True when a response comes from a 207 Multi-Status body. tsdav keeps the
+ * parsed body, with its multistatus key, in raw; any other reply has no such
+ * key there, and carries the request's own status.
+ * Evidence: tsdav@2.5.0 `davRequest` (src/request.ts).
+ */
+function isMultistatus(response: DAVResponse | undefined): boolean {
+  const raw: unknown = response?.raw;
+  return typeof raw === "object" && raw !== null && "multistatus" in raw;
+}
+
+/** A home the account may not read, raised when no home answers. */
+type Denial = { response: DAVResponse; context: string };
+
+/** A home's members, or its denial. */
+type HomeListing = { members: DAVResponse[] } | { denied: Denial };
+
+/**
+ * PROPFIND a home's members with Depth 1. A home the account may not read
+ * (403 or 404) comes back denied: as AUTH, a 403 would end the session
+ * when the account's own home is readable.
+ */
+async function listHome(client: DAVClient, homeUrl: string): Promise<HomeListing> {
+  const context = `discovering address books in ${homeUrl}`;
+  const responses = await wrap(
+    () =>
+      client.propfind({
+        url: homeUrl,
+        props: { "d:displayname": {}, "d:resourcetype": {} },
+        depth: "1",
+      }),
+    context,
+  );
+  const [first] = responses;
+  // Inside a 207 the first response may be a child: the home answers for itself.
+  const self = isMultistatus(first) ? responsesByHref(responses, homeUrl).get(homeUrl) : first;
+  if (self && (self.status === 403 || self.status === 404)) {
+    return { denied: { response: self, context } };
+  }
+  assertOk(self ?? first, context);
+  return { members: responses };
 }
 
 /** True when a PROPFIND response's resourcetype includes CARDDAV:addressbook. */
@@ -497,7 +555,7 @@ export async function createDavSession(auth: DavAuth): Promise<DavSession> {
 
 async function makeSession(evict: () => void): Promise<DavSession> {
   // No defaultAccountType: tsdav's own discovery starts from the origin root
-  // and resolves server hrefs outside /dav, so discoverHomeUrl does it instead.
+  // and resolves server hrefs outside /dav, so discoverHomeUrls does it instead.
   const client = await wrap(
     () =>
       createDAVClient({
@@ -510,7 +568,7 @@ async function makeSession(evict: () => void): Promise<DavSession> {
       }),
     "creating session",
   );
-  const homeUrl = await discoverHomeUrl(client);
+  const homeUrls = await discoverHomeUrls(client);
 
   /**
    * Wrap an operation so that if it throws DavError with code AUTH, the
@@ -531,22 +589,27 @@ async function makeSession(evict: () => void): Promise<DavSession> {
   return {
     async discoverAddressBooks() {
       return withAuthEviction(async () => {
-        const responses = await wrap(
-          () =>
-            client.propfind({
-              url: homeUrl,
-              props: { "d:displayname": {}, "d:resourcetype": {} },
-              depth: "1",
-            }),
-          "discovering address books",
-        );
-        assertOk(responses[0], "discovering address books");
-        return responses
-          .filter((r) => r.ok && isAddressBook(r) && r.href)
-          .map((r) => {
-            const href = fromServerHref(r.href ?? "", homeUrl);
-            return { href, displayName: extractDisplayName(r, href) };
-          });
+        const books = new Map<string, { href: string; displayName: string }>();
+        let denied: Denial | undefined;
+        let answered = false;
+        for (const homeUrl of homeUrls) {
+          const listing = await listHome(client, homeUrl);
+          if ("denied" in listing) {
+            denied ??= listing.denied;
+            continue;
+          }
+          answered = true;
+          for (const r of listing.members) {
+            if (!r.ok || !isAddressBook(r) || !r.href) continue;
+            const href = fromServerHref(r.href, homeUrl);
+            if (!books.has(href))
+              books.set(href, { href, displayName: extractDisplayName(r, href) });
+          }
+        }
+        if (!answered && denied) {
+          assertOk(denied.response, denied.context);
+        }
+        return [...books.values()];
       });
     },
 

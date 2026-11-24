@@ -14,6 +14,20 @@ const xmlResponse = (body: string) =>
     status: 207,
     headers: { "Content-Type": "application/xml; charset=utf-8" },
   });
+const homeSet = (...paths: string[]) =>
+  xmlResponse(
+    prop(
+      "/principals/alice/",
+      `<c:addressbook-home-set>${paths.map((p) => `<x:href>${p}</x:href>`).join("")}</c:addressbook-home-set>`,
+    ),
+  );
+const home = (path: string, books: string) =>
+  xmlResponse(prop(path, "<x:resourcetype><x:collection/></x:resourcetype>") + books);
+const bookIn = (path: string, name: string) =>
+  prop(
+    path,
+    `<x:displayname>${name}</x:displayname><x:resourcetype><x:collection/><c:addressbook/></x:resourcetype>`,
+  );
 const requests: Request[] = [];
 let replies: Response[] = [];
 
@@ -76,6 +90,113 @@ describe("Selected DAV wire requirements", () => {
         "addressbook-home-set",
       ),
     ).toHaveLength(1);
+  });
+
+  it("RFC 6352 §7.1.1: lists the address books of every address book home", async () => {
+    replies[1] = homeSet("/principals/alice/", "/principals/team/", "/principals/alice/");
+    const client = await session();
+    replies.push(
+      home("/principals/alice/", bookIn("/principals/alice/perso/", "Perso")),
+      home(
+        "/principals/team/",
+        bookIn("/principals/team/shared/", "Shared") +
+          bookIn("/principals/alice/perso/", "Perso again"),
+      ),
+    );
+    expect(await client.discoverAddressBooks()).toEqual([
+      { href: "http://localhost:3000/dav/principals/alice/perso/", displayName: "Perso" },
+      { href: "http://localhost:3000/dav/principals/team/shared/", displayName: "Shared" },
+    ]);
+    expect(requests.slice(2).map((r) => [new URL(r.url).pathname, r.headers.get("Depth")])).toEqual(
+      [
+        ["/dav/principals/alice/", "1"],
+        ["/dav/principals/team/", "1"],
+      ],
+    );
+  });
+
+  it.each([403, 404])(
+    "RFC 6352 §7.1.1: skips an address book home that answers %i while another answers",
+    async (status) => {
+      replies[1] = homeSet(
+        "\\\\elsewhere.example/team/",
+        "/principals/team/",
+        "/principals/alice/",
+      );
+      const client = await session();
+      replies.push(
+        new Response(null, { status }),
+        home("/principals/alice/", bookIn("/principals/alice/perso/", "Perso")),
+      );
+      expect(await client.discoverAddressBooks()).toEqual([
+        { href: "http://localhost:3000/dav/principals/alice/perso/", displayName: "Perso" },
+      ]);
+      expect(requests.slice(2).map((r) => new URL(r.url).pathname)).toEqual([
+        "/dav/principals/team/",
+        "/dav/principals/alice/",
+      ]);
+    },
+  );
+
+  it.each([
+    [401, "AUTH", 1],
+    [403, "AUTH", 2],
+    [404, "NOT_FOUND", 2],
+  ])("RFC 6352 §7.1.1: fails when address book homes answer %i", async (status, code, asked) => {
+    replies[1] = homeSet("/principals/alice/", "/principals/team/");
+    const client = await session();
+    replies.push(new Response(null, { status }), new Response(null, { status }));
+    await expect(client.discoverAddressBooks()).rejects.toMatchObject({ code });
+    expect(requests.slice(2)).toHaveLength(asked);
+  });
+
+  it("RFC 6352 §7.1.1: fails when an address book home answers 500 after another answered", async () => {
+    replies[1] = homeSet("/principals/alice/", "/principals/team/");
+    const client = await session();
+    replies.push(
+      home("/principals/alice/", bookIn("/principals/alice/perso/", "Perso")),
+      new Response(null, { status: 500 }),
+    );
+    await expect(client.discoverAddressBooks()).rejects.toMatchObject({ code: "UNEXPECTED" });
+  });
+
+  it("RFC 4918 §13: judges a home on its own response, not on a denied child listed first", async () => {
+    replies[1] = homeSet("/principals/alice/", "/principals/team/");
+    const client = await session();
+    replies.push(
+      xmlResponse(
+        `<x:response><x:href>/principals/alice/private/</x:href><x:status>HTTP/1.1 403 Forbidden</x:status></x:response>` +
+          prop("/principals/alice/", "<x:resourcetype><x:collection/></x:resourcetype>") +
+          bookIn("/principals/alice/perso/", "Perso"),
+      ),
+      home("/principals/team/", bookIn("/principals/team/shared/", "Shared")),
+    );
+    expect(await client.discoverAddressBooks()).toEqual([
+      { href: "http://localhost:3000/dav/principals/alice/perso/", displayName: "Perso" },
+      { href: "http://localhost:3000/dav/principals/team/shared/", displayName: "Shared" },
+    ]);
+  });
+
+  it("RFC 4918 §13: skips a home whose own response in its multistatus is 403", async () => {
+    replies[1] = homeSet("/principals/alice/", "/principals/team/");
+    const client = await session();
+    replies.push(
+      home("/principals/alice/", bookIn("/principals/alice/perso/", "Perso")),
+      xmlResponse(
+        `<x:response><x:href>/principals/team/</x:href><x:propstat><x:prop><x:displayname/><x:resourcetype/></x:prop><x:status>HTTP/1.1 403 Forbidden</x:status></x:propstat></x:response>`,
+      ),
+    );
+    expect(await client.discoverAddressBooks()).toEqual([
+      { href: "http://localhost:3000/dav/principals/alice/perso/", displayName: "Perso" },
+    ]);
+  });
+
+  it("RFC 6352 §7.1.1: names the rejected href when no address book home maps into the proxy", async () => {
+    const [principal] = replies;
+    if (!principal) throw new Error("Missing principal reply");
+    // Every context root reaches the same principal, so each gets both replies.
+    replies = [1, 2, 3].flatMap(() => [principal.clone(), homeSet("\\\\elsewhere.example/team/")]);
+    await expect(session()).rejects.toThrow("href outside the proxy: \\\\elsewhere.example/team/");
   });
 
   it("RFC 4918 §9.1 and §14.24: lists members with Depth 1 and DAV properties", async () => {

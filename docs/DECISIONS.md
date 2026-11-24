@@ -191,7 +191,7 @@ own URL space (`/dav.php/principals/alice/`), which lead the browser out of
 
 **Decision.**
 - Natel discovers books itself (`src/dav/internal.ts`, RFC 6764 and
-  RFC 6352): `current-user-principal`, `addressbook-home-set`, then the
+  RFC 6352): `current-user-principal`, `addressbook-home-set`, then each
   home's books, trying `/dav/.well-known/carddav`, `/dav/`, then Baïkal's
   `/dav/dav.php/`. A 401 stops the search.
 - Every href read is mapped into `/dav` (`fromServerHref`), every href
