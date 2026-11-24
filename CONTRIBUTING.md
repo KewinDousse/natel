@@ -156,12 +156,12 @@ For a pull request without a user-facing change, use `None` and explain why in
 `text`; that reason is checked but not published. This applies to documentation
 and dependency pull requests too. Names use lowercase letters, digits and hyphens.
 
-Write one finished paragraph per file, in plain English, normally one or two
-sentences. Describe the result and the conditions under which it matters.
-Implementation details belong in technical documentation unless they help someone
-act or understand a limit. Put important items first and link to detailed upgrade
-instructions. Give the risk and affected installations for a security fix; a
-new dependency version alone does not establish that a vulnerability is fixed.
+Write one finished paragraph per file, in plain English. Describe the result
+and the conditions under which it matters. Implementation details belong in
+technical documentation unless they help someone act or understand a limit.
+Put important items first and link to detailed upgrade instructions. Give the
+risk and affected installations for a security fix; a new dependency version
+alone does not establish that a vulnerability is fixed.
 
 Run `pnpm changes:validate` locally. The separate **Changelog decision** check
 requires a new valid note or a justified `None` before merging. It runs once the
@@ -169,6 +169,20 @@ pull request is marked ready.
 
 Commit and pull request titles are not release notes. Publishing a release is
 described in [docs/releasing.md](docs/releasing.md).
+
+### Who reads a note
+
+A note is read in the release notes by someone about to update Natel. From it
+they learn what changes for them and whether they must act. The cases, examples
+and reasoning behind the change belong in the pull request, its commits and the
+ADRs; the note does not repeat them.
+
+### Note length
+
+A note is one sentence, with one example at most. `pnpm changes:validate`
+refuses a note over 300 characters, link targets aside. It does not count sentences or
+examples, since abbreviations, version numbers and file names make that count
+unreliable; the review checks them.
 
 ## Bugs and security
 

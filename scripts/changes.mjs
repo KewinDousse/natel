@@ -60,6 +60,12 @@ const noteRules = "see « Changelog » in CONTRIBUTING.md";
 const noteTypes = [...categories, "None"];
 const notePath = /^\.changes\/[a-z0-9][a-z0-9-]*\.json$/;
 const quotedTypes = noteTypes.map((type) => JSON.stringify(type)).join(", ");
+export const noteLength = 300;
+
+/** A link's target is not read in the release notes, so it does not count. */
+function readLength(text) {
+  return text.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").length;
+}
 
 /** A missing or invalid change note: its message is the whole diagnosis. */
 export class ChangeNoteError extends Error {}
@@ -74,7 +80,8 @@ function fragmentProblem(entry) {
     return entry.type === "None"
       ? "text must give the reason no user-facing note is needed"
       : "text must describe the change";
-  if (entry.text.length > 1500) return "text must stay within 1,500 characters";
+  if (readLength(entry.text.trim()) > noteLength)
+    return `text must stay within ${noteLength} characters, link targets aside: one sentence, with an example at most`;
   if (/\r|\n/.test(entry.text)) return "text must be one paragraph, without line breaks";
   if (/<\/?[A-Za-z]/.test(entry.text)) return "text must not contain HTML tags";
   if (/\b(TODO|TBD|PLACEHOLDER)\b/i.test(entry.text))
@@ -310,7 +317,7 @@ export function checkChanges(base) {
   throw new ChangeNoteError(
     [
       `No change note: this branch adds no committed file under .changes/ since ${base}.`,
-      'Add .changes/<short-name>.json containing {"type": "<type>", "text": "<one finished paragraph>"},',
+      'Add .changes/<short-name>.json containing {"type": "<type>", "text": "<one sentence>"},',
       `with type one of ${quotedTypes}.`,
       'A "None" note gives as its text the reason no user-facing note is needed.',
       `Run pnpm changes:validate, and ${noteRules}.`,

@@ -1,4 +1,4 @@
 {
   "type": "Changed",
-  "text": "Phone numbers from every country now show in their own country's local format, as Swiss numbers already did, and a setting shows them in international format instead, with the country code. Only the display changes: the number stored in the contact stays as it is, and search finds a number by the digits of either format."
+  "text": "Phone numbers from every country now show in their country's local format, as Swiss numbers already did, or in international format through a new setting, while the stored number stays as it is and search finds either format."
 }

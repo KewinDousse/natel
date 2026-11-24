@@ -16,6 +16,7 @@ export function assemble(
 ): string;
 export function compareVersions(left: string, right: string): number;
 export class ChangeNoteError extends Error {}
+export const noteLength: number;
 export function readFragment(source: string, path?: string): ChangeNote;
 export function releaseNotes(changelog: string, version: string): string;
 export function validateVersion(version: unknown): string;

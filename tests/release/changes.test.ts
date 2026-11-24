@@ -3,6 +3,7 @@ import {
   assemble,
   ChangeNoteError,
   compareVersions,
+  noteLength,
   readFragment,
   releaseNotes,
   validateVersion,
@@ -59,12 +60,24 @@ describe("release notes", () => {
     ['["Added"]', ": it must be a JSON object"],
     ['{"type":"Added","text":"One.\\nTwo."}', ": text must be one paragraph"],
     ['{"type":"Added","text":"TODO"}', ": text must be finished"],
+    [
+      JSON.stringify({ type: "Added", text: `${"a".repeat(noteLength)}.` }),
+      ": text must stay within",
+    ],
     ['{"type":"Added",', " is not valid JSON"],
   ])("names the note and what is wrong with it: %s", (text, problem) => {
     expect(() => readFragment(text, ".changes/example.json")).toThrow(ChangeNoteError);
     expect(() => readFragment(text, ".changes/example.json")).toThrow(
       new RegExp(`^\\.changes/example\\.json${problem}.*CONTRIBUTING\\.md$`),
     );
+  });
+  it("accepts a note of exactly the limit, surrounding spaces aside", () => {
+    const text = `${"a".repeat(noteLength - 1)}.`;
+    expect(readFragment(JSON.stringify({ type: "Added", text: `  ${text}  ` })).text).toBe(text);
+  });
+  it("counts a link by its label, not its target", () => {
+    const text = `${"a".repeat(280)} [bare metal](docs/${"b".repeat(80)}.md).`;
+    expect(readFragment(JSON.stringify({ type: "Upgrade notes", text })).text).toBe(text);
   });
   it("includes preview features in the stable release even without new fragments", () => {
     const preview = assemble(changelog, [], "0.4.0-rc.1", "2026-10-24");
