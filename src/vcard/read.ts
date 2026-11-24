@@ -186,10 +186,13 @@ export function noteOf(contact: Contact): string {
   return readNote(contact.raw);
 }
 
-/** @internal Read NOTE from a raw component. */
+/**
+ * @internal Read NOTE from a raw component. ical.js reads a 3.0 NOTE as a
+ * list split at each unescaped comma, which a loose exporter leaves in: join
+ * it back into the text as written.
+ */
 export function readNote(raw: RawComponent): string {
-  const value = raw.getFirstPropertyValue("note");
-  return typeof value === "string" ? value : "";
+  return (raw.getFirstProperty("note")?.getValues() ?? []).map(String).join(",");
 }
 
 /**

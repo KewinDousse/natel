@@ -29,7 +29,7 @@ import {
   sharesLabel,
   writtenValue,
 } from "./fields";
-import { addressPartsOf, addressTypesOf, readBirthday, structuredValue } from "./read";
+import { addressPartsOf, addressTypesOf, readBirthday, readNote, structuredValue } from "./read";
 
 /**
  * Update or remove a single-string property (NICKNAME, TITLE).
@@ -65,31 +65,28 @@ export function updateStringProperty(raw: RawComponent, name: string, value: str
 }
 
 /**
- * Update or remove the FIRST occurrence of a multi-string property (URL, NOTE).
+ * Update or remove the first NOTE. A note still as `readNote` shows it stays
+ * as written; an edited one is written as one value, its commas escaped.
+ */
+export function updateNoteProperty(raw: RawComponent, note: string): void {
+  if (readNote(raw) === note) return;
+  const prop = raw.getFirstProperty("note");
+  if (!prop) addPropertyWithValue(raw, new ICAL.Property("note"), note);
+  else if (note.length > 0) prop.setValue(writtenValue(raw, prop, note));
+  else raw.removeProperty(prop);
+}
+
+/**
+ * Update or remove the FIRST occurrence of a single-valued property (URL).
  * Subsequent properties with the same name are left untouched in raw.
- * Preserves multi-values beyond the first when the property supports it.
  */
 export function updateFirstStringProperty(raw: RawComponent, name: string, value: string): void {
   const prop = raw.getFirstProperty(name);
   if (value.length > 0) {
-    if (prop) {
-      setPropertyValue(prop, writtenValue(raw, prop, value));
-    } else {
-      addPropertyWithValue(raw, new ICAL.Property(name), value);
-    }
+    if (prop) prop.setValue(writtenValue(raw, prop, value));
+    else addPropertyWithValue(raw, new ICAL.Property(name), value);
   } else if (prop) {
-    // When clearing: keep the property if there are remaining values beyond the first
-    const values = prop.getValues();
-    if (Array.isArray(values) && values.length > 1) {
-      values.shift();
-      try {
-        prop.setValues(values);
-      } catch {
-        prop.setValue(values.join(","));
-      }
-    } else {
-      raw.removeProperty(prop);
-    }
+    raw.removeProperty(prop);
   }
 }
 

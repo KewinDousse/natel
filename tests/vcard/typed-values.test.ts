@@ -147,6 +147,11 @@ describe.each([
     expect(text).toContain("\r\nNOTE:1\\,2\r\n");
     expect(parse(text).fields.note).toBe("1,2");
   });
+
+  it("imports a card whose NOTE typed integer holds a list", () => {
+    const lines = ["BEGIN:VCARD", ...version, "FN:X", "NOTE;VALUE=integer:1,2", "END:VCARD", ""];
+    expect(readImportCard(lines.join("\r\n")).name).toBe("X");
+  });
 });
 
 describe("import", () => {

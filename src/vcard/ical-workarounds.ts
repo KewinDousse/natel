@@ -203,15 +203,21 @@ export function retypeEditedNumbersAndBooleans(edited: RawProperty[]): void {
     const values = prop.getValues().map(decode);
     prop.resetType(defaultType);
     if (values.length <= 1) prop.setValue(values[0] ?? "");
-    else {
-      try {
-        prop.setValues(values);
-      } catch {
-        // A card with VERSION 2.1 or none is read with the 3.0 design, which
-        // may split a value the 4.0 design takes as one.
-        prop.setValue(values.join(","));
-      }
-    }
+    else prop.setValues(values);
+  }
+}
+
+/**
+ * ical.js reads a card with VERSION 2.1 or none with the 3.0 design, which
+ * splits a NOTE at each unescaped comma, and writes it with the 4.0 one,
+ * where a NOTE holds one value and only the first is written. Join each such
+ * NOTE back into one text, written with its commas escaped.
+ */
+export function joinSplitNotes(raw: RawComponent): void {
+  if (versionOf(raw) !== null) return;
+  for (const prop of raw.getAllProperties("note")) {
+    const values = prop.getValues();
+    if (values.length > 1) prop.setValue(values.map(String).join(","));
   }
 }
 

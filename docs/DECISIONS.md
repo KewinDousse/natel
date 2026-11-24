@@ -1340,3 +1340,21 @@ replaces a phone, e-mail or address list another client changed, its labels
 and parameters included. The merge stays a choice the user confirms, so ADR
 006 holds. A move, a delete and a group write keep their own conflict. This
 amends ADR 013 and 038.
+
+## 066 — A note split at its commas is joined back into one text
+
+**Context.** ical.js reads a card with `VERSION:2.1` or no `VERSION` with
+the 3.0 types, where `NOTE` holds several values split at each unescaped
+comma. It writes such a card with the 4.0 types, where `NOTE` holds one
+value, so a save kept only the text before the first comma, against
+ADR 005. Clients write unescaped commas in notes.
+
+**Decision.** `joinSplitNotes` in `src/vcard/`, a named workaround, joins
+the values of each such `NOTE` back into one text when Natel reads the
+card, on display and on import. Natel leaves a 3.0 card's `NOTE` split,
+since ical.js writes it back with the 3.0 types, as read, and `readNote`
+joins its values to show it.
+
+**Consequences.** Natel shows the whole note and saves it whole. A save
+writes the note's commas escaped (`NOTE:hello\, world`), the form RFC 6350
+requires, so an untouched note in such a card changes bytes but not text.

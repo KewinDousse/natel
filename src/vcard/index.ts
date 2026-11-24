@@ -26,6 +26,7 @@ import {
 import {
   decodeEscapedSemicolons,
   encodeVcard3Semicolons,
+  joinSplitNotes,
   keepNonDatesAsWritten,
   keepNumbersAndBooleansAsWritten,
   keepUrisAsWritten,
@@ -50,6 +51,7 @@ import {
   updateBdayProperty,
   updateFirstStringProperty,
   updateNameProperty,
+  updateNoteProperty,
   updateOrgProperty,
   updateStringProperty,
 } from "./write";
@@ -96,6 +98,7 @@ export function parse(text: string, href = "", etag = ""): Contact {
   const raw = new ICAL.Component(jCal);
   retypeTextBirthdays(raw);
   unescapeDataUriSemicolons(raw);
+  joinSplitNotes(raw);
   retypeEditedProperties(raw);
 
   const uid = readUid(raw) ?? "";
@@ -445,6 +448,7 @@ export function readImportCard(cardText: string): { uid: string | null; name: st
   const jCal = ICAL.parse(versionFirst(cardText));
   if (!Array.isArray(jCal) || jCal[0] !== "vcard") throw new Error("not a vCard");
   const raw = new ICAL.Component(jCal as unknown[]);
+  joinSplitNotes(raw);
   retypeEditedProperties(raw);
   const uid = readUid(raw);
   const fn = String(raw.getFirstPropertyValue("fn") ?? "").trim();
@@ -553,7 +557,7 @@ export function serialise(contact: Contact): string {
   }
 
   // --- Update NOTE (first property only) ---
-  updateFirstStringProperty(raw, "note", fields.note);
+  updateNoteProperty(raw, fields.note);
 
   // --- Update PHOTO, only when replaced or removed ---
   updatePhotoProperty(raw, fields.photo);
