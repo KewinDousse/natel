@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Refresh the caddy:2-alpine digest. It is a rebuild of the same Caddy 2.11.9 on the same Alpine 3.24.4, with no user-facing change."
+}
