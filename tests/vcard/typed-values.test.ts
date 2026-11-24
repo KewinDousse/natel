@@ -136,6 +136,7 @@ describe.each(["3.0", "4.0"])("%s property Natel edits, written with these types
 });
 
 describe.each([
+  ["VERSION 4.0", ["VERSION:4.0"]],
   ["VERSION 2.1", ["VERSION:2.1"]],
   ["no VERSION", []],
 ])("card with %s", (_, version) => {

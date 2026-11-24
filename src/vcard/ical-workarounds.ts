@@ -208,13 +208,13 @@ export function retypeEditedNumbersAndBooleans(edited: RawProperty[]): void {
 }
 
 /**
- * ical.js reads a card with VERSION 2.1 or none with the 3.0 design, which
- * splits a NOTE at each unescaped comma, and writes it with the 4.0 one,
- * where a NOTE holds one value and only the first is written. Join each such
- * NOTE back into one text, written with its commas escaped.
+ * After a nested card, such as a vCard 2.1 `AGENT`, ical.js reads the rest
+ * with the 3.0 types, which split a NOTE at each unescaped comma. A card not
+ * opening with `VERSION:3.0` is written with the 4.0 types, where a NOTE
+ * keeps only its first value, so join it back. See DECISIONS.md 066.
  */
 export function joinSplitNotes(raw: RawComponent): void {
-  if (versionOf(raw) !== null) return;
+  if (versionOf(raw) === "3.0") return;
   for (const prop of raw.getAllProperties("note")) {
     const values = prop.getValues();
     if (values.length > 1) prop.setValue(values.map(String).join(","));
@@ -296,19 +296,25 @@ const CONTENT_LINE = /[^\n]*(?:\n|$)(?:[ \t][^\n]*(?:\n|$))*/g;
 
 const unfoldLine = (line: string) => line.replace(/\r?\n[ \t]/g, "");
 
+/** A text's content lines, and the index of its first `BEGIN:VCARD`, or -1. */
+function splitAtBegin(text: string): { lines: string[]; begin: number } {
+  const lines = text.match(CONTENT_LINE) ?? [];
+  const begin = lines.findIndex((line) =>
+    /^[ \t]*BEGIN:VCARD[ \t]*\r?\n?$/i.test(unfoldLine(line)),
+  );
+  return { lines, begin };
+}
+
 /**
  * ical.js reads and writes a card with the types of its version only when
  * `VERSION` is its first property, where RFC 6350 §6.7.9 puts it. Move a
  * later `VERSION` line there, unchanged, before ical.js reads the card. See
  * DECISIONS.md 054.
  */
-export function versionFirst(text: string): string {
+function versionFirst(text: string): string {
   // The usual card, without splitting a text that may hold a photo.
   if (/^[ \t]*BEGIN:VCARD[ \t]*\r?\nVERSION[;:]/i.test(text)) return text;
-  const lines = text.match(CONTENT_LINE) ?? [];
-  const begin = lines.findIndex((line) =>
-    /^[ \t]*BEGIN:VCARD[ \t]*\r?\n?$/i.test(unfoldLine(line)),
-  );
+  const { lines, begin } = splitAtBegin(text);
   if (begin === -1) return text;
   // The card's own VERSION, not that of a component nested in it, such as a
   // vCard 2.1 AGENT card. ical.js nests on any BEGIN and closes on any END.
@@ -335,3 +341,37 @@ export function versionFirst(text: string): string {
   // Without its END, ical.js rejects the card anyway.
   return text;
 }
+
+/**
+ * ical.js reads a card with the 3.0 types unless its first property is an
+ * ungrouped `VERSION:4.0`, but edits and writes it with the 4.0 types unless
+ * that property is `VERSION:3.0`. After `versionFirst`, read a card whose
+ * first property is neither, such as a card without `VERSION`, as opening with
+ * `VERSION:4.0`, then drop that line, so it is read with the types it is
+ * written with. A nested card, such as a vCard 2.1 `AGENT`, still switches
+ * ical.js to the 3.0 types from its first property on. Throws on a text that
+ * is not one vCard. See DECISIONS.md 062.
+ */
+export function parseWithWrittenTypes(text: string): CardJCal {
+  const card = versionFirst(text);
+  // Parsed as it is first: the usual card opens with VERSION 3.0 or 4.0, and
+  // only ical.js knows which line it takes as the first property.
+  const jCal: unknown = ICAL.parse(card);
+  if (!isCard(jCal)) throw new Error("not a vCard");
+  const first: readonly unknown[] = Array.isArray(jCal[1][0]) ? jCal[1][0] : [];
+  const [name, params, , value] = first;
+  const grouped = typeof params === "object" && params !== null && "group" in params;
+  if (name === "version" && (value === "3.0" || (value === "4.0" && !grouped))) return jCal;
+  const { lines, begin } = splitAtBegin(card);
+  if (begin === -1) throw new Error("not a vCard");
+  lines.splice(begin + 1, 0, "VERSION:4.0\r\n");
+  const read: unknown = ICAL.parse(lines.join(""));
+  if (!isCard(read)) throw new Error("not a vCard");
+  read[1].shift();
+  return read;
+}
+
+type CardJCal = [name: "vcard", properties: unknown[], components: unknown[]];
+
+const isCard = (jCal: unknown): jCal is CardJCal =>
+  Array.isArray(jCal) && jCal[0] === "vcard" && Array.isArray(jCal[1]) && Array.isArray(jCal[2]);

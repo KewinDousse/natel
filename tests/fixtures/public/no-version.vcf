@@ -1,0 +1,12 @@
+BEGIN:VCARD
+UID:no-version-test@example.com
+FN:Ada Lovelace
+N:Lovelace;Ada;;;
+ORG:Analytical Engines
+TEL;TYPE=CELL:+41 79 000 00 00
+GEO:geo:46.5,6.6
+SOURCE:https://example.org/ada.vcf
+URL:https://example.org/?q=1,2
+IMPP:xmpp:ada@example.org
+BDAY:18151210
+END:VCARD

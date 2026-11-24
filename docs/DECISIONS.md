@@ -1062,7 +1062,8 @@ that moves up when one before it is removed: it is written with the text
 escapes. ical.js reads a card with the 4.0 types only when `VERSION:4.0` is
 its first property: in a card whose `VERSION:4.0` comes later, a property
 whose 3.0 type is not `uri`, such as `GEO`, is outside this entry. Amends ADR 023 and 024.
-Amended by ADR 054 for a card whose `VERSION` is not its first property.
+Amended by ADR 054 for a card whose `VERSION` is not its first property, and by
+ADR 062 for a card that opens with neither `VERSION:3.0` nor `VERSION:4.0`.
 
 ## 054 — A card's VERSION is moved right after BEGIN:VCARD
 
@@ -1086,6 +1087,7 @@ when reading, adding a property and writing.
 **Consequences.** A card whose `VERSION` came later is saved with it on its
 second line; no other line moves. A card without `VERSION`, which RFC 2426
 and RFC 6350 forbid, is outside this entry. Amends ADR 053.
+Amended by ADR 062 for a card that opens with neither `VERSION:3.0` nor `VERSION:4.0`.
 
 ## 055 — Sign in with Digest where the server asks for it
 
@@ -1217,10 +1219,44 @@ never edits it.
 value as written on save, as does any 3.0 property written with
 `VALUE=utc-offset`. It is listed as written among the card's unshown
 properties. Code that one day shows or edits it reads a string, not a parsed
-offset. A card that ical.js reads with the 3.0 types but writes with the 4.0
-ones, such as one with `VERSION:2.1` or none, still has its `TZ` rewritten,
-which this entry leaves to its own fix. Related to ADR 053, which keeps a
-4.0 `uri` as written.
+offset. Related to ADR 053, which keeps a 4.0 `uri` as written. Amended by
+ADR 062 for a card with `VERSION:2.1`, none or a grouped `VERSION:4.0`, whose
+untyped `TZ` is kept as written.
+
+## 062 — Natel reads a card that opens with neither VERSION 3.0 nor 4.0 with the 4.0 types
+
+**Context.** ical.js reads every property of a card but the first with the
+3.0 types unless that first one is an ungrouped `VERSION:4.0`, yet edits and
+writes the card with the 4.0 types unless it opens with `VERSION:3.0`
+(ADR 053, 054). A card without `VERSION`, with `VERSION:2.1` or with a
+grouped `VERSION:4.0` was read with one set and written with the other, so a
+save rewrote properties the user never changed, against ADR 005 (#19, #49):
+`GEO:geo:46.5,6.6` became `GEO;VALUE=FLOAT:geo:46.5,6.6`,
+`TZ:Europe/Zurich` became `TZ;VALUE=UTC-OFFSET:EurpeZu`, a note was cut at
+an unescaped comma, and
+`TEL`, `BDAY`, `ANNIVERSARY`, `SOURCE`, `IMPP` and `PHOTO` gained a `VALUE`
+parameter.
+
+**Decision.** `parseWithWrittenTypes` in `src/vcard/`, a named workaround,
+reads such a card as if a `VERSION:4.0` line followed `BEGIN:VCARD`, then
+drops that line, so ical.js reads the card with the 4.0 types it edits and
+writes the card with. Natel does so after it moves `VERSION` first (ADR 054),
+when it opens a card and when it reads one for an import.
+
+**Rejected.** Reading it with the 3.0 types: ical.js would need patching
+where it edits and writes.
+
+**Consequences.** Natel writes a property the user never changed as in the
+same card opening with `VERSION:4.0`, and the card gains no `VERSION`.
+ADR 053 applies to such a card in full. Three values Natel picks by the
+`VERSION` value keep the 3.0 forms of ADR 008: the `REV` stamp, an edited
+birthday and a new group member. A text that is not exactly one vCard, such
+as a calendar, two cards or a card whose `BEGIN:VCARD` line ends with a
+space or a tab, is never read as a contact: the book counts it among the
+cards it could not show, and an import as unreadable. A card nested in it,
+such as a vCard 2.1 `AGENT`, is outside this entry, except the outer card's
+`NOTE`, which ADR 066 keeps whole.
+Amends ADR 053, 054, 061 and 066.
 
 ## 063 — Baïkal tested from its release archive
 
@@ -1358,3 +1394,6 @@ joins its values to show it.
 **Consequences.** Natel shows the whole note and saves it whole. A save
 writes the note's commas escaped (`NOTE:hello\, world`), the form RFC 6350
 requires, so an untouched note in such a card changes bytes but not text.
+Amended by ADR 062, which reads such a card with the 4.0 types: after a
+card nested in any card that does not open with `VERSION:3.0`, such as a
+vCard 2.1 `AGENT`, ical.js still splits a `NOTE`, and Natel joins it.

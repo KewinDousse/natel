@@ -31,10 +31,10 @@ import {
   keepNumbersAndBooleansAsWritten,
   keepUrisAsWritten,
   keepVcard3OffsetsAsWritten,
+  parseWithWrittenTypes,
   retypeEditedNumbersAndBooleans,
   retypeTextBirthdays,
   unescapeDataUriSemicolons,
-  versionFirst,
 } from "./ical-workarounds";
 import { updatePhotoProperty } from "./photo";
 import {
@@ -91,11 +91,11 @@ keepVcard3OffsetsAsWritten();
  * Parse vCard text into a Contact.
  *
  * `href` and `etag` are optional — they default to `""` so callers that only
- * have the body text can still construct a Contact.
+ * have the body text can still construct a Contact. Throws on a text that is
+ * not exactly one vCard, such as a calendar or two cards.
  */
 export function parse(text: string, href = "", etag = ""): Contact {
-  const jCal = ICAL.parse(versionFirst(text));
-  const raw = new ICAL.Component(jCal);
+  const raw = new ICAL.Component(parseWithWrittenTypes(text));
   retypeTextBirthdays(raw);
   unescapeDataUriSemicolons(raw);
   joinSplitNotes(raw);
@@ -445,9 +445,7 @@ export function splitCards(fileText: string): string[] {
  * read it as a vCard.
  */
 export function readImportCard(cardText: string): { uid: string | null; name: string } {
-  const jCal = ICAL.parse(versionFirst(cardText));
-  if (!Array.isArray(jCal) || jCal[0] !== "vcard") throw new Error("not a vCard");
-  const raw = new ICAL.Component(jCal as unknown[]);
+  const raw = new ICAL.Component(parseWithWrittenTypes(cardText));
   joinSplitNotes(raw);
   retypeEditedProperties(raw);
   const uid = readUid(raw);
