@@ -45,6 +45,7 @@ beforeEach(() => {
     mapApp: null,
     labelPosition: "auto",
     avatarShape: "round",
+    showCardDates: false,
     phoneFormat: "local",
   });
 });
@@ -165,6 +166,22 @@ describe("contact image shape", () => {
     usePreferences.getState().setAvatarShape("round");
     expect(stored()).toEqual({ sort: "family" });
     expect(usePreferences.getState().avatarShape).toBe("round");
+  });
+});
+
+describe("card dates", () => {
+  it("are hidden by default", () => {
+    expect(usePreferences.getInitialState().showCardDates).toBe(false);
+  });
+
+  it("stores only the choice to show them, preserving other preferences", () => {
+    usePreferences.getState().setMapApp("osm");
+    usePreferences.getState().setShowCardDates(true);
+    expect(stored()).toEqual({ map: "osm", cardDates: "shown" });
+    expect(usePreferences.getState().showCardDates).toBe(true);
+    usePreferences.getState().setShowCardDates(false);
+    expect(stored()).toEqual({ map: "osm" });
+    expect(usePreferences.getState().showCardDates).toBe(false);
   });
 });
 

@@ -1,9 +1,9 @@
 /**
  * SettingsPage — the account, display preferences (ADR 019), each book's
  * group format (ADR 052), shortcuts and app information, in the detail pane
- * on desktop and as its own screen on phones. One labelled select per
- * preference; a change applies at once, with no save button. Back, or Esc on
- * desktop, returns to the list.
+ * on desktop and as its own screen on phones. One labelled select or
+ * checkbox per preference; a change applies at once, with no save button.
+ * Back, or Esc on desktop, returns to the list.
  */
 
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -54,6 +54,8 @@ export function SettingsPage() {
     setLabelPosition,
     avatarShape,
     setAvatarShape,
+    showCardDates,
+    setShowCardDates,
     phoneFormat,
     setPhoneFormat,
   } = usePreferences();
@@ -204,6 +206,15 @@ export function SettingsPage() {
               ))}
             </NativeSelect>
           </Field>
+          <label className="flex min-h-12 cursor-pointer items-center gap-3 text-sm font-bold lg:min-h-11">
+            <input
+              type="checkbox"
+              checked={showCardDates}
+              onChange={(event) => setShowCardDates(event.target.checked)}
+              className={`size-4 shrink-0 accent-primary ${FOCUS_RING}`}
+            />
+            {t("card_dates_setting")}
+          </label>
         </SettingsSection>
 
         <BookFormats />

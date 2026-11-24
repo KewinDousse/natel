@@ -511,8 +511,9 @@ save, in UTC to the second, on contacts and group cards. A card without
 `REV` doesn't get one.
 
 **Consequences.** A card saved in Natel says when. A moved or imported card
-keeps its `REV`, since its text goes over unchanged.
-Amended by ADR 059, which gives `REV` to a card that has none.
+keeps its `REV`, since its text goes over unchanged. Amended by ADR 057
+for the form of a 4.0 `REV`, and by ADR 059, which gives `REV` to a card
+that has none.
 
 ## 030 — Display grouped `X-ABLABEL` values and replace them with an explicit type
 
@@ -1128,6 +1129,28 @@ nonces, as Apache's `mod_auth_digest` does, ends the session when it does:
 the app shows it as expired, and signing in again takes a new nonce. Digest's hash of the password stays in
 memory as the password did. This amends ADR 032.
 
+## 057 — A vCard 4.0 `REV` is kept as written
+
+**Context.** A contact page shows the day of the card's `REV` (#28). ical.js
+reads a 4.0 `REV` through its `timestamp` value, which drops a UTC offset
+(`20261112T143000+0200` read as `2026-11-12T14:30:00`) and garbles the
+extended and date-only forms clients write (`2024-03-03T10:10:10Z` read as
+`2024--0-3-T3T:10::1`), so the page would show the wrong day or none. No
+server receives that value: a save moves `REV` first (ADR 029), and an import
+or a move sends the card's text unchanged.
+
+**Decision.** `keepTimestampsAsWritten` in `src/vcard/`, a named workaround,
+makes ical.js keep every 4.0 `timestamp` value as written. Natel reads a
+`REV` in the forms RFC 6350 and RFC 2426 allow, basic or extended, with or
+without time and zone; a value it can't read shows no date. ADR 029's stamp
+in a 4.0 card is written in the basic form, `20261112T123000Z`.
+
+**Consequences.** Natel shows the day a 4.0 `REV` names, whatever its form or
+time zone. Parsing and serialising a 4.0 card leaves its `REV` as written. The
+workaround affects every value typed `timestamp` in a card ical.js reads with
+the 4.0 types (ADR 062): `REV`, and a property written with
+`VALUE=timestamp`. Amends ADR 029.
+
 ## 059 — Every card Natel creates or saves gets a `REV`
 
 **Context.** ADR 029 moves `REV` only on a card that has one, so cards
@@ -1330,6 +1353,8 @@ read as written. iCalendar values stay as ical.js reads them.
   becomes `1022`.
 - Natel shows as text a few birthdays that ical.js reads as a date only in
   part, such as `20200101T100000+01:00`.
+- Natel keeps a 4.0 `timestamp` as written in every form, the extended one
+  included (ADR 057), so it shows a birthday typed `timestamp` as text.
 
 ## 065 — On an edit conflict, the user picks what to keep, then confirms
 

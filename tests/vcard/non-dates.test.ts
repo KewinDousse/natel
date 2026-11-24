@@ -35,7 +35,7 @@ describe.each(["3.0", "4.0"])("%s date that is not a date", (version) => {
   });
 
   it("is listed as written among the card's unshown properties", () => {
-    expect(unshownPropertiesOf(card(version, lines))).toEqual(lines);
+    expect(unshownPropertiesOf(card(version, lines), { datesShown: false })).toEqual(lines);
   });
 });
 
@@ -172,10 +172,16 @@ describe("4.0 timestamp", () => {
     expect(saved("4.0", [line])).toContain(`\r\n${line}\r\n`);
   });
 
-  it("writes one in the extended form as the basic form", () => {
-    expect(saved("4.0", ["X-SEEN;VALUE=TIMESTAMP:2020-01-01T10:00:00Z"])).toContain(
-      "\r\nX-SEEN;VALUE=TIMESTAMP:20200101T100000Z\r\n",
-    );
+  it("keeps one in the extended form as written", () => {
+    const line = "X-SEEN;VALUE=TIMESTAMP:2020-01-01T10:00:00Z";
+    expect(saved("4.0", [line])).toContain(`\r\n${line}\r\n`);
+  });
+
+  it("keeps one in the extended form as written in a card without VERSION", () => {
+    const line = "X-SEEN;VALUE=TIMESTAMP:2020-01-01T10:00:00Z";
+    const contact = parse(["BEGIN:VCARD", "FN:X", line, "END:VCARD", ""].join("\r\n"));
+    contact.fields.note = "edited";
+    expect(serialise(contact)).toContain(`\r\n${line}\r\n`);
   });
 });
 
@@ -225,11 +231,14 @@ describe("dates written as their type expects", () => {
 });
 
 describe("4.0 birthday typed timestamp", () => {
-  it.each(["19870412T102200+0100", "19870412T102200.5Z"])("shows %s as written", (value) => {
-    const line = `BDAY;VALUE=timestamp:${value}`;
-    expect(card("4.0", [line]).fields.bday?.source).toBe(value);
-    expect(saved("4.0", [line])).toContain(`\r\nBDAY;VALUE=TEXT:${value}\r\n`);
-  });
+  it.each(["19870412T102200+0100", "19870412T102200.5Z", "19870412T100000Z"])(
+    "shows %s as written",
+    (value) => {
+      const line = `BDAY;VALUE=timestamp:${value}`;
+      expect(card("4.0", [line]).fields.bday?.source).toBe(value);
+      expect(saved("4.0", [line])).toContain(`\r\nBDAY;VALUE=TEXT:${value}\r\n`);
+    },
+  );
 });
 
 describe("time in the extended form", () => {

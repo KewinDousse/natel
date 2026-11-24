@@ -43,7 +43,7 @@ describe.each(["3.0", "4.0"])("%s integer, float and boolean values", (version) 
   });
 
   it("lists them as written among the card's unshown properties", () => {
-    expect(unshownPropertiesOf(card(version, lines))).toEqual(lines);
+    expect(unshownPropertiesOf(card(version, lines), { datesShown: false })).toEqual(lines);
   });
 });
 

@@ -287,6 +287,15 @@ once to the list and the reading view, and persists in the browser; the form,
 copy and `tel:` links keep the stored value. Search finds a number by its
 stored digits and by those of both formats, whichever the setting shows.
 
+### Card dates preference
+
+Settings offers a checkbox at the end of Contact details, "Show creation and
+modification dates", off by default. It shows or hides the dates line at the
+foot of the reading view (see Reading view, item 8) at once, and persists in
+the browser. Being a yes or no, it is a checkbox rather than a select: the box
+comes before its label on one row at every width, the whole row toggles it,
+and it is as tall as a select.
+
 ### Group format setting
 
 An "Address books" section (ADR 052) lists the account's books, each with a
@@ -306,7 +315,8 @@ and About and help are separate sections. Display holds language and
 appearance. Contact holds which name comes first ("Show first": first name or
 last name, the same preference as the list's sort toggle, which also orders
 the list) and the contact image shape. Contact details holds the phone number
-format, the label position and its preview, and the map preference.
+format, the label position and its preview, the map preference and the card
+dates preference.
 Preference labels sit above controls on phones and beside them from `sm`;
 changes apply without a save button.
 
@@ -325,6 +335,7 @@ changes apply without a save button.
    - A birthday with a day, a month and a year is followed by the age, muted, from 1 to 130: past that, the year is a placeholder.
    - Groups are chips; each filters the list on its group (see Group filter). On phones, where the list is another screen, it also goes back to the list.
    - The note keeps its line breaks.
+8. With the card dates preference on, under the sections, in small muted text: "Created April 18, 2021 · Modified November 12, 2026", the day the card's `CREATED` or `X-CREATED` and its `REV` give, in the interface language. A date the card doesn't have, or that can't be read, is left out; without either, so is the line. While the preference is on, the information not shown leaves out the creation date shown here.
 
 Dotted leaders are used in the list only: they need right-aligned values.
 

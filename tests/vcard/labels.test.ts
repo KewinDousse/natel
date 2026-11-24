@@ -43,7 +43,7 @@ describe("grouped X-ABLABEL", () => {
   });
 
   it("excludes only displayed label properties from unshown information", () => {
-    const unshown = unshownPropertiesOf(parse(CARD)).join("\n");
+    const unshown = unshownPropertiesOf(parse(CARD), { datesShown: false }).join("\n");
     expect(unshown).not.toContain("X-ABLABEL:Chalet");
     expect(unshown).not.toContain("X-ABLABEL:Atelier");
     expect(unshown).not.toContain("X-ABLABEL:Cabane");
@@ -230,6 +230,8 @@ describe("grouped X-ABLABEL", () => {
       ),
     );
     expect(contact.fields.tel[0]?.label).toBe("Chalet");
-    expect(unshownPropertiesOf(contact).join("\n")).toContain("ITEM1.X-ABLABEL:Duplicate");
+    expect(unshownPropertiesOf(contact, { datesShown: false }).join("\n")).toContain(
+      "ITEM1.X-ABLABEL:Duplicate",
+    );
   });
 });

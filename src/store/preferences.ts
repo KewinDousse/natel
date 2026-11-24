@@ -19,11 +19,15 @@ const LABEL_POSITIONS = ["left", "above"] as const;
 export type AvatarShape = "round" | "square";
 const AVATAR_SHAPES = ["round", "square"] as const;
 
+const CARD_DATES = ["shown"] as const;
 const PHONE_FORMATS = ["international"] as const satisfies readonly PhoneFormat[];
 
 type PreferencesState = {
   avatarShape: AvatarShape;
   setAvatarShape: (shape: AvatarShape) => void;
+  /** Whether a contact page shows when its card was created and modified. */
+  showCardDates: boolean;
+  setShowCardDates: (show: boolean) => void;
   labelPosition: LabelPosition;
   setLabelPosition: (position: LabelPosition) => void;
   phoneFormat: PhoneFormat;
@@ -43,6 +47,11 @@ export const usePreferences = create<PreferencesState>()((set) => ({
   setAvatarShape: (avatarShape) => {
     storeChoice("avatarShape", avatarShape === "round" ? null : avatarShape);
     set({ avatarShape });
+  },
+  showCardDates: storedChoice("cardDates", CARD_DATES) === "shown",
+  setShowCardDates: (showCardDates) => {
+    storeChoice("cardDates", showCardDates ? "shown" : null);
+    set({ showCardDates });
   },
   labelPosition: storedChoice("labelPosition", LABEL_POSITIONS) ?? "auto",
   setLabelPosition: (labelPosition) => {

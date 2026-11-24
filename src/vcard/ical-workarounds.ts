@@ -102,7 +102,9 @@ export function keepNonDatesAsWritten(): void {
   };
   for (const values of [ICAL.design.vcard.value, ICAL.design.vcard3.value]) {
     const codecs = values as Record<string, DateCodec | undefined>;
-    // 3.0 has neither date-and-or-time nor timestamp.
+    // 3.0 has neither date-and-or-time nor timestamp. A 4.0 timestamp is
+    // already held as written (keepTimestampsAsWritten): wrapped, it only
+    // tells retypeTextBirthdays that it is no date.
     for (const type of ["date", "time", "date-time", "date-and-or-time", "timestamp"]) {
       const codec = codecs[type];
       // Called again when index.ts is re-evaluated (hot reload, tests), it
@@ -219,6 +221,20 @@ export function joinSplitNotes(raw: RawComponent): void {
     const values = prop.getValues();
     if (values.length > 1) prop.setValue(values.map(String).join(","));
   }
+}
+
+/**
+ * ical.js's vCard 4.0 timestamp codec, used only by REV, drops a UTC offset
+ * and garbles the extended and date-only forms clients write. Hold a 4.0
+ * timestamp as written; `revisionOf` reads each of those forms. See
+ * DECISIONS.md 057.
+ */
+export function keepTimestampsAsWritten(): void {
+  const values = ICAL.design.vcard.value as Record<string, ValueCodec | undefined>;
+  if (!values.timestamp) throw new Error("ical.js has no vCard timestamp value");
+  const asWritten = (value: string) => value;
+  // The codec is iCalendar's date-time; give 4.0 its own.
+  values.timestamp = { fromICAL: asWritten, toICAL: asWritten };
 }
 
 /** RFC 2426 §2.3 requires semicolons escaped in every 3.0 text value. */

@@ -30,7 +30,7 @@ describe("3.0 TZ and GEO values", () => {
 
   it("lists them as written among the card's unshown properties", () => {
     const unshown = ["TZ:Europe/Zurich", "GEO:geo:46.5,6.6", "GEO:46.50;6.60"];
-    expect(unshownPropertiesOf(card(unshown))).toEqual(unshown);
+    expect(unshownPropertiesOf(card(unshown), { datesShown: false })).toEqual(unshown);
   });
 
   it("leaves the 4.0 and iCalendar utc-offset codecs as they are", () => {

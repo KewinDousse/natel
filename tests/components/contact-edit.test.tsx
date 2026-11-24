@@ -154,7 +154,19 @@ const CARD_REGION = [
   "END:VCARD",
 ].join("\r\n");
 
+const CARD_DATED = [
+  "BEGIN:VCARD",
+  "VERSION:3.0",
+  "UID:dated",
+  "FN:Lina Moret",
+  "N:Moret;Lina;;;",
+  "X-CREATED:20210418",
+  "REV:2026-11-12T12:30:00Z",
+  "END:VCARD",
+].join("\r\n");
+
 const CARDS: Record<string, string> = {
+  dated: CARD_DATED,
   editable: CARD_EDITABLE,
   fburl: cardWithUrl("fburl", "fb://profile/0123456789"),
   bareurl: cardWithUrl("bareurl", "website.example"),
@@ -234,7 +246,7 @@ beforeEach(async () => {
   setLanguage("fr-FR");
   shimMatchMedia();
   localStorage.clear();
-  usePreferences.setState({ sortBy: "family", theme: null });
+  usePreferences.setState({ sortBy: "family", theme: null, showCardDates: false });
   useSessionStore.setState({ auth: null, selectedBook: null });
   vi.resetAllMocks();
   setupMocks();
@@ -607,6 +619,28 @@ describe("edit mode — information not shown", () => {
     const dialog = await screen.findByRole("dialog", { name: "Informations non affichées" });
     expect(dialog.textContent).toContain(
       "X-SOCIALPROFILE;TYPE=mastodon:https://social.example/@garage",
+    );
+  });
+
+  it("lists the creation date while the reading view hides it", async () => {
+    const { article } = await renderEditView("dated");
+    const user = userEvent.setup();
+    await user.click(
+      within(article).getByRole("button", { name: "1 autre information non affichée" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Informations non affichées" });
+    expect(dialog.textContent).toContain("X-CREATED:20210418");
+  });
+
+  it("leaves out the creation date the reading view shows", async () => {
+    usePreferences.setState({ showCardDates: true });
+    const { article, router } = await renderEditView("dated");
+    expect(within(article).queryByRole("button", { name: /non affichée/ })).toBeNull();
+    await act(() => router.navigate({ to: "/contacts/a/dated" }));
+    await waitFor(() =>
+      expect(document.querySelector("[data-card-dates]")?.textContent).toBe(
+        "Créé le 18 avril 2021 · Modifié le 12 novembre 2026",
+      ),
     );
   });
 });

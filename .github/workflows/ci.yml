@@ -139,7 +139,9 @@ jobs:
       ${{ !cancelled() && !github.event.pull_request.draft
       && !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ vars.RUNNER && 45 || 15 }}
+    # The radicale job also runs the demo suite, which together take about
+    # 15 minutes on GitHub's runners.
+    timeout-minutes: ${{ vars.RUNNER && 45 || 25 }}
     # The compatibility matrix: the same suite against each CardDAV server.
     strategy:
       fail-fast: false
