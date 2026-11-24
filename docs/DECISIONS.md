@@ -1302,8 +1302,7 @@ publishes no image of its own.
 - The setup of ADR 018 is kept: no install wizard, and a SQLite database
   holding the test user.
 - The Basic and the Digest legs run 0.13.0 only: a 0.10.1 leg would add a
-  job of about 13 minutes on the self-hosted runners, for the same
-  sabre/dav minor version.
+  job of about 13 minutes, for the same sabre/dav minor version.
 - A new Baïkal release is moved by hand, with its archive's checksum.
 
 **Rejected.**
@@ -1359,11 +1358,10 @@ read as written. iCalendar values stay as ical.js reads them.
 ## 065 — On an edit conflict, the user picks what to keep, then confirms
 
 **Context.** On a 412 when saving an edited contact, Natel offers to reload
-or to overwrite with ADR 013's merge. The maintainer's answer on pull request
-#350 found it unclear what Natel will write, since the user may not remember
-what they changed. The answer on issue #328 ruled out automatic
-reconciliation. The merge also can't keep the user's value of a field changed
-only elsewhere.
+or to overwrite with ADR 013's merge. The maintainer found it unclear what
+Natel will write, since the user may not remember what they changed, and
+ruled out automatic reconciliation. The merge also can't keep the user's
+value of a field changed only elsewhere.
 
 **Decision.**
 - On such a 412, Natel reads the card again and shows, before any write,
