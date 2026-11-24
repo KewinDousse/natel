@@ -14,7 +14,7 @@ RUN corepack enable && NATEL_REVISION="$NATEL_REVISION" pnpm build
 
 # The session process (ADR 032): a static binary, cross-compiled natively
 # for each platform like the build stage above.
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS session
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS session
 WORKDIR /src
 COPY session/ ./
 ARG TARGETOS TARGETARCH
