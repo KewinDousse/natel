@@ -152,6 +152,7 @@ written back as a date (`VALUE=DATE:1950`) is accepted: it means the same.
 
 **Consequences.** Free-text birthdays show and survive a save of any other
 field; only typing date parts replaces them. vCard 4.0 is not affected.
+ADR 064 amends this for birthdays that are not dates ical.js reads.
 
 ## 013 — "Écraser avec ma version" applies only the fields the user changed
 
@@ -1260,6 +1261,39 @@ replaced asset, not a compromised upload. Dependabot moves the `php` tag and
 its digest, but cannot see the Baïkal version: a new release is noticed only
 by someone checking Baïkal's releases. A regression specific to 0.10.1 would
 go unnoticed. This amends ADR 018.
+
+## 064 — A vCard date that is not a date is kept as written
+
+**Context.** ical.js reads and writes a `date`, `time`, `date-time`,
+`date-and-or-time` or `timestamp` value by moving characters at fixed places,
+without checking that the value is a date. A save therefore changed values the
+user never changed, against ADR 005: in a 4.0 card, `ANNIVERSARY:circa 1987`
+became `circ 187` and `BDAY:Mai 1987` became `Mai -19-87`. Clients write such
+values: a free-text date without `VALUE=text`, or a date in a local notation.
+
+**Decision.** `keepNonDatesAsWritten` in `src/vcard/`, a named workaround,
+lets ical.js read and write a `date`, `time`, `date-time`, `date-and-or-time`
+or `timestamp` value only when all of these hold:
+
+- the value holds only digits, `-`, `:`, `.`, `+`, `T`, `Z` and `z`;
+- the value is ical.js's reading of it with some `-` and `:` left out;
+- ical.js reads its write of that reading as that reading;
+- ical.js makes of that reading a date with the same digits before any `T`.
+
+Natel keeps any other such value as the string written. Amending ADR 012 for
+every version, Natel retypes as text a birthday whose date ical.js does not
+read as written. iCalendar values stay as ical.js reads them.
+
+**Consequences.**
+- An untouched value that ical.js does not read as a date survives a save
+  unchanged, and “Details not shown” lists it as written.
+- Natel shows a free-text birthday as written and saves it with `VALUE=text`,
+  its commas escaped.
+- Natel writes a date ical.js understands as ical.js does, its date part in
+  the basic form (`19870412`), and a 4.0 time too: an untouched `10:22`
+  becomes `1022`.
+- Natel shows as text a few birthdays that ical.js reads as a date only in
+  part, such as `20200101T100000+01:00`.
 
 ## 065 — On an edit conflict, the user picks what to keep, then confirms
 

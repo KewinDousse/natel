@@ -1,0 +1,4 @@
+{
+  "type": "Fixed",
+  "text": "Saving a contact no longer changes a date or a time written as free text or in a local notation, such as an anniversary “circa 1987”. A date or a time in the extended ISO form, such as “2020-01-01T10:00:00Z” or a vCard 3.0 time “10:22:00”, is no longer cut on save, and a birthday such as “1987-04-12T10:22” shows as a date. A birthday written as free text, such as “Mai 1987” or “12 avril 1987”, shows as written, as does one Natel can read only in part, such as “20200101T100000+01:00”."
+}

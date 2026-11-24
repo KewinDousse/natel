@@ -51,6 +51,106 @@ export function keepUrisAsWritten(): void {
   codec.toICAL = (value) => value;
 }
 
+const READS_AS_DATE = Symbol.for("natel.vcard.readsAsDate");
+
+type DateCodec = ValueCodec & {
+  decorate?: (value: string) => unknown;
+  [READS_AS_DATE]?: (value: string) => boolean;
+};
+
+/** The characters of a date or a time, in the basic or the extended form. */
+const DATE_CHARACTERS = /^[\d\-:.+TZz]*$/;
+
+const digitsOfDay = (value: string) => (value.split("T")[0] ?? "").replace(/\D/g, "");
+
+/** Whether `short` is `long` with some of its `-` and `:` left out. */
+const separatorsLeftOut = (short: string, long: string): boolean => {
+  let matched = 0;
+  for (const char of long) {
+    if (char === short[matched]) matched++;
+    else if (char !== "-" && char !== ":") return false;
+  }
+  return matched === short.length;
+};
+
+/**
+ * ical.js reads and writes a date or a time by moving characters at fixed
+ * places, whatever the value holds: `ANNIVERSARY:circa 1987` is written back
+ * as `circ 187`, and `BDAY:Mai 1987` read as `Mai -19-87`. Take ical.js's
+ * reading or writing only of a value made of a date's characters, whose
+ * reading only adds `-` and `:`, reads back unchanged from its write and
+ * makes a date object of the same day. Hold and write any other value as
+ * written. See DECISIONS.md 064.
+ */
+export function keepNonDatesAsWritten(): void {
+  // The 3.0 time codec, iCalendar's, makes no date object; the 4.0 one reads
+  // the same times.
+  const timeObject = (ICAL.design.vcard.value as Record<string, DateCodec | undefined>).time
+    ?.decorate;
+  if (!timeObject) throw new Error("ical.js has no vCard time object");
+  // ical.js's date-time codecs of both versions call the 4.0 date and time
+  // codecs, wrapped too: the outer call checks the whole value, so a nested
+  // call runs ical.js's codec unchecked.
+  let insideCodec = false;
+  const outermost = <T>(run: () => T): T => {
+    insideCodec = true;
+    try {
+      return run();
+    } finally {
+      insideCodec = false;
+    }
+  };
+  for (const values of [ICAL.design.vcard.value, ICAL.design.vcard3.value]) {
+    const codecs = values as Record<string, DateCodec | undefined>;
+    // 3.0 has neither date-and-or-time nor timestamp.
+    for (const type of ["date", "time", "date-time", "date-and-or-time", "timestamp"]) {
+      const codec = codecs[type];
+      // Called again when index.ts is re-evaluated (hot reload, tests), it
+      // finds the codec already wrapped.
+      if (!codec || codec[READS_AS_DATE]) continue;
+      const fromICAL = codec.fromICAL.bind(codec);
+      const toICAL = codec.toICAL.bind(codec);
+      // ical.js's date object throws on some readings and takes others by
+      // fixed places too: `1987-4-12` as 1987, `--0--00` as `--00-00`.
+      const decorate = codec.decorate ?? timeObject;
+      const sameDayAsDate = (read: string): boolean => {
+        try {
+          return digitsOfDay(String(decorate(read))) === digitsOfDay(read);
+        } catch {
+          return false;
+        }
+      };
+      // What ical.js writes of its reading of `value`, when that is the same
+      // date.
+      const writtenBack = (read: unknown, value: string): string | undefined => {
+        if (typeof read !== "string") return undefined;
+        const written = toICAL(read);
+        return separatorsLeftOut(value, read) && fromICAL(written) === read && sameDayAsDate(read)
+          ? written
+          : undefined;
+      };
+      // iCalendar shares some of these codecs: give vCard its own.
+      codecs[type] = {
+        ...codec,
+        [READS_AS_DATE]: (held) => DATE_CHARACTERS.test(held) && sameDayAsDate(held),
+        fromICAL: (value, structuredEscape) => {
+          if (insideCodec) return fromICAL(value, structuredEscape);
+          if (!DATE_CHARACTERS.test(value)) return value;
+          return outermost(() => {
+            const read = fromICAL(value, structuredEscape);
+            return writtenBack(read, value) === undefined ? value : read;
+          });
+        },
+        toICAL: (value) => {
+          if (insideCodec) return toICAL(value);
+          if (!DATE_CHARACTERS.test(value)) return value;
+          return outermost(() => writtenBack(value, value) ?? value);
+        },
+      };
+    }
+  }
+}
+
 /**
  * In a 3.0 card, ical.js reads `TZ` as a UTC offset, which would cut an
  * untouched `TZ:Europe/Zurich`, the 4.0 form some clients write there. Natel
@@ -131,19 +231,34 @@ export function encodeVcard3Semicolons(): void {
 /**
  * ical.js's vCard 3.0 `detectType` types every BDAY as date/date-time and
  * drops `VALUE=text`, so a free-text birthday ("circa 1987") throws when
- * hydrated and is mangled when stringified. Retype such properties as text
- * so the card parses and the value round-trips. See DECISIONS.md 012.
+ * hydrated, and a birthday held as written (ADR 064) is shown as the date
+ * ical.js makes of its digits ("12 avril 1987" as the year 12). Retype such
+ * properties as text so the card parses and the value round-trips. See
+ * DECISIONS.md 012 and 064.
  */
 export function retypeTextBirthdays(raw: RawComponent): void {
+  // ical.js reads a card with VERSION 2.1 or none with the 3.0 design.
+  const codecs = (
+    versionOf(raw) === "4.0" ? ICAL.design.vcard.value : ICAL.design.vcard3.value
+  ) as Record<string, DateCodec | undefined>;
   for (const prop of raw.getAllProperties("bday")) {
-    try {
-      prop.getFirstValue();
-    } catch {
-      const jcal = prop.toJSON() as [string, unknown, string, unknown];
-      const source = String(jcal[3] ?? "");
-      prop.resetType("text");
-      prop.setValue(ICAL.design.vcard.value.text.fromICAL(source, ";"));
-    }
+    const [, , type, value] = prop.toJSON() as [string, unknown, string, unknown];
+    if (type === "text") continue;
+    const codec = codecs[type];
+    const held = String(value ?? "");
+    const readsAsDate = codec?.[READS_AS_DATE];
+    if (readsAsDate ? readsAsDate(held) : hydrates(prop)) continue;
+    prop.resetType("text");
+    prop.setValue(ICAL.design.vcard.value.text.fromICAL(held, ";"));
+  }
+}
+
+function hydrates(prop: RawProperty): boolean {
+  try {
+    prop.getFirstValue();
+    return true;
+  } catch {
+    return false;
   }
 }
 

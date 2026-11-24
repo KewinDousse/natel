@@ -133,9 +133,9 @@ function readAddress(raw: RawComponent, prop: RawProperty): VCardAddress {
 
 /** BDAY as plain date parts plus the raw stored text (used for copy). */
 export type Birthday = {
-  /** Raw property value as stored ("1987-03-14", "--03-14", "1987", …).
-   *  This is the ical.js-normalised value, not the raw text from the vCard
-   *  (ical.js may normalise "1987-3-14" to "1987-03-14"). */
+  /** Property value as ical.js holds it: a date it reads in the extended
+   *  form ("19870314" as "1987-03-14", "--0314" as "--03-14"), any other
+   *  value as written ("Mai 1987", ADR 064). */
   source: string;
   year: number | null;
   month: number | null;

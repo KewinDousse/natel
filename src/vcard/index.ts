@@ -26,6 +26,7 @@ import {
 import {
   decodeEscapedSemicolons,
   encodeVcard3Semicolons,
+  keepNonDatesAsWritten,
   keepNumbersAndBooleansAsWritten,
   keepUrisAsWritten,
   keepVcard3OffsetsAsWritten,
@@ -75,6 +76,7 @@ export { savedLabelOf, writesAddress } from "./write";
 ICAL.foldLength = 74;
 decodeEscapedSemicolons();
 keepUrisAsWritten();
+keepNonDatesAsWritten();
 keepNumbersAndBooleansAsWritten();
 encodeVcard3Semicolons();
 keepVcard3OffsetsAsWritten();
