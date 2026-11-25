@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Tests only: a desktop and mobile e2e test checks that Save focuses the first invalid contact field, with no change to Natel itself."
-}

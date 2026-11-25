@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Contributor tooling only: the on-demand workflow comparing address book opening times between `main` and a pull request is removed, the local benchmark stays, with no change to Natel itself."
-}

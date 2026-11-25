@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Contributor tooling only: a pull request that changes only documentation and change notes runs just the lint in CI, with no change to Natel itself."
-}

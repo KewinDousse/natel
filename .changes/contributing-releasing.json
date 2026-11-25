@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Contributor documentation only: release steps move from CONTRIBUTING.md to docs/releasing.md, and the pull request section says what a description holds, with no change to Natel itself."
-}

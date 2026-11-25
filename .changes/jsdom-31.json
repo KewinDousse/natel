@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Development dependency update only: jsdom 31 changes the test DOM implementation without changing Natel's runtime behaviour."
-}

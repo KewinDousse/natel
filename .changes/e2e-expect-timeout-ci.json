@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Tests only: in CI, the end-to-end tests wait up to 15 s instead of 5 s for what they expect on a page, with no change to Natel itself."
-}

@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "Saving a contact whose card has no VERSION line, or VERSION 2.1, no longer loses its location, time zone or other untouched values, and an entry that is not one vCard, such as a calendar, counts as unreadable."
-}

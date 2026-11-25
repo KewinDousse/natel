@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "Behind Natel's Caddyfile over HTTP/1.1, a save that the CardDAV server rejects as stalled now fails or is resent at once, instead of after the app's 60-second wait."
-}

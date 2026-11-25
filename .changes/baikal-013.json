@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Tests only: the end-to-end suite runs against Baïkal 0.13.0, built from its release archive, instead of 0.10.1, with no change to Natel itself."
-}

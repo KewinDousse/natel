@@ -1,4 +1,0 @@
-{
-  "type": "Changed",
-  "text": "Phone numbers from every country now show in their country's local format, as Swiss numbers already did, or in international format through a new setting, while the stored number stays as it is and search finds either format."
-}

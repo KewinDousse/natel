@@ -6,6 +6,40 @@ Notable changes to Natel. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-25
+
+### Upgrade notes
+
+- A bare-metal install that merged Natel's Caddyfile into its own configuration needs its new `@rejected` block: see [bare metal](docs/bare-metal.md#a-servers-408-to-a-stalled-upload).
+
+### Added
+
+- The contact form has a field for an address's state or region.
+- When a contact was changed elsewhere while you edited it, the conflict warning now names the sections that changed, and says whether overwriting with your version replaces them or keeps them.
+- A contact page can show the day the card was created and the day it was last modified, when the card records them, once turned on in Settings under Contact details.
+- The list's group filter has a “No group” choice that shows the contacts in no group, so they can be added to one.
+
+### Changed
+
+- The A–Z index beside the contact list spreads its letters over the available height, and on a short screen shows fewer letters with dots between them, while a finger sliding along it still reaches every letter.
+- Phone numbers from every country now show in their country's local format, as Swiss numbers already did, or in international format through a new setting, while the stored number stays as it is and search finds either format.
+- Settings group which name shows first and the contact image shape under Contact, and the phone format, label position and map under Contact details; which name shows first is the list's sort order under a new label.
+- The list toolbar, with the contact count and the group filter, stays in view while the contact list scrolls, on phones and on desktop.
+- On screens wider than 1440 pixels, the contact list takes up to 160 pixels of the extra width, so long names and e-mail addresses are cut off less.
+
+### Fixed
+
+- A birthday with a year from 1 to 99 shows that year on the contact page instead of the same year in the 1900s: `BDAY:00450312` reads March 12, 45.
+- Saving a contact whose card has no VERSION line, or VERSION 2.1, no longer loses its location, time zone or other untouched values, and an entry that is not one vCard, such as a calendar, counts as unreadable.
+- Saving a contact no longer changes or cuts a date or a time written as free text or with a time of day, such as an anniversary “circa 1987”, and a birthday with a time shows as a date, or as written when Natel can't read it.
+- Saving a contact no longer rewrites a whole number, decimal or yes/no value that Natel doesn't edit, such as `VALUE=integer:007`, which stays `007`, and no longer deletes a note, job title or organisation written that way.
+- A note with an unescaped comma, in a vCard 3.0 or 2.1 or a card without VERSION, shows in full and is saved in full, where a save could drop the part after the comma.
+- A vCard 3.0 contact's time zone, which Natel doesn't edit, is no longer cut down on save or in “Details not shown”: `TZ:Europe/Zurich` stays as written.
+- Behind Natel's Caddyfile over HTTP/1.1, a save that the CardDAV server rejects as stalled now fails or is resent at once, instead of after the app's 60-second wait.
+- Signing in no longer fails with “Can’t reach the contacts server.” when the server gives an account several address book homes, as RustiCal does for a user in a group: the address books of every home are listed.
+- Overwriting after a conflict keeps a website's type or label changed elsewhere when only its address was edited.
+- A website can be an app link such as `fb://profile/…`, and one typed without `https://` is saved with it, where both used to block the save.
+
 ## [0.6.0] - 2026-11-15
 
 ### Added

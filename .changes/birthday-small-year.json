@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "A birthday with a year from 1 to 99 shows that year on the contact page instead of the same year in the 1900s: `BDAY:00450312` reads March 12, 45."
-}

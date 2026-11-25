@@ -1,4 +1,0 @@
-{
-  "type": "Changed",
-  "text": "On screens wider than 1440 pixels, the contact list takes up to 160 pixels of the extra width, so long names and e-mail addresses are cut off less."
-}

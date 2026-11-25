@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "A note with an unescaped comma, in a vCard 3.0 or 2.1 or a card without VERSION, shows in full and is saved in full, where a save could drop the part after the comma."
-}

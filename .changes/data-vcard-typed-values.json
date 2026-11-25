@@ -1,4 +1,0 @@
-{
-  "type": "Fixed",
-  "text": "Saving a contact no longer rewrites a whole number, decimal or yes/no value that Natel doesn't edit, such as `VALUE=integer:007`, which stays `007`, and no longer deletes a note, job title or organisation written that way."
-}

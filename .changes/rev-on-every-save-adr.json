@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Decision record only: ADR 059 proposes that Natel set `REV` on every card it creates or saves, with no change to Natel itself yet."
-}

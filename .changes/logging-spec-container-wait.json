@@ -1,4 +1,0 @@
-{
-  "type": "None",
-  "text": "Tests only: the container log test waits longer for its container to start and prints the container's logs when it never answers, with no change to Natel itself."
-}

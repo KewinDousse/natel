@@ -1,4 +1,0 @@
-{
-  "type": "Upgrade notes",
-  "text": "A bare-metal install that merged Natel's Caddyfile into its own configuration needs its new `@rejected` block: see [bare metal](docs/bare-metal.md#a-servers-408-to-a-stalled-upload)."
-}

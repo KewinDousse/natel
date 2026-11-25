@@ -1,4 +1,0 @@
-{
-  "type": "Added",
-  "text": "When a contact was changed elsewhere while you edited it, the conflict warning now names the sections that changed, and says whether overwriting with your version replaces them or keeps them."
-}
