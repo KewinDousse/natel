@@ -1,4 +1,4 @@
 {
   "type": "Changed",
-  "text": "Settings group which name comes first and the contact image shape under Contact, and the phone format, label position and map under Contact details. Which name comes first is the list's sort order, renamed in settings only."
+  "text": "Settings group which name shows first and the contact image shape under Contact, and the phone format, label position and map under Contact details; which name shows first is the list's sort order under a new label."
 }

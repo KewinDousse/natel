@@ -1,4 +1,4 @@
 {
   "type": "Fixed",
-  "text": "A contact whose website is an app link such as `fb://profile/…`, or has no `https://`, can be saved again. A website typed without `https://` is saved with it."
+  "text": "A website can be an app link such as `fb://profile/…`, and one typed without `https://` is saved with it, where both used to block the save."
 }

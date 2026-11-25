@@ -1,4 +1,4 @@
 {
   "type": "Fixed",
-  "text": "Signing in works when the server gives an account several address book homes, as RustiCal does for a user in a group: the address books of every home are listed. Such a sign-in used to fail with “Can’t reach the contacts server.”"
+  "text": "Signing in no longer fails with “Can’t reach the contacts server.” when the server gives an account several address book homes, as RustiCal does for a user in a group: the address books of every home are listed."
 }

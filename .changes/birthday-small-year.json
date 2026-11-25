@@ -1,4 +1,4 @@
 {
   "type": "Fixed",
-  "text": "A birthday with a year from 1 to 99 shows that year on the contact page, instead of the same year in the 1900s: `BDAY:00450312` reads March 12, 45, no longer March 12, 1945. A year 0 shows the stored date, such as `0000-03-12`."
+  "text": "A birthday with a year from 1 to 99 shows that year on the contact page instead of the same year in the 1900s: `BDAY:00450312` reads March 12, 45."
 }
