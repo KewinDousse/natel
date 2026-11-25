@@ -1,0 +1,4 @@
+{
+  "type": "None",
+  "text": "Release tooling only: the job that publishes the demo names its artifact after the attempt and tries the deployment a second time, with no change to Natel itself."
+}
